@@ -1,19 +1,25 @@
-# Dexcom G7 to AWTRIX3 Blood Glucose Display
+# BG_0001 a Dexcom G7 to LED Display
+Service that fetches real-time blood glucose data from your Dexcom G7 CGM and displays it on an LED matrix display (Ulanzi TC001). 
 
-A service that fetches real-time blood glucose data from your Dexcom G7 CGM and displays it on an AWTRIX3 LED matrix display.
+Cost for this is one-time ~$40-50 and ~1 hour of time to configure the environment (see [Hardware](#hardware-used) for links, and [Installation](#installation) for step-by-step instructions). 
 
+Alternatively, if you would rather not do any configuration, you can pay ~$100 USD for the SugarPixel ([link](https://customtypeone.com/products/sugarpixel)), which can do this through a mobile app.
+ 
 ## Features
 
-- **Real-time glucose display**: Shows current blood glucose value in mg/dL
-- **Trend arrows**: Displays direction of glucose change (↑ ↓ → ↑↑ ↓↓)
-- **Delta tracking**: Shows change from previous reading (e.g., "+5" or "-12")
-- **Color-coded alerts**:
-  - Red: Low (<70 mg/dL)
-  - Green: Normal (70-180 mg/dL)
-  - Yellow: High (181-240 mg/dL)
-  - Orange: Very high (>240 mg/dL)
-- **Progress bar**: Shows countdown to next API refresh
-- **Rate limiting**: Respects Dexcom API limits (max 1 call per 5 minutes)
+| | |
+|---|---|
+| <ul><li>**Real-time glucose display**: Shows current blood glucose value in mg/dL</li><li>**Trend arrows**: Displays direction of glucose change (↑ ↓ → ↑↑ ↓↓)</li><li>**Delta tracking**: Shows change from previous reading (e.g., "+5" or "-12")</li><li>**Color-coded alerts**:<ul><li>Red: Low (<70 mg/dL)</li><li>Green: Normal (70-180 mg/dL)</li><li>Yellow: High (181-240 mg/dL)</li><li>Orange: Very high (>240 mg/dL)</li></ul></li><li>**Progress bar**: Shows countdown to next API refresh</li><li>**Rate limiting**: Respects Dexcom API limits (max 1 call per 5 minutes)</li></ul> | How it displays for me: <img src="assets/example.jpg" alt="Example Display" width="300"> |
+
+## Hardware Used
+- ~$40-50 USD Ulanzi TC001 Smart Pixel Clock ([Amazon US link](https://www.amazon.com/ULANZI-TC001-Smart-Pixel-Clock/dp/B0CXX91TY5))
+    
+    - Modded using *AWTRIX3* [instructions](https://blueforcer.github.io/awtrix3/#/).
+    - When modding the Ulanzi TC001, use a high-speed USB-C data cable (took a long time to realize and fix that when I was modding it)
+
+- ~$0 Local computer or Raspberry Pi (as the bridge to send data to TC001)
+
+    - Note: This computer needs to be connected and always on to send updates to Ulanzi TC001
 
 ## Display Format
 
@@ -37,7 +43,7 @@ A service that fetches real-time blood glucose data from your Dexcom G7 CGM and 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
 │   Dexcom G7     │────▶│   Cloud Run     │◀────│  Local Bridge   │
-│   (Your CGM)    │     │   (FastAPI)     │     │   (Python)      │
+│   (CGM)         │     │   (FastAPI)     │     │    (Python)     │
 └─────────────────┘     └─────────────────┘     └────────┬────────┘
                                                          │
                                                          ▼
@@ -58,7 +64,7 @@ A service that fetches real-time blood glucose data from your Dexcom G7 CGM and 
 - AWTRIX3 device on your local network
 - Google Cloud account (for Cloud Run deployment)
 
-## Project Structure
+## Repo Structure
 
 ```
 BG_TC001/
@@ -148,6 +154,11 @@ python bridge.py --cloud-url http://localhost:8080 --awtrix-ip 192.168.1.87
 
 ## Cloud Run Deployment
 
+Note: I use Google Cloud Run for two reasons, but you can use alternative methods (including local hosting). Reasons for using GCP:
+
+1) I plan to read this signal for other displays (i.e., web app, logging, etc.)
+2) Google Cloud Run particularly is cheap (est. $0/month for this) and easy to set up. 
+
 ### 1. Set Up Google Cloud
 
 ```bash
@@ -213,9 +224,11 @@ python bridge.py --config config.yaml
 
 ## Running as a Service
 
+IMPORTANT: The local bridge script needs to run continuously to poll Cloud Run and push updates to your AWTRIX3. Here's how to set it up as a background service.
+
 ### macOS (launchd)
 
-Create `~/Library/LaunchAgents/com.glucose.bridge.plist`:
+Create `~/Library/LaunchAgents/com.glucose.awtrix-bridge.plist`:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -223,27 +236,67 @@ Create `~/Library/LaunchAgents/com.glucose.bridge.plist`:
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.glucose.bridge</string>
+    <string>com.glucose.awtrix-bridge</string>
+
     <key>ProgramArguments</key>
     <array>
-        <string>/path/to/venv/bin/python</string>
+        <string>/path/to/BG_TC001/venv/bin/python</string>
         <string>/path/to/BG_TC001/local_bridge/bridge.py</string>
         <string>--config</string>
         <string>/path/to/BG_TC001/local_bridge/config.yaml</string>
     </array>
+
+    <key>WorkingDirectory</key>
+    <string>/path/to/BG_TC001/local_bridge</string>
+
     <key>RunAtLoad</key>
     <true/>
+
     <key>KeepAlive</key>
     <true/>
+
+    <key>StandardOutPath</key>
+    <string>/path/to/BG_TC001/local_bridge/bridge.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/path/to/BG_TC001/local_bridge/bridge.error.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
 </dict>
 </plist>
 ```
 
-Load the service:
+**Note:** Replace `/path/to/BG_TC001` with your actual project path.
+
+#### Managing the Service
 
 ```bash
-launchctl load ~/Library/LaunchAgents/com.glucose.bridge.plist
+# Load (start) the service
+launchctl load ~/Library/LaunchAgents/com.glucose.awtrix-bridge.plist
+
+# Unload (stop) the service
+launchctl unload ~/Library/LaunchAgents/com.glucose.awtrix-bridge.plist
+
+# Check if running
+launchctl list | grep glucose
+
+# View logs
+tail -f /path/to/BG_TC001/local_bridge/bridge.log
+tail -f /path/to/BG_TC001/local_bridge/bridge.error.log
+
+# Restart the service
+launchctl unload ~/Library/LaunchAgents/com.glucose.awtrix-bridge.plist
+launchctl load ~/Library/LaunchAgents/com.glucose.awtrix-bridge.plist
 ```
+
+The service will:
+- Start automatically when you log in
+- Restart automatically if it crashes
+- Log output to `bridge.log` and `bridge.error.log`
 
 ### Linux (systemd)
 
