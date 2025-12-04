@@ -115,6 +115,94 @@ def get_arrow_drawing(delta: Optional[int], settings: Settings, hex_color: str, 
             ], 5
 
 
+def get_indicator_dot_drawing(
+    refresh_progress: int, settings: Settings
+) -> List[dict]:
+    """
+    Returns draw commands for a growing/blinking indicator dot.
+
+    The dot grows in size approximately every 30 seconds during the 5-minute
+    API polling interval, providing visual feedback that the system is
+    preparing to fetch new data.
+
+    Args:
+        refresh_progress: Progress percentage (0-100) towards next API refresh
+        settings: Application settings with dot configuration
+
+    Returns:
+        List of draw commands for the indicator dot
+    """
+    if not settings.indicator_dot_enabled:
+        return []
+
+    # Calculate dot size based on progress (grows every ~30 seconds)
+    # 5 minutes = 300 seconds, 30 second intervals = 10 growth steps
+    # Progress 0-100 maps to steps 0-10
+    growth_step = refresh_progress // 10  # 0-10 steps
+
+    # Alternate between bright and dim color for blink effect
+    # Blinks every other growth step
+    is_bright = (growth_step % 2) == 0
+    color_str = settings.indicator_dot_color if is_bright else settings.indicator_dot_color_dim
+    color_hex = rgb_to_hex(settings.parse_color(color_str))
+
+    # Base position (top-right corner, grows downward and leftward)
+    base_x = settings.indicator_dot_x
+    base_y = settings.indicator_dot_y
+
+    draw_commands = []
+
+    # Dot grows based on progress:
+    # Step 0 (0-9%): 1 pixel
+    # Step 1-2 (10-29%): 2 pixels (vertical line)
+    # Step 3-4 (30-49%): 3 pixels (L shape)
+    # Step 5-6 (50-69%): 4 pixels (square)
+    # Step 7-8 (70-89%): 5 pixels (plus sign)
+    # Step 9-10 (90-100%): 6 pixels (larger shape)
+
+    if growth_step >= 0:
+        # Always show at least 1 pixel
+        draw_commands.append({"dp": [base_x, base_y, color_hex]})
+
+    if growth_step >= 1:
+        # Add pixel below
+        draw_commands.append({"dp": [base_x, base_y + 1, color_hex]})
+
+    if growth_step >= 2:
+        # Add pixel to the left
+        draw_commands.append({"dp": [base_x - 1, base_y, color_hex]})
+
+    if growth_step >= 3:
+        # Add pixel diagonally
+        draw_commands.append({"dp": [base_x - 1, base_y + 1, color_hex]})
+
+    if growth_step >= 4:
+        # Add another pixel extending down
+        draw_commands.append({"dp": [base_x, base_y + 2, color_hex]})
+
+    if growth_step >= 5:
+        # Add pixel extending left
+        draw_commands.append({"dp": [base_x - 1, base_y + 2, color_hex]})
+
+    if growth_step >= 6:
+        # Add more pixels for larger shape
+        draw_commands.append({"dp": [base_x - 2, base_y, color_hex]})
+
+    if growth_step >= 7:
+        draw_commands.append({"dp": [base_x - 2, base_y + 1, color_hex]})
+
+    if growth_step >= 8:
+        draw_commands.append({"dp": [base_x - 2, base_y + 2, color_hex]})
+
+    if growth_step >= 9:
+        # Final growth - add top row
+        draw_commands.append({"dp": [base_x, base_y + 3, color_hex]})
+        draw_commands.append({"dp": [base_x - 1, base_y + 3, color_hex]})
+        draw_commands.append({"dp": [base_x - 2, base_y + 3, color_hex]})
+
+    return draw_commands
+
+
 def estimate_text_width(text: str) -> int:
     """Estimate pixel width of text in AWTRIX3 default font."""
     width = 0
@@ -192,6 +280,10 @@ def format_for_awtrix(
     draw_commands.extend(arrow_draw)  # Arrow pixels
     if delta_str:
         draw_commands.append({"dt": [delta_x, 0, delta_str, delta_hex]})  # Delta
+
+    # Add growing indicator dot (shows API refresh progress)
+    indicator_dot_commands = get_indicator_dot_drawing(refresh_progress, settings)
+    draw_commands.extend(indicator_dot_commands)
 
     # Build response
     response = AwtrixResponse(

@@ -61,6 +61,14 @@ class Settings(BaseSettings):
     color_progress_bar: str = "0,255,255"    # Cyan - progress bar fill
     color_progress_bg: str = "32,32,32"      # Dark gray - progress bar background
 
+    # Blinking indicator dot settings
+    indicator_dot_enabled: bool = True       # Enable growing/blinking dot indicator
+    indicator_dot_color: str = "0,255,255"   # Cyan - dot color (matches progress bar)
+    indicator_dot_color_dim: str = "0,128,128"  # Dimmer cyan for blink effect
+    indicator_dot_x: int = 31                # X position (right edge of 32px display)
+    indicator_dot_y: int = 0                 # Y position (top of display)
+    indicator_dot_blink_interval: int = 30   # Seconds between size growth steps
+
     def parse_color(self, color_str: str) -> List[int]:
         """Parse a comma-separated RGB color string to a list of ints."""
         return [int(c.strip()) for c in color_str.split(",")]
