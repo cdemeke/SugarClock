@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TC001 - Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="topnav">
+        <div class="topnav-inner">
+            <a href="/" class="brand">
+                <div class="brand-icon">G</div>
+                <span>TC001</span>
+            </a>
+            <ul class="topnav-links">
+                <li><a href="/" class="active">Dashboard</a></li>
+                <li><a href="/config.html">Config</a></li>
+                <li><a href="/debug.html">Debug</a></li>
+                <li><a href="/device.html">Device</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="page">
+        <div class="card">
+            <div class="glucose-hero">
+                <div class="reading">
+                    <span class="value" id="glucose-value">---</span>
+                    <span class="trend" id="trend-arrow"></span>
+                    <span class="unit" id="unit-label">mg/dL</span>
+                </div>
+                <div class="delta" id="delta-display"></div>
+                <div class="meta" id="data-age">--</div>
+            </div>
+        </div>
+
+        <div class="stat-grid">
+            <div class="stat-card">
+                <div class="stat-label">Status</div>
+                <div class="stat-value" id="display-state" style="font-size:16px;">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">WiFi</div>
+                <div class="stat-value" id="wifi-status" style="font-size:14px;">--</div>
+                <div class="stat-sub" id="wifi-rssi">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Failures</div>
+                <div class="stat-value" id="failure-count">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Uptime</div>
+                <div class="stat-value" id="uptime" style="font-size:16px;">--</div>
+            </div>
+        </div>
+
+        <div class="graph-container" id="history-container" style="display:none;">
+            <h3>Recent Readings</h3>
+            <svg id="history-graph" viewBox="0 0 600 100" preserveAspectRatio="none"></svg>
+        </div>
+
+        <div class="card-grid">
+            <div class="card card-compact">
+                <h2>Connection</h2>
+                <div class="status-row">
+                    <span class="status-label">IP Address</span>
+                    <span class="status-value" id="wifi-ip">--</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Signal</span>
+                    <span class="status-value" id="wifi-rssi-dbm">--</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Brightness</span>
+                    <span class="status-value" id="brightness">--</span>
+                </div>
+            </div>
+            <div class="card card-compact">
+                <h2>Info</h2>
+                <div class="status-row">
+                    <span class="status-label">Message</span>
+                    <span class="status-value" id="message">--</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">State</span>
+                    <span class="status-value"><span class="badge badge-blue" id="state-badge">--</span></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const trendMap = {'RisingFast':'\u2191\u2191','Rising':'\u2191','Flat':'\u2192','Falling':'\u2193','FallingFast':'\u2193\u2193','Unknown':'?'};
+        const colorMap = {'red':'color-red','orange':'color-orange','green':'color-green','gray':'color-gray'};
+
+        function fmtUp(s){const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60);if(d>0)return d+'d '+h+'h';if(h>0)return h+'h '+m+'m';return m+'m';}
+        function fmtAge(s){if(s<0)return'No data';if(s<60)return s+'s ago';if(s<3600)return Math.floor(s/60)+'m '+s%60+'s ago';return Math.floor(s/3600)+'h ago';}
+
+        function drawGraph(hist){
+            const c=document.getElementById('history-container'),svg=document.getElementById('history-graph');
+            if(!hist||hist.length<2){c.style.display='none';return;}c.style.display='block';
+            const w=600,h=100,p=8,vals=hist.map(e=>e.glucose),mn=Math.min(...vals)-10,mx=Math.max(...vals)+10,rng=mx-mn||1;
+            const t=window._t||{urgent_low:70,low:80,high:180,urgent_high:250};
+            const yV=v=>h-p-((Math.min(Math.max(v,mn),mx)-mn)/rng)*(h-2*p);
+            let z=`<rect x="0" y="${yV(t.high)}" width="${w}" height="${yV(t.low)-yV(t.high)}" fill="rgba(34,197,94,0.06)"/>`;
+            let pts=[],dots='';
+            for(let i=0;i<hist.length;i++){const x=p+(i/(hist.length-1))*(w-2*p),y=yV(hist[i].glucose);pts.push(x+','+y);
+            const v=hist[i].glucose;let cl='#22c55e';if(v<t.urgent_low||v>t.urgent_high)cl='#ef4444';else if(v<t.low||v>t.high)cl='#f59e0b';
+            dots+=`<circle cx="${x}" cy="${y}" r="2.5" fill="${cl}"/>`;}
+            svg.innerHTML=z+`<polyline points="${pts.join(' ')}" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-linejoin="round"/>`+dots;
+        }
+
+        async function refresh(){
+            try{
+                const[sr,hr]=await Promise.all([fetch('/api/status'),fetch('/api/history').catch(()=>null)]);
+                const d=await sr.json(),hist=hr?await hr.json().catch(()=>null):null;
+                const gv=document.getElementById('glucose-value'),ta=document.getElementById('trend-arrow'),dd=document.getElementById('delta-display');
+                if(d.valid&&d.glucose>0){gv.textContent=d.glucose;ta.textContent=trendMap[d.trend]||'?';}else{gv.textContent='---';ta.textContent='';}
+                const cc=colorMap[d.color]||'';gv.className='value '+cc;ta.className='trend '+cc;
+                if(d.delta!==undefined&&d.delta!==null&&d.delta!==0){dd.textContent=(d.delta>0?'+':'')+d.delta+' mg/dL';dd.className='delta '+(d.delta>0?'delta-positive':d.delta<0?'delta-negative':'delta-neutral');}else{dd.textContent='';dd.className='delta';}
+                document.getElementById('data-age').textContent=fmtAge(d.data_age_sec);
+                document.getElementById('display-state').textContent=d.state;document.getElementById('state-badge').textContent=d.state;
+                const we=document.getElementById('wifi-status');we.textContent=d.wifi_connected?'Connected':'Disconnected';we.style.color=d.wifi_connected?'var(--green)':'var(--red)';
+                document.getElementById('wifi-ip').textContent=d.wifi_ip||'--';document.getElementById('wifi-rssi').textContent=d.wifi_rssi+' dBm';
+                document.getElementById('wifi-rssi-dbm').textContent=d.wifi_rssi+' dBm';document.getElementById('failure-count').textContent=d.failure_count;
+                document.getElementById('uptime').textContent=fmtUp(d.uptime_sec);document.getElementById('brightness').textContent=d.brightness;
+                document.getElementById('message').textContent=d.message||'--';
+                if(d.thresholds)window._t=d.thresholds;if(hist&&hist.readings)drawGraph(hist.readings);
+            }catch(e){document.getElementById('glucose-value').textContent='ERR';}
+        }
+        refresh();setInterval(refresh,5000);
+    </script>
+</body>
+</html>

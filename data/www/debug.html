@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TC001 - Debug</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="topnav">
+        <div class="topnav-inner">
+            <a href="/" class="brand"><div class="brand-icon">G</div><span>TC001</span></a>
+            <ul class="topnav-links">
+                <li><a href="/">Dashboard</a></li>
+                <li><a href="/config.html">Config</a></li>
+                <li><a href="/debug.html" class="active">Debug</a></li>
+                <li><a href="/device.html">Device</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="page">
+        <div class="page-header">
+            <h1>Debug Info</h1>
+            <p>Real-time diagnostics, auto-refreshes every 3s</p>
+        </div>
+
+        <div class="stat-grid">
+            <div class="stat-card">
+                <div class="stat-label">Glucose</div>
+                <div class="stat-value" id="raw-glucose">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Delta</div>
+                <div class="stat-value" id="raw-delta">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Trend</div>
+                <div class="stat-value" id="raw-trend" style="font-size:16px;">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Force Mode</div>
+                <div class="stat-value" id="raw-force" style="font-size:16px;">--</div>
+            </div>
+        </div>
+
+        <div class="card-grid">
+            <div class="card card-compact">
+                <h2>HTTP Client</h2>
+                <div class="status-row"><span class="status-label">Response Code</span><span class="status-value debug-value" id="http-code">--</span></div>
+                <div class="status-row"><span class="status-label">Failures</span><span class="status-value" id="fail-count">0</span></div>
+                <div class="status-row"><span class="status-label">Ever Received</span><span class="status-value" id="ever-received">--</span></div>
+                <div class="status-row"><span class="status-label">Data Age</span><span class="status-value" id="data-age">--</span></div>
+                <div class="status-row"><span class="status-label">Message</span><span class="status-value" id="raw-message">--</span></div>
+            </div>
+            <div class="card card-compact">
+                <h2>WiFi</h2>
+                <div class="status-row"><span class="status-label">Status</span><span class="status-value" id="wifi-status">--</span></div>
+                <div class="status-row"><span class="status-label">RSSI</span><span class="status-value" id="wifi-rssi">--</span></div>
+            </div>
+        </div>
+
+        <div class="card-grid">
+            <div class="card card-compact">
+                <h2>System</h2>
+                <div class="status-row"><span class="status-label">Free Heap</span><span class="status-value debug-value" id="free-heap">--</span></div>
+                <div class="status-row"><span class="status-label">Min Heap</span><span class="status-value debug-value" id="min-heap">--</span></div>
+                <div class="status-row"><span class="status-label">Largest Block</span><span class="status-value debug-value" id="largest-block">--</span></div>
+                <div class="status-row"><span class="status-label">Uptime</span><span class="status-value" id="uptime">--</span></div>
+                <div class="status-row"><span class="status-label">State</span><span class="status-value"><span class="badge badge-blue" id="display-state">--</span></span></div>
+            </div>
+            <div class="card card-compact">
+                <h2>Sensors</h2>
+                <div class="status-row"><span class="status-label">LDR Raw</span><span class="status-value debug-value" id="ldr-raw">--</span></div>
+                <div class="status-row"><span class="status-label">Auto Brightness</span><span class="status-value" id="auto-brt">--</span></div>
+                <div class="status-row"><span class="status-label">Battery</span><span class="status-value" id="bat-v">--</span></div>
+                <div class="status-row"><span class="status-label">Battery %</span><span class="status-value" id="bat-pct">--</span></div>
+            </div>
+        </div>
+
+        <div class="card card-compact">
+            <h2>Last HTTP Response</h2>
+            <pre id="http-body">--</pre>
+        </div>
+    </div>
+
+    <script>
+        function fB(b){if(b>1048576)return(b/1048576).toFixed(1)+' MB';if(b>1024)return(b/1024).toFixed(1)+' KB';return b+' B';}
+        function fU(s){const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60),sc=s%60;let p=[];if(d)p.push(d+'d');if(h)p.push(h+'h');p.push(m+'m');p.push(sc+'s');return p.join(' ');}
+
+        async function refresh(){
+            try{const r=await fetch('/api/debug');const d=await r.json();
+            document.getElementById('http-code').textContent=d.last_http_code;document.getElementById('fail-count').textContent=d.failure_count;
+            document.getElementById('ever-received').textContent=d.ever_received?'Yes':'No';
+            const age=d.data_age_ms;document.getElementById('data-age').textContent=age<0?'Never':(age/1000).toFixed(1)+'s';
+            document.getElementById('wifi-status').textContent=d.wifi_status;document.getElementById('wifi-rssi').textContent=d.wifi_rssi+' dBm';
+            document.getElementById('free-heap').textContent=fB(d.free_heap);document.getElementById('min-heap').textContent=fB(d.min_free_heap);
+            document.getElementById('largest-block').textContent=fB(d.largest_free_block);document.getElementById('uptime').textContent=fU(d.uptime_sec);
+            document.getElementById('display-state').textContent=d.display_state;document.getElementById('ldr-raw').textContent=d.ldr_raw;
+            document.getElementById('auto-brt').textContent=d.auto_brightness_val;document.getElementById('bat-v').textContent=d.battery_voltage.toFixed(2)+'V';
+            document.getElementById('bat-pct').textContent=d.battery_percent+'%';document.getElementById('raw-glucose').textContent=d.raw_glucose||'--';
+            document.getElementById('raw-delta').textContent=d.raw_delta!==undefined?((d.raw_delta>0?'+':'')+d.raw_delta):'--';
+            document.getElementById('raw-trend').textContent=d.raw_trend||'--';document.getElementById('raw-message').textContent=d.raw_message||'--';
+            document.getElementById('raw-force').textContent=d.raw_force_mode!==undefined?d.raw_force_mode:'--';
+            document.getElementById('http-body').textContent=d.last_http_body||'--';
+            }catch(e){}
+        }
+        refresh();setInterval(refresh,3000);
+    </script>
+</body>
+</html>

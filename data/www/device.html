@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TC001 - Device</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="topnav">
+        <div class="topnav-inner">
+            <a href="/" class="brand"><div class="brand-icon">G</div><span>TC001</span></a>
+            <ul class="topnav-links">
+                <li><a href="/">Dashboard</a></li>
+                <li><a href="/config.html">Config</a></li>
+                <li><a href="/debug.html">Debug</a></li>
+                <li><a href="/device.html" class="active">Device</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="page">
+        <div class="page-header">
+            <h1>Device Info</h1>
+            <p>Hardware details and management</p>
+        </div>
+
+        <div class="stat-grid">
+            <div class="stat-card">
+                <div class="stat-label">Firmware</div>
+                <div class="stat-value" style="font-size:18px;" id="fw-version">v1.0.0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Chip</div>
+                <div class="stat-value" style="font-size:13px;" id="chip-model">ESP32-WROOM</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">CPU</div>
+                <div class="stat-value" style="font-size:16px;">240 MHz</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Flash</div>
+                <div class="stat-value" style="font-size:16px;">4 MB</div>
+            </div>
+        </div>
+
+        <div class="card-grid">
+            <div class="card card-compact">
+                <h2>Network</h2>
+                <div class="status-row"><span class="status-label">MAC Address</span><span class="status-value debug-value" id="mac">--</span></div>
+                <div class="status-row"><span class="status-label">IP Address</span><span class="status-value" id="ip">--</span></div>
+                <div class="status-row"><span class="status-label">RSSI</span><span class="status-value" id="rssi">--</span></div>
+            </div>
+            <div class="card card-compact">
+                <h2>Memory</h2>
+                <div class="status-row"><span class="status-label">Free Heap</span><span class="status-value debug-value" id="free-heap">--</span></div>
+                <div class="status-row"><span class="status-label">FS Used</span><span class="status-value" id="fs-used">--</span></div>
+                <div class="status-row"><span class="status-label">FS Total</span><span class="status-value" id="fs-total">--</span></div>
+            </div>
+        </div>
+
+        <div class="card-grid">
+            <div class="card card-compact">
+                <h2>Power</h2>
+                <div class="status-row"><span class="status-label">Battery</span><span class="status-value" id="bat-v">--</span></div>
+                <div class="status-row"><span class="status-label">Level</span><span class="status-value" id="bat-pct">--</span></div>
+                <div class="status-row"><span class="status-label">Uptime</span><span class="status-value" id="uptime">--</span></div>
+            </div>
+            <div class="card card-compact">
+                <h2>Actions</h2>
+                <p style="color:var(--text-secondary);font-size:13px;margin:-8px 0 16px;">Manage your device remotely.</p>
+                <div class="btn-group">
+                    <button class="btn btn-outline" id="restart-btn">Restart</button>
+                    <button class="btn btn-danger" id="reset-btn">Factory Reset</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        function showToast(m,t){const e=document.getElementById('toast');e.textContent=m;e.className='toast show '+(t==='error'?'toast-error':'toast-success');setTimeout(()=>e.className='toast',3000);}
+        function fB(b){if(b>1048576)return(b/1048576).toFixed(1)+' MB';if(b>1024)return(b/1024).toFixed(1)+' KB';return b+' B';}
+        function fU(s){const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60);let p=[];if(d)p.push(d+'d');if(h)p.push(h+'h');p.push(m+'m');return p.join(' ');}
+
+        async function load(){
+            try{const[sr,dr]=await Promise.all([fetch('/api/status'),fetch('/api/debug')]);const s=await sr.json(),d=await dr.json();
+            document.getElementById('ip').textContent=s.wifi_ip||'--';document.getElementById('mac').textContent=d.mac||'--';
+            document.getElementById('rssi').textContent=d.wifi_rssi+' dBm';document.getElementById('free-heap').textContent=fB(d.free_heap);
+            document.getElementById('fs-used').textContent=d.fs_used?fB(d.fs_used):'--';document.getElementById('fs-total').textContent=d.fs_total?fB(d.fs_total):'--';
+            document.getElementById('bat-v').textContent=d.battery_voltage.toFixed(2)+'V';document.getElementById('bat-pct').textContent=d.battery_percent+'%';
+            document.getElementById('uptime').textContent=fU(d.uptime_sec);
+            }catch(e){}
+        }
+
+        document.getElementById('restart-btn').addEventListener('click',async()=>{if(!confirm('Restart?'))return;try{await fetch('/api/restart',{method:'POST'});showToast('Restarting...');}catch(e){showToast('Failed','error');}});
+        document.getElementById('reset-btn').addEventListener('click',async()=>{if(!confirm('Factory reset? All settings erased.'))return;try{await fetch('/api/factory-reset',{method:'POST'});showToast('Resetting...');}catch(e){showToast('Failed','error');}});
+        load();
+    </script>
+</body>
+</html>

@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TC001 - Configuration</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="topnav">
+        <div class="topnav-inner">
+            <a href="/" class="brand">
+                <div class="brand-icon">G</div>
+                <span>TC001</span>
+            </a>
+            <ul class="topnav-links">
+                <li><a href="/">Dashboard</a></li>
+                <li><a href="/config.html" class="active">Config</a></li>
+                <li><a href="/debug.html">Debug</a></li>
+                <li><a href="/device.html">Device</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="page">
+        <div class="page-header">
+            <h1>Configuration</h1>
+            <p>Manage device settings and personalization</p>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('general')">General</button>
+            <button class="tab-btn" onclick="switchTab('display')">Display</button>
+            <button class="tab-btn" onclick="switchTab('alerts')">Alerts</button>
+            <button class="tab-btn" onclick="switchTab('theme')">Theme</button>
+            <button class="tab-btn" onclick="switchTab('weather')">Weather</button>
+        </div>
+
+        <form id="config-form">
+
+            <!-- GENERAL TAB -->
+            <div class="tab-panel active" id="tab-general">
+                <div class="card">
+                    <h2>WiFi Network</h2>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>SSID</label>
+                            <input type="text" id="wifi_ssid" maxlength="63" placeholder="Network name">
+                        </div>
+                        <div class="form-group">
+                            <label>Password</label>
+                            <input type="password" id="wifi_password" maxlength="63" placeholder="Leave blank to keep">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Data Source</h2>
+                    <div class="form-group">
+                        <label>Source Type</label>
+                        <select id="data_source" onchange="toggleSource()">
+                            <option value="0">Custom URL</option>
+                            <option value="1">Dexcom Share</option>
+                        </select>
+                    </div>
+
+                    <div id="custom-fields">
+                        <div class="form-group">
+                            <label>Server URL</label>
+                            <input type="url" id="server_url" placeholder="https://example.com/api/glucose" maxlength="255">
+                        </div>
+                        <div class="form-group">
+                            <label>Auth Token</label>
+                            <input type="password" id="auth_token" maxlength="255" placeholder="Leave blank to keep">
+                        </div>
+                    </div>
+
+                    <div id="dexcom-fields" style="display:none;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Username</label>
+                                <input type="text" id="dexcom_username" maxlength="63">
+                            </div>
+                            <div class="form-group">
+                                <label>Password</label>
+                                <input type="password" id="dexcom_password" maxlength="63" placeholder="Leave blank to keep">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Region</label>
+                            <select id="dexcom_us">
+                                <option value="1">US (share2.dexcom.com)</option>
+                                <option value="0">International (shareous1.dexcom.com)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="divider"></div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Poll Interval (seconds)</label>
+                            <input type="number" id="poll_interval" min="15" max="600" value="60">
+                            <div class="hint">Minimum 15s. Default: 60</div>
+                        </div>
+                        <div class="form-group">
+                            <label>Stale Timeout (minutes)</label>
+                            <input type="number" id="stale_timeout" min="5" max="60" value="20">
+                            <div class="hint">Show STALE after this long</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Time & Date</h2>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Timezone</label>
+                            <select id="timezone">
+                                <option value="EST5EDT,M3.2.0,M11.1.0">Eastern (ET)</option>
+                                <option value="CST6CDT,M3.2.0,M11.1.0">Central (CT)</option>
+                                <option value="MST7MDT,M3.2.0,M11.1.0">Mountain (MT)</option>
+                                <option value="PST8PDT,M3.2.0,M11.1.0">Pacific (PT)</option>
+                                <option value="AST9ADT,M3.2.0,M11.1.0">Alaska (AKT)</option>
+                                <option value="HST10">Hawaii (HST)</option>
+                                <option value="GMT0BST,M3.5.0/1,M10.5.0">UK (GMT/BST)</option>
+                                <option value="CET-1CEST,M3.5.0,M10.5.0/3">Central Europe</option>
+                                <option value="EET-2EEST,M3.5.0/3,M10.5.0/4">Eastern Europe</option>
+                                <option value="IST-5:30">India (IST)</option>
+                                <option value="JST-9">Japan (JST)</option>
+                                <option value="CST-8">China (CST)</option>
+                                <option value="AEST-10AEDT,M10.1.0,M4.1.0/3">Australia East</option>
+                                <option value="NZST-12NZDT,M9.5.0,M4.1.0/3">New Zealand</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Custom POSIX</label>
+                            <input type="text" id="timezone_custom" placeholder="Overrides dropdown">
+                        </div>
+                    </div>
+                    <div class="toggle-row">
+                        <label>24-Hour Format</label>
+                        <input type="checkbox" id="use_24h">
+                    </div>
+                </div>
+            </div>
+
+            <!-- DISPLAY TAB -->
+            <div class="tab-panel" id="tab-display">
+                <div class="card">
+                    <h2>Brightness</h2>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Brightness (1-255)</label>
+                            <input type="number" id="brightness" min="1" max="255" value="40">
+                        </div>
+                        <div class="form-group">
+                            <label>Default View</label>
+                            <select id="default_mode">
+                                <option value="0">Glucose</option>
+                                <option value="1">Time</option>
+                                <option value="2">Weather</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="toggle-row">
+                        <label>Auto Brightness</label>
+                        <input type="checkbox" id="auto_brightness">
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Reading Display</h2>
+                    <div class="toggle-row">
+                        <label>Show Delta on LED Display</label>
+                        <input type="checkbox" id="show_delta">
+                    </div>
+                    <div class="divider"></div>
+                    <div class="form-group">
+                        <label>Glucose Unit</label>
+                        <select id="use_mmol">
+                            <option value="0">mg/dL</option>
+                            <option value="1">mmol/L</option>
+                        </select>
+                        <div class="hint">mmol/L values are converted from mg/dL (divided by 18.018)</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Night Mode</h2>
+                    <div class="toggle-row">
+                        <label>Enable Night Mode</label>
+                        <input type="checkbox" id="night_mode_enabled">
+                    </div>
+                    <div class="divider"></div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Start Hour (0-23)</label>
+                            <input type="number" id="night_start" min="0" max="23" value="22">
+                        </div>
+                        <div class="form-group">
+                            <label>End Hour (0-23)</label>
+                            <input type="number" id="night_end" min="0" max="23" value="7">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Night Brightness (1-255)</label>
+                        <input type="number" id="night_brightness" min="1" max="255" value="10">
+                        <div class="hint">Automatically dims during night hours</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ALERTS TAB -->
+            <div class="tab-panel" id="tab-alerts">
+                <div class="card">
+                    <h2>Glucose Thresholds</h2>
+                    <div class="threshold-bar">
+                        <div class="seg-urgent-low" style="flex:1"></div>
+                        <div class="seg-low" style="flex:1"></div>
+                        <div class="seg-in-range" style="flex:2.5"></div>
+                        <div class="seg-high" style="flex:1"></div>
+                        <div class="seg-urgent-high" style="flex:1"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Urgent Low (red below)</label>
+                            <input type="number" id="thresh_urgent_low" min="40" max="100" value="70">
+                        </div>
+                        <div class="form-group">
+                            <label>Low (orange below)</label>
+                            <input type="number" id="thresh_low" min="50" max="120" value="80">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>High (orange above)</label>
+                            <input type="number" id="thresh_high" min="120" max="300" value="180">
+                        </div>
+                        <div class="form-group">
+                            <label>Urgent High (red above)</label>
+                            <input type="number" id="thresh_urgent_high" min="150" max="400" value="250">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Buzzer Alerts</h2>
+                    <div class="toggle-row">
+                        <label>Enable Buzzer Alerts</label>
+                        <input type="checkbox" id="alert_enabled">
+                    </div>
+                    <div class="divider"></div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Alert Below (mg/dL)</label>
+                            <input type="number" id="alert_low" min="40" max="120" value="70">
+                        </div>
+                        <div class="form-group">
+                            <label>Alert Above (mg/dL)</label>
+                            <input type="number" id="alert_high" min="150" max="400" value="250">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Snooze Duration (minutes)</label>
+                        <input type="number" id="alert_snooze" min="1" max="120" value="15">
+                        <div class="hint">Hold middle button to snooze</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- THEME TAB -->
+            <div class="tab-panel" id="tab-theme">
+                <div class="card">
+                    <h2>Range Colors</h2>
+                    <p style="font-size:13px; color:var(--text-secondary); margin:-8px 0 16px;">
+                        Customize colors for each glucose range on the LED and web dashboard.
+                    </p>
+                    <div class="color-row">
+                        <input type="color" id="color_urgent_low" value="#ef4444">
+                        <span class="color-label">Urgent Low</span>
+                        <span class="color-hex" id="hex_urgent_low">#ef4444</span>
+                    </div>
+                    <div class="color-row">
+                        <input type="color" id="color_low" value="#f59e0b">
+                        <span class="color-label">Low</span>
+                        <span class="color-hex" id="hex_low">#f59e0b</span>
+                    </div>
+                    <div class="color-row">
+                        <input type="color" id="color_in_range" value="#22c55e">
+                        <span class="color-label">In Range</span>
+                        <span class="color-hex" id="hex_in_range">#22c55e</span>
+                    </div>
+                    <div class="color-row">
+                        <input type="color" id="color_high" value="#f59e0b">
+                        <span class="color-label">High</span>
+                        <span class="color-hex" id="hex_high">#f59e0b</span>
+                    </div>
+                    <div class="color-row">
+                        <input type="color" id="color_urgent_high" value="#ef4444">
+                        <span class="color-label">Urgent High</span>
+                        <span class="color-hex" id="hex_urgent_high">#ef4444</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WEATHER TAB -->
+            <div class="tab-panel" id="tab-weather">
+                <div class="card">
+                    <h2>Weather Display</h2>
+                    <p style="font-size:13px; color:var(--text-secondary); margin:-8px 0 16px;">
+                        Show current temperature in the button toggle cycle (Glucose &rarr; Time &rarr; Weather).
+                    </p>
+                    <div class="toggle-row">
+                        <label>Enable Weather in Toggle Cycle</label>
+                        <input type="checkbox" id="weather_enabled">
+                    </div>
+                    <div class="divider"></div>
+                    <div class="form-group">
+                        <label>API Key</label>
+                        <input type="password" id="weather_api_key" maxlength="47" placeholder="Leave blank to keep">
+                        <div class="hint">Get a free key at <a href="https://openweathermap.org/appid" target="_blank" style="color:var(--accent);">openweathermap.org</a></div>
+                    </div>
+                    <div class="form-group">
+                        <label>City / Location</label>
+                        <input type="text" id="weather_city" maxlength="63" placeholder="New York,US">
+                        <div class="hint">Format: City,CountryCode (e.g. London,GB)</div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Temperature Unit</label>
+                            <select id="weather_use_f">
+                                <option value="1">Fahrenheit (&deg;F)</option>
+                                <option value="0">Celsius (&deg;C)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Update Interval (minutes)</label>
+                            <input type="number" id="weather_poll_min" min="5" max="60" value="15">
+                            <div class="hint">Minimum 5 min</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block" style="margin-top:8px;">
+                Save Configuration
+            </button>
+        </form>
+
+        <div style="margin-top:24px;"></div>
+
+        <div class="card danger-card">
+            <h2>Danger Zone</h2>
+            <p style="color:var(--text-secondary); margin:-8px 0 16px; font-size:13px;">
+                Reset all settings to factory defaults. The device will restart.
+            </p>
+            <button type="button" class="btn btn-danger" id="factory-reset-btn">Factory Reset</button>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        function switchTab(id) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById('tab-' + id).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        function toggleSource() {
+            const src = document.getElementById('data_source').value;
+            document.getElementById('custom-fields').style.display = src === '0' ? 'block' : 'none';
+            document.getElementById('dexcom-fields').style.display = src === '1' ? 'block' : 'none';
+        }
+
+        function showToast(msg, type) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.className = 'toast show ' + (type === 'error' ? 'toast-error' : 'toast-success');
+            setTimeout(() => t.className = 'toast', 3000);
+        }
+
+        // Sync color hex display
+        ['urgent_low','low','in_range','high','urgent_high'].forEach(k => {
+            const inp = document.getElementById('color_' + k);
+            const hex = document.getElementById('hex_' + k);
+            if (inp && hex) inp.addEventListener('input', () => hex.textContent = inp.value);
+        });
+
+        async function loadConfig() {
+            try {
+                const r = await fetch('/api/config');
+                const c = await r.json();
+
+                document.getElementById('wifi_ssid').value = c.wifi_ssid || '';
+                document.getElementById('data_source').value = c.data_source || 0;
+                document.getElementById('server_url').value = c.server_url || '';
+                document.getElementById('auth_token').placeholder = c.auth_token ? 'Token set (leave blank to keep)' : 'No token set';
+                document.getElementById('dexcom_username').value = c.dexcom_username || '';
+                document.getElementById('dexcom_password').placeholder = c.dexcom_password ? 'Set (leave blank to keep)' : 'Not set';
+                document.getElementById('dexcom_us').value = c.dexcom_us ? '1' : '0';
+                document.getElementById('poll_interval').value = c.poll_interval;
+                document.getElementById('stale_timeout').value = c.stale_timeout_min || 20;
+                toggleSource();
+
+                const tzSel = document.getElementById('timezone');
+                const tz = c.timezone || '';
+                let found = false;
+                for (let o of tzSel.options) { if (o.value === tz) { o.selected = true; found = true; break; } }
+                if (!found) document.getElementById('timezone_custom').value = tz;
+                document.getElementById('use_24h').checked = c.use_24h;
+
+                document.getElementById('brightness').value = c.brightness;
+                document.getElementById('auto_brightness').checked = c.auto_brightness;
+                document.getElementById('default_mode').value = c.default_mode;
+                document.getElementById('show_delta').checked = c.show_delta || false;
+                document.getElementById('use_mmol').value = c.use_mmol ? '1' : '0';
+
+                document.getElementById('night_mode_enabled').checked = c.night_mode_enabled || false;
+                document.getElementById('night_start').value = c.night_start_hour !== undefined ? c.night_start_hour : 22;
+                document.getElementById('night_end').value = c.night_end_hour !== undefined ? c.night_end_hour : 7;
+                document.getElementById('night_brightness').value = c.night_brightness || 10;
+
+                document.getElementById('thresh_urgent_low').value = c.thresh_urgent_low;
+                document.getElementById('thresh_low').value = c.thresh_low;
+                document.getElementById('thresh_high').value = c.thresh_high;
+                document.getElementById('thresh_urgent_high').value = c.thresh_urgent_high;
+
+                document.getElementById('alert_enabled').checked = c.alert_enabled || false;
+                document.getElementById('alert_low').value = c.alert_low || 70;
+                document.getElementById('alert_high').value = c.alert_high || 250;
+                document.getElementById('alert_snooze').value = c.alert_snooze_min || 15;
+
+                if (c.color_urgent_low) document.getElementById('color_urgent_low').value = c.color_urgent_low;
+                if (c.color_low) document.getElementById('color_low').value = c.color_low;
+                if (c.color_in_range) document.getElementById('color_in_range').value = c.color_in_range;
+                if (c.color_high) document.getElementById('color_high').value = c.color_high;
+                if (c.color_urgent_high) document.getElementById('color_urgent_high').value = c.color_urgent_high;
+                ['urgent_low','low','in_range','high','urgent_high'].forEach(k => {
+                    const inp = document.getElementById('color_' + k);
+                    const hex = document.getElementById('hex_' + k);
+                    if (inp && hex) hex.textContent = inp.value;
+                });
+
+                // Weather
+                document.getElementById('weather_enabled').checked = c.weather_enabled || false;
+                document.getElementById('weather_api_key').placeholder = c.weather_api_key ? 'Key set (leave blank to keep)' : 'No key set';
+                document.getElementById('weather_city').value = c.weather_city || '';
+                document.getElementById('weather_use_f').value = c.weather_use_f ? '1' : '0';
+                document.getElementById('weather_poll_min').value = c.weather_poll_min || 15;
+            } catch (e) {
+                showToast('Failed to load config', 'error');
+            }
+        }
+
+        document.getElementById('config-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const poll = parseInt(document.getElementById('poll_interval').value);
+            if (poll < 15) { showToast('Poll interval must be >= 15s', 'error'); return; }
+
+            const tzCustom = document.getElementById('timezone_custom').value.trim();
+            const data = {
+                wifi_ssid: document.getElementById('wifi_ssid').value,
+                data_source: parseInt(document.getElementById('data_source').value),
+                server_url: document.getElementById('server_url').value,
+                dexcom_username: document.getElementById('dexcom_username').value,
+                dexcom_us: document.getElementById('dexcom_us').value === '1',
+                poll_interval: poll,
+                stale_timeout_min: parseInt(document.getElementById('stale_timeout').value),
+                timezone: tzCustom || document.getElementById('timezone').value,
+                use_24h: document.getElementById('use_24h').checked,
+                brightness: parseInt(document.getElementById('brightness').value),
+                auto_brightness: document.getElementById('auto_brightness').checked,
+                default_mode: parseInt(document.getElementById('default_mode').value),
+                show_delta: document.getElementById('show_delta').checked,
+                use_mmol: document.getElementById('use_mmol').value === '1',
+                night_mode_enabled: document.getElementById('night_mode_enabled').checked,
+                night_start_hour: parseInt(document.getElementById('night_start').value),
+                night_end_hour: parseInt(document.getElementById('night_end').value),
+                night_brightness: parseInt(document.getElementById('night_brightness').value),
+                thresh_urgent_low: parseInt(document.getElementById('thresh_urgent_low').value),
+                thresh_low: parseInt(document.getElementById('thresh_low').value),
+                thresh_high: parseInt(document.getElementById('thresh_high').value),
+                thresh_urgent_high: parseInt(document.getElementById('thresh_urgent_high').value),
+                alert_enabled: document.getElementById('alert_enabled').checked,
+                alert_low: parseInt(document.getElementById('alert_low').value),
+                alert_high: parseInt(document.getElementById('alert_high').value),
+                alert_snooze_min: parseInt(document.getElementById('alert_snooze').value),
+                color_urgent_low: document.getElementById('color_urgent_low').value,
+                color_low: document.getElementById('color_low').value,
+                color_in_range: document.getElementById('color_in_range').value,
+                color_high: document.getElementById('color_high').value,
+                color_urgent_high: document.getElementById('color_urgent_high').value,
+                weather_enabled: document.getElementById('weather_enabled').checked,
+                weather_city: document.getElementById('weather_city').value,
+                weather_use_f: document.getElementById('weather_use_f').value === '1',
+                weather_poll_min: parseInt(document.getElementById('weather_poll_min').value)
+            };
+            const pw = document.getElementById('wifi_password').value;
+            if (pw) data.wifi_password = pw;
+            const token = document.getElementById('auth_token').value;
+            if (token) data.auth_token = token;
+            const dp = document.getElementById('dexcom_password').value;
+            if (dp) data.dexcom_password = dp;
+            const wk = document.getElementById('weather_api_key').value;
+            if (wk) data.weather_api_key = wk;
+
+            try {
+                const r = await fetch('/api/config', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+                showToast(r.ok ? 'Configuration saved!' : 'Save failed', r.ok ? 'success' : 'error');
+            } catch (e) { showToast('Network error', 'error'); }
+        });
+
+        document.getElementById('factory-reset-btn').addEventListener('click', async function() {
+            if (!confirm('Factory reset? All settings will be erased.')) return;
+            try { await fetch('/api/factory-reset', { method: 'POST' }); showToast('Resetting...'); }
+            catch (e) { showToast('Failed', 'error'); }
+        });
+
+        loadConfig();
+    </script>
+</body>
+</html>
