@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BG TC001 — Affordable Glucose Monitor Display</title>
+  <meta name="description" content="Turn a $40 pixel clock into a real-time glucose monitor display. Easy setup, beautiful colors, and works with Dexcom &amp; Nightscout.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ========== NAVIGATION ========== -->
+  <nav class="site-nav">
+    <div class="container">
+      <a href="index.html" class="nav-brand">
+        <span class="brand-dot"></span> BG TC001
+      </a>
+      <button class="nav-toggle" aria-label="Open menu" onclick="document.querySelector('.nav-links').classList.toggle('open')">
+        <span></span><span></span><span></span>
+      </button>
+      <ul class="nav-links">
+        <li><a href="index.html" class="active">Home</a></li>
+        <li><a href="setup.html">Setup Guide</a></li>
+        <li><a href="support.html">Help &amp; FAQ</a></li>
+        <li><a href="#get-started" class="btn btn-primary" style="padding:0.5rem 1.25rem; font-size:0.9rem;">Get Started</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- ========== HERO ========== -->
+  <section class="hero">
+    <div class="container">
+      <h1>See your glucose at a glance.<br><span class="highlight">No squinting required.</span></h1>
+      <p class="subtitle">
+        Turn an affordable pixel clock into a bright, color-coded glucose display
+        that sits on your desk, nightstand, or kitchen counter.
+      </p>
+      <div class="hero-buttons">
+        <a href="setup.html" class="btn btn-primary">Start Setup Guide</a>
+        <a href="#how-it-works" class="btn btn-secondary">See How It Works</a>
+      </div>
+      <div class="hero-image">
+        <div class="img-placeholder img-placeholder-lg">
+          <span class="placeholder-icon">&#128248;</span>
+          <span>Photo: BG TC001 on a nightstand showing a green "102" with an arrow</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== WHAT IS IT ========== -->
+  <section id="what-is-it">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-label">What is it?</span>
+        <h2>Your glucose, always visible</h2>
+        <p>
+          BG TC001 turns the Ulanzi TC001 pixel clock into a dedicated glucose display.
+          It shows your current reading in big, bright numbers you can see from across the room &mdash;
+          no phone unlocking needed.
+        </p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon green">&#127912;</div>
+          <h3>Color-coded readings</h3>
+          <p>Green when you're in range, orange for highs and lows, red for urgent values. Know your status at a glance without reading the number.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon blue">&#8593;</div>
+          <h3>Trend arrows</h3>
+          <p>See which direction your glucose is heading with clear arrows: rising fast, rising slowly, holding steady, falling slowly, or dropping fast.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon orange">&#128276;</div>
+          <h3>Customizable alerts</h3>
+          <p>Set a buzzer to sound when your glucose goes above or below your personal thresholds. Includes a snooze button so it won't keep beeping.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon purple">&#127760;</div>
+          <h3>Works with Dexcom &amp; more</h3>
+          <p>Connects directly to Dexcom Share (US &amp; International) or any custom glucose data source like Nightscout.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon blue">&#9728;&#65039;</div>
+          <h3>Auto brightness</h3>
+          <p>Built-in light sensor adjusts brightness automatically. Bright enough to read in daylight, dim enough for your bedside at night.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon green">&#128241;</div>
+          <h3>Web dashboard</h3>
+          <p>Configure everything from any phone, tablet, or computer on your WiFi network. No apps to install &mdash; just open a browser.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== HOW IT WORKS ========== -->
+  <section id="how-it-works">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-label">How it works</span>
+        <h2>Up and running in three steps</h2>
+        <p>No coding experience needed. If you can plug in a USB cable and use a web browser, you can do this.</p>
+      </div>
+
+      <div class="steps">
+        <!-- Step 1 -->
+        <div class="step">
+          <div class="step-content">
+            <div class="step-number">1</div>
+            <h3>Get the hardware</h3>
+            <p>
+              Order a Ulanzi TC001 pixel clock online &mdash; it's around $40 and available on Amazon and other retailers.
+              You'll also need a USB-C cable (one is usually included).
+            </p>
+            <div class="step-tip">
+              It looks like a regular desk clock. Nobody will know it's a glucose monitor unless you tell them!
+            </div>
+          </div>
+          <div>
+            <div class="img-placeholder">
+              <span class="placeholder-icon">&#128230;</span>
+              <span>Photo: Ulanzi TC001 in its box</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="step">
+          <div class="step-content">
+            <div class="step-number">2</div>
+            <h3>Flash the firmware</h3>
+            <p>
+              Connect the clock to your computer with the USB cable and use our step-by-step guide
+              to install the BG TC001 software. We walk you through every click.
+            </p>
+            <div class="step-tip">
+              Don't worry &mdash; "flashing" just means copying the software onto the clock. It's safe and reversible.
+            </div>
+          </div>
+          <div>
+            <div class="img-placeholder">
+              <span class="placeholder-icon">&#128268;</span>
+              <span>Photo: Clock connected to a laptop via USB-C cable</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="step">
+          <div class="step-content">
+            <div class="step-number">3</div>
+            <h3>Connect your glucose data</h3>
+            <p>
+              Open the setup page on your phone or computer, enter your WiFi password and
+              Dexcom login (or Nightscout URL), and you're done. Readings appear within a minute.
+            </p>
+            <div class="step-tip">
+              Everything is configured through a friendly web page &mdash; no command line or code editing required.
+            </div>
+          </div>
+          <div>
+            <div class="img-placeholder">
+              <span class="placeholder-icon">&#128241;</span>
+              <span>Screenshot: Web configuration page on a phone</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== VIDEO ========== -->
+  <section>
+    <div class="container">
+      <div class="section-header">
+        <span class="section-label">Watch</span>
+        <h2>See it in action</h2>
+        <p>A quick walkthrough from unboxing to your first glucose reading on screen.</p>
+      </div>
+      <div class="video-placeholder">
+        <div class="play-btn">&#9654;</div>
+        <h3>Getting Started with BG TC001</h3>
+        <p>Onboarding video coming soon &mdash; placeholder</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== COMPARISON ========== -->
+  <section id="compare">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-label">Why BG TC001?</span>
+        <h2>More features, less cost</h2>
+        <p>See how BG TC001 compares to commercial CGM display products.</p>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th>Typical Commercial Display</th>
+              <th>BG TC001</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Price</td>
+              <td>~$100+</td>
+              <td><span class="check">~$40</span></td>
+            </tr>
+            <tr>
+              <td>Color-coded glucose</td>
+              <td><span class="check">&#10003;</span></td>
+              <td><span class="check">&#10003;</span></td>
+            </tr>
+            <tr>
+              <td>Trend arrows</td>
+              <td><span class="check">&#10003;</span></td>
+              <td><span class="check">&#10003;</span></td>
+            </tr>
+            <tr>
+              <td>Audible alerts</td>
+              <td>Some models</td>
+              <td><span class="check">&#10003; with snooze</span></td>
+            </tr>
+            <tr>
+              <td>Auto brightness</td>
+              <td>Some models</td>
+              <td><span class="check">&#10003;</span></td>
+            </tr>
+            <tr>
+              <td>Clock &amp; weather</td>
+              <td><span class="cross">&#10007;</span></td>
+              <td><span class="check">&#10003;</span></td>
+            </tr>
+            <tr>
+              <td>Nightscout support</td>
+              <td>Varies</td>
+              <td><span class="check">&#10003;</span></td>
+            </tr>
+            <tr>
+              <td>Web dashboard</td>
+              <td><span class="cross">&#10007;</span></td>
+              <td><span class="check">&#10003;</span></td>
+            </tr>
+            <tr>
+              <td>Open source</td>
+              <td><span class="cross">&#10007;</span></td>
+              <td><span class="check">&#10003;</span></td>
+            </tr>
+            <tr>
+              <td>Customizable thresholds</td>
+              <td>Limited</td>
+              <td><span class="check">Fully customizable</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== GET STARTED CTA ========== -->
+  <section id="get-started">
+    <div class="container">
+      <div class="cta-card">
+        <span class="section-label" style="color: var(--green);">Ready to get started?</span>
+        <h2>Everything you need for about $40</h2>
+        <div class="price">~$40</div>
+        <p class="price-note">Just the cost of the Ulanzi TC001 clock. The software is free and open source.</p>
+        <ul class="price-includes">
+          <li>Ulanzi TC001 pixel clock (~$35&ndash;50 on Amazon)</li>
+          <li>USB-C cable (usually included with clock)</li>
+          <li>A computer with a USB port (for initial setup only)</li>
+          <li>WiFi network (2.4 GHz)</li>
+          <li>Dexcom account or Nightscout URL</li>
+        </ul>
+        <div class="hero-buttons" style="margin-bottom:0;">
+          <a href="setup.html" class="btn btn-primary">Follow the Setup Guide</a>
+          <a href="support.html" class="btn btn-outline" style="border-color: rgba(255,255,255,0.3); color: rgba(255,255,255,0.9);">Get Help</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== GALLERY ========== -->
+  <section>
+    <div class="container">
+      <div class="section-header">
+        <span class="section-label">Gallery</span>
+        <h2>See it in your space</h2>
+        <p>A few examples of what BG TC001 looks like in everyday life.</p>
+      </div>
+      <div class="features-grid">
+        <div class="img-placeholder">
+          <span class="placeholder-icon">&#127747;</span>
+          <span>Photo: Display on a nightstand at night showing "98" in green</span>
+        </div>
+        <div class="img-placeholder">
+          <span class="placeholder-icon">&#128187;</span>
+          <span>Photo: Display on a work desk next to a monitor</span>
+        </div>
+        <div class="img-placeholder">
+          <span class="placeholder-icon">&#127858;</span>
+          <span>Photo: Display on a kitchen counter</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== FOOTER ========== -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <div class="footer-brand"><span class="brand-dot" style="display:inline-block; width:8px; height:8px; background:var(--green); border-radius:50%;"></span> BG TC001</div>
+          <p style="margin-top:0.5rem; font-size:0.9rem;">
+            An open-source glucose monitor display built on the Ulanzi TC001 pixel clock.
+            Made with care for the diabetes community.
+          </p>
+        </div>
+        <div>
+          <h4>Pages</h4>
+          <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="setup.html">Setup Guide</a></li>
+            <li><a href="support.html">Help &amp; FAQ</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Community</h4>
+          <ul>
+            <li><a href="#" target="_blank" rel="noopener">Discord Community</a></li>
+            <li><a href="mailto:support@example.com">Email Support</a></li>
+            <li><a href="#" target="_blank" rel="noopener">GitHub</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>BG TC001 is an open-source project. Not affiliated with Dexcom, Ulanzi, or any medical device manufacturer.</p>
+        <p style="margin-top:0.5rem;">This is not a medical device. Always rely on your CGM receiver or app for treatment decisions.</p>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
