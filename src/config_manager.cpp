@@ -1,6 +1,8 @@
 #include "config_manager.h"
 #include <Preferences.h>
 #include <Arduino.h>
+#include <LittleFS.h>
+#include <ArduinoJson.h>
 
 #define CONFIG_NAMESPACE "tc001cfg"
 #define CONFIG_MAGIC     0x474C5543  // "GLUC"
@@ -118,6 +120,62 @@ static void config_set_defaults() {
     config.auto_cycle_sec = 10;
 
     config.magic = CONFIG_MAGIC;
+}
+
+static void config_check_littlefs_overlay() {
+    if (!LittleFS.begin(false)) {
+        Serial.println("[CONFIG] LittleFS mount failed, no overlay to apply");
+        return;
+    }
+
+    if (!LittleFS.exists("/config.json")) {
+        Serial.println("[CONFIG] No /config.json overlay found");
+        LittleFS.end();
+        return;
+    }
+
+    Serial.println("[CONFIG] Found /config.json overlay, applying...");
+    File f = LittleFS.open("/config.json", "r");
+    if (!f) {
+        Serial.println("[CONFIG] Failed to open /config.json");
+        LittleFS.end();
+        return;
+    }
+
+    JsonDocument doc;
+    DeserializationError err = deserializeJson(doc, f);
+    f.close();
+
+    if (err) {
+        Serial.printf("[CONFIG] JSON parse error: %s\n", err.c_str());
+        LittleFS.remove("/config.json");
+        LittleFS.end();
+        return;
+    }
+
+    if (doc["wifi_ssid"].is<const char*>())     strncpy(config.wifi_ssid, doc["wifi_ssid"], sizeof(config.wifi_ssid));
+    if (doc["wifi_password"].is<const char*>())  strncpy(config.wifi_password, doc["wifi_password"], sizeof(config.wifi_password));
+    if (doc["data_source"].is<int>())            config.data_source = doc["data_source"];
+    if (doc["dexcom_username"].is<const char*>()) strncpy(config.dexcom_username, doc["dexcom_username"], sizeof(config.dexcom_username));
+    if (doc["dexcom_password"].is<const char*>()) strncpy(config.dexcom_password, doc["dexcom_password"], sizeof(config.dexcom_password));
+    if (doc["dexcom_server"].is<const char*>()) {
+        const char* srv = doc["dexcom_server"];
+        config.dexcom_us = (strcmp(srv, "US") == 0);
+    }
+    if (doc["server_url"].is<const char*>())     strncpy(config.server_url, doc["server_url"], sizeof(config.server_url));
+    if (doc["auth_token"].is<const char*>())     strncpy(config.auth_token, doc["auth_token"], sizeof(config.auth_token));
+    if (doc["timezone"].is<const char*>())       strncpy(config.timezone, doc["timezone"], sizeof(config.timezone));
+    if (doc["use_mmol"].is<bool>())              config.use_mmol = doc["use_mmol"];
+    if (doc["brightness"].is<int>())             config.brightness = doc["brightness"];
+    if (doc["alert_low"].is<int>())              config.alert_low = doc["alert_low"];
+    if (doc["alert_high"].is<int>())             config.alert_high = doc["alert_high"];
+
+    config_save();
+    Serial.println("[CONFIG] Applied config.json overlay from LittleFS");
+
+    LittleFS.remove("/config.json");
+    Serial.println("[CONFIG] Deleted /config.json after applying");
+    LittleFS.end();
 }
 
 void config_init() {
@@ -239,6 +297,9 @@ void config_init() {
             config.poll_interval_sec = 15;
         }
     }
+
+    // Check for config.json overlay from LittleFS (injected by setup app)
+    config_check_littlefs_overlay();
 
     Serial.printf("[CONFIG] Poll interval: %ds, Brightness: %d\n",
                   config.poll_interval_sec, config.brightness);

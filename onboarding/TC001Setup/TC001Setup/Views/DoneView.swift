@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Step 8: Success screen with dashboard link and next steps.
+/// Step 7: Success screen with dashboard link and next steps.
 struct DoneView: View {
 
     @EnvironmentObject var state: SetupState
@@ -10,16 +10,26 @@ struct DoneView: View {
         VStack(spacing: 24) {
             Spacer()
 
-            // Success icon
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 64))
-                .foregroundColor(.green)
+            // Success icon with logo
+            ZStack(alignment: .bottomTrailing) {
+                Image("AppLogo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 80, height: 80)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .shadow(color: .black.opacity(0.15), radius: 6, x: 0, y: 3)
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 28))
+                    .foregroundColor(.green)
+                    .background(Circle().fill(.white).frame(width: 24, height: 24))
+                    .offset(x: 6, y: 6)
+            }
 
             VStack(spacing: 8) {
-                Text("Setup Complete!")
+                Text("You're All Set!")
                     .font(.largeTitle.bold())
 
-                Text("Your SugarClock glucose monitor is configured and running.")
+                Text("Your SugarClock is configured and running.")
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -31,8 +41,8 @@ struct DoneView: View {
             // Device info
             VStack(spacing: 12) {
                 if !state.deviceIP.isEmpty {
-                    infoRow(label: "Device IP", value: state.deviceIP)
-                    infoRow(label: "Dashboard", value: "http://\(state.deviceIP)")
+                    infoRow(label: "Device Address", value: state.deviceIP)
+                    infoRow(label: "Web Dashboard", value: "http://\(state.deviceIP)")
                 }
                 infoRow(label: "WiFi Network", value: state.wifiSSID)
                 infoRow(label: "Data Source", value: state.glucoseSource.rawValue)
@@ -51,7 +61,7 @@ struct DoneView: View {
                     Button(action: { openDashboard() }) {
                         HStack(spacing: 6) {
                             Image(systemName: "globe")
-                            Text("Open Dashboard")
+                            Text("Open Web Dashboard")
                         }
                     }
                     .buttonStyle(.borderedProminent)
@@ -72,7 +82,7 @@ struct DoneView: View {
                 }
 
                 if state.isDeviceReachable {
-                    Label("Device is reachable", systemImage: "wifi")
+                    Label("Device is online", systemImage: "wifi")
                         .foregroundColor(.green)
                         .font(.callout)
                 }
@@ -83,13 +93,13 @@ struct DoneView: View {
             // Next steps
             GroupBox {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Next Steps")
+                    Text("What's next")
                         .font(.subheadline.bold())
 
                     bulletPoint("Place your SugarClock where you can easily see the display.")
-                    bulletPoint("The device will automatically fetch glucose data at regular intervals.")
+                    bulletPoint("It will automatically fetch your glucose data at regular intervals.")
                     bulletPoint("Use the web dashboard to adjust settings at any time.")
-                    bulletPoint("If the device loses WiFi, it will reconnect automatically.")
+                    bulletPoint("If it loses WiFi, it will reconnect automatically.")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }

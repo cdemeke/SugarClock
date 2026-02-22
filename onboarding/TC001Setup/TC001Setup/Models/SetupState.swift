@@ -35,18 +35,16 @@ enum BrightnessPreset: String, CaseIterable, Identifiable {
     }
 }
 
-/// Stages during the flash process.
+/// Stages during the install process.
 enum FlashStage: String, CaseIterable, Identifiable {
-    case idle = "Waiting to start"
-    case writeConfig = "Writing configuration"
-    case buildFirmware = "Building firmware"
-    case buildFilesystem = "Building filesystem"
-    case flashFirmware = "Flashing firmware"
-    case flashFilesystem = "Flashing filesystem"
-    case verify = "Verifying installation"
-    case pushConfig = "Pushing config to device"
-    case complete = "Complete"
-    case failed = "Failed"
+    case idle = "Ready to install"
+    case preparingConfig = "Saving your settings"
+    case buildingFilesystem = "Preparing device files"
+    case flashing = "Installing to device"
+    case waitingForBoot = "Starting up"
+    case pushingConfig = "Applying settings"
+    case complete = "Done"
+    case failed = "Something went wrong"
 
     var id: String { rawValue }
 
@@ -54,14 +52,12 @@ enum FlashStage: String, CaseIterable, Identifiable {
     var index: Int {
         switch self {
         case .idle: return 0
-        case .writeConfig: return 1
-        case .buildFirmware: return 2
-        case .buildFilesystem: return 3
-        case .flashFirmware: return 4
-        case .flashFilesystem: return 5
-        case .verify: return 6
-        case .pushConfig: return 7
-        case .complete: return 8
+        case .preparingConfig: return 1
+        case .buildingFilesystem: return 2
+        case .flashing: return 3
+        case .waitingForBoot: return 4
+        case .pushingConfig: return 5
+        case .complete: return 6
         case .failed: return -1
         }
     }
@@ -74,24 +70,9 @@ final class SetupState: ObservableObject {
     // MARK: - Navigation
 
     @Published var currentStep: Int = 0
-    let totalSteps: Int = 8
+    let totalSteps: Int = 7
 
-    // MARK: - Step 1: Welcome / Prerequisites
-
-    @Published var hasPlatformIO: Bool = false
-    @Published var hasEsptool: Bool = false
-    @Published var hasGit: Bool = false
-    @Published var isCheckingPrereqs: Bool = false
-    @Published var isInstallingPrereqs: Bool = false
-    @Published var installLog: String = ""
-    @Published var installError: String? = nil
-    @Published var installingItem: String? = nil  // "git", "platformio", nil
-
-    var allPrereqsMet: Bool {
-        hasPlatformIO && hasEsptool && hasGit
-    }
-
-    // MARK: - Step 2: Connect
+    // MARK: - Step 1: Connect
 
     @Published var detectedPort: String? = nil
     @Published var isScanning: Bool = false
@@ -100,15 +81,7 @@ final class SetupState: ObservableObject {
         detectedPort != nil
     }
 
-    // MARK: - Step 3: Backup
-
-    @Published var shouldBackup: Bool = true
-    @Published var backupPath: String = ""
-    @Published var backupInProgress: Bool = false
-    @Published var backupComplete: Bool = false
-    @Published var backupError: String? = nil
-
-    // MARK: - Step 4: WiFi
+    // MARK: - Step 2: WiFi
 
     @Published var wifiSSID: String = ""
     @Published var wifiPassword: String = ""
@@ -118,7 +91,7 @@ final class SetupState: ObservableObject {
         !wifiSSID.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
-    // MARK: - Step 5: Data Source
+    // MARK: - Step 3: Data Source
 
     @Published var glucoseSource: GlucoseSource = .dexcom
 
@@ -143,7 +116,7 @@ final class SetupState: ObservableObject {
         }
     }
 
-    // MARK: - Step 6: Preferences
+    // MARK: - Step 4: Preferences
 
     @Published var timezone: String = TimeZone.current.identifier
     @Published var glucoseUnit: GlucoseUnit = .mgdl
@@ -152,7 +125,7 @@ final class SetupState: ObservableObject {
     @Published var lowAlertThreshold: Int = 70
     @Published var highAlertThreshold: Int = 180
 
-    // MARK: - Step 7: Flash
+    // MARK: - Step 5: Install
 
     @Published var flashStage: FlashStage = .idle
     @Published var flashProgress: Double = 0.0
@@ -160,14 +133,10 @@ final class SetupState: ObservableObject {
     @Published var flashError: String? = nil
     @Published var isFlashing: Bool = false
 
-    // MARK: - Step 8: Done
+    // MARK: - Step 6: Done
 
     @Published var deviceIP: String = ""
     @Published var isDeviceReachable: Bool = false
-
-    // MARK: - Project path
-
-    @Published var projectPath: String = ""
 
     // MARK: - Navigation helpers
 
@@ -186,14 +155,13 @@ final class SetupState: ObservableObject {
     /// Whether the Next button should be enabled for the current step.
     var canAdvance: Bool {
         switch currentStep {
-        case 0: return allPrereqsMet
+        case 0: return true
         case 1: return isDeviceConnected
-        case 2: return !shouldBackup || backupComplete
-        case 3: return isWiFiValid
-        case 4: return isDataSourceValid
-        case 5: return true  // preferences always valid
-        case 6: return flashStage == .complete
-        case 7: return true
+        case 2: return isWiFiValid
+        case 3: return isDataSourceValid
+        case 4: return true  // preferences always valid
+        case 5: return flashStage == .complete
+        case 6: return true
         default: return false
         }
     }
@@ -203,45 +171,43 @@ final class SetupState: ObservableObject {
         switch index {
         case 0: return "Welcome"
         case 1: return "Connect"
-        case 2: return "Backup"
-        case 3: return "WiFi"
-        case 4: return "Data Source"
-        case 5: return "Preferences"
-        case 6: return "Flash"
-        case 7: return "Done"
+        case 2: return "WiFi"
+        case 3: return "Data Source"
+        case 4: return "Preferences"
+        case 5: return "Install"
+        case 6: return "Done"
         default: return ""
         }
     }
 
     // MARK: - Config generation
 
-    /// Builds the dictionary that gets written to src/config_manager.cpp defaults
+    /// Builds the dictionary that gets written to config.json in the LittleFS image
     /// and later POST-ed to /api/config.
     func buildConfigDictionary() -> [String: Any] {
         var config: [String: Any] = [
             "wifi_ssid": wifiSSID,
             "wifi_password": wifiPassword,
             "timezone": timezone,
-            "glucose_unit": glucoseUnit.rawValue,
+            "use_mmol": glucoseUnit == .mmol,
             "brightness": brightness.value,
-            "display_rotation": displayRotation,
-            "low_alert": lowAlertThreshold,
-            "high_alert": highAlertThreshold,
+            "alert_low": lowAlertThreshold,
+            "alert_high": highAlertThreshold,
         ]
 
         switch glucoseSource {
         case .dexcom:
-            config["data_source"] = "dexcom"
+            config["data_source"] = 1
             config["dexcom_username"] = dexcomUsername
             config["dexcom_password"] = dexcomPassword
             config["dexcom_server"] = dexcomServer
         case .nightscout:
-            config["data_source"] = "nightscout"
-            config["nightscout_url"] = nightscoutURL
-            config["nightscout_token"] = nightscoutToken
+            config["data_source"] = 0
+            config["server_url"] = nightscoutURL
+            config["auth_token"] = nightscoutToken
         case .customURL:
-            config["data_source"] = "custom"
-            config["custom_url"] = customURL
+            config["data_source"] = 0
+            config["server_url"] = customURL
         }
 
         return config

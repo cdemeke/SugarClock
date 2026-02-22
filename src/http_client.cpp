@@ -28,6 +28,7 @@ static unsigned long last_success_ms = 0;
 static int prev_glucose = 0;
 static int current_delta = 0;
 static bool has_prev_reading = false;
+static unsigned long last_recorded_timestamp = 0;
 
 // History circular buffer
 static GlucoseHistoryEntry history_buf[GLUCOSE_HISTORY_SIZE];
@@ -38,8 +39,16 @@ static int history_count = 0;
 static char dexcom_session_id[64] = "";
 static unsigned long dexcom_session_time_ms = 0;
 
-// Record a glucose value to history and update delta
-static void record_reading(int glucose) {
+// Record a glucose value to history and update delta.
+// reading_timestamp is the CGM timestamp (epoch seconds) so we can skip
+// duplicate readings that arrive when we poll faster than the CGM updates.
+static void record_reading(int glucose, unsigned long reading_timestamp) {
+    // Skip duplicate readings — same CGM timestamp means same reading
+    if (reading_timestamp > 0 && reading_timestamp == last_recorded_timestamp) {
+        return;
+    }
+    last_recorded_timestamp = reading_timestamp;
+
     if (has_prev_reading) {
         current_delta = glucose - prev_glucose;
     } else {
@@ -266,14 +275,14 @@ static bool dexcom_fetch_glucose() {
             // Extract epoch ms from "Date(1234567890000)" or "/Date(1234567890000)/"
             const char* start = strchr(wt, '(');
             if (start) {
-                current_reading.timestamp = strtoul(start + 1, NULL, 10) / 1000;
+                current_reading.timestamp = (unsigned long)(strtoull(start + 1, NULL, 10) / 1000ULL);
             }
         }
 
         current_reading.valid = (current_reading.glucose > 0);
 
         if (current_reading.valid) {
-            record_reading(current_reading.glucose);
+            record_reading(current_reading.glucose, current_reading.timestamp);
             failure_count = 0;
             ever_received = true;
             last_success_ms = millis();
@@ -358,7 +367,7 @@ static void generic_fetch() {
             current_reading.message[sizeof(current_reading.message) - 1] = '\0';
 
             if (current_reading.valid) {
-                record_reading(current_reading.glucose);
+                record_reading(current_reading.glucose, current_reading.timestamp);
                 failure_count = 0;
                 ever_received = true;
                 last_success_ms = millis();
@@ -393,6 +402,7 @@ void http_init() {
     has_prev_reading = false;
     current_delta = 0;
     prev_glucose = 0;
+    last_recorded_timestamp = 0;
 }
 
 void http_loop() {

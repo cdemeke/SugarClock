@@ -2,8 +2,8 @@ import SwiftUI
 
 /// Step 2: USB device detection.
 ///
-/// Scans for SugarClock (Ulanzi TC001) connected via USB serial and lets the user select
-/// the correct port if multiple are found.
+/// Scans for a SugarClock device connected via USB serial and lets the user
+/// select the correct port if multiple are found.
 struct ConnectView: View {
 
     @EnvironmentObject var state: SetupState
@@ -16,7 +16,7 @@ struct ConnectView: View {
                 Text("Connect Your Device")
                     .font(.largeTitle.bold())
 
-                Text("Plug the Ulanzi TC001 into your Mac using a USB-C cable. The device should appear below automatically.")
+                Text("Plug your SugarClock into your Mac using a USB-C cable. It should appear below automatically.")
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -26,23 +26,25 @@ struct ConnectView: View {
 
             // Connection status
             VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 12) {
-                    if usbDetector.isScanning {
-                        ProgressView()
-                            .controlSize(.small)
-                        Text("Scanning for devices...")
-                            .foregroundStyle(.secondary)
-                    } else if usbDetector.detectedPorts.isEmpty {
-                        Image(systemName: "cable.connector")
-                            .font(.title2)
-                            .foregroundStyle(.secondary)
-                        Text("No device detected")
-                            .foregroundStyle(.secondary)
+                if usbDetector.detectedPorts.isEmpty {
+                    HStack(spacing: 12) {
+                        if usbDetector.isScanning {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("Looking for your device...")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Image(systemName: "cable.connector")
+                                .font(.title2)
+                                .foregroundStyle(.secondary)
+                            Text("No device found. Make sure it's plugged in.")
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
 
                 if !usbDetector.detectedPorts.isEmpty {
-                    Text("Detected Devices")
+                    Text("Device Found")
                         .font(.headline)
 
                     ForEach(usbDetector.detectedPorts, id: \.self) { port in
@@ -55,10 +57,10 @@ struct ConnectView: View {
 
             // Manual port entry
             VStack(alignment: .leading, spacing: 8) {
-                Text("Manual Port Entry")
+                Text("Don't see your device?")
                     .font(.headline)
 
-                Text("If your device is not detected automatically, you can enter the port path manually.")
+                Text("You can enter the port path manually if automatic detection doesn't find it.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
 
@@ -77,14 +79,14 @@ struct ConnectView: View {
             // Tips
             GroupBox {
                 VStack(alignment: .leading, spacing: 6) {
-                    Label("Troubleshooting Tips", systemImage: "lightbulb")
+                    Label("Troubleshooting", systemImage: "lightbulb")
                         .font(.subheadline.bold())
 
                     Text("Make sure you are using a data-capable USB cable (not charge-only).")
                         .font(.caption)
                     Text("Try a different USB port on your Mac.")
                         .font(.caption)
-                    Text("You may need to install the CP210x or CH340 driver for your USB-serial chip.")
+                    Text("You may need to install the CH340 USB driver for your device.")
                         .font(.caption)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -115,7 +117,7 @@ struct ConnectView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(port)
                     .font(.system(size: 13, design: .monospaced))
-                Text("USB Serial Device")
+                Text("SugarClock")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }

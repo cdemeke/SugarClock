@@ -1,15 +1,13 @@
 import SwiftUI
 
-/// Step 7: Build and flash firmware.
+/// Step 6: Install SugarClock to the device.
 ///
-/// Runs through the staged flash process:
-/// 1. Write config (inject defaults into src/config_manager.cpp)
-/// 2. Build firmware (pio run)
-/// 3. Build filesystem (pio run --target buildfs)
-/// 4. Flash firmware (pio run --target upload)
-/// 5. Flash filesystem (pio run --target uploadfs)
-/// 6. Verify (wait for device to reboot and respond)
-/// 7. Push remaining config via POST /api/config
+/// Runs through the staged install process:
+/// 1. Save settings (write config.json + copy web UI to temp dir)
+/// 2. Prepare device files (mklittlefs)
+/// 3. Install to device (esptool writes all partitions in one command)
+/// 4. Wait for device to start up
+/// 5. Apply settings via HTTP as belt-and-suspenders
 struct FlashView: View {
 
     @EnvironmentObject var state: SetupState
@@ -18,10 +16,10 @@ struct FlashView: View {
         VStack(alignment: .leading, spacing: 20) {
             // Header
             VStack(alignment: .leading, spacing: 8) {
-                Text("Build & Flash")
+                Text("Install SugarClock")
                     .font(.largeTitle.bold())
 
-                Text("The firmware will now be configured, built, and flashed to your device.")
+                Text("Your settings and software will be installed to the device. This takes about a minute.")
                     .font(.body)
                     .foregroundStyle(.secondary)
             }
@@ -64,12 +62,12 @@ struct FlashView: View {
 
             // Log output
             VStack(alignment: .leading, spacing: 4) {
-                Text("Build Log")
+                Text("Details")
                     .font(.subheadline.bold())
 
                 ScrollViewReader { proxy in
                     ScrollView {
-                        Text(state.flashLog.isEmpty ? "Waiting to start..." : state.flashLog)
+                        Text(state.flashLog.isEmpty ? "Ready to install..." : state.flashLog)
                             .font(.system(size: 11, design: .monospaced))
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .textSelection(.enabled)
@@ -93,10 +91,10 @@ struct FlashView: View {
             // Action buttons
             HStack {
                 if state.flashStage == .idle || state.flashStage == .failed {
-                    Button(action: { startFlash() }) {
+                    Button(action: { startInstall() }) {
                         HStack(spacing: 6) {
-                            Image(systemName: "bolt.fill")
-                            Text("Start Flashing")
+                            Image(systemName: "arrow.down.circle.fill")
+                            Text(state.flashStage == .failed ? "Retry" : "Install")
                         }
                     }
                     .buttonStyle(.borderedProminent)
@@ -104,14 +102,14 @@ struct FlashView: View {
                 }
 
                 if state.flashStage == .complete {
-                    Label("Flashing complete!", systemImage: "checkmark.circle.fill")
+                    Label("Installation complete!", systemImage: "checkmark.circle.fill")
                         .foregroundColor(.green)
 
                     Spacer()
 
                     Button(action: { state.goNext() }) {
                         HStack(spacing: 4) {
-                            Text("Finish")
+                            Text("Continue")
                             Image(systemName: "chevron.right")
                                 .font(.system(size: 11, weight: .semibold))
                         }
@@ -126,7 +124,7 @@ struct FlashView: View {
     // MARK: - Stage definitions
 
     private var stagesInOrder: [FlashStage] {
-        [.writeConfig, .buildFirmware, .buildFilesystem, .flashFirmware, .flashFilesystem, .verify, .pushConfig]
+        [.preparingConfig, .buildingFilesystem, .flashing, .waitingForBoot, .pushingConfig]
     }
 
     private func stageRow(_ stage: FlashStage) -> some View {
@@ -155,146 +153,103 @@ struct FlashView: View {
         }
     }
 
-    // MARK: - Flash process
+    // MARK: - Install process
 
-    private func startFlash() {
+    private func startInstall() {
         state.isFlashing = true
         state.flashError = nil
         state.flashLog = ""
-        state.flashStage = .writeConfig
+        state.flashStage = .preparingConfig
         state.flashProgress = 0.0
 
         Task {
-            let projectPath = state.projectPath
-            guard !projectPath.isEmpty else {
-                state.flashError = "Project path is not set. Go back to the Welcome step."
-                state.flashStage = .failed
-                state.isFlashing = false
-                return
-            }
-
             guard let port = state.detectedPort else {
-                state.flashError = "No device port selected. Go back to the Connect step."
-                state.flashStage = .failed
-                state.isFlashing = false
+                failInstall("No device connected. Go back to the Connect step and plug in your device.")
                 return
             }
 
-            let totalStages = 7.0
+            // Ensure bundled tools are executable
+            do {
+                try FirmwareManager.ensureToolsExecutable()
+            } catch {
+                failInstall("Could not prepare installation tools: \(error.localizedDescription)")
+                return
+            }
 
-            // Stage 1: Write config
-            state.flashStage = .writeConfig
+            let totalStages = 5.0
+
+            // Stage 1: Prepare config
+            state.flashStage = .preparingConfig
             state.flashProgress = 1.0 / totalStages
-            appendLog(">>> Writing configuration to src/config_manager.cpp...\n")
-            let configWritten = writeConfigFile(projectPath: projectPath)
-            if !configWritten {
-                failFlash("Failed to write configuration file.")
-                return
-            }
-            appendLog("Configuration written successfully.\n\n")
+            appendLog("Saving your settings...\n")
+            let config = state.buildConfigDictionary()
+            appendLog("Settings ready.\n\n")
 
-            // Stage 2: Build firmware
-            state.flashStage = .buildFirmware
+            // Stage 2: Build LittleFS image
+            state.flashStage = .buildingFilesystem
             state.flashProgress = 2.0 / totalStages
-            appendLog(">>> Building firmware...\n")
-            let buildResult = await ProcessRunner.run(
-                command: "pio run",
-                workingDirectory: projectPath,
-                environment: ["PLATFORMIO_UPLOAD_PORT": port]
-            ) { text in
-                appendLog(text)
-            }
-            if buildResult.exitCode != 0 {
-                failFlash("Firmware build failed with exit code \(buildResult.exitCode).")
+            appendLog("Preparing device files...\n")
+
+            let littlefsPath: String
+            do {
+                littlefsPath = try await FirmwareManager.buildLittleFSImage(config: config) { text in
+                    appendLog(text)
+                }
+            } catch {
+                failInstall("Could not prepare device files: \(error.localizedDescription)")
                 return
             }
-            appendLog("\nFirmware build successful.\n\n")
+            appendLog("Device files ready.\n\n")
 
-            // Stage 3: Build filesystem
-            state.flashStage = .buildFilesystem
+            // Stage 3: Flash all partitions
+            state.flashStage = .flashing
             state.flashProgress = 3.0 / totalStages
-            appendLog(">>> Building filesystem image...\n")
-            let fsResult = await ProcessRunner.run(
-                command: "pio run --target buildfs",
-                workingDirectory: projectPath,
-                environment: ["PLATFORMIO_UPLOAD_PORT": port]
-            ) { text in
-                appendLog(text)
-            }
-            if fsResult.exitCode != 0 {
-                failFlash("Filesystem build failed with exit code \(fsResult.exitCode).")
+            appendLog("Installing software to your device...\n")
+
+            do {
+                try await FirmwareManager.flashDevice(port: port, littlefsPath: littlefsPath) { text in
+                    appendLog(text)
+                }
+            } catch {
+                failInstall("Installation failed: \(error.localizedDescription)")
                 return
             }
-            appendLog("\nFilesystem build successful.\n\n")
+            appendLog("\nInstallation complete.\n\n")
 
-            // Stage 4: Flash firmware
-            state.flashStage = .flashFirmware
+            // Stage 4: Wait for device boot
+            state.flashStage = .waitingForBoot
             state.flashProgress = 4.0 / totalStages
-            appendLog(">>> Flashing firmware to device...\n")
-            let uploadResult = await ProcessRunner.run(
-                command: "pio run --target upload --upload-port \(port)",
-                workingDirectory: projectPath,
-                environment: ["PLATFORMIO_UPLOAD_PORT": port]
-            ) { text in
-                appendLog(text)
-            }
-            if uploadResult.exitCode != 0 {
-                failFlash("Firmware flash failed with exit code \(uploadResult.exitCode).")
-                return
-            }
-            appendLog("\nFirmware flashed successfully.\n\n")
+            appendLog("Waiting for your device to start up...\n")
 
-            // Stage 5: Flash filesystem
-            state.flashStage = .flashFilesystem
-            state.flashProgress = 5.0 / totalStages
-            appendLog(">>> Flashing filesystem to device...\n")
-            let uploadFsResult = await ProcessRunner.run(
-                command: "pio run --target uploadfs --upload-port \(port)",
-                workingDirectory: projectPath,
-                environment: ["PLATFORMIO_UPLOAD_PORT": port]
-            ) { text in
-                appendLog(text)
-            }
-            if uploadFsResult.exitCode != 0 {
-                failFlash("Filesystem flash failed with exit code \(uploadFsResult.exitCode).")
-                return
-            }
-            appendLog("\nFilesystem flashed successfully.\n\n")
-
-            // Stage 6: Verify - wait for the device to boot and get an IP
-            state.flashStage = .verify
-            state.flashProgress = 6.0 / totalStages
-            appendLog(">>> Waiting for device to boot (this may take 30-60 seconds)...\n")
-
-            // Monitor serial for the IP address
-            let ip = await waitForDeviceIP(port: port, projectPath: projectPath)
+            let ip = await waitForDeviceIP(port: port)
             if let ip = ip {
                 state.deviceIP = ip
-                appendLog("Device booted successfully at IP: \(ip)\n\n")
+                appendLog("Device is online at \(ip)\n\n")
             } else {
-                appendLog("Could not detect device IP automatically. You can find it in your router's DHCP table.\n\n")
+                appendLog("Could not detect device address automatically. You can find it in your router settings.\n\n")
             }
 
-            // Stage 7: Push remaining config via HTTP
-            state.flashStage = .pushConfig
-            state.flashProgress = 6.5 / totalStages
+            // Stage 5: Push config via HTTP (belt-and-suspenders)
+            state.flashStage = .pushingConfig
+            state.flashProgress = 4.5 / totalStages
             if !state.deviceIP.isEmpty {
-                appendLog(">>> Pushing configuration to device via HTTP...\n")
+                appendLog("Applying settings to device...\n")
                 let pushed = await pushConfigToDevice()
                 if pushed {
-                    appendLog("Configuration pushed successfully.\n\n")
+                    appendLog("Settings applied.\n\n")
                 } else {
-                    appendLog("Warning: Could not push config via HTTP. You can configure via the web UI later.\n\n")
+                    appendLog("Could not apply settings over the network. Your device will use the settings from the install.\n\n")
                 }
             } else {
-                appendLog("Skipping HTTP config push (no IP detected). Configure via the web UI.\n\n")
+                appendLog("Skipping network settings push. Your device will use the settings from the install.\n\n")
             }
 
             // Done
             state.flashStage = .complete
             state.flashProgress = 1.0
             state.isFlashing = false
-            appendLog(">>> All done! Your SugarClock is ready.\n")
+            FirmwareManager.cleanupTempFiles()
+            appendLog("All done! Your SugarClock is ready.\n")
         }
     }
 
@@ -302,125 +257,39 @@ struct FlashView: View {
         state.flashLog += text
     }
 
-    private func failFlash(_ message: String) {
+    private func failInstall(_ message: String) {
         state.flashError = message
         state.flashStage = .failed
         state.isFlashing = false
-        appendLog("\nERROR: \(message)\n")
-    }
-
-    // MARK: - Config injection
-
-    /// Writes user configuration into src/config_manager.cpp by replacing
-    /// default values in the source before building.
-    private func writeConfigFile(projectPath: String) -> Bool {
-        let configPath = "\(projectPath)/src/config_manager.cpp"
-        let fm = FileManager.default
-
-        guard fm.fileExists(atPath: configPath) else {
-            appendLog("Warning: \(configPath) not found. Creating config overlay file instead.\n")
-            return writeConfigOverlay(projectPath: projectPath)
-        }
-
-        do {
-            var content = try String(contentsOfFile: configPath, encoding: .utf8)
-            let config = state.buildConfigDictionary()
-
-            // Replace known default patterns
-            for (key, value) in config {
-                let stringValue: String
-                if let s = value as? String {
-                    stringValue = s
-                } else if let i = value as? Int {
-                    stringValue = String(i)
-                } else {
-                    stringValue = "\(value)"
-                }
-
-                // Try to find and replace: defaults["key"] = "value"  or defaults["key"] = value
-                let patterns = [
-                    "defaults[\"\\(\(key))\"]\\s*=\\s*\"[^\"]*\"",
-                    "defaults[\"\\(\(key))\"]\\s*=\\s*[^;]*",
-                ]
-
-                for pattern in patterns {
-                    if let regex = try? NSRegularExpression(pattern: "defaults\\[\"" + NSRegularExpression.escapedPattern(for: key) + "\"\\]\\s*=\\s*\"[^\"]*\"") {
-                        let range = NSRange(content.startIndex..., in: content)
-                        let replacement: String
-                        if value is String {
-                            replacement = "defaults[\"\(key)\"] = \"\(stringValue)\""
-                        } else {
-                            replacement = "defaults[\"\(key)\"] = \"\(stringValue)\""
-                        }
-                        content = regex.stringByReplacingMatches(in: content, range: range, withTemplate: NSRegularExpression.escapedTemplate(for: replacement))
-                    }
-                }
-            }
-
-            try content.write(toFile: configPath, atomically: true, encoding: .utf8)
-            return true
-        } catch {
-            appendLog("Error modifying config file: \(error.localizedDescription)\n")
-            return false
-        }
-    }
-
-    /// Fallback: write a config.json overlay that the firmware reads at boot.
-    private func writeConfigOverlay(projectPath: String) -> Bool {
-        let dataDir = "\(projectPath)/data"
-        let configFile = "\(dataDir)/config.json"
-        let fm = FileManager.default
-
-        do {
-            if !fm.fileExists(atPath: dataDir) {
-                try fm.createDirectory(atPath: dataDir, withIntermediateDirectories: true)
-            }
-
-            let config = state.buildConfigDictionary()
-            let jsonData = try JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted, .sortedKeys])
-            try jsonData.write(to: URL(fileURLWithPath: configFile))
-            appendLog("Wrote config overlay to \(configFile)\n")
-            return true
-        } catch {
-            appendLog("Error writing config overlay: \(error.localizedDescription)\n")
-            return false
-        }
+        FirmwareManager.cleanupTempFiles()
+        appendLog("\nError: \(message)\n")
     }
 
     // MARK: - Device verification
 
-    /// After flashing, monitors serial output for the device IP address.
-    private func waitForDeviceIP(port: String, projectPath: String) async -> String? {
-        // Wait a few seconds for the device to boot
-        try? await Task.sleep(nanoseconds: 5_000_000_000)
+    /// After installing, polls mDNS for the device IP address.
+    private func waitForDeviceIP(port: String) async -> String? {
+        // Wait for the device to boot
+        try? await Task.sleep(nanoseconds: 8_000_000_000)
 
-        // Try to read serial output for up to 60 seconds looking for an IP
-        let result = await ProcessRunner.run(
-            command: "timeout 60 pio device monitor --port \(port) --baud 115200 --filter direct",
-            workingDirectory: projectPath
-        ) { text in
-            appendLog(text)
-            // Look for IP pattern in output
-            if let range = text.range(of: #"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"#, options: .regularExpression) {
-                let ip = String(text[range])
+        // Try mDNS resolution a few times
+        for attempt in 1...6 {
+            appendLog("Looking for device (attempt \(attempt) of 6)...\n")
+
+            let result = await ProcessRunner.run(
+                command: "timeout",
+                arguments: ["5", "dns-sd", "-G", "v4", "sugarclock.local"]
+            )
+
+            if result.exitCode == 0,
+               let range = result.output.range(of: #"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"#, options: .regularExpression) {
+                let ip = String(result.output[range])
                 if ip != "0.0.0.0" && ip != "255.255.255.255" {
-                    Task { @MainActor in
-                        state.deviceIP = ip
-                    }
+                    return ip
                 }
             }
-        }
 
-        // If we got an IP from the output, return it
-        if !state.deviceIP.isEmpty {
-            return state.deviceIP
-        }
-
-        // Fallback: check common mDNS name
-        let mdnsResult = await ProcessRunner.run(command: "dns-sd -G v4 tc001.local")
-        if mdnsResult.exitCode == 0,
-           let range = mdnsResult.output.range(of: #"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"#, options: .regularExpression) {
-            return String(mdnsResult.output[range])
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
         }
 
         return nil
@@ -451,7 +320,7 @@ struct FlashView: View {
             )
             return result.exitCode == 0
         } catch {
-            appendLog("Error serializing config for HTTP push: \(error.localizedDescription)\n")
+            appendLog("Could not send settings: \(error.localizedDescription)\n")
             return false
         }
     }

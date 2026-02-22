@@ -24,6 +24,10 @@
 		A1000100000000000000000F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000200000000000000000F /* Assets.xcassets */; };
 		A10001000000000000000010 /* CoreWLAN.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10002000000000000000010 /* CoreWLAN.framework */; };
 		A10001000000000000000011 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10002000000000000000011 /* IOKit.framework */; };
+		A10001000000000000000020 /* FirmwareManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000020 /* FirmwareManager.swift */; };
+		A10001000000000000000021 /* Firmware in Resources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000021 /* Firmware */; };
+		A10001000000000000000022 /* Tools in Resources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000022 /* Tools */; };
+		A10001000000000000000023 /* WebUI in Resources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000023 /* WebUI */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -44,6 +48,10 @@
 		A1000200000000000000000F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A10002000000000000000010 /* CoreWLAN.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreWLAN.framework; path = System/Library/Frameworks/CoreWLAN.framework; sourceTree = SDKROOT; };
 		A10002000000000000000011 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
+		A10002000000000000000020 /* FirmwareManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirmwareManager.swift; sourceTree = "<group>"; };
+		A10002000000000000000021 /* Firmware */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Firmware; sourceTree = "<group>"; };
+		A10002000000000000000022 /* Tools */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Tools; sourceTree = "<group>"; };
+		A10002000000000000000023 /* WebUI */ = {isa = PBXFileReference; lastKnownFileType = folder; path = WebUI; sourceTree = "<group>"; };
 		A10003000000000000000001 /* TC001Setup.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TC001Setup.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -77,9 +85,20 @@
 				A10005000000000000000003 /* Views */,
 				A10005000000000000000004 /* Models */,
 				A10005000000000000000005 /* Helpers */,
+				A10005000000000000000008 /* Resources */,
 				A1000200000000000000000F /* Assets.xcassets */,
 			);
 			path = TC001Setup;
+			sourceTree = "<group>";
+		};
+		A10005000000000000000008 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A10002000000000000000021 /* Firmware */,
+				A10002000000000000000022 /* Tools */,
+				A10002000000000000000023 /* WebUI */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 		A10005000000000000000003 /* Views */ = {
@@ -111,6 +130,7 @@
 				A1000200000000000000000C /* USBDetector.swift */,
 				A1000200000000000000000D /* ProcessRunner.swift */,
 				A1000200000000000000000E /* WiFiHelper.swift */,
+				A10002000000000000000020 /* FirmwareManager.swift */,
 			);
 			path = Helpers;
 			sourceTree = "<group>";
@@ -191,6 +211,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1000100000000000000000F /* Assets.xcassets in Resources */,
+				A10001000000000000000021 /* Firmware in Resources */,
+				A10001000000000000000022 /* Tools in Resources */,
+				A10001000000000000000023 /* WebUI in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -215,6 +238,7 @@
 				A1000100000000000000000C /* USBDetector.swift in Sources */,
 				A1000100000000000000000D /* ProcessRunner.swift in Sources */,
 				A1000100000000000000000E /* WiFiHelper.swift in Sources */,
+				A10001000000000000000020 /* FirmwareManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -352,6 +376,7 @@
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "SugarClock Setup";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -359,8 +384,8 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.tc001.setup;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.sugarclock.setup;
+				PRODUCT_NAME = "SugarClock Setup";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -381,6 +406,7 @@
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "SugarClock Setup";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -388,8 +414,8 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.tc001.setup;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.sugarclock.setup;
+				PRODUCT_NAME = "SugarClock Setup";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};

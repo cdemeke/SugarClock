@@ -186,6 +186,30 @@ a:hover {
   border-radius: 50%;
 }
 
+.nav-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.hero-logo {
+  width: 200px;
+  height: 200px;
+  border-radius: 24px;
+  margin: 0 auto;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+}
+
+.footer-logo {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  vertical-align: middle;
+  margin-right: 0.25rem;
+}
+
 .nav-links {
   display: flex;
   list-style: none;

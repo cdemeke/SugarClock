@@ -1,13 +1,16 @@
 import SwiftUI
 
-/// Step 4: WiFi configuration.
+/// Step 3: WiFi configuration.
 ///
-/// Captures the WiFi SSID and password. Attempts to auto-detect the
-/// current SSID via CoreWLAN.
+/// Shows nearby WiFi networks for selection and captures the password.
+/// Falls back to manual entry if scanning is unavailable.
 struct WiFiView: View {
 
     @EnvironmentObject var state: SetupState
-    @State private var autoDetectedSSID: String? = nil
+    @State private var availableNetworks: [String] = []
+    @State private var isScanning: Bool = false
+    @State private var showManualEntry: Bool = false
+    @State private var scanAttempted: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -16,7 +19,7 @@ struct WiFiView: View {
                 Text("WiFi Network")
                     .font(.largeTitle.bold())
 
-                Text("Enter the WiFi credentials SugarClock should connect to. This is the network where the device will fetch glucose data.")
+                Text("Choose the WiFi network your SugarClock should connect to. This is how it goes online to fetch your glucose data.")
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -24,28 +27,81 @@ struct WiFiView: View {
 
             Divider()
 
-            // SSID
+            // Network selection
             VStack(alignment: .leading, spacing: 8) {
-                Text("Network Name (SSID)")
-                    .font(.headline)
-
                 HStack {
-                    TextField("WiFi network name", text: $state.wifiSSID)
-                        .textFieldStyle(.roundedBorder)
+                    Text("Network")
+                        .font(.headline)
 
-                    if let detected = autoDetectedSSID, detected != state.wifiSSID {
-                        Button("Use Current") {
-                            state.wifiSSID = detected
+                    Spacer()
+
+                    if !showManualEntry {
+                        Button(action: { scanNetworks() }) {
+                            HStack(spacing: 4) {
+                                if isScanning {
+                                    ProgressView()
+                                        .controlSize(.mini)
+                                }
+                                Text(isScanning ? "Scanning..." : "Refresh")
+                            }
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
+                        .disabled(isScanning)
                     }
                 }
 
-                if let detected = autoDetectedSSID {
-                    Text("Your Mac is connected to: \(detected)")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
+                if showManualEntry {
+                    // Manual entry mode
+                    TextField("WiFi network name", text: $state.wifiSSID)
+                        .textFieldStyle(.roundedBorder)
+
+                    Button(action: {
+                        showManualEntry = false
+                        scanNetworks()
+                    }) {
+                        Text("Show available networks")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.borderless)
+                } else if !availableNetworks.isEmpty {
+                    // Network list
+                    ScrollView {
+                        VStack(spacing: 2) {
+                            ForEach(availableNetworks, id: \.self) { ssid in
+                                networkRow(ssid: ssid)
+                            }
+                        }
+                    }
+                    .frame(maxHeight: 160)
+                    .background(Color(nsColor: .controlBackgroundColor))
+                    .cornerRadius(8)
+
+                    Button(action: { showManualEntry = true }) {
+                        Text("Enter network name manually")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.borderless)
+                } else if isScanning {
+                    // Scanning in progress
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("Looking for nearby networks...")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 8)
+                } else {
+                    // Scan returned nothing
+                    VStack(alignment: .leading, spacing: 8) {
+                        TextField("WiFi network name", text: $state.wifiSSID)
+                            .textFieldStyle(.roundedBorder)
+
+                        Text("No nearby networks found. Type your network name above, or try scanning again.")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
                 }
             }
 
@@ -70,35 +126,81 @@ struct WiFiView: View {
                     .help(state.showPassword ? "Hide password" : "Show password")
                 }
 
-                Text("The password will be written to the device configuration. Leave blank for open networks.")
+                Text("Leave blank for open networks.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
 
             Spacer()
 
-            // Warnings
+            // Note
             GroupBox {
                 VStack(alignment: .leading, spacing: 6) {
-                    Label("Important Notes", systemImage: "exclamationmark.triangle")
+                    Label("Good to know", systemImage: "info.circle")
                         .font(.subheadline.bold())
 
-                    Text("SugarClock supports 2.4 GHz WiFi networks only. 5 GHz networks will not work.")
+                    Text("SugarClock only supports 2.4 GHz WiFi networks. 5 GHz networks will not work.")
                         .font(.caption)
-                    Text("Make sure the WiFi network is available where the device will be placed.")
-                        .font(.caption)
-                    Text("The password is stored in plaintext on the device.")
+                    Text("Make sure the network is available where you plan to place the device.")
                         .font(.caption)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .onAppear {
-            // Try to detect current SSID
-            autoDetectedSSID = WiFiHelper.currentSSID()
-            if state.wifiSSID.isEmpty, let ssid = autoDetectedSSID {
-                state.wifiSSID = ssid
+            if state.wifiSSID.isEmpty {
+                // Pre-fill with the currently connected network
+                if let ssid = WiFiHelper.currentSSID() {
+                    state.wifiSSID = ssid
+                }
             }
+            scanNetworks()
+        }
+    }
+
+    // MARK: - Network scanning
+
+    private func scanNetworks() {
+        isScanning = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            let networks = WiFiHelper.scanForNetworks()
+            DispatchQueue.main.async {
+                availableNetworks = networks
+                isScanning = false
+                scanAttempted = true
+            }
+        }
+    }
+
+    private func networkRow(ssid: String) -> some View {
+        let isSelected = state.wifiSSID == ssid
+        return HStack(spacing: 10) {
+            Image(systemName: isSelected ? "wifi.circle.fill" : "wifi")
+                .foregroundColor(isSelected ? .accentColor : .secondary)
+                .font(.body)
+
+            Text(ssid)
+                .font(.system(size: 13))
+
+            Spacer()
+
+            if isSelected {
+                Image(systemName: "checkmark")
+                    .foregroundColor(.accentColor)
+                    .font(.system(size: 12, weight: .semibold))
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isSelected
+                    ? Color.accentColor.opacity(0.08)
+                    : Color.clear)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            state.wifiSSID = ssid
         }
     }
 }

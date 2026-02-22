@@ -37,11 +37,18 @@ struct ContentView: View {
 
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("SugarClock Setup")
-                .font(.headline)
-                .padding(.horizontal, 20)
-                .padding(.top, 24)
-                .padding(.bottom, 20)
+            HStack(spacing: 10) {
+                Image("AppLogo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 32, height: 32)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                Text("SugarClock Setup")
+                    .font(.headline)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 24)
+            .padding(.bottom, 20)
 
             ForEach(0..<state.totalSteps, id: \.self) { index in
                 stepRow(index: index)
@@ -113,16 +120,14 @@ struct ContentView: View {
         case 1:
             ConnectView()
         case 2:
-            BackupView()
-        case 3:
             WiFiView()
-        case 4:
+        case 3:
             DataSourceView()
-        case 5:
+        case 4:
             PreferencesView()
-        case 6:
+        case 5:
             FlashView()
-        case 7:
+        case 6:
             DoneView()
         default:
             Text("Unknown step")
@@ -133,7 +138,7 @@ struct ContentView: View {
 
     private var navigationBar: some View {
         HStack {
-            if state.currentStep > 0 && state.currentStep < 7 {
+            if state.currentStep > 0 && state.currentStep < state.totalSteps - 1 {
                 Button(action: { state.goBack() }) {
                     HStack(spacing: 4) {
                         Image(systemName: "chevron.left")
@@ -147,7 +152,7 @@ struct ContentView: View {
 
             Spacer()
 
-            if state.currentStep < 7 {
+            if state.currentStep < state.totalSteps - 1 {
                 // Step indicator text
                 Text("Step \(state.currentStep + 1) of \(state.totalSteps)")
                     .font(.caption)
@@ -155,7 +160,8 @@ struct ContentView: View {
 
                 Spacer()
 
-                if state.currentStep < 6 {
+                // Show Next for all steps before Install (step 5)
+                if state.currentStep < 5 {
                     Button(action: { state.goNext() }) {
                         HStack(spacing: 4) {
                             Text("Next")
