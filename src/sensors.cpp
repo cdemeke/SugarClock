@@ -8,7 +8,7 @@
 #define BRIGHTNESS_MAX      200
 
 // Battery voltage divider calibration
-// TC001 uses voltage divider, typical factor ~2.0
+// Ulanzi TC001 uses voltage divider, typical factor ~2.0
 #define BATTERY_DIVIDER     2.0f
 #define ADC_REF_VOLTAGE     3.3f
 #define ADC_RESOLUTION      4095.0f

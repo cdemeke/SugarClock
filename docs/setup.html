@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Setup Guide — BG TC001</title>
-  <meta name="description" content="Step-by-step guide to set up your BG TC001 glucose monitor display. No coding experience needed.">
+  <title>Setup Guide — SugarClock</title>
+  <meta name="description" content="Step-by-step guide to set up your SugarClock DIY CGM display. No coding experience needed.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -16,7 +16,7 @@
   <nav class="site-nav">
     <div class="container">
       <a href="index.html" class="nav-brand">
-        <span class="brand-dot"></span> BG TC001
+        <span class="brand-dot"></span> SugarClock
       </a>
       <button class="nav-toggle" aria-label="Open menu" onclick="document.querySelector('.nav-links').classList.toggle('open')">
         <span></span><span></span><span></span>
@@ -62,7 +62,7 @@
               <li><a href="#what-you-need">What you need</a></li>
               <li><a href="#step-1">Step 1: Order the hardware</a></li>
               <li><a href="#step-2">Step 2: Install tools on your computer</a></li>
-              <li><a href="#step-3">Step 3: Download the BG TC001 software</a></li>
+              <li><a href="#step-3">Step 3: Download the SugarClock software</a></li>
               <li><a href="#step-4">Step 4: Connect the clock</a></li>
               <li><a href="#step-5">Step 5: Install the software on the clock</a></li>
               <li><a href="#step-6">Step 6: Connect to WiFi</a></li>
@@ -189,7 +189,7 @@
 
           <h3>2b. Install PlatformIO</h3>
           <p>
-            PlatformIO is the tool that copies the BG TC001 software onto the clock. Install it by opening
+            PlatformIO is the tool that copies the SugarClock software onto the clock. Install it by opening
             a terminal and typing:
           </p>
 
@@ -219,16 +219,16 @@
           </ul>
 
           <!-- STEP 3 -->
-          <h2 id="step-3">Step 3: Download the BG TC001 software</h2>
+          <h2 id="step-3">Step 3: Download the SugarClock software</h2>
           <p>
-            Download the BG TC001 project files to your computer. Open your terminal and type these commands:
+            Download the SugarClock project files to your computer. Open your terminal and type these commands:
           </p>
 
           <div style="background: var(--charcoal); color: #a8e6cf; border-radius: var(--radius-sm); padding: 1rem 1.25rem; font-family: monospace; font-size: 0.9rem; margin: var(--space-sm) 0; overflow-x: auto; line-height: 1.8;">
             <span style="color: #888;">## Download the project</span><br>
-            git clone https://github.com/cdemeke/BG_TC001.git<br><br>
+            git clone https://github.com/cdemeke/SugarClock.git<br><br>
             <span style="color: #888;">## Go into the project folder</span><br>
-            cd BG_TC001<br><br>
+            cd SugarClock<br><br>
             <span style="color: #888;">## Build the software (this downloads some files the first time &mdash; be patient!)</span><br>
             pio run<br><br>
             <span style="color: #888;">## Build the web interface</span><br>
@@ -280,7 +280,7 @@
           <!-- STEP 5 -->
           <h2 id="step-5">Step 5: Install the software on the clock</h2>
           <p>
-            This is the "flashing" step &mdash; which just means copying the BG TC001 software from
+            This is the "flashing" step &mdash; which just means copying the SugarClock software from
             your computer onto the clock. Run these two commands in your terminal:
           </p>
 
@@ -311,7 +311,7 @@
             <span class="callout-icon">&#127881;</span>
             <div>
               <strong>You did it!</strong> After both commands succeed, the clock should restart and briefly
-              show "TC001" in teal, then show "SETUP" in white. This is normal &mdash; it means the software
+              show "SUGAR" in teal, then show "SETUP" in white. This is normal &mdash; it means the software
               is installed and ready to be configured!
             </div>
           </div>
@@ -390,7 +390,7 @@
 
           <p>(Replace <code>192.168.X.X</code> with the IP address from Step 6.)</p>
 
-          <p>You'll see the BG TC001 configuration page. Here's how to set up each glucose data source:</p>
+          <p>You'll see the SugarClock configuration page. Here's how to set up each glucose data source:</p>
 
           <h3>Option A: Dexcom Share (most common)</h3>
           <p>If you use a Dexcom CGM (G6, G7, ONE, etc.):</p>
@@ -703,9 +703,9 @@
     <div class="container">
       <div class="footer-grid">
         <div>
-          <div class="footer-brand"><span class="brand-dot" style="display:inline-block; width:8px; height:8px; background:var(--green); border-radius:50%;"></span> BG TC001</div>
+          <div class="footer-brand"><span class="brand-dot" style="display:inline-block; width:8px; height:8px; background:var(--green); border-radius:50%;"></span> SugarClock</div>
           <p style="margin-top:0.5rem; font-size:0.9rem;">
-            An open-source glucose monitor display built on the Ulanzi TC001 pixel clock.
+            SugarClock — A DIY CGM display built on the Ulanzi TC001 pixel clock.
             Made with care for the diabetes community.
           </p>
         </div>
@@ -727,7 +727,7 @@
         </div>
       </div>
       <div class="footer-bottom">
-        <p>BG TC001 is an open-source project. Not affiliated with Dexcom, Ulanzi, or any medical device manufacturer.</p>
+        <p>SugarClock is an open-source DIY CGM display project. Not affiliated with Dexcom, Ulanzi, or any medical device manufacturer.</p>
         <p style="margin-top:0.5rem;">This is not a medical device. Always rely on your CGM receiver or app for treatment decisions.</p>
       </div>
     </div>

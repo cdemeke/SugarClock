@@ -11,10 +11,10 @@ struct WelcomeView: View {
         VStack(alignment: .leading, spacing: 20) {
             // Header
             VStack(alignment: .leading, spacing: 8) {
-                Text("Welcome to TC001 Setup")
+                Text("Welcome to SugarClock Setup")
                     .font(.largeTitle.bold())
 
-                Text("This wizard will help you configure and flash your TC001 glucose monitor. It only takes a few minutes.")
+                Text("This wizard will help you configure and flash your SugarClock glucose monitor. It only takes a few minutes.")
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -24,7 +24,7 @@ struct WelcomeView: View {
 
             // Project path
             VStack(alignment: .leading, spacing: 6) {
-                Text("TC001 Project Folder")
+                Text("SugarClock Project Folder")
                     .font(.headline)
 
                 HStack {
@@ -36,7 +36,7 @@ struct WelcomeView: View {
                         panel.canChooseFiles = false
                         panel.canChooseDirectories = true
                         panel.allowsMultipleSelection = false
-                        panel.message = "Select the TC001 project root directory"
+                        panel.message = "Select the SugarClock project root directory"
                         if panel.runModal() == .OK, let url = panel.url {
                             state.projectPath = url.path
                         }

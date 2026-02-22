@@ -4,7 +4,7 @@ import IOKit
 import IOKit.serial
 import IOKit.usb
 
-/// Monitors USB serial ports for TC001 (ESP32-based) device connections.
+/// Monitors USB serial ports for SugarClock (ESP32-based) device connections.
 ///
 /// Looks for /dev/cu.usbserial-* ports that match common ESP32 USB-serial
 /// bridge chips (CP210x, CH340, FTDI).
@@ -66,7 +66,7 @@ final class USBDetector: ObservableObject {
                 0
             ) {
                 let path = pathAsCFString.takeUnretainedValue() as! String
-                if isTC001Port(path) {
+                if isESP32Port(path) {
                     ports.append(path)
                 }
             }
@@ -84,7 +84,7 @@ final class USBDetector: ObservableObject {
     }
 
     /// Check whether a given port path matches known ESP32 USB-serial patterns.
-    private func isTC001Port(_ path: String) -> Bool {
+    private func isESP32Port(_ path: String) -> Bool {
         for pattern in knownPatterns {
             if path.hasPrefix(pattern) {
                 return true

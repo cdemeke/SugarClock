@@ -2,8 +2,8 @@ import SwiftUI
 
 /// Step 3: Optional firmware backup.
 ///
-/// Lets the user back up the current firmware on the TC001 before flashing
-/// new firmware. Uses esptool to read the flash contents.
+/// Lets the user back up the current firmware on the device before flashing
+/// SugarClock firmware. Uses esptool to read the flash contents.
 struct BackupView: View {
 
     @EnvironmentObject var state: SetupState

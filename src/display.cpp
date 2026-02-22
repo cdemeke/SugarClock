@@ -10,7 +10,7 @@
 static CRGB leds[MATRIX_NUM_LEDS];
 
 // NeoMatrix instance
-// TC001 uses row-major serpentine (zigzag) layout, top-left origin
+// Ulanzi TC001 uses row-major serpentine (zigzag) layout, top-left origin
 static FastLED_NeoMatrix matrix(
     leds, MATRIX_WIDTH, MATRIX_HEIGHT,
     NEO_MATRIX_TOP + NEO_MATRIX_LEFT +
@@ -52,6 +52,17 @@ uint8_t display_get_brightness() {
 
 uint16_t display_color(uint8_t r, uint8_t g, uint8_t b) {
     return matrix.Color(r, g, b);
+}
+
+void display_draw_pixel(int x, int y, uint16_t color) {
+    if (x >= 0 && x < MATRIX_WIDTH && y >= 0 && y < MATRIX_HEIGHT) {
+        matrix.drawPixel(x, y, color);
+    }
+}
+
+void display_flash(uint8_t r, uint8_t g, uint8_t b) {
+    matrix.fillScreen(matrix.Color(r, g, b));
+    matrix.show();
 }
 
 void display_fill(uint8_t r, uint8_t g, uint8_t b) {

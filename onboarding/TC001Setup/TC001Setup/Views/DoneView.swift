@@ -19,7 +19,7 @@ struct DoneView: View {
                 Text("Setup Complete!")
                     .font(.largeTitle.bold())
 
-                Text("Your TC001 glucose monitor is configured and running.")
+                Text("Your SugarClock glucose monitor is configured and running.")
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -86,7 +86,7 @@ struct DoneView: View {
                     Text("Next Steps")
                         .font(.subheadline.bold())
 
-                    bulletPoint("Place your TC001 where you can easily see the display.")
+                    bulletPoint("Place your SugarClock where you can easily see the display.")
                     bulletPoint("The device will automatically fetch glucose data at regular intervals.")
                     bulletPoint("Use the web dashboard to adjust settings at any time.")
                     bulletPoint("If the device loses WiFi, it will reconnect automatically.")

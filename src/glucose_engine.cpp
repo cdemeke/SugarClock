@@ -40,6 +40,91 @@ static unsigned long last_beep_ms = 0;
 
 #define RENDER_INTERVAL_MS 100  // ~10 FPS
 
+// Helper: convert uint32_t packed RGB to 16-bit display color
+static uint16_t color_from_uint32(uint32_t c) {
+    return display_color((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF);
+}
+
+// --- Weather particle animation system ---
+struct WeatherParticle {
+    int16_t x10;   // fixed-point x * 10
+    int16_t y10;   // fixed-point y * 10
+    int16_t vx10;  // velocity x * 10
+    int16_t vy10;  // velocity y * 10
+    bool active;
+};
+
+#define MAX_PARTICLES 10
+static WeatherParticle particles[MAX_PARTICLES];
+
+// Returns animation type: 0=none, 1=rain, 2=drizzle, 3=snow, 4=thunderstorm
+static int weather_anim_type(int condition_id) {
+    if (condition_id >= 200 && condition_id < 300) return 4; // thunderstorm
+    if (condition_id >= 300 && condition_id < 400) return 2; // drizzle
+    if (condition_id >= 500 && condition_id < 600) return 1; // rain
+    if (condition_id >= 600 && condition_id < 700) return 3; // snow
+    return 0;
+}
+
+static void weather_particles_spawn(int anim_type) {
+    for (int i = 0; i < MAX_PARTICLES; i++) {
+        if (particles[i].active) continue;
+
+        // Probability of spawning each frame
+        if (anim_type == 2 && (random(100) > 15)) continue; // drizzle: fewer
+        if (anim_type == 1 && (random(100) > 40)) continue; // rain: moderate
+        if (anim_type == 3 && (random(100) > 30)) continue; // snow: moderate
+        if (anim_type == 4 && (random(100) > 50)) continue; // thunder: lots
+
+        particles[i].active = true;
+        particles[i].x10 = random(0, MATRIX_WIDTH) * 10;
+        particles[i].y10 = 0;
+        particles[i].vx10 = 0;
+
+        if (anim_type == 3) {
+            // Snow: slow, lateral wobble
+            particles[i].vy10 = random(5, 12);
+            particles[i].vx10 = random(-3, 4);
+        } else if (anim_type == 2) {
+            // Drizzle: moderate speed
+            particles[i].vy10 = random(10, 18);
+        } else {
+            // Rain / thunderstorm: fast
+            particles[i].vy10 = random(15, 26);
+        }
+    }
+}
+
+static void weather_particles_update_and_draw(int anim_type) {
+    for (int i = 0; i < MAX_PARTICLES; i++) {
+        if (!particles[i].active) continue;
+
+        particles[i].x10 += particles[i].vx10;
+        particles[i].y10 += particles[i].vy10;
+
+        int px = particles[i].x10 / 10;
+        int py = particles[i].y10 / 10;
+
+        if (py >= MATRIX_HEIGHT || px < 0 || px >= MATRIX_WIDTH) {
+            particles[i].active = false;
+            continue;
+        }
+
+        // Color based on type
+        uint16_t color;
+        if (anim_type == 3) {
+            color = display_color(200, 200, 255); // snow: white-blue
+        } else {
+            color = display_color(80, 130, 255);  // rain/drizzle: blue
+        }
+        display_draw_pixel(px, py, color);
+    }
+}
+
+// Thunder flash state
+static unsigned long next_flash_ms = 0;
+static unsigned long flash_end_ms = 0;
+
 // Data-driven toggle order
 static DisplayState toggle_order[12];
 static int toggle_count = 0;
@@ -52,6 +137,7 @@ void engine_rebuild_toggle_order() {
     AppConfig& cfg = config_get();
     toggle_count = 0;
     toggle_order[toggle_count++] = STATE_GLUCOSE_DISPLAY;
+    toggle_order[toggle_count++] = STATE_TREND_DISPLAY;
     toggle_order[toggle_count++] = STATE_TIME_DISPLAY;
     if (cfg.weather_enabled) toggle_order[toggle_count++] = STATE_WEATHER_DISPLAY;
     if (cfg.timer_enabled) toggle_order[toggle_count++] = STATE_TIMER_DISPLAY;
@@ -171,7 +257,7 @@ void engine_init() {
 
     // Show boot screen
     display_clear();
-    display_draw_text("TC001", 1, 0, display_color(0, 200, 200));
+    display_draw_text("SUGAR", 1, 0, display_color(0, 200, 200));
     display_show();
 }
 
@@ -239,7 +325,7 @@ static void render_state(DisplayState state) {
     switch (state) {
         case STATE_BOOT: {
             display_clear();
-            display_draw_text("TC001", 1, 0, display_color(0, 200, 200));
+            display_draw_text("SUGAR", 1, 0, display_color(0, 200, 200));
             display_show();
             break;
         }
@@ -353,11 +439,11 @@ static void render_state(DisplayState state) {
                 }
                 int len = strlen(dbuf);
                 int tx = (MATRIX_WIDTH - len * 6) / 2;
-                display_draw_text(dbuf, tx, 0, display_color(0, 255, 255));
+                display_draw_text(dbuf, tx, 0, color_from_uint32(cfg.color_clock));
                 display_show();
             } else {
                 bool show_colon = (s % 2 == 0);
-                display_draw_time(h, m, show_colon, cfg.use_24h, display_color(0, 255, 255));
+                display_draw_time(h, m, show_colon, cfg.use_24h, color_from_uint32(cfg.color_clock));
                 display_show();
             }
             break;
@@ -368,16 +454,39 @@ static void render_state(DisplayState state) {
             display_clear();
 
             if (!weather_has_data()) {
-                display_draw_text("WX...", 4, 0, display_color(0, 200, 200));
+                display_draw_text("WX...", 4, 0, color_from_uint32(cfg.color_weather));
             } else {
                 const WeatherReading& wx = weather_get_reading();
+                int anim = weather_anim_type(wx.condition_id);
+
+                // Spawn and draw weather particles behind text
+                if (anim > 0) {
+                    weather_particles_spawn(anim);
+                    weather_particles_update_and_draw(anim);
+
+                    // Thunder flash
+                    if (anim == 4) {
+                        unsigned long now = millis();
+                        if (now >= next_flash_ms && flash_end_ms == 0) {
+                            flash_end_ms = now + 80;
+                            next_flash_ms = now + random(3000, 5001);
+                        }
+                        if (flash_end_ms > 0 && now < flash_end_ms) {
+                            display_flash(255, 255, 255);
+                            display_show();
+                            break;
+                        }
+                        if (now >= flash_end_ms) flash_end_ms = 0;
+                    }
+                }
+
                 char tbuf[8];
                 int temp_int = (int)(wx.temp + 0.5f);
                 snprintf(tbuf, sizeof(tbuf), "%d*%s", temp_int,
                          config_get().weather_use_f ? "F" : "C");
                 int tlen = strlen(tbuf);
                 int tx = (MATRIX_WIDTH - tlen * 6) / 2;
-                display_draw_text(tbuf, tx, 0, display_color(0, 255, 255));
+                display_draw_text(tbuf, tx, 0, color_from_uint32(cfg.color_weather));
             }
 
             display_show();
@@ -509,6 +618,34 @@ static void render_state(DisplayState state) {
                 int len = strlen(tbuf);
                 int tx = (MATRIX_WIDTH - len * 6) / 2;
                 display_draw_text(tbuf, tx, 0, display_color(0, 255, 255));
+            }
+
+            display_show();
+            break;
+        }
+
+        case STATE_TREND_DISPLAY: {
+            display_set_brightness(effective_brightness());
+            display_clear();
+
+            const GlucoseReading& reading = http_get_reading();
+            if (!reading.valid || reading.trend == TREND_UNKNOWN) {
+                display_draw_text("---", 7, 0, display_color(100, 100, 100));
+            } else {
+                uint16_t tcolor = themed_glucose_color(reading.glucose, cfg);
+
+                // Draw 5x7 trend arrow at x=1
+                display_draw_trend(reading.trend, 1, 0, tcolor);
+
+                // Draw delta number at x=8
+                int delta = http_get_delta();
+                char dbuf[8];
+                if (delta >= 0) {
+                    snprintf(dbuf, sizeof(dbuf), "+%d", delta);
+                } else {
+                    snprintf(dbuf, sizeof(dbuf), "%d", delta);
+                }
+                display_draw_text(dbuf, 8, 0, tcolor);
             }
 
             display_show();
@@ -649,6 +786,7 @@ const char* engine_state_name(DisplayState state) {
         case STATE_STOPWATCH_DISPLAY: return "STOPWATCH";
         case STATE_SYSMON_DISPLAY:    return "SYSMON";
         case STATE_COUNTDOWN_DISPLAY: return "COUNTDOWN";
+        case STATE_TREND_DISPLAY:     return "TREND";
         case STATE_MESSAGE_DISPLAY:   return "MESSAGE";
         case STATE_NOTIFY_DISPLAY:    return "NOTIFY";
         case STATE_STALE_WARNING:     return "STALE";

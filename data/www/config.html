@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TC001 - Configuration</title>
+    <title>SugarClock - Configuration</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -11,7 +11,7 @@
         <div class="topnav-inner">
             <a href="/" class="brand">
                 <div class="brand-icon">G</div>
-                <span>TC001</span>
+                <span>SugarClock</span>
             </a>
             <ul class="topnav-links">
                 <li><a href="/">Dashboard</a></li>
@@ -23,19 +23,14 @@
     </nav>
 
     <div class="page">
-        <div class="page-header">
-            <h1>Configuration</h1>
-            <p>Manage device settings and personalization</p>
-        </div>
-
-        <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('connection')">Connection</button>
-            <button class="tab-btn" onclick="switchTab('display')">Display</button>
-            <button class="tab-btn" onclick="switchTab('glucose')">Glucose</button>
-            <button class="tab-btn" onclick="switchTab('time')">Time</button>
-            <button class="tab-btn" onclick="switchTab('weather')">Weather</button>
-            <button class="tab-btn" onclick="switchTab('integrations')">Integrations</button>
-            <button class="tab-btn" onclick="switchTab('danger')">Danger</button>
+        <div class="tabs tabs-sticky">
+            <button class="tab-btn active" data-tab="connection" onclick="switchTab('connection')">Connection</button>
+            <button class="tab-btn" data-tab="display" onclick="switchTab('display')">Display</button>
+            <button class="tab-btn" data-tab="glucose" onclick="switchTab('glucose')">Blood Sugar</button>
+            <button class="tab-btn" data-tab="time" onclick="switchTab('time')">Time</button>
+            <button class="tab-btn" data-tab="weather" onclick="switchTab('weather')">Weather</button>
+            <button class="tab-btn" data-tab="integrations" onclick="switchTab('integrations')">Integrations</button>
+            <button class="tab-btn" data-tab="danger" onclick="switchTab('danger')">Reset</button>
         </div>
 
         <form id="config-form">
@@ -51,71 +46,11 @@
                         </div>
                         <div class="form-group">
                             <label>Password</label>
-                            <input type="password" id="wifi_password" maxlength="63" placeholder="Leave blank to keep">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <h2>Data Source</h2>
-                    <div class="form-group">
-                        <label>Source Type</label>
-                        <select id="data_source" onchange="toggleSource()">
-                            <option value="0">Custom URL</option>
-                            <option value="1">Dexcom Share</option>
-                        </select>
-                    </div>
-
-                    <div id="custom-fields">
-                        <div class="form-group">
-                            <label>Server URL</label>
-                            <input type="url" id="server_url" placeholder="https://example.com/api/glucose" maxlength="255">
-                        </div>
-                        <div class="form-group">
-                            <label>Auth Token</label>
-                            <input type="password" id="auth_token" maxlength="255" placeholder="Leave blank to keep">
-                        </div>
-                    </div>
-
-                    <div id="dexcom-fields" style="display:none;">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Username</label>
-                                <input type="text" id="dexcom_username" maxlength="63">
-                            </div>
-                            <div class="form-group">
-                                <label>Password</label>
-                                <input type="password" id="dexcom_password" maxlength="63" placeholder="Leave blank to keep">
+                            <div class="pw-wrap">
+                                <input type="password" id="wifi_password" maxlength="63">
+                                <button type="button" class="pw-toggle" onclick="togglePw('wifi_password')">&#128065;</button>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label>Region</label>
-                            <select id="dexcom_us">
-                                <option value="1">US (share2.dexcom.com)</option>
-                                <option value="0">International (shareous1.dexcom.com)</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="divider"></div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Poll Interval (seconds)</label>
-                            <input type="number" id="poll_interval" min="15" max="600" value="60">
-                            <div class="hint">Minimum 15s. Default: 60</div>
-                        </div>
-                        <div class="form-group">
-                            <label>Stale Timeout (minutes)</label>
-                            <input type="number" id="stale_timeout" min="5" max="60" value="20">
-                            <div class="hint">Show STALE after this long</div>
-                        </div>
-                    </div>
-
-                    <div class="divider"></div>
-                    <div style="display:flex;align-items:center;gap:12px;">
-                        <button type="button" class="btn btn-outline" id="test-glucose-btn">Test Connection</button>
-                        <span class="test-result" id="test-glucose-result"></span>
                     </div>
                 </div>
             </div>
@@ -162,43 +97,60 @@
                 </div>
 
                 <div class="card">
-                    <h2>Night Mode</h2>
-                    <div class="toggle-row">
-                        <label>Enable Night Mode</label>
-                        <input type="checkbox" id="night_mode_enabled">
+                    <h2>Display Colors</h2>
+                    <p style="font-size:13px; color:var(--text-secondary); margin:-8px 0 16px;">
+                        Customize the clock and weather text colors on the LED matrix.
+                    </p>
+                    <div class="color-row">
+                        <input type="color" id="color_clock" value="#00ffff">
+                        <span class="color-label">Clock Color</span>
+                        <span class="color-hex" id="hex_clock">#00ffff</span>
                     </div>
-                    <div class="divider"></div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Start Hour (0-23)</label>
-                            <input type="number" id="night_start" min="0" max="23" value="22">
-                        </div>
-                        <div class="form-group">
-                            <label>End Hour (0-23)</label>
-                            <input type="number" id="night_end" min="0" max="23" value="7">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Night Brightness (1-255)</label>
-                        <input type="number" id="night_brightness" min="1" max="255" value="10">
-                        <div class="hint">Automatically dims during night hours</div>
+                    <div class="color-row">
+                        <input type="color" id="color_weather" value="#00ffff">
+                        <span class="color-label">Weather Color</span>
+                        <span class="color-hex" id="hex_weather">#00ffff</span>
                     </div>
                 </div>
 
                 <div class="card">
-                    <h2>Auto-Cycle</h2>
-                    <p style="font-size:13px; color:var(--text-secondary); margin:-8px 0 16px;">
-                        Automatically rotate through enabled display screens.
-                    </p>
-                    <div class="toggle-row">
-                        <label>Enable Auto-Cycle</label>
+                    <div class="card-header-toggle">
+                        <h2>Night Mode</h2>
+                        <input type="checkbox" id="night_mode_enabled">
+                    </div>
+                    <div class="card-details" id="night-details">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Start Hour (0-23)</label>
+                                <input type="number" id="night_start" min="0" max="23" value="22">
+                            </div>
+                            <div class="form-group">
+                                <label>End Hour (0-23)</label>
+                                <input type="number" id="night_end" min="0" max="23" value="7">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Night Brightness (1-255)</label>
+                            <input type="number" id="night_brightness" min="1" max="255" value="10">
+                            <div class="hint">Automatically dims during night hours</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header-toggle">
+                        <h2>Auto-Cycle</h2>
                         <input type="checkbox" id="auto_cycle_enabled">
                     </div>
-                    <div class="divider"></div>
-                    <div class="form-group">
-                        <label>Cycle Interval (seconds)</label>
-                        <input type="number" id="auto_cycle_sec" min="3" max="300" value="10">
-                        <div class="hint">Time on each screen before advancing (3-300s)</div>
+                    <div class="card-details" id="autocycle-details">
+                        <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+                            Automatically rotate through enabled display screens.
+                        </p>
+                        <div class="form-group">
+                            <label>Cycle Interval (seconds)</label>
+                            <input type="number" id="auto_cycle_sec" min="3" max="300" value="10">
+                            <div class="hint">Time on each screen before advancing (3-300s)</div>
+                        </div>
                     </div>
                 </div>
 
@@ -215,8 +167,77 @@
                 </div>
             </div>
 
-            <!-- GLUCOSE TAB (Thresholds + Colors + Alerts) -->
+            <!-- BLOOD SUGAR TAB (Data Source + Thresholds + Colors + Alerts) -->
             <div class="tab-panel" id="tab-glucose">
+                <div class="card">
+                    <h2>Data Source</h2>
+                    <div class="form-group">
+                        <label>Source Type</label>
+                        <select id="data_source" onchange="toggleSource()">
+                            <option value="0">Custom URL</option>
+                            <option value="1">Dexcom Share</option>
+                        </select>
+                    </div>
+
+                    <div id="custom-fields">
+                        <div class="form-group">
+                            <label>Server URL</label>
+                            <input type="url" id="server_url" placeholder="https://example.com/api/glucose" maxlength="255">
+                        </div>
+                        <div class="form-group">
+                            <label>Auth Token</label>
+                            <div class="pw-wrap">
+                                <input type="password" id="auth_token" maxlength="255">
+                                <button type="button" class="pw-toggle" onclick="togglePw('auth_token')">&#128065;</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="dexcom-fields" style="display:none;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Username</label>
+                                <input type="text" id="dexcom_username" maxlength="63">
+                            </div>
+                            <div class="form-group">
+                                <label>Password</label>
+                                <div class="pw-wrap">
+                                    <input type="password" id="dexcom_password" maxlength="63">
+                                    <button type="button" class="pw-toggle" onclick="togglePw('dexcom_password')">&#128065;</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Region</label>
+                            <select id="dexcom_us">
+                                <option value="1">US (share2.dexcom.com)</option>
+                                <option value="0">International (shareous1.dexcom.com)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="divider"></div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Poll Interval (seconds)</label>
+                            <input type="number" id="poll_interval" min="15" max="600" value="60">
+                            <div class="hint">Minimum 15s. Default: 60</div>
+                        </div>
+                        <div class="form-group">
+                            <label>Stale Timeout (minutes)</label>
+                            <input type="number" id="stale_timeout" min="5" max="60" value="20">
+                            <div class="hint">Show STALE after this long</div>
+                        </div>
+                    </div>
+
+                    <div class="divider"></div>
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <button type="button" class="btn btn-test" id="test-glucose-btn">Test Connection</button>
+                        <span class="test-result" id="test-glucose-result"></span>
+                    </div>
+                </div>
+
                 <div class="card">
                     <h2>Glucose Thresholds</h2>
                     <div class="threshold-bar">
@@ -281,26 +302,26 @@
                 </div>
 
                 <div class="card">
-                    <h2>Buzzer Alerts</h2>
-                    <div class="toggle-row">
-                        <label>Enable Buzzer Alerts</label>
+                    <div class="card-header-toggle">
+                        <h2>Buzzer Alerts</h2>
                         <input type="checkbox" id="alert_enabled">
                     </div>
-                    <div class="divider"></div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Alert Below (mg/dL)</label>
-                            <input type="number" id="alert_low" min="40" max="120" value="70">
+                    <div class="card-details" id="alert-details">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Alert Below (mg/dL)</label>
+                                <input type="number" id="alert_low" min="40" max="120" value="70">
+                            </div>
+                            <div class="form-group">
+                                <label>Alert Above (mg/dL)</label>
+                                <input type="number" id="alert_high" min="150" max="400" value="250">
+                            </div>
                         </div>
                         <div class="form-group">
-                            <label>Alert Above (mg/dL)</label>
-                            <input type="number" id="alert_high" min="150" max="400" value="250">
+                            <label>Snooze Duration (minutes)</label>
+                            <input type="number" id="alert_snooze" min="1" max="120" value="15">
+                            <div class="hint">Hold middle button to snooze</div>
                         </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Snooze Duration (minutes)</label>
-                        <input type="number" id="alert_snooze" min="1" max="120" value="15">
-                        <div class="hint">Hold middle button to snooze</div>
                     </div>
                 </div>
             </div>
@@ -331,12 +352,46 @@
                         </div>
                         <div class="form-group">
                             <label>Custom POSIX</label>
-                            <input type="text" id="timezone_custom" placeholder="Overrides dropdown">
+                            <select id="tz_presets" onchange="applyTzPreset()" style="margin-bottom:8px;">
+                                <option value="">-- Select a preset --</option>
+                                <option value="EST5EDT,M3.2.0,M11.1.0">US Eastern (ET)</option>
+                                <option value="CST6CDT,M3.2.0,M11.1.0">US Central (CT)</option>
+                                <option value="MST7MDT,M3.2.0,M11.1.0">US Mountain (MT)</option>
+                                <option value="PST8PDT,M3.2.0,M11.1.0">US Pacific (PT)</option>
+                                <option value="AST9ADT,M3.2.0,M11.1.0">US Alaska (AKT)</option>
+                                <option value="HST10">US Hawaii (HST)</option>
+                                <option value="NST3:30NDT,M3.2.0,M11.1.0">Canada Newfoundland</option>
+                                <option value="AST4ADT,M3.2.0,M11.1.0">Canada Atlantic</option>
+                                <option value="GMT0BST,M3.5.0/1,M10.5.0">UK (GMT/BST)</option>
+                                <option value="CET-1CEST,M3.5.0,M10.5.0/3">Central Europe (CET)</option>
+                                <option value="EET-2EEST,M3.5.0/3,M10.5.0/4">Eastern Europe (EET)</option>
+                                <option value="MSK-3">Moscow (MSK)</option>
+                                <option value="IST-5:30">India (IST)</option>
+                                <option value="WIB-7">Indonesia West (WIB)</option>
+                                <option value="CST-8">China / Singapore (CST)</option>
+                                <option value="JST-9">Japan (JST)</option>
+                                <option value="KST-9">Korea (KST)</option>
+                                <option value="AEST-10AEDT,M10.1.0,M4.1.0/3">Australia East (AEST)</option>
+                                <option value="ACST-9:30ACDT,M10.1.0,M4.1.0/3">Australia Central</option>
+                                <option value="AWST-8">Australia West (AWST)</option>
+                                <option value="NZST-12NZDT,M9.5.0,M4.1.0/3">New Zealand (NZST)</option>
+                                <option value="BRT3BRST,M10.3.0/0,M2.3.0/0">Brazil (BRT)</option>
+                                <option value="GST-4">UAE / Gulf (GST)</option>
+                                <option value="SAST-2">South Africa (SAST)</option>
+                            </select>
+                            <input type="text" id="timezone_custom" placeholder="Or type a custom POSIX TZ string">
+                            <div class="hint">Select a preset or type your own. Overrides the main timezone dropdown.</div>
                         </div>
                     </div>
                     <div class="toggle-row">
                         <label>24-Hour Format</label>
                         <input type="checkbox" id="use_24h">
+                    </div>
+                    <div class="divider"></div>
+                    <div class="color-row">
+                        <input type="color" id="color_clock_time" value="#00ffff">
+                        <span class="color-label">Clock Color</span>
+                        <span class="color-hex" id="hex_clock_time">#00ffff</span>
                     </div>
                 </div>
 
@@ -361,71 +416,72 @@
                 </div>
 
                 <div class="card">
-                    <h2>Pomodoro Timer</h2>
-                    <p style="font-size:13px; color:var(--text-secondary); margin:-8px 0 16px;">
-                        Focus timer with work/break cycles. Right button starts/pauses when viewing timer.
-                    </p>
-                    <div class="toggle-row">
-                        <label>Enable Timer in Toggle Cycle</label>
+                    <div class="card-header-toggle">
+                        <h2>Pomodoro Timer</h2>
                         <input type="checkbox" id="timer_enabled">
                     </div>
-                    <div class="divider"></div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Work Duration (min)</label>
-                            <input type="number" id="timer_work_min" min="1" max="120" value="25">
+                    <div class="card-details" id="timer-details">
+                        <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+                            Focus timer with work/break cycles. Right button starts/pauses when viewing timer.
+                        </p>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Work Duration (min)</label>
+                                <input type="number" id="timer_work_min" min="1" max="120" value="25">
+                            </div>
+                            <div class="form-group">
+                                <label>Short Break (min)</label>
+                                <input type="number" id="timer_break_min" min="1" max="60" value="5">
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label>Short Break (min)</label>
-                            <input type="number" id="timer_break_min" min="1" max="60" value="5">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Long Break (min)</label>
+                                <input type="number" id="timer_long_break_min" min="1" max="60" value="15">
+                            </div>
+                            <div class="form-group">
+                                <label>Sessions Before Long Break</label>
+                                <input type="number" id="timer_sessions" min="1" max="12" value="4">
+                            </div>
                         </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Long Break (min)</label>
-                            <input type="number" id="timer_long_break_min" min="1" max="60" value="15">
+                        <div class="toggle-row">
+                            <label>Buzzer on Completion</label>
+                            <input type="checkbox" id="timer_buzzer">
                         </div>
-                        <div class="form-group">
-                            <label>Sessions Before Long Break</label>
-                            <input type="number" id="timer_sessions" min="1" max="12" value="4">
-                        </div>
-                    </div>
-                    <div class="toggle-row">
-                        <label>Buzzer on Completion</label>
-                        <input type="checkbox" id="timer_buzzer">
                     </div>
                 </div>
 
                 <div class="card">
-                    <h2>Stopwatch</h2>
-                    <p style="font-size:13px; color:var(--text-secondary); margin:-8px 0 16px;">
-                        Count-up timer. Right button starts/pauses. Right long-press resets.
-                    </p>
-                    <div class="toggle-row">
-                        <label>Enable Stopwatch in Toggle Cycle</label>
+                    <div class="card-header-toggle">
+                        <h2>Stopwatch</h2>
                         <input type="checkbox" id="stopwatch_enabled">
                     </div>
+                    <div class="card-details" id="stopwatch-details">
+                        <p style="font-size:13px; color:var(--text-secondary); margin:0;">
+                            Count-up timer. Right button starts/pauses. Right long-press resets.
+                        </p>
+                    </div>
                 </div>
 
                 <div class="card">
-                    <h2>Countdown to Event</h2>
-                    <p style="font-size:13px; color:var(--text-secondary); margin:-8px 0 16px;">
-                        Shows days/hours until a target date. Displays "NOW!" when reached.
-                    </p>
-                    <div class="toggle-row">
-                        <label>Enable Countdown in Toggle Cycle</label>
+                    <div class="card-header-toggle">
+                        <h2>Countdown to Event</h2>
                         <input type="checkbox" id="countdown_enabled">
                     </div>
-                    <div class="divider"></div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Event Name</label>
-                            <input type="text" id="countdown_name" maxlength="15" placeholder="e.g. Vacation">
-                        </div>
-                        <div class="form-group">
-                            <label>Target Date & Time</label>
-                            <input type="datetime-local" id="countdown_date">
-                            <div class="hint">Set the date/time you're counting down to</div>
+                    <div class="card-details" id="countdown-details">
+                        <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+                            Shows days/hours until a target date. Displays "NOW!" when reached.
+                        </p>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Event Name</label>
+                                <input type="text" id="countdown_name" maxlength="15" placeholder="e.g. Vacation">
+                            </div>
+                            <div class="form-group">
+                                <label>Target Date & Time</label>
+                                <input type="datetime-local" id="countdown_date">
+                                <div class="hint">Set the date/time you're counting down to</div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -434,130 +490,164 @@
             <!-- WEATHER TAB -->
             <div class="tab-panel" id="tab-weather">
                 <div class="card">
-                    <h2>Weather Display</h2>
-                    <p style="font-size:13px; color:var(--text-secondary); margin:-8px 0 16px;">
-                        Show current temperature in the display cycle. Uses OpenWeatherMap.
-                    </p>
-                    <div class="toggle-row">
-                        <label>Enable Weather in Toggle Cycle</label>
+                    <div class="card-header-toggle">
+                        <h2>Weather Display</h2>
                         <input type="checkbox" id="weather_enabled">
                     </div>
-                    <div class="divider"></div>
-                    <div class="form-group">
-                        <label>API Key</label>
-                        <input type="password" id="weather_api_key" maxlength="47" placeholder="Leave blank to keep">
-                        <div class="hint">Get a free key at <a href="https://openweathermap.org/appid" target="_blank" style="color:var(--accent);">openweathermap.org</a></div>
-                    </div>
-                    <div class="form-group">
-                        <label>Location</label>
-                        <input type="text" id="weather_city" maxlength="63" placeholder="London,GB or 90210">
-                        <div class="hint">City,Country (London,GB) or zip code (90210 or 90210,US). Zip codes without a country default to US.</div>
-                    </div>
-                    <div class="form-row">
+                    <div class="card-details" id="weather-details">
+                        <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+                            Show current temperature in the display cycle. Uses OpenWeatherMap.
+                        </p>
                         <div class="form-group">
-                            <label>Temperature Unit</label>
-                            <select id="weather_use_f">
-                                <option value="1">Fahrenheit (&deg;F)</option>
-                                <option value="0">Celsius (&deg;C)</option>
-                            </select>
+                            <label>API Key</label>
+                            <div class="pw-wrap">
+                                <input type="password" id="weather_api_key" maxlength="47">
+                                <button type="button" class="pw-toggle" onclick="togglePw('weather_api_key')">&#128065;</button>
+                            </div>
+                            <div class="hint">Get a free key at <a href="https://openweathermap.org/appid" target="_blank" style="color:var(--accent);">openweathermap.org</a></div>
                         </div>
                         <div class="form-group">
-                            <label>Update Interval (minutes)</label>
-                            <input type="number" id="weather_poll_min" min="5" max="60" value="15">
-                            <div class="hint">Minimum 5 min</div>
+                            <label>Location</label>
+                            <input type="text" id="weather_city" maxlength="63" placeholder="London,GB or 90210">
+                            <div class="hint">City,Country (London,GB) or zip code (90210 or 90210,US). Zip codes without a country default to US.</div>
                         </div>
-                    </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Temperature Unit</label>
+                                <select id="weather_use_f">
+                                    <option value="1">Fahrenheit (&deg;F)</option>
+                                    <option value="0">Celsius (&deg;C)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Update Interval (minutes)</label>
+                                <input type="number" id="weather_poll_min" min="5" max="60" value="15">
+                                <div class="hint">Minimum 5 min</div>
+                            </div>
+                        </div>
 
-                    <div class="divider"></div>
-                    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-                        <button type="button" class="btn btn-outline" id="test-weather-btn">Test Weather API</button>
-                        <span class="test-result" id="test-weather-result"></span>
+                        <div class="divider"></div>
+                        <div class="color-row">
+                            <input type="color" id="color_weather_wx" value="#00ffff">
+                            <span class="color-label">Weather Color</span>
+                            <span class="color-hex" id="hex_weather_wx">#00ffff</span>
+                        </div>
+
+                        <div class="divider"></div>
+                        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                            <button type="button" class="btn btn-test" id="test-weather-btn">Test Weather API</button>
+                            <span class="test-result" id="test-weather-result"></span>
+                        </div>
+                        <div class="hint" style="margin-top:8px;">Save config first, then test. New API keys can take up to 2 hours to activate.</div>
+
+                        <div class="divider"></div>
+                        <h3 style="font-size:14px;margin-bottom:12px;">Preview Animations</h3>
+                        <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px;">
+                            Trigger mock weather to preview animations on the display. Clears on next real weather fetch.
+                        </p>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            <button type="button" class="btn btn-test" onclick="mockWeather(500,'Rain')">Rain</button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(601,'Snow')">Snow</button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(200,'Thunderstorm')">Thunder</button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(300,'Drizzle')">Drizzle</button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(800,'Clear')">Clear</button>
+                        </div>
+                        <span class="test-result" id="mock-weather-result" style="display:block;margin-top:8px;"></span>
                     </div>
-                    <div class="hint" style="margin-top:8px;">Save config first, then test. New API keys can take up to 2 hours to activate.</div>
                 </div>
             </div>
 
             <!-- INTEGRATIONS TAB (Notifications + System Monitor) -->
             <div class="tab-panel" id="tab-integrations">
                 <div class="card">
-                    <h2>Push Notifications</h2>
-                    <p style="font-size:13px; color:var(--text-secondary); margin:-8px 0 16px;">
-                        Receive text notifications via <code>POST /api/notify</code>. Auto-expires after duration.
-                    </p>
-                    <div class="toggle-row">
-                        <label>Enable Notifications</label>
+                    <div class="card-header-toggle">
+                        <h2>Push Notifications</h2>
                         <input type="checkbox" id="notify_enabled">
                     </div>
-                    <div class="divider"></div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Default Duration (seconds)</label>
-                            <input type="number" id="notify_default_duration" min="5" max="600" value="60">
-                        </div>
-                        <div class="form-group">
-                            <div class="toggle-row" style="padding-top:24px;">
-                                <label>Allow Buzzer for Urgent</label>
-                                <input type="checkbox" id="notify_allow_buzzer">
+                    <div class="card-details" id="notify-details">
+                        <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+                            Send messages to the display from any device on your network.
+                            Open <a href="/notify.html" target="_blank" style="color:var(--accent);font-weight:500;">/notify.html</a>
+                            on your phone and add it to your home screen for quick access.
+                        </p>
+                        <details style="margin-bottom:16px;">
+                            <summary style="font-size:13px;color:var(--text-secondary);cursor:pointer;">iOS Shortcut / Automation tips</summary>
+                            <div style="font-size:12px;color:var(--text-dim);margin-top:8px;line-height:1.5;">
+                                Create an iOS Shortcut with a "Get Contents of URL" action:<br>
+                                URL: <code>http://DEVICE_IP/api/notify</code><br>
+                                Method: POST, Body: JSON <code>{"text":"Your message"}</code><br>
+                                Add it to your home screen or trigger it from Shortcuts automations.
+                            </div>
+                        </details>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Default Duration (seconds)</label>
+                                <input type="number" id="notify_default_duration" min="5" max="600" value="60">
+                            </div>
+                            <div class="form-group">
+                                <div class="toggle-row" style="padding-top:24px;">
+                                    <label>Allow Buzzer for Urgent</label>
+                                    <input type="checkbox" id="notify_allow_buzzer">
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="divider"></div>
-                    <h3 style="font-size:14px;margin-bottom:12px;">Test Notification</h3>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Message</label>
-                            <input type="text" id="test_notify_text" placeholder="Hello!" maxlength="63">
+                        <div class="divider"></div>
+                        <h3 style="font-size:14px;margin-bottom:12px;">Test Notification</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Message</label>
+                                <input type="text" id="test_notify_text" placeholder="Hello!" maxlength="63">
+                            </div>
+                            <div class="form-group">
+                                <label>Duration (sec)</label>
+                                <input type="number" id="test_notify_dur" value="10" min="1" max="300">
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label>Duration (sec)</label>
-                            <input type="number" id="test_notify_dur" value="10" min="1" max="300">
+                        <div class="form-row" style="align-items:end;">
+                            <div class="toggle-row">
+                                <label>Urgent</label>
+                                <input type="checkbox" id="test_notify_urgent">
+                            </div>
+                            <button type="button" class="btn btn-test" id="test-notify-btn">Send Test</button>
                         </div>
-                    </div>
-                    <div class="form-row" style="align-items:end;">
-                        <div class="toggle-row">
-                            <label>Urgent</label>
-                            <input type="checkbox" id="test_notify_urgent">
-                        </div>
-                        <button type="button" class="btn btn-outline" id="test-notify-btn">Send Test</button>
                     </div>
                 </div>
 
                 <div class="card">
-                    <h2>System Monitor</h2>
-                    <p style="font-size:13px; color:var(--text-secondary); margin:-8px 0 16px;">
-                        Push CPU/RAM data from your computer via <code>POST /api/sysmon</code>. Auto-hides after 30s of no data.
-                    </p>
-                    <div class="toggle-row">
-                        <label>Enable System Monitor</label>
+                    <div class="card-header-toggle">
+                        <h2>System Monitor</h2>
                         <input type="checkbox" id="sysmon_enabled">
                     </div>
-                    <div class="divider"></div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Display Mode</label>
-                            <select id="sysmon_display_mode">
-                                <option value="0">Text (CPU42)</option>
-                                <option value="1">Bar Graph</option>
-                            </select>
+                    <div class="card-details" id="sysmon-details">
+                        <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+                            Push CPU/RAM data from your computer via <code>POST /api/sysmon</code>. Auto-hides after 30s of no data.
+                        </p>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Display Mode</label>
+                                <select id="sysmon_display_mode">
+                                    <option value="0">Text (CPU42)</option>
+                                    <option value="1">Bar Graph</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Default Label</label>
+                                <input type="text" id="sysmon_label" maxlength="7" value="CPU">
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label>Default Label</label>
-                            <input type="text" id="sysmon_label" maxlength="7" value="CPU">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Warning Threshold (%)</label>
+                                <input type="number" id="sysmon_warn_pct" min="0" max="100" value="50">
+                            </div>
+                            <div class="form-group">
+                                <label>Critical Threshold (%)</label>
+                                <input type="number" id="sysmon_crit_pct" min="0" max="100" value="80">
+                            </div>
                         </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Warning Threshold (%)</label>
-                            <input type="number" id="sysmon_warn_pct" min="0" max="100" value="50">
-                        </div>
-                        <div class="form-group">
-                            <label>Critical Threshold (%)</label>
-                            <input type="number" id="sysmon_crit_pct" min="0" max="100" value="80">
-                        </div>
-                    </div>
-                    <div class="divider"></div>
-                    <h3 style="font-size:14px;margin-bottom:8px;">Example Push Scripts</h3>
-                    <pre>
+                        <div class="divider"></div>
+                        <h3 style="font-size:14px;margin-bottom:8px;">Example Push Scripts</h3>
+                        <pre>
 # macOS CPU usage
 curl -X POST http://DEVICE_IP/api/sysmon \
   -H "Content-Type: application/json" \
@@ -567,12 +657,13 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 curl -X POST http://DEVICE_IP/api/sysmon \
   -H "Content-Type: application/json" \
   -d "{\"label\":\"RAM\",\"value\":$(free -m | awk 'NR==2{print $3}'),\"max\":$(free -m | awk 'NR==2{print $2}')}"</pre>
+                    </div>
                 </div>
             </div>
 
             <!-- DANGER TAB -->
             <div class="tab-panel" id="tab-danger">
-                <div class="card danger-card">
+                <div class="card reset-card">
                     <h2>Restart Device</h2>
                     <p style="color:var(--text-secondary); margin:-8px 0 16px; font-size:13px;">
                         Reboot the device. Settings are preserved.
@@ -580,7 +671,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                     <button type="button" class="btn btn-outline" id="restart-config-btn">Restart</button>
                 </div>
 
-                <div class="card danger-card">
+                <div class="card reset-card">
                     <h2>Factory Reset</h2>
                     <p style="color:var(--text-secondary); margin:-8px 0 16px; font-size:13px;">
                         Erase all settings and restore factory defaults. The device will restart and show SETUP.
@@ -599,11 +690,17 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
     <script>
         function switchTab(id) {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.tab === id);
+            });
             document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
             document.getElementById('tab-' + id).classList.add('active');
-            event.target.classList.add('active');
             document.getElementById('save-btn').style.display = (id === 'danger') ? 'none' : '';
+        }
+
+        function togglePw(id) {
+            const inp = document.getElementById(id);
+            inp.type = inp.type === 'password' ? 'text' : 'password';
         }
 
         function toggleSource() {
@@ -619,12 +716,60 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             setTimeout(() => t.className = 'toast', 3000);
         }
 
+        function applyTzPreset() {
+            const sel = document.getElementById('tz_presets');
+            if (sel.value) document.getElementById('timezone_custom').value = sel.value;
+        }
+
+        function setupToggleCards() {
+            [
+                ['night_mode_enabled', 'night-details'],
+                ['auto_cycle_enabled', 'autocycle-details'],
+                ['alert_enabled', 'alert-details'],
+                ['timer_enabled', 'timer-details'],
+                ['stopwatch_enabled', 'stopwatch-details'],
+                ['countdown_enabled', 'countdown-details'],
+                ['weather_enabled', 'weather-details'],
+                ['notify_enabled', 'notify-details'],
+                ['sysmon_enabled', 'sysmon-details']
+            ].forEach(([cbId, detId]) => {
+                const cb = document.getElementById(cbId);
+                const det = document.getElementById(detId);
+                if (!cb || !det) return;
+                const update = () => det.classList.toggle('collapsed', !cb.checked);
+                cb.addEventListener('change', update);
+                update();
+            });
+        }
+
         // Sync color hex display
         ['urgent_low','low','in_range','high','urgent_high'].forEach(k => {
             const inp = document.getElementById('color_' + k);
             const hex = document.getElementById('hex_' + k);
             if (inp && hex) inp.addEventListener('input', () => hex.textContent = inp.value);
         });
+
+        // Bidirectional sync for clock/weather color pickers across tabs
+        function syncColorPickers(mainId, mirrorId) {
+            const main = document.getElementById(mainId);
+            const mirror = document.getElementById(mirrorId);
+            const mainHex = document.getElementById('hex_' + mainId.replace('color_', ''));
+            const mirrorHex = document.getElementById('hex_' + mirrorId.replace('color_', ''));
+            if (main && mirror) {
+                main.addEventListener('input', () => {
+                    mirror.value = main.value;
+                    if (mainHex) mainHex.textContent = main.value;
+                    if (mirrorHex) mirrorHex.textContent = main.value;
+                });
+                mirror.addEventListener('input', () => {
+                    main.value = mirror.value;
+                    if (mainHex) mainHex.textContent = mirror.value;
+                    if (mirrorHex) mirrorHex.textContent = mirror.value;
+                });
+            }
+        }
+        syncColorPickers('color_clock', 'color_clock_time');
+        syncColorPickers('color_weather', 'color_weather_wx');
 
         async function loadConfig() {
             try {
@@ -633,11 +778,12 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
                 // Connection
                 document.getElementById('wifi_ssid').value = c.wifi_ssid || '';
+                document.getElementById('wifi_password').value = c.wifi_password || '';
                 document.getElementById('data_source').value = c.data_source || 0;
                 document.getElementById('server_url').value = c.server_url || '';
-                document.getElementById('auth_token').placeholder = c.auth_token ? 'Token set (leave blank to keep)' : 'No token set';
+                document.getElementById('auth_token').value = c.auth_token || '';
                 document.getElementById('dexcom_username').value = c.dexcom_username || '';
-                document.getElementById('dexcom_password').placeholder = c.dexcom_password ? 'Set (leave blank to keep)' : 'Not set';
+                document.getElementById('dexcom_password').value = c.dexcom_password || '';
                 document.getElementById('dexcom_us').value = c.dexcom_us ? '1' : '0';
                 document.getElementById('poll_interval').value = c.poll_interval;
                 document.getElementById('stale_timeout').value = c.stale_timeout_min || 20;
@@ -677,6 +823,20 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                     if (inp && hex) hex.textContent = inp.value;
                 });
 
+                // Clock & weather colors (sync across tabs)
+                if (c.color_clock) {
+                    document.getElementById('color_clock').value = c.color_clock;
+                    document.getElementById('color_clock_time').value = c.color_clock;
+                    document.getElementById('hex_clock').textContent = c.color_clock;
+                    document.getElementById('hex_clock_time').textContent = c.color_clock;
+                }
+                if (c.color_weather) {
+                    document.getElementById('color_weather').value = c.color_weather;
+                    document.getElementById('color_weather_wx').value = c.color_weather;
+                    document.getElementById('hex_weather').textContent = c.color_weather;
+                    document.getElementById('hex_weather_wx').textContent = c.color_weather;
+                }
+
                 // Time
                 const tzSel = document.getElementById('timezone');
                 const tz = c.timezone || '';
@@ -704,7 +864,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
                 // Weather
                 document.getElementById('weather_enabled').checked = c.weather_enabled || false;
-                document.getElementById('weather_api_key').placeholder = c.weather_api_key ? 'Key set (leave blank to keep)' : 'No key set';
+                document.getElementById('weather_api_key').value = c.weather_api_key || '';
                 document.getElementById('weather_city').value = c.weather_city || '';
                 document.getElementById('weather_use_f').value = c.weather_use_f ? '1' : '0';
                 document.getElementById('weather_poll_min').value = c.weather_poll_min || 15;
@@ -718,6 +878,9 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 document.getElementById('sysmon_display_mode').value = c.sysmon_display_mode || 0;
                 document.getElementById('sysmon_warn_pct').value = c.sysmon_warn_pct || 50;
                 document.getElementById('sysmon_crit_pct').value = c.sysmon_crit_pct || 80;
+
+                // Apply toggle card collapse state after values are loaded
+                setupToggleCards();
             } catch (e) {
                 showToast('Failed to load config', 'error');
             }
@@ -738,9 +901,12 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
             const data = {
                 wifi_ssid: document.getElementById('wifi_ssid').value,
+                wifi_password: document.getElementById('wifi_password').value,
                 data_source: parseInt(document.getElementById('data_source').value),
                 server_url: document.getElementById('server_url').value,
+                auth_token: document.getElementById('auth_token').value,
                 dexcom_username: document.getElementById('dexcom_username').value,
+                dexcom_password: document.getElementById('dexcom_password').value,
                 dexcom_us: document.getElementById('dexcom_us').value === '1',
                 poll_interval: poll,
                 stale_timeout_min: parseInt(document.getElementById('stale_timeout').value),
@@ -768,6 +934,8 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 color_in_range: document.getElementById('color_in_range').value,
                 color_high: document.getElementById('color_high').value,
                 color_urgent_high: document.getElementById('color_urgent_high').value,
+                color_clock: document.getElementById('color_clock').value,
+                color_weather: document.getElementById('color_weather').value,
                 timezone: tzCustom || document.getElementById('timezone').value,
                 use_24h: document.getElementById('use_24h').checked,
                 date_on_time_screen: document.getElementById('date_on_time_screen').checked,
@@ -783,6 +951,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 countdown_name: document.getElementById('countdown_name').value,
                 countdown_target: cdTarget,
                 weather_enabled: document.getElementById('weather_enabled').checked,
+                weather_api_key: document.getElementById('weather_api_key').value,
                 weather_city: document.getElementById('weather_city').value,
                 weather_use_f: document.getElementById('weather_use_f').value === '1',
                 weather_poll_min: parseInt(document.getElementById('weather_poll_min').value),
@@ -795,14 +964,6 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 sysmon_warn_pct: parseInt(document.getElementById('sysmon_warn_pct').value),
                 sysmon_crit_pct: parseInt(document.getElementById('sysmon_crit_pct').value)
             };
-            const pw = document.getElementById('wifi_password').value;
-            if (pw) data.wifi_password = pw;
-            const token = document.getElementById('auth_token').value;
-            if (token) data.auth_token = token;
-            const dp = document.getElementById('dexcom_password').value;
-            if (dp) data.dexcom_password = dp;
-            const wk = document.getElementById('weather_api_key').value;
-            if (wk) data.weather_api_key = wk;
 
             try {
                 const r = await fetch('/api/config', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
@@ -910,6 +1071,86 @@ curl -X POST http://DEVICE_IP/api/sysmon \
         }
         setInterval(updateCurrentMode, 3000);
         updateCurrentMode();
+
+        // Mock weather animation trigger
+        async function mockWeather(conditionId, desc) {
+            const res = document.getElementById('mock-weather-result');
+            res.textContent = 'Sending...';
+            res.className = 'test-result';
+            try {
+                const r = await fetch('/api/test/weather-mock', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({temp: 42, description: desc, condition_id: conditionId})
+                });
+                const d = await r.json();
+                if (r.ok) {
+                    res.textContent = 'Showing: ' + desc + ' (' + conditionId + ')';
+                    res.className = 'test-result test-success';
+                } else {
+                    res.textContent = d.error || 'Failed';
+                    res.className = 'test-result test-error';
+                }
+            } catch (e) {
+                res.textContent = 'Network error';
+                res.className = 'test-result test-error';
+            }
+            setTimeout(() => { res.textContent = ''; }, 5000);
+        }
+
+        // Material color preset swatches
+        const MATERIAL_PRESETS = [
+            {label:'Cyan',    hex:'#00bcd4'},
+            {label:'Teal',    hex:'#009688'},
+            {label:'Green',   hex:'#4caf50'},
+            {label:'Lime',    hex:'#cddc39'},
+            {label:'Amber',   hex:'#ffc107'},
+            {label:'Orange',  hex:'#ff9800'},
+            {label:'Red',     hex:'#f44336'},
+            {label:'Pink',    hex:'#e91e63'},
+            {label:'Purple',  hex:'#9c27b0'},
+            {label:'Blue',    hex:'#2196f3'},
+            {label:'White',   hex:'#ffffff'},
+            {label:'Yellow',  hex:'#ffeb3b'}
+        ];
+        function attachPresets(colorInputId) {
+            const inp = document.getElementById(colorInputId);
+            if (!inp) return;
+            const wrap = inp.closest('.color-row');
+            if (!wrap) return;
+            let row = wrap.querySelector('.preset-row');
+            if (row) return; // already attached
+            row = document.createElement('div');
+            row.className = 'preset-row';
+            MATERIAL_PRESETS.forEach(p => {
+                const cell = document.createElement('div');
+                cell.className = 'swatch-cell';
+                const sw = document.createElement('button');
+                sw.type = 'button';
+                sw.className = 'color-swatch';
+                sw.style.background = p.hex;
+                sw.title = p.label;
+                sw.addEventListener('click', () => {
+                    inp.value = p.hex;
+                    inp.dispatchEvent(new Event('input', {bubbles:true}));
+                });
+                const lbl = document.createElement('span');
+                lbl.className = 'swatch-label';
+                lbl.textContent = p.label;
+                cell.appendChild(sw);
+                cell.appendChild(lbl);
+                row.appendChild(cell);
+            });
+            wrap.appendChild(row);
+        }
+        // Attach presets to all color pickers
+        ['color_clock','color_weather','color_clock_time','color_weather_wx',
+         'color_urgent_low','color_low','color_in_range','color_high','color_urgent_high'
+        ].forEach(attachPresets);
+
+        // Hash-based tab navigation (for gear links from dashboard)
+        const initHash = window.location.hash.replace('#', '');
+        if (initHash) switchTab(initHash);
 
         loadConfig();
     </script>

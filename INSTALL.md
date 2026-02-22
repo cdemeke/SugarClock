@@ -1,4 +1,4 @@
-# TC001 Glucose Display — Installation Guide
+# SugarClock — Installation Guide
 
 ## Prerequisites
 
@@ -13,7 +13,7 @@
 
 ### CH340 Driver Installation
 
-The TC001 uses a CH340 USB-to-serial chip.
+The Ulanzi TC001 uses a CH340 USB-to-serial chip.
 
 **macOS**: Usually works out of the box on 10.9+. If not detected, install the [CH340 driver](https://sparks.gogo.co.nz/ch340.html).
 
@@ -72,9 +72,9 @@ pio run --target buildfs
 
 ---
 
-## Step 3: Connect the TC001
+## Step 3: Connect the Ulanzi TC001
 
-1. Plug the USB-C cable into the TC001 and your computer
+1. Plug the USB-C cable into the Ulanzi TC001 and your computer
 2. The device should power on and the serial port should appear
 
 Verify the connection:
@@ -90,7 +90,7 @@ Get-WMIObject Win32_SerialPort | Select-Object DeviceID, Description
 
 If the upload fails with a connection error:
 1. Unplug the USB cable
-2. Hold the **middle button** on the TC001
+2. Hold the **middle button** on the Ulanzi TC001
 3. Plug in the USB cable while holding the button
 4. Release after 1-2 seconds
 5. Retry the upload
@@ -143,7 +143,7 @@ pio device monitor
 You should see:
 ```
 ================================
-TC001 Glucose Display v1.0.0
+SugarClock v1.0.0
 Reset reason: 1
 ================================
 [CONFIG] No valid config found, writing defaults
@@ -152,7 +152,7 @@ Reset reason: 1
 [BOOT] Free heap: XXXXX bytes
 ```
 
-The LED matrix should briefly show `TC001` in teal, then transition to `SETUP` (indicating no WiFi/server is configured yet).
+The LED matrix should briefly show `SUGAR` in teal, then transition to `SETUP` (indicating no WiFi/server is configured yet).
 
 ---
 

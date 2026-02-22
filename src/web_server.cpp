@@ -119,12 +119,12 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     JsonDocument doc;
 
     doc["wifi_ssid"] = cfg.wifi_ssid;
-    doc["wifi_password"] = ""; // never send password back
+    doc["wifi_password"] = cfg.wifi_password;
     doc["data_source"] = cfg.data_source;
     doc["server_url"] = cfg.server_url;
-    doc["auth_token"] = strlen(cfg.auth_token) > 0 ? "****" : "";
+    doc["auth_token"] = cfg.auth_token;
     doc["dexcom_username"] = cfg.dexcom_username;
-    doc["dexcom_password"] = strlen(cfg.dexcom_password) > 0 ? "****" : "";
+    doc["dexcom_password"] = cfg.dexcom_password;
     doc["dexcom_us"] = cfg.dexcom_us;
     doc["poll_interval"] = cfg.poll_interval_sec;
     doc["brightness"] = cfg.brightness;
@@ -152,6 +152,10 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     doc["color_high"] = color_to_hex(cfg.color_high);
     doc["color_urgent_high"] = color_to_hex(cfg.color_urgent_high);
 
+    // Clock & weather colors
+    doc["color_clock"] = color_to_hex(cfg.color_clock);
+    doc["color_weather"] = color_to_hex(cfg.color_weather);
+
     // Night mode
     doc["night_mode_enabled"] = cfg.night_mode_enabled;
     doc["night_start_hour"] = cfg.night_start_hour;
@@ -163,7 +167,7 @@ static void handle_get_config(AsyncWebServerRequest* request) {
 
     // Weather
     doc["weather_enabled"] = cfg.weather_enabled;
-    doc["weather_api_key"] = strlen(cfg.weather_api_key) > 0 ? "****" : "";
+    doc["weather_api_key"] = cfg.weather_api_key;
     doc["weather_city"] = cfg.weather_city;
     doc["weather_use_f"] = cfg.weather_use_f;
     doc["weather_poll_min"] = cfg.weather_poll_min;
@@ -209,12 +213,20 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     request->send(200, "application/json", output);
 }
 
-// POST /api/config (JSON body)
+// POST /api/config (JSON body) — accumulate chunks before parsing
+static char config_body[4096];
+
 static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
-    if (index != 0) return; // only process first chunk
+    if (total > sizeof(config_body) - 1) {
+        request->send(413, "application/json", "{\"error\":\"Body too large\"}");
+        return;
+    }
+    memcpy(config_body + index, data, len);
+    if (index + len < total) return; // wait for all chunks
+    config_body[total] = '\0';
 
     JsonDocument doc;
-    DeserializationError err = deserializeJson(doc, data, len);
+    DeserializationError err = deserializeJson(doc, config_body, total);
     if (err) {
         request->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
         return;
@@ -226,10 +238,7 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
         strncpy(cfg.wifi_ssid, doc["wifi_ssid"] | "", sizeof(cfg.wifi_ssid) - 1);
     }
     if (doc["wifi_password"].is<const char*>()) {
-        const char* pw = doc["wifi_password"] | "";
-        if (strlen(pw) > 0) {
-            strncpy(cfg.wifi_password, pw, sizeof(cfg.wifi_password) - 1);
-        }
+        strncpy(cfg.wifi_password, doc["wifi_password"] | "", sizeof(cfg.wifi_password) - 1);
     }
     if (doc["data_source"].is<int>()) {
         cfg.data_source = doc["data_source"].as<int>();
@@ -238,19 +247,13 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
         strncpy(cfg.server_url, doc["server_url"] | "", sizeof(cfg.server_url) - 1);
     }
     if (doc["auth_token"].is<const char*>()) {
-        const char* token = doc["auth_token"] | "";
-        if (strcmp(token, "****") != 0 && strlen(token) > 0) {
-            strncpy(cfg.auth_token, token, sizeof(cfg.auth_token) - 1);
-        }
+        strncpy(cfg.auth_token, doc["auth_token"] | "", sizeof(cfg.auth_token) - 1);
     }
     if (doc["dexcom_username"].is<const char*>()) {
         strncpy(cfg.dexcom_username, doc["dexcom_username"] | "", sizeof(cfg.dexcom_username) - 1);
     }
     if (doc["dexcom_password"].is<const char*>()) {
-        const char* dp = doc["dexcom_password"] | "";
-        if (strcmp(dp, "****") != 0 && strlen(dp) > 0) {
-            strncpy(cfg.dexcom_password, dp, sizeof(cfg.dexcom_password) - 1);
-        }
+        strncpy(cfg.dexcom_password, doc["dexcom_password"] | "", sizeof(cfg.dexcom_password) - 1);
     }
     if (doc["dexcom_us"].is<bool>()) {
         cfg.dexcom_us = doc["dexcom_us"].as<bool>();
@@ -323,6 +326,14 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
         cfg.color_urgent_high = hex_to_color(doc["color_urgent_high"] | "#ea4335");
     }
 
+    // Clock & weather colors
+    if (doc["color_clock"].is<const char*>()) {
+        cfg.color_clock = hex_to_color(doc["color_clock"] | "#00ffff");
+    }
+    if (doc["color_weather"].is<const char*>()) {
+        cfg.color_weather = hex_to_color(doc["color_weather"] | "#00ffff");
+    }
+
     // Night mode
     if (doc["night_mode_enabled"].is<bool>()) {
         cfg.night_mode_enabled = doc["night_mode_enabled"].as<bool>();
@@ -347,11 +358,8 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
         cfg.weather_enabled = doc["weather_enabled"].as<bool>();
     }
     if (doc["weather_api_key"].is<const char*>()) {
-        const char* wk = doc["weather_api_key"] | "";
-        if (strcmp(wk, "****") != 0 && strlen(wk) > 0) {
-            strncpy(cfg.weather_api_key, wk, sizeof(cfg.weather_api_key) - 1);
-            cfg.weather_api_key[sizeof(cfg.weather_api_key) - 1] = '\0';
-        }
+        strncpy(cfg.weather_api_key, doc["weather_api_key"] | "", sizeof(cfg.weather_api_key) - 1);
+        cfg.weather_api_key[sizeof(cfg.weather_api_key) - 1] = '\0';
     }
     if (doc["weather_city"].is<const char*>()) {
         strncpy(cfg.weather_city, doc["weather_city"] | "", sizeof(cfg.weather_city) - 1);
@@ -619,6 +627,40 @@ static void handle_test_weather(AsyncWebServerRequest* request) {
     request->send(ok ? 200 : 502, "application/json", output);
 }
 
+// POST /api/test/weather-mock
+static void handle_test_weather_mock(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
+    if (index != 0) return;
+
+    JsonDocument doc;
+    DeserializationError err = deserializeJson(doc, data, len);
+    if (err) {
+        request->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
+        return;
+    }
+
+    float temp = doc["temp"] | 32.0f;
+    const char* desc = doc["description"] | "Mock";
+    int cid = doc["condition_id"] | 800;
+
+    weather_set_mock(temp, desc, cid);
+
+    // Force weather enabled + switch to weather display
+    AppConfig& cfg = config_get();
+    cfg.weather_enabled = true;
+    engine_rebuild_toggle_order();
+    engine_force_state(STATE_WEATHER_DISPLAY);
+
+    JsonDocument resp;
+    resp["status"] = "ok";
+    resp["condition_id"] = cid;
+    resp["description"] = desc;
+    resp["temp"] = temp;
+
+    String output;
+    serializeJson(resp, output);
+    request->send(200, "application/json", output);
+}
+
 // POST /api/test/glucose
 static void handle_test_glucose(AsyncWebServerRequest* request) {
     AppConfig& cfg = config_get();
@@ -722,6 +764,13 @@ void webserver_init() {
     server.on("/api/factory-reset", HTTP_POST, [](AsyncWebServerRequest* r) { handle_factory_reset(r); });
     server.on("/api/test/weather", HTTP_POST, [](AsyncWebServerRequest* r) { handle_test_weather(r); });
     server.on("/api/test/glucose", HTTP_POST, [](AsyncWebServerRequest* r) { handle_test_glucose(r); });
+
+    // POST /api/test/weather-mock with body
+    server.on("/api/test/weather-mock", HTTP_POST,
+        [](AsyncWebServerRequest* request) {},
+        NULL,
+        handle_test_weather_mock
+    );
     server.on("/api/display/next", HTTP_POST, [](AsyncWebServerRequest* r) { handle_display_next(r); });
     server.on("/api/display/prev", HTTP_POST, [](AsyncWebServerRequest* r) { handle_display_prev(r); });
 

@@ -41,7 +41,7 @@ void setup() {
     esp_reset_reason_t reason = esp_reset_reason();
     Serial.println();
     Serial.println("================================");
-    Serial.printf("TC001 Glucose Display v%s\n", FIRMWARE_VERSION);
+    Serial.printf("SugarClock v%s\n", FIRMWARE_VERSION);
     Serial.printf("Reset reason: %d\n", reason);
     if (reason == ESP_RST_TASK_WDT || reason == ESP_RST_WDT) {
         Serial.println("WARNING: Previous watchdog reset!");
@@ -54,7 +54,7 @@ void setup() {
     // 4. Initialize display + show boot screen
     display_init();
     display_clear();
-    display_draw_text("TC001", 1, 0, display_color(0, 200, 200));
+    display_draw_text("SUGAR", 1, 0, display_color(0, 200, 200));
     display_show();
 
     // 5. Init buttons

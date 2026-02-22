@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Step 2: USB device detection.
 ///
-/// Scans for TC001 connected via USB serial and lets the user select
+/// Scans for SugarClock (Ulanzi TC001) connected via USB serial and lets the user select
 /// the correct port if multiple are found.
 struct ConnectView: View {
 
@@ -13,10 +13,10 @@ struct ConnectView: View {
         VStack(alignment: .leading, spacing: 20) {
             // Header
             VStack(alignment: .leading, spacing: 8) {
-                Text("Connect Your TC001")
+                Text("Connect Your Device")
                     .font(.largeTitle.bold())
 
-                Text("Plug the TC001 into your Mac using a USB-C cable. The device should appear below automatically.")
+                Text("Plug the Ulanzi TC001 into your Mac using a USB-C cable. The device should appear below automatically.")
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

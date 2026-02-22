@@ -36,6 +36,12 @@ void display_draw_time(int hour, int minute, bool show_colon, bool use_24h, uint
 // value/max determines fill width across 32 pixels
 void display_draw_bar(int value, int max_val, uint16_t color);
 
+// Draw a single pixel at (x, y) with a 16-bit color
+void display_draw_pixel(int x, int y, uint16_t color);
+
+// Flash the entire matrix with a solid color (non-blocking, caller manages timing)
+void display_flash(uint8_t r, uint8_t g, uint8_t b);
+
 // Fill entire matrix with a single color (for testing)
 void display_fill(uint8_t r, uint8_t g, uint8_t b);
 

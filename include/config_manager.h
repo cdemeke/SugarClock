@@ -55,6 +55,10 @@ struct AppConfig {
     uint32_t color_high;         // default 0xFBBC04 (orange/yellow)
     uint32_t color_urgent_high;  // default 0xEA4335 (red)
 
+    // Clock & weather display colors
+    uint32_t color_clock;        // default 0x00FFFF (cyan)
+    uint32_t color_weather;      // default 0x00FFFF (cyan)
+
     // Night mode
     bool night_mode_enabled;   // default false
     int night_start_hour;      // default 22 (10 PM)

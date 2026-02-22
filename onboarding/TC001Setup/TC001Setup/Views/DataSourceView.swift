@@ -15,7 +15,7 @@ struct DataSourceView: View {
                 Text("Glucose Data Source")
                     .font(.largeTitle.bold())
 
-                Text("Choose where the TC001 should fetch glucose readings from.")
+                Text("Choose where SugarClock should fetch glucose readings from.")
                     .font(.body)
                     .foregroundStyle(.secondary)
             }
@@ -153,7 +153,7 @@ struct DataSourceView: View {
                 TextField("https://api.example.com/glucose", text: $state.customURL)
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
-                Text("The TC001 will make GET requests to this URL at regular intervals.")
+                Text("SugarClock will make GET requests to this URL at regular intervals.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }

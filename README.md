@@ -1,4 +1,4 @@
-# BG_TC001 — Glucose Monitor & Desk Companion for Ulanzi TC001
+# SugarClock — A DIY CGM Display for Ulanzi TC001
 
 Custom firmware that turns the [Ulanzi TC001 Smart Pixel Clock](https://www.amazon.com/ULANZI-TC001-Smart-Pixel-Clock/dp/B0CXX91TY5) (~$40-50) into a real-time continuous glucose monitor (CGM) display and desk companion. Connects to Dexcom Share or a custom server to show your blood glucose, trend arrows, and alerts on an 8x32 RGB LED matrix — plus a pomodoro timer, stopwatch, push notifications, system monitor, countdown, and more. Full web UI for configuration.
 
@@ -98,8 +98,8 @@ Custom firmware that turns the [Ulanzi TC001 Smart Pixel Clock](https://www.amaz
 
 ```bash
 # Clone the repo
-git clone https://github.com/cdemeke/BG_TC001.git
-cd BG_TC001
+git clone https://github.com/cdemeke/SugarClock.git
+cd SugarClock
 
 # Build firmware
 pio run
@@ -107,7 +107,7 @@ pio run
 # Build web UI filesystem
 pio run --target buildfs
 
-# Flash firmware (connect TC001 via USB-C)
+# Flash firmware (connect Ulanzi TC001 via USB-C)
 pio run --target upload
 
 # Flash web UI
@@ -248,7 +248,7 @@ Returns current timer state, remaining seconds, stopwatch elapsed time, and sess
 ## Project Structure
 
 ```
-BG_TC001/
+SugarClock/
 ├── platformio.ini           # Build configuration & dependencies
 ├── partitions_custom.csv    # ESP32 flash partition layout
 ├── include/                 # Header files

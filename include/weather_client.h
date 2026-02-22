@@ -5,6 +5,7 @@ struct WeatherReading {
     float temp;
     char description[32];
     int humidity;
+    int condition_id;
     unsigned long received_at_ms;
     bool valid;
 };
@@ -29,5 +30,8 @@ int weather_get_last_http_code();
 
 // Get the last error/response body from weather fetch (for debugging)
 const char* weather_get_last_response();
+
+// Inject mock weather data for testing animations (condition_id: 200=thunder, 300=drizzle, 500=rain, 600=snow)
+void weather_set_mock(float temp, const char* desc, int condition_id);
 
 #endif // WEATHER_CLIENT_H

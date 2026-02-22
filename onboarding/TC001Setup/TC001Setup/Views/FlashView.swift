@@ -21,7 +21,7 @@ struct FlashView: View {
                 Text("Build & Flash")
                     .font(.largeTitle.bold())
 
-                Text("The firmware will now be configured, built, and flashed to your TC001.")
+                Text("The firmware will now be configured, built, and flashed to your device.")
                     .font(.body)
                     .foregroundStyle(.secondary)
             }
@@ -294,7 +294,7 @@ struct FlashView: View {
             state.flashStage = .complete
             state.flashProgress = 1.0
             state.isFlashing = false
-            appendLog(">>> All done! Your TC001 is ready.\n")
+            appendLog(">>> All done! Your SugarClock is ready.\n")
         }
     }
 

@@ -21,7 +21,7 @@ struct PreferencesView: View {
                 Text("Preferences")
                     .font(.largeTitle.bold())
 
-                Text("Configure how your TC001 displays glucose information.")
+                Text("Configure how your SugarClock displays glucose information.")
                     .font(.body)
                     .foregroundStyle(.secondary)
             }
@@ -142,7 +142,7 @@ struct PreferencesView: View {
                         .frame(maxWidth: 400)
                         .labelsHidden()
 
-                        Text("Rotate the display if you mount the TC001 in a different orientation.")
+                        Text("Rotate the display if you mount the device in a different orientation.")
                             .font(.caption)
                             .foregroundStyle(.tertiary)
                     }

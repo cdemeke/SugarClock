@@ -16,7 +16,7 @@ struct WiFiView: View {
                 Text("WiFi Network")
                     .font(.largeTitle.bold())
 
-                Text("Enter the WiFi credentials the TC001 should connect to. This is the network where the device will fetch glucose data.")
+                Text("Enter the WiFi credentials SugarClock should connect to. This is the network where the device will fetch glucose data.")
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -83,9 +83,9 @@ struct WiFiView: View {
                     Label("Important Notes", systemImage: "exclamationmark.triangle")
                         .font(.subheadline.bold())
 
-                    Text("The TC001 supports 2.4 GHz WiFi networks only. 5 GHz networks will not work.")
+                    Text("SugarClock supports 2.4 GHz WiFi networks only. 5 GHz networks will not work.")
                         .font(.caption)
-                    Text("Make sure the WiFi network is available where the TC001 will be placed.")
+                    Text("Make sure the WiFi network is available where the device will be placed.")
                         .font(.caption)
                     Text("The password is stored in plaintext on the device.")
                         .font(.caption)

@@ -122,6 +122,8 @@ static bool weather_do_fetch() {
         strncpy(current_weather.description, desc, sizeof(current_weather.description) - 1);
         current_weather.description[sizeof(current_weather.description) - 1] = '\0';
 
+        current_weather.condition_id = doc["weather"][0]["id"] | 0;
+
         current_weather.received_at_ms = millis();
         current_weather.valid = true;
         ever_received = true;
@@ -202,4 +204,16 @@ const WeatherReading& weather_get_reading() {
 
 bool weather_has_data() {
     return ever_received && current_weather.valid;
+}
+
+void weather_set_mock(float temp, const char* desc, int condition_id) {
+    current_weather.temp = temp;
+    strncpy(current_weather.description, desc, sizeof(current_weather.description) - 1);
+    current_weather.description[sizeof(current_weather.description) - 1] = '\0';
+    current_weather.condition_id = condition_id;
+    current_weather.humidity = 50;
+    current_weather.received_at_ms = millis();
+    current_weather.valid = true;
+    ever_received = true;
+    Serial.printf("[WEATHER] Mock set: %.0f° %s (id=%d)\n", temp, desc, condition_id);
 }

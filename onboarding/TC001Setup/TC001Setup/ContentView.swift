@@ -37,7 +37,7 @@ struct ContentView: View {
 
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("TC001 Setup")
+            Text("SugarClock Setup")
                 .font(.headline)
                 .padding(.horizontal, 20)
                 .padding(.top, 24)
