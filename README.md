@@ -1,4 +1,4 @@
-# BG_TC001 — Glucose Monitor for Ulanzi TC001
+# SugarClock — Affordable Glucose Monitor Display
 
 Custom firmware that turns the [Ulanzi TC001 Smart Pixel Clock](https://www.amazon.com/ULANZI-TC001-Smart-Pixel-Clock/dp/B0CXX91TY5) (~$40–50) into a real-time continuous glucose monitor (CGM) display. Connects to Dexcom Share or a custom server to show your blood glucose, trend arrows, and alerts on an 8x32 RGB LED matrix — with a full web UI for configuration.
 

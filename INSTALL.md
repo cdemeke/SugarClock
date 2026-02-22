@@ -1,4 +1,4 @@
-# TC001 Glucose Display — Installation Guide
+# SugarClock — Installation Guide
 
 ## Prerequisites
 
@@ -143,7 +143,7 @@ pio device monitor
 You should see:
 ```
 ================================
-TC001 Glucose Display v1.0.0
+SugarClock v1.0.0
 Reset reason: 1
 ================================
 [CONFIG] No valid config found, writing defaults
@@ -152,7 +152,7 @@ Reset reason: 1
 [BOOT] Free heap: XXXXX bytes
 ```
 
-The LED matrix should briefly show `TC001` in teal, then transition to `SETUP` (indicating no WiFi/server is configured yet).
+The LED matrix should briefly show `SUGAR` in teal, then transition to `SETUP` (indicating no WiFi/server is configured yet).
 
 ---
 
