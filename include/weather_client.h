@@ -21,4 +21,13 @@ const WeatherReading& weather_get_reading();
 // Check if weather data has been received
 bool weather_has_data();
 
+// Force an immediate weather fetch (for testing), returns true on success
+bool weather_force_fetch();
+
+// Get the last HTTP status code from weather fetch
+int weather_get_last_http_code();
+
+// Get the last error/response body from weather fetch (for debugging)
+const char* weather_get_last_response();
+
 #endif // WEATHER_CLIENT_H

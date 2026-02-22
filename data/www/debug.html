@@ -79,6 +79,29 @@
         </div>
 
         <div class="card card-compact">
+            <h2>Button Test</h2>
+            <p style="font-size:13px;color:var(--text-secondary);margin:-8px 0 16px;">
+                Press each physical button. Value shows 0 when pressed, 1 when released.
+                Auto-refreshes every 500ms.
+            </p>
+            <div style="display:flex;gap:20px;justify-content:center;padding:12px 0;">
+                <div style="text-align:center;">
+                    <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-dim);margin-bottom:6px;">Left (GPIO 26)</div>
+                    <div id="btn-left" style="font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;">--</div>
+                </div>
+                <div style="text-align:center;">
+                    <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-dim);margin-bottom:6px;">Middle (GPIO 27)</div>
+                    <div id="btn-middle" style="font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;">--</div>
+                </div>
+                <div style="text-align:center;">
+                    <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-dim);margin-bottom:6px;">Right (GPIO 14)</div>
+                    <div id="btn-right" style="font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;">--</div>
+                </div>
+            </div>
+            <div class="status-row"><span class="status-label">User Mode</span><span class="status-value"><span class="badge badge-blue" id="user-mode">--</span></span></div>
+        </div>
+
+        <div class="card card-compact">
             <h2>Last HTTP Response</h2>
             <pre id="http-body">--</pre>
         </div>
@@ -105,7 +128,26 @@
             document.getElementById('http-body').textContent=d.last_http_body||'--';
             }catch(e){}
         }
-        refresh();setInterval(refresh,3000);
+        // Button state helper - color red when pressed (0), green when released (1)
+        function updateBtn(id, val) {
+            const el = document.getElementById(id);
+            el.textContent = val;
+            el.style.color = val === 0 ? 'var(--red)' : 'var(--green)';
+        }
+
+        async function refreshButtons() {
+            try {
+                const r = await fetch('/api/debug');
+                const d = await r.json();
+                updateBtn('btn-left', d.btn_left_raw);
+                updateBtn('btn-middle', d.btn_middle_raw);
+                updateBtn('btn-right', d.btn_right_raw);
+                document.getElementById('user-mode').textContent = d.user_mode || '--';
+            } catch(e) {}
+        }
+
+        refresh(); setInterval(refresh, 3000);
+        refreshButtons(); setInterval(refreshButtons, 500);
     </script>
 </body>
 </html>

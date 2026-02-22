@@ -7,6 +7,11 @@
 #include "time_engine.h"
 #include "trend_arrows.h"
 #include "weather_client.h"
+#include "buzzer.h"
+#include "timer_engine.h"
+#include "notify_engine.h"
+#include "sysmon_engine.h"
+#include "countdown_engine.h"
 #include <Arduino.h>
 
 #define STALE_WARNING_MS   (10UL * 60 * 1000)   // 10 minutes
@@ -28,16 +33,41 @@ static unsigned long delta_flash_start_ms = 0;
 static bool delta_flash_active = false;
 #define DELTA_FLASH_DURATION_MS 3000
 
-// Buzzer alert state
+// Buzzer alert state (now using shared buzzer module)
 static unsigned long alert_snooze_until_ms = 0;
 static unsigned long last_beep_ms = 0;
-static bool buzzer_initialized = false;
 #define BEEP_INTERVAL_MS 10000  // beep every 10 seconds when alerting
-#define BUZZER_LEDC_CHANNEL 0
-#define BUZZER_FREQ 2000
-#define BUZZER_RESOLUTION 8
 
 #define RENDER_INTERVAL_MS 100  // ~10 FPS
+
+// Data-driven toggle order
+static DisplayState toggle_order[12];
+static int toggle_count = 0;
+static int toggle_index = 0;
+
+// Auto-cycle timer
+static unsigned long last_cycle_ms = 0;
+
+void engine_rebuild_toggle_order() {
+    AppConfig& cfg = config_get();
+    toggle_count = 0;
+    toggle_order[toggle_count++] = STATE_GLUCOSE_DISPLAY;
+    toggle_order[toggle_count++] = STATE_TIME_DISPLAY;
+    if (cfg.weather_enabled) toggle_order[toggle_count++] = STATE_WEATHER_DISPLAY;
+    if (cfg.timer_enabled) toggle_order[toggle_count++] = STATE_TIMER_DISPLAY;
+    if (cfg.stopwatch_enabled) toggle_order[toggle_count++] = STATE_STOPWATCH_DISPLAY;
+    if (cfg.sysmon_enabled && sysmon_has_data()) toggle_order[toggle_count++] = STATE_SYSMON_DISPLAY;
+    if (cfg.countdown_enabled) toggle_order[toggle_count++] = STATE_COUNTDOWN_DISPLAY;
+
+    // Reset toggle_index to match current user_mode
+    for (int i = 0; i < toggle_count; i++) {
+        if (toggle_order[i] == user_mode) {
+            toggle_index = i;
+            return;
+        }
+    }
+    toggle_index = 0;
+}
 
 // Get color for glucose value using custom theme colors from config
 static uint16_t themed_glucose_color(int mg_dl, const AppConfig& cfg) {
@@ -109,19 +139,10 @@ static void check_alerts() {
     bool should_alert = (reading.glucose < cfg.alert_low || reading.glucose > cfg.alert_high);
     if (!should_alert) return;
 
-    // Beep periodically (non-blocking using LEDC PWM)
+    // Beep periodically using shared buzzer module
     if (millis() - last_beep_ms >= BEEP_INTERVAL_MS) {
         last_beep_ms = millis();
-        if (!buzzer_initialized) {
-            ledcSetup(BUZZER_LEDC_CHANNEL, BUZZER_FREQ, BUZZER_RESOLUTION);
-            ledcAttachPin(PIN_BUZZER, BUZZER_LEDC_CHANNEL);
-            buzzer_initialized = true;
-        }
-        ledcWrite(BUZZER_LEDC_CHANNEL, 128);  // 50% duty = beep
-    }
-    // Turn off beep after 200ms
-    if (last_beep_ms > 0 && (millis() - last_beep_ms >= 200) && (millis() - last_beep_ms < 300)) {
-        ledcWrite(BUZZER_LEDC_CHANNEL, 0);
+        buzzer_beep(1, 2000, 200);
     }
 }
 
@@ -146,9 +167,7 @@ void engine_init() {
     }
     user_mode = default_mode;
 
-    // Ensure buzzer pin is configured
-    pinMode(PIN_BUZZER, OUTPUT);
-    digitalWrite(PIN_BUZZER, LOW);
+    engine_rebuild_toggle_order();
 
     // Show boot screen
     display_clear();
@@ -173,6 +192,11 @@ static DisplayState evaluate_state() {
     // No config
     if (!config_has_server() && !config_has_wifi()) {
         return STATE_NO_CFG;
+    }
+
+    // Active notification takes priority
+    if (cfg.notify_enabled && notify_has_active()) {
+        return STATE_NOTIFY_DISPLAY;
     }
 
     // Check for NO DATA conditions
@@ -307,10 +331,35 @@ static void render_state(DisplayState state) {
             int h = time_get_hour();
             int m = time_get_minute();
             int s = time_get_second();
-            bool show_colon = (s % 2 == 0);
 
-            display_draw_time(h, m, show_colon, cfg.use_24h, display_color(0, 255, 255));
-            display_show();
+            // Alternate between time and date every 5 seconds
+            bool show_date = cfg.date_on_time_screen && ((millis() / 5000) % 2 == 1);
+
+            if (show_date) {
+                display_clear();
+                char dbuf[8];
+                int day = time_get_day();
+                int month = time_get_month();
+                if (cfg.date_format == 1) {
+                    // MMMDD format
+                    const char* abbr = time_get_month_abbr();
+                    snprintf(dbuf, sizeof(dbuf), "%s%d", abbr, day);
+                } else if (cfg.date_format == 2) {
+                    // DD/MM format
+                    snprintf(dbuf, sizeof(dbuf), "%d/%d", day, month);
+                } else {
+                    // M/DD format (default)
+                    snprintf(dbuf, sizeof(dbuf), "%d/%d", month, day);
+                }
+                int len = strlen(dbuf);
+                int tx = (MATRIX_WIDTH - len * 6) / 2;
+                display_draw_text(dbuf, tx, 0, display_color(0, 255, 255));
+                display_show();
+            } else {
+                bool show_colon = (s % 2 == 0);
+                display_draw_time(h, m, show_colon, cfg.use_24h, display_color(0, 255, 255));
+                display_show();
+            }
             break;
         }
 
@@ -329,6 +378,160 @@ static void render_state(DisplayState state) {
                 int tlen = strlen(tbuf);
                 int tx = (MATRIX_WIDTH - tlen * 6) / 2;
                 display_draw_text(tbuf, tx, 0, display_color(0, 255, 255));
+            }
+
+            display_show();
+            break;
+        }
+
+        case STATE_TIMER_DISPLAY: {
+            display_set_brightness(effective_brightness());
+            display_clear();
+
+            TimerState ts = timer_get_state();
+            int remaining = timer_get_remaining_sec();
+            int mm = remaining / 60;
+            int ss = remaining % 60;
+
+            if (ts == TIMER_DONE) {
+                display_draw_text("DONE!", 1, 0, display_color(0, 255, 0));
+            } else if (ts == TIMER_BREAK || ts == TIMER_LONG_BREAK) {
+                char tbuf[8];
+                snprintf(tbuf, sizeof(tbuf), "B%d:%02d", mm, ss);
+                int len = strlen(tbuf);
+                int tx = (MATRIX_WIDTH - len * 6) / 2;
+                display_draw_text(tbuf, tx, 0, display_color(0, 200, 200));
+            } else {
+                // IDLE, RUNNING, or PAUSED
+                char tbuf[8];
+                snprintf(tbuf, sizeof(tbuf), "%d:%02d", mm, ss);
+                int len = strlen(tbuf);
+                int tx = (MATRIX_WIDTH - len * 6) / 2;
+
+                // Blink when paused
+                if (ts == TIMER_PAUSED && (millis() / 500) % 2 == 0) {
+                    // Don't draw (blink off)
+                } else {
+                    display_draw_text(tbuf, tx, 0, display_color(255, 165, 0));
+                }
+            }
+
+            display_show();
+            break;
+        }
+
+        case STATE_STOPWATCH_DISPLAY: {
+            display_set_brightness(effective_brightness());
+            display_clear();
+
+            int elapsed = stopwatch_get_elapsed_sec();
+            int mm = elapsed / 60;
+            int ss = elapsed % 60;
+            char tbuf[8];
+            snprintf(tbuf, sizeof(tbuf), "%02d:%02d", mm > 99 ? 99 : mm, ss);
+            int len = strlen(tbuf);
+            int tx = (MATRIX_WIDTH - len * 6) / 2;
+
+            StopwatchState sws = stopwatch_get_state();
+            if (sws == SW_PAUSED && (millis() / 500) % 2 == 0) {
+                // Blink off
+            } else {
+                display_draw_text(tbuf, tx, 0, display_color(0, 255, 0));
+            }
+
+            display_show();
+            break;
+        }
+
+        case STATE_SYSMON_DISPLAY: {
+            display_set_brightness(effective_brightness());
+            display_clear();
+
+            if (!sysmon_has_data()) {
+                display_draw_text("SYS..", 1, 0, display_color(100, 100, 100));
+            } else {
+                int value = sysmon_get_value();
+                int max_val = sysmon_get_max();
+                const char* label = sysmon_get_label();
+                int pct = (max_val > 0) ? (value * 100 / max_val) : 0;
+
+                // Color based on thresholds
+                uint16_t color;
+                if (pct >= cfg.sysmon_crit_pct) {
+                    color = display_color(255, 0, 0);      // Red
+                } else if (pct >= cfg.sysmon_warn_pct) {
+                    color = display_color(255, 255, 0);    // Yellow
+                } else {
+                    color = display_color(0, 255, 0);      // Green
+                }
+
+                if (cfg.sysmon_display_mode == 1) {
+                    // Bar mode
+                    display_draw_bar(value, max_val, color);
+                    // Label on top
+                    display_draw_text(label, 1, 0, color);
+                } else {
+                    // Text mode: LABEL + value
+                    char tbuf[10];
+                    snprintf(tbuf, sizeof(tbuf), "%s%d", label, value);
+                    int len = strlen(tbuf);
+                    int tx = (MATRIX_WIDTH - len * 6) / 2;
+                    display_draw_text(tbuf, tx, 0, color);
+                }
+            }
+
+            display_show();
+            break;
+        }
+
+        case STATE_COUNTDOWN_DISPLAY: {
+            display_set_brightness(effective_brightness());
+            display_clear();
+
+            long secs = countdown_get_remaining_sec();
+
+            if (secs <= 0) {
+                display_draw_text("NOW!", 4, 0, display_color(0, 255, 0));
+            } else if (secs < 86400) {
+                // Less than 24 hours: show H:MM
+                int hours = secs / 3600;
+                int mins = (secs % 3600) / 60;
+                char tbuf[8];
+                snprintf(tbuf, sizeof(tbuf), "%d:%02d", hours, mins);
+                int len = strlen(tbuf);
+                int tx = (MATRIX_WIDTH - len * 6) / 2;
+                display_draw_text(tbuf, tx, 0, display_color(255, 165, 0));
+            } else {
+                // Days
+                int days = secs / 86400;
+                char tbuf[8];
+                snprintf(tbuf, sizeof(tbuf), "%d D", days);
+                int len = strlen(tbuf);
+                int tx = (MATRIX_WIDTH - len * 6) / 2;
+                display_draw_text(tbuf, tx, 0, display_color(0, 255, 255));
+            }
+
+            display_show();
+            break;
+        }
+
+        case STATE_NOTIFY_DISPLAY: {
+            display_set_brightness(effective_brightness());
+            display_clear();
+
+            const char* text = notify_get_text();
+            bool urgent = notify_is_urgent();
+            uint16_t color = urgent ? display_color(255, 0, 0) : display_color(255, 255, 255);
+
+            int len = strlen(text);
+            if (len <= 5) {
+                int x = (MATRIX_WIDTH - len * 6) / 2;
+                display_draw_text(text, x, 0, color);
+            } else {
+                // Scrolling
+                int total_w = len * 6;
+                int offset = (millis() / 100) % (total_w + MATRIX_WIDTH);
+                display_draw_text(text, MATRIX_WIDTH - offset, 0, color);
             }
 
             display_show();
@@ -394,6 +597,26 @@ void engine_loop() {
     if (millis() - last_render_ms < RENDER_INTERVAL_MS) return;
     last_render_ms = millis();
 
+    // Periodically rebuild toggle order (catches sysmon data appearing/disappearing)
+    static unsigned long last_rebuild_ms = 0;
+    if (millis() - last_rebuild_ms > 5000) {
+        last_rebuild_ms = millis();
+        engine_rebuild_toggle_order();
+    }
+
+    // Auto-cycle display modes
+    AppConfig& cfg = config_get();
+    if (cfg.auto_cycle_enabled && toggle_count > 1) {
+        unsigned long cycle_interval_ms = (unsigned long)cfg.auto_cycle_sec * 1000UL;
+        if (last_cycle_ms == 0) last_cycle_ms = millis();
+        if (millis() - last_cycle_ms >= cycle_interval_ms) {
+            last_cycle_ms = millis();
+            toggle_index = (toggle_index + 1) % toggle_count;
+            user_mode = toggle_order[toggle_index];
+            Serial.printf("[ENGINE] Auto-cycle to %s\n", engine_state_name(user_mode));
+        }
+    }
+
     DisplayState new_state = evaluate_state();
     if (new_state != current_state) {
         Serial.printf("[ENGINE] State: %s -> %s\n",
@@ -412,18 +635,27 @@ DisplayState engine_get_state() {
     return current_state;
 }
 
+DisplayState engine_get_user_mode() {
+    return user_mode;
+}
+
 const char* engine_state_name(DisplayState state) {
     switch (state) {
-        case STATE_BOOT:            return "BOOT";
-        case STATE_GLUCOSE_DISPLAY:  return "GLUCOSE";
-        case STATE_TIME_DISPLAY:     return "TIME";
-        case STATE_WEATHER_DISPLAY:  return "WEATHER";
-        case STATE_MESSAGE_DISPLAY:  return "MESSAGE";
-        case STATE_STALE_WARNING:   return "STALE";
-        case STATE_NO_DATA:         return "NO_DATA";
-        case STATE_NO_WIFI:         return "NO_WIFI";
-        case STATE_NO_CFG:          return "NO_CFG";
-        default:                    return "UNKNOWN";
+        case STATE_BOOT:              return "BOOT";
+        case STATE_GLUCOSE_DISPLAY:   return "GLUCOSE";
+        case STATE_TIME_DISPLAY:      return "TIME";
+        case STATE_WEATHER_DISPLAY:   return "WEATHER";
+        case STATE_TIMER_DISPLAY:     return "TIMER";
+        case STATE_STOPWATCH_DISPLAY: return "STOPWATCH";
+        case STATE_SYSMON_DISPLAY:    return "SYSMON";
+        case STATE_COUNTDOWN_DISPLAY: return "COUNTDOWN";
+        case STATE_MESSAGE_DISPLAY:   return "MESSAGE";
+        case STATE_NOTIFY_DISPLAY:    return "NOTIFY";
+        case STATE_STALE_WARNING:     return "STALE";
+        case STATE_NO_DATA:           return "NO_DATA";
+        case STATE_NO_WIFI:           return "NO_WIFI";
+        case STATE_NO_CFG:            return "NO_CFG";
+        default:                      return "UNKNOWN";
     }
 }
 
@@ -447,17 +679,51 @@ void engine_set_default_mode(DisplayState mode) {
 }
 
 void engine_toggle_mode() {
-    AppConfig& cfg = config_get();
-    if (user_mode == STATE_GLUCOSE_DISPLAY) {
-        user_mode = STATE_TIME_DISPLAY;
-    } else if (user_mode == STATE_TIME_DISPLAY) {
-        if (cfg.weather_enabled) {
-            user_mode = STATE_WEATHER_DISPLAY;
-        } else {
-            user_mode = STATE_GLUCOSE_DISPLAY;
-        }
-    } else {
-        user_mode = STATE_GLUCOSE_DISPLAY;
-    }
+    toggle_index = (toggle_index + 1) % toggle_count;
+    user_mode = toggle_order[toggle_index];
+    last_cycle_ms = millis(); // reset auto-cycle timer on manual toggle
     Serial.printf("[ENGINE] Toggled to %s\n", engine_state_name(user_mode));
+}
+
+void engine_toggle_mode_prev() {
+    toggle_index = (toggle_index - 1 + toggle_count) % toggle_count;
+    user_mode = toggle_order[toggle_index];
+    last_cycle_ms = millis(); // reset auto-cycle timer on manual toggle
+    Serial.printf("[ENGINE] Toggled prev to %s\n", engine_state_name(user_mode));
+}
+
+void engine_reset_auto_cycle() {
+    last_cycle_ms = millis();
+}
+
+void engine_right_button_action() {
+    switch (user_mode) {
+        case STATE_TIMER_DISPLAY:
+            timer_toggle_start_pause();
+            break;
+        case STATE_STOPWATCH_DISPLAY:
+            stopwatch_toggle_start_pause();
+            break;
+        default:
+            // Navigate backwards through screens
+            engine_toggle_mode_prev();
+            break;
+    }
+}
+
+void engine_right_long_action() {
+    switch (user_mode) {
+        case STATE_TIMER_DISPLAY:
+            timer_reset();
+            break;
+        case STATE_STOPWATCH_DISPLAY:
+            stopwatch_reset();
+            break;
+        default:
+            // Default: clear overrides
+            engine_clear_force();
+            engine_set_default_mode(STATE_GLUCOSE_DISPLAY);
+            Serial.println("[ENGINE] Overrides cleared");
+            break;
+    }
 }

@@ -447,6 +447,21 @@ int http_get_delta() {
     return current_delta;
 }
 
+bool http_force_fetch() {
+    if (!wifi_is_connected()) return false;
+    if (!config_has_server()) return false;
+
+    AppConfig& cfg = config_get();
+    last_poll_ms = millis(); // reset timer so regular loop doesn't re-fetch
+
+    if (cfg.data_source == 1) {
+        return dexcom_fetch_glucose();
+    } else {
+        generic_fetch();
+        return current_reading.valid;
+    }
+}
+
 int http_get_history(GlucoseHistoryEntry* out, int max_count) {
     if (history_count == 0) return 0;
 

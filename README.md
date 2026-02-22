@@ -1,8 +1,8 @@
-# BG_TC001 — Glucose Monitor for Ulanzi TC001
+# BG_TC001 — Glucose Monitor & Desk Companion for Ulanzi TC001
 
-Custom firmware that turns the [Ulanzi TC001 Smart Pixel Clock](https://www.amazon.com/ULANZI-TC001-Smart-Pixel-Clock/dp/B0CXX91TY5) (~$40–50) into a real-time continuous glucose monitor (CGM) display. Connects to Dexcom Share or a custom server to show your blood glucose, trend arrows, and alerts on an 8x32 RGB LED matrix — with a full web UI for configuration.
+Custom firmware that turns the [Ulanzi TC001 Smart Pixel Clock](https://www.amazon.com/ULANZI-TC001-Smart-Pixel-Clock/dp/B0CXX91TY5) (~$40-50) into a real-time continuous glucose monitor (CGM) display and desk companion. Connects to Dexcom Share or a custom server to show your blood glucose, trend arrows, and alerts on an 8x32 RGB LED matrix — plus a pomodoro timer, stopwatch, push notifications, system monitor, countdown, and more. Full web UI for configuration.
 
-**Cost:** ~$40–50 one-time (the Ulanzi TC001) + ~1 hour of setup time. Compare to the [SugarPixel](https://customtypeone.com/products/sugarpixel) (~$100) which does something similar via a mobile app.
+**Cost:** ~$40-50 one-time (the Ulanzi TC001) + ~1 hour of setup time. Compare to the [SugarPixel](https://customtypeone.com/products/sugarpixel) (~$100) which does something similar via a mobile app.
 
 ![ESP32](https://img.shields.io/badge/ESP32-WROOM--32D-blue)
 ![PlatformIO](https://img.shields.io/badge/PlatformIO-Arduino-orange)
@@ -13,13 +13,19 @@ Custom firmware that turns the [Ulanzi TC001 Smart Pixel Clock](https://www.amaz
 - **Live Glucose Display** — Large color-coded numbers on the LED matrix with trend arrows
 - **Dexcom Share Integration** — Direct connection to Dexcom Share (US & International)
 - **Custom Server Support** — Connect to any JSON API endpoint (Nightscout, etc.)
+- **Date Display** — Alternates between time and date on the time screen (M/DD, MMMDD, or DD/MM)
+- **Pomodoro Timer** — Focus timer with configurable work/break cycles and buzzer alerts
+- **Stopwatch** — Count-up timer with start/pause/reset via right button
+- **Push Notifications** — Display text messages pushed from any device via REST API
+- **System Monitor** — Show CPU/RAM/custom metrics from your computer with color-coded thresholds
+- **Countdown to Event** — Days/hours until a configured target date
 - **Weather Display** — Optional current temperature via OpenWeatherMap
-- **Web Dashboard** — Real-time glucose, trend graph, and full configuration from any browser
+- **Web Dashboard** — Real-time glucose, trend graph, feature status, and full configuration from any browser
 - **Customizable Alerts** — Buzzer alerts for high/low glucose with snooze
 - **Theme Colors** — Full RGB color customization for each glucose range
 - **Night Mode** — Automatic brightness reduction during sleeping hours
 - **Auto-Brightness** — LDR sensor adjusts display to ambient light
-- **Button Controls** — Cycle views, adjust brightness, snooze alerts
+- **Button Controls** — Cycle views, adjust brightness, snooze alerts, start/pause timers
 
 ## Hardware
 
@@ -52,13 +58,22 @@ Custom firmware that turns the [Ulanzi TC001 Smart Pixel Clock](https://www.amaz
 
 | Display | Color | Meaning |
 |---------|-------|---------|
-| Glucose number | Green | In range (80–180 mg/dL) |
-| Glucose number | Orange | Low (70–80) or High (180–250) |
+| Glucose number | Green | In range (80-180 mg/dL) |
+| Glucose number | Orange | Low (70-80) or High (180-250) |
 | Glucose number | Red | Urgent low (<70) or Urgent high (>250) |
-| Dimmed + `!` | Yellow | Data is 10–20 minutes old |
+| Dimmed + `!` | Yellow | Data is 10-20 minutes old |
 | `STALE` | Yellow | Data >20 min old or repeated fetch failures |
+| `12:30` / `2/20` | Cyan | Time display (alternates with date every 5s) |
 | `72*F` | Cyan | Weather display (temperature) |
-| `12:30` | Cyan | Time display |
+| `24:59` | Orange | Pomodoro timer (work session) |
+| `B4:30` | Teal | Pomodoro timer (break) |
+| `DONE!` | Green | Timer completed |
+| `00:00` | Green | Stopwatch (blinks when paused) |
+| `CPU42` | Green/Yellow/Red | System monitor (color by threshold) |
+| `42 D` | Cyan | Countdown (days remaining) |
+| `2:30` | Orange | Countdown (<24h remaining) |
+| `NOW!` | Green | Countdown target reached |
+| Scrolling text | White/Red | Push notification (red if urgent) |
 | `NO DATA` | Red | Cannot retrieve glucose data |
 | `NO WIFI` | Red | WiFi disconnected |
 | `SETUP` | White | No WiFi/server configured |
@@ -67,16 +82,16 @@ Custom firmware that turns the [Ulanzi TC001 Smart Pixel Clock](https://www.amaz
 
 | Button | Short Press | Long Press |
 |--------|-------------|------------|
-| Left | Cycle display: Glucose → Time → Weather | Clear overrides |
-| Middle | Cycle brightness: 10 → 40 → 100 → 200 | Snooze alerts |
-| Right | — | Clear overrides |
+| Left | Cycle display: Glucose -> Time -> Weather -> Timer -> Stopwatch -> Sysmon -> Countdown | Clear overrides, reset to glucose |
+| Middle | Cycle brightness: 10 -> 40 -> 100 -> 200 | Snooze alerts |
+| Right | Start/pause (timer/stopwatch screen) | Reset timer/stopwatch; clear overrides (other screens) |
 
 ## Getting Started
 
 ### Prerequisites
 
 - [PlatformIO CLI](https://platformio.org/install/cli) or VS Code with PlatformIO extension
-- CH340 USB-to-serial driver ([download](https://sparks.gogo.co.nz/ch340.html) — macOS 10.9+ and Linux usually have it built-in)
+- CH340 USB-to-serial driver ([download](https://sparks.gogo.co.nz/ch340.html) -- macOS 10.9+ and Linux usually have it built-in)
 - USB-C data cable
 
 ### Build & Flash
@@ -120,11 +135,13 @@ If upload fails, hold the **middle button** while plugging in USB to enter flash
 
 Navigate to `http://<device-ip>/config.html` to set up:
 
-- **General** — WiFi, data source (Custom URL or Dexcom Share), poll interval, timezone
+- **General** — WiFi, data source (Custom URL or Dexcom Share), poll interval, timezone, date format
 - **Display** — Brightness, default view, night mode, glucose units (mg/dL or mmol/L)
 - **Alerts** — Buzzer thresholds, snooze duration
 - **Theme** — Custom RGB colors for each glucose range
 - **Weather** — OpenWeatherMap API key, city, temperature unit, update interval
+- **Timer** — Pomodoro timer settings, stopwatch toggle, countdown to event
+- **Notify** — Push notification settings, system monitor config, test form
 
 ## Data Sources
 
@@ -154,24 +171,77 @@ Optional Bearer token authentication is supported.
 
 Enable weather in the config to add temperature to the display toggle cycle. Requires a free [OpenWeatherMap API key](https://openweathermap.org/appid). Displays temperature in Fahrenheit or Celsius on the LED matrix in cyan.
 
+## Push API
+
+### Notifications
+
+Send text notifications to display on the device:
+
+```bash
+curl -X POST http://<device-ip>/api/notify \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Meeting in 5m", "duration_sec": 30, "urgent": false}'
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `text` | string | (required) | Message to display (<=5 chars centered, >5 scrolls) |
+| `duration_sec` | int | 60 | How long to show (seconds) |
+| `urgent` | bool | false | Red color + buzzer beep if enabled |
+
+### System Monitor
+
+Push system metrics from your computer:
+
+```bash
+# macOS CPU
+curl -X POST http://<device-ip>/api/sysmon \
+  -H "Content-Type: application/json" \
+  -d "{\"label\":\"CPU\",\"value\":$(top -l 1 | awk '/CPU usage/{print int($3)}'),\"max\":100}"
+
+# Linux RAM
+curl -X POST http://<device-ip>/api/sysmon \
+  -H "Content-Type: application/json" \
+  -d "{\"label\":\"RAM\",\"value\":$(free -m | awk 'NR==2{print $3}'),\"max\":$(free -m | awk 'NR==2{print $2}')}"
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `label` | string | config default | Short label (max 7 chars) |
+| `value` | int | 0 | Current value |
+| `max` | int | 100 | Maximum value (for percentage/bar) |
+
+Data auto-expires from the toggle cycle after 30 seconds of no updates.
+
+### Timer Status
+
+```bash
+curl http://<device-ip>/api/timer
+```
+
+Returns current timer state, remaining seconds, stopwatch elapsed time, and session info.
+
 ## Web UI
 
 | Page | Path | Description |
 |------|------|-------------|
-| Dashboard | `/` | Live glucose, trend arrow, delta, history graph |
-| Config | `/config.html` | All device settings (5 tabs) |
+| Dashboard | `/` | Live glucose, trend arrow, delta, history graph, feature status cards |
+| Config | `/config.html` | All device settings (7 tabs) |
 | Debug | `/debug.html` | HTTP responses, heap usage, sensor data, raw readings |
-| Device | `/device.html` | Firmware info, MAC address, restart/factory reset |
+| Device | `/device.html` | Firmware info, MAC address, button controls, restart/factory reset |
 
 ### API Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/status` | Current glucose, trend, state, WiFi info |
+| GET | `/api/status` | Current glucose, trend, state, WiFi, timer, sysmon, countdown |
 | GET | `/api/config` | All configuration (passwords masked) |
 | POST | `/api/config` | Update configuration |
 | GET | `/api/debug` | System diagnostics |
 | GET | `/api/history` | Last 48 glucose readings |
+| GET | `/api/timer` | Timer and stopwatch status |
+| POST | `/api/notify` | Push a text notification |
+| POST | `/api/sysmon` | Push system monitor data |
 | POST | `/api/restart` | Restart device |
 | POST | `/api/factory-reset` | Reset to defaults and restart |
 
@@ -186,23 +256,30 @@ BG_TC001/
 │   ├── config_manager.h     # Configuration struct & NVS
 │   ├── display.h            # LED matrix interface
 │   ├── glucose_engine.h     # Display state machine
+│   ├── buzzer.h             # Shared buzzer module (LEDC PWM)
+│   ├── timer_engine.h       # Pomodoro timer & stopwatch
+│   ├── notify_engine.h      # Push notification buffer
+│   ├── sysmon_engine.h      # System monitor data store
+│   ├── countdown_engine.h   # Event countdown
 │   ├── http_client.h        # Glucose data fetching
 │   ├── weather_client.h     # OpenWeatherMap client
 │   ├── web_server.h         # Async HTTP server
 │   ├── wifi_manager.h       # WiFi connection management
-│   ├── time_engine.h        # NTP time sync
+│   ├── time_engine.h        # NTP time sync + date functions
 │   ├── sensors.h            # LDR & battery monitoring
 │   ├── buttons.h            # Debounced button input
 │   └── trend_arrows.h       # Trend arrow bitmaps
 ├── src/                     # Implementation files
 │   ├── main.cpp             # Setup & main loop
 │   └── *.cpp                # One per header
-└── data/www/                # Web UI (served via LittleFS)
-    ├── index.html           # Dashboard
-    ├── config.html          # Configuration
-    ├── debug.html           # Debug diagnostics
-    ├── device.html          # Device info
-    └── style.css            # Dark theme stylesheet
+├── data/www/                # Web UI (served via LittleFS)
+│   ├── index.html           # Dashboard with feature status cards
+│   ├── config.html          # Configuration (7 tabs)
+│   ├── debug.html           # Debug diagnostics
+│   ├── device.html          # Device info & button controls
+│   └── style.css            # Dark theme stylesheet
+└── onboarding/              # Mac onboarding app (SwiftUI)
+    └── TC001Setup/          # Xcode project
 ```
 
 ## Dependencies
@@ -243,14 +320,14 @@ esptool.py -p /dev/cu.usbserial-* -b 460800 write_flash 0x0 tc001_factory_backup
 
 ## Where to Buy
 
-- [Ulanzi TC001 Smart Pixel Clock — Amazon US](https://www.amazon.com/ULANZI-TC001-Smart-Pixel-Clock/dp/B0CXX91TY5) (~$40–50)
-- Use a **high-quality USB-C data cable** — the included cable can be flaky
+- [Ulanzi TC001 Smart Pixel Clock -- Amazon US](https://www.amazon.com/ULANZI-TC001-Smart-Pixel-Clock/dp/B0CXX91TY5) (~$40-50)
+- Use a **high-quality USB-C data cable** -- the included cable can be flaky
 
 ## Acknowledgments
 
-- [AWTRIX3](https://blueforcer.github.io/awtrix3/#/) — The original LED matrix firmware for the TC001 that inspired this project
-- [pydexcom](https://github.com/gagebenne/pydexcom) — Dexcom Share API reference
-- [OpenWeatherMap](https://openweathermap.org/) — Free weather API
+- [AWTRIX3](https://blueforcer.github.io/awtrix3/#/) -- The original LED matrix firmware for the TC001 that inspired this project
+- [pydexcom](https://github.com/gagebenne/pydexcom) -- Dexcom Share API reference
+- [OpenWeatherMap](https://openweathermap.org/) -- Free weather API
 
 ## License
 

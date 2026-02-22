@@ -54,4 +54,7 @@ int http_get_delta();
 // Get history buffer (returns count, fills array)
 int http_get_history(GlucoseHistoryEntry* out, int max_count);
 
+// Force an immediate glucose fetch (for testing), returns true on success
+bool http_force_fetch();
+
 #endif // HTTP_CLIENT_H

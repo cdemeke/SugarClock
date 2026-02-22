@@ -7,6 +7,13 @@
 #include "sensors.h"
 #include "display.h"
 #include "weather_client.h"
+#include "timer_engine.h"
+#include "notify_engine.h"
+#include "sysmon_engine.h"
+#include "countdown_engine.h"
+#include "buzzer.h"
+#include "buttons.h"
+#include "hardware_pins.h"
 
 #include <ESPAsyncWebServer.h>
 #include <LittleFS.h>
@@ -79,6 +86,28 @@ static void handle_status(AsyncWebServerRequest* request) {
         doc["weather_humidity"] = wx.humidity;
     }
 
+    // Timer status
+    doc["timer_state"] = (int)timer_get_state();
+    doc["timer_remaining"] = timer_get_remaining_sec();
+    doc["timer_session"] = timer_get_session();
+
+    // Stopwatch status
+    doc["stopwatch_state"] = (int)stopwatch_get_state();
+    doc["stopwatch_elapsed"] = stopwatch_get_elapsed_sec();
+
+    // Sysmon
+    if (sysmon_has_data()) {
+        doc["sysmon_label"] = sysmon_get_label();
+        doc["sysmon_value"] = sysmon_get_value();
+        doc["sysmon_max"] = sysmon_get_max();
+    }
+
+    // Countdown
+    if (cfg.countdown_enabled && countdown_is_configured()) {
+        doc["countdown_remaining"] = countdown_get_remaining_sec();
+        doc["countdown_name"] = cfg.countdown_name;
+    }
+
     String output;
     serializeJson(doc, output);
     request->send(200, "application/json", output);
@@ -139,6 +168,42 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     doc["weather_use_f"] = cfg.weather_use_f;
     doc["weather_poll_min"] = cfg.weather_poll_min;
 
+    // Date
+    doc["date_on_time_screen"] = cfg.date_on_time_screen;
+    doc["date_format"] = cfg.date_format;
+
+    // Timer
+    doc["timer_enabled"] = cfg.timer_enabled;
+    doc["timer_work_min"] = cfg.timer_work_min;
+    doc["timer_break_min"] = cfg.timer_break_min;
+    doc["timer_long_break_min"] = cfg.timer_long_break_min;
+    doc["timer_sessions"] = cfg.timer_sessions;
+    doc["timer_buzzer"] = cfg.timer_buzzer;
+
+    // Stopwatch
+    doc["stopwatch_enabled"] = cfg.stopwatch_enabled;
+
+    // Notifications
+    doc["notify_enabled"] = cfg.notify_enabled;
+    doc["notify_default_duration"] = cfg.notify_default_duration;
+    doc["notify_allow_buzzer"] = cfg.notify_allow_buzzer;
+
+    // Sysmon
+    doc["sysmon_enabled"] = cfg.sysmon_enabled;
+    doc["sysmon_label"] = cfg.sysmon_label;
+    doc["sysmon_display_mode"] = cfg.sysmon_display_mode;
+    doc["sysmon_warn_pct"] = cfg.sysmon_warn_pct;
+    doc["sysmon_crit_pct"] = cfg.sysmon_crit_pct;
+
+    // Countdown
+    doc["countdown_enabled"] = cfg.countdown_enabled;
+    doc["countdown_name"] = cfg.countdown_name;
+    doc["countdown_target"] = cfg.countdown_target;
+
+    // Auto-cycle
+    doc["auto_cycle_enabled"] = cfg.auto_cycle_enabled;
+    doc["auto_cycle_sec"] = cfg.auto_cycle_sec;
+
     String output;
     serializeJson(doc, output);
     request->send(200, "application/json", output);
@@ -162,7 +227,7 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     }
     if (doc["wifi_password"].is<const char*>()) {
         const char* pw = doc["wifi_password"] | "";
-        if (strlen(pw) > 0) { // only update if non-empty
+        if (strlen(pw) > 0) {
             strncpy(cfg.wifi_password, pw, sizeof(cfg.wifi_password) - 1);
         }
     }
@@ -299,7 +364,90 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
         cfg.weather_poll_min = constrain(doc["weather_poll_min"].as<int>(), 5, 60);
     }
 
+    // Date
+    if (doc["date_on_time_screen"].is<bool>()) {
+        cfg.date_on_time_screen = doc["date_on_time_screen"].as<bool>();
+    }
+    if (doc["date_format"].is<int>()) {
+        cfg.date_format = constrain(doc["date_format"].as<int>(), 0, 2);
+    }
+
+    // Timer
+    if (doc["timer_enabled"].is<bool>()) {
+        cfg.timer_enabled = doc["timer_enabled"].as<bool>();
+    }
+    if (doc["timer_work_min"].is<int>()) {
+        cfg.timer_work_min = constrain(doc["timer_work_min"].as<int>(), 1, 120);
+    }
+    if (doc["timer_break_min"].is<int>()) {
+        cfg.timer_break_min = constrain(doc["timer_break_min"].as<int>(), 1, 60);
+    }
+    if (doc["timer_long_break_min"].is<int>()) {
+        cfg.timer_long_break_min = constrain(doc["timer_long_break_min"].as<int>(), 1, 60);
+    }
+    if (doc["timer_sessions"].is<int>()) {
+        cfg.timer_sessions = constrain(doc["timer_sessions"].as<int>(), 1, 12);
+    }
+    if (doc["timer_buzzer"].is<bool>()) {
+        cfg.timer_buzzer = doc["timer_buzzer"].as<bool>();
+    }
+
+    // Stopwatch
+    if (doc["stopwatch_enabled"].is<bool>()) {
+        cfg.stopwatch_enabled = doc["stopwatch_enabled"].as<bool>();
+    }
+
+    // Notifications
+    if (doc["notify_enabled"].is<bool>()) {
+        cfg.notify_enabled = doc["notify_enabled"].as<bool>();
+    }
+    if (doc["notify_default_duration"].is<int>()) {
+        cfg.notify_default_duration = constrain(doc["notify_default_duration"].as<int>(), 5, 600);
+    }
+    if (doc["notify_allow_buzzer"].is<bool>()) {
+        cfg.notify_allow_buzzer = doc["notify_allow_buzzer"].as<bool>();
+    }
+
+    // Sysmon
+    if (doc["sysmon_enabled"].is<bool>()) {
+        cfg.sysmon_enabled = doc["sysmon_enabled"].as<bool>();
+    }
+    if (doc["sysmon_label"].is<const char*>()) {
+        strncpy(cfg.sysmon_label, doc["sysmon_label"] | "CPU", sizeof(cfg.sysmon_label) - 1);
+        cfg.sysmon_label[sizeof(cfg.sysmon_label) - 1] = '\0';
+    }
+    if (doc["sysmon_display_mode"].is<int>()) {
+        cfg.sysmon_display_mode = constrain(doc["sysmon_display_mode"].as<int>(), 0, 1);
+    }
+    if (doc["sysmon_warn_pct"].is<int>()) {
+        cfg.sysmon_warn_pct = constrain(doc["sysmon_warn_pct"].as<int>(), 0, 100);
+    }
+    if (doc["sysmon_crit_pct"].is<int>()) {
+        cfg.sysmon_crit_pct = constrain(doc["sysmon_crit_pct"].as<int>(), 0, 100);
+    }
+
+    // Countdown
+    if (doc["countdown_enabled"].is<bool>()) {
+        cfg.countdown_enabled = doc["countdown_enabled"].as<bool>();
+    }
+    if (doc["countdown_name"].is<const char*>()) {
+        strncpy(cfg.countdown_name, doc["countdown_name"] | "", sizeof(cfg.countdown_name) - 1);
+        cfg.countdown_name[sizeof(cfg.countdown_name) - 1] = '\0';
+    }
+    if (doc["countdown_target"].is<unsigned long>()) {
+        cfg.countdown_target = doc["countdown_target"].as<unsigned long>();
+    }
+
+    // Auto-cycle
+    if (doc["auto_cycle_enabled"].is<bool>()) {
+        cfg.auto_cycle_enabled = doc["auto_cycle_enabled"].as<bool>();
+    }
+    if (doc["auto_cycle_sec"].is<int>()) {
+        cfg.auto_cycle_sec = constrain(doc["auto_cycle_sec"].as<int>(), 3, 300);
+    }
+
     config_save();
+    engine_rebuild_toggle_order();
 
     // Apply brightness immediately
     if (!cfg.auto_brightness) {
@@ -328,6 +476,12 @@ static void handle_debug(AsyncWebServerRequest* request) {
     doc["auto_brightness_val"] = sensors_get_auto_brightness();
     doc["battery_voltage"] = sensors_get_battery_voltage();
     doc["battery_percent"] = sensors_get_battery_percent();
+
+    // Button GPIO states (LOW = pressed on active-LOW buttons)
+    doc["btn_left_raw"] = digitalRead(PIN_BUTTON_LEFT);
+    doc["btn_middle_raw"] = digitalRead(PIN_BUTTON_MIDDLE);
+    doc["btn_right_raw"] = digitalRead(PIN_BUTTON_RIGHT);
+    doc["user_mode"] = engine_state_name(engine_get_user_mode());
 
     // MAC address
     doc["mac"] = WiFi.macAddress();
@@ -374,6 +528,164 @@ static void handle_history(AsyncWebServerRequest* request) {
     request->send(200, "application/json", output);
 }
 
+// GET /api/timer
+static void handle_timer_status(AsyncWebServerRequest* request) {
+    JsonDocument doc;
+    doc["timer_state"] = (int)timer_get_state();
+    doc["timer_remaining"] = timer_get_remaining_sec();
+    doc["timer_session"] = timer_get_session();
+    doc["timer_total_sessions"] = timer_get_total_sessions();
+    doc["stopwatch_state"] = (int)stopwatch_get_state();
+    doc["stopwatch_elapsed"] = stopwatch_get_elapsed_sec();
+
+    String output;
+    serializeJson(doc, output);
+    request->send(200, "application/json", output);
+}
+
+// POST /api/notify
+static void handle_post_notify(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
+    if (index != 0) return;
+
+    AppConfig& cfg = config_get();
+    if (!cfg.notify_enabled) {
+        request->send(403, "application/json", "{\"error\":\"Notifications disabled\"}");
+        return;
+    }
+
+    JsonDocument doc;
+    DeserializationError err = deserializeJson(doc, data, len);
+    if (err) {
+        request->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
+        return;
+    }
+
+    const char* text = doc["text"] | "";
+    if (strlen(text) == 0) {
+        request->send(400, "application/json", "{\"error\":\"Missing text\"}");
+        return;
+    }
+
+    int duration = doc["duration_sec"] | cfg.notify_default_duration;
+    bool urgent = doc["urgent"] | false;
+
+    notify_push(text, duration, urgent);
+    request->send(200, "application/json", "{\"status\":\"ok\"}");
+}
+
+// POST /api/sysmon
+static void handle_post_sysmon(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
+    if (index != 0) return;
+
+    AppConfig& cfg = config_get();
+    if (!cfg.sysmon_enabled) {
+        request->send(403, "application/json", "{\"error\":\"System monitor disabled\"}");
+        return;
+    }
+
+    JsonDocument doc;
+    DeserializationError err = deserializeJson(doc, data, len);
+    if (err) {
+        request->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
+        return;
+    }
+
+    const char* label = doc["label"] | cfg.sysmon_label;
+    int value = doc["value"] | 0;
+    int max_val = doc["max"] | 100;
+
+    sysmon_push(label, value, max_val);
+    request->send(200, "application/json", "{\"status\":\"ok\"}");
+}
+
+// POST /api/test/weather
+static void handle_test_weather(AsyncWebServerRequest* request) {
+    bool ok = weather_force_fetch();
+    JsonDocument doc;
+    doc["ok"] = ok;
+    doc["http_code"] = weather_get_last_http_code();
+
+    if (ok) {
+        const WeatherReading& wx = weather_get_reading();
+        doc["temp"] = wx.temp;
+        doc["description"] = wx.description;
+        doc["humidity"] = wx.humidity;
+    } else {
+        doc["error"] = weather_get_last_response();
+    }
+
+    String output;
+    serializeJson(doc, output);
+    request->send(ok ? 200 : 502, "application/json", output);
+}
+
+// POST /api/test/glucose
+static void handle_test_glucose(AsyncWebServerRequest* request) {
+    AppConfig& cfg = config_get();
+
+    if (!wifi_is_connected()) {
+        request->send(503, "application/json", "{\"ok\":false,\"error\":\"WiFi not connected\"}");
+        return;
+    }
+    if (!config_has_server()) {
+        request->send(400, "application/json", "{\"ok\":false,\"error\":\"No data source configured\"}");
+        return;
+    }
+
+    bool ok = http_force_fetch();
+    JsonDocument doc;
+    doc["ok"] = ok;
+    doc["http_code"] = http_get_last_response_code();
+
+    if (ok) {
+        const GlucoseReading& r = http_get_reading();
+        doc["glucose"] = r.glucose;
+        doc["trend"] = TREND_NAMES[r.trend];
+    } else {
+        int code = http_get_last_response_code();
+        const char* body = http_get_last_response_body();
+        if (code > 0 && strlen(body) > 0) {
+            char err[384];
+            snprintf(err, sizeof(err), "HTTP %d: %s", code, body);
+            doc["error"] = err;
+        } else if (code > 0) {
+            char err[32];
+            snprintf(err, sizeof(err), "HTTP %d", code);
+            doc["error"] = err;
+        } else if (strlen(body) > 0) {
+            doc["error"] = body;
+        } else {
+            doc["error"] = "Connection failed";
+        }
+    }
+
+    String output;
+    serializeJson(doc, output);
+    request->send(ok ? 200 : 502, "application/json", output);
+}
+
+// POST /api/display/next
+static void handle_display_next(AsyncWebServerRequest* request) {
+    engine_toggle_mode();
+    JsonDocument doc;
+    doc["status"] = "ok";
+    doc["mode"] = engine_state_name(engine_get_user_mode());
+    String output;
+    serializeJson(doc, output);
+    request->send(200, "application/json", output);
+}
+
+// POST /api/display/prev
+static void handle_display_prev(AsyncWebServerRequest* request) {
+    engine_toggle_mode_prev();
+    JsonDocument doc;
+    doc["status"] = "ok";
+    doc["mode"] = engine_state_name(engine_get_user_mode());
+    String output;
+    serializeJson(doc, output);
+    request->send(200, "application/json", output);
+}
+
 // POST /api/restart
 static void handle_restart(AsyncWebServerRequest* request) {
     request->send(200, "application/json", "{\"status\":\"restarting\"}");
@@ -405,14 +717,33 @@ void webserver_init() {
     server.on("/api/config", HTTP_GET, handle_get_config);
     server.on("/api/debug", HTTP_GET, handle_debug);
     server.on("/api/history", HTTP_GET, handle_history);
+    server.on("/api/timer", HTTP_GET, handle_timer_status);
     server.on("/api/restart", HTTP_POST, [](AsyncWebServerRequest* r) { handle_restart(r); });
     server.on("/api/factory-reset", HTTP_POST, [](AsyncWebServerRequest* r) { handle_factory_reset(r); });
+    server.on("/api/test/weather", HTTP_POST, [](AsyncWebServerRequest* r) { handle_test_weather(r); });
+    server.on("/api/test/glucose", HTTP_POST, [](AsyncWebServerRequest* r) { handle_test_glucose(r); });
+    server.on("/api/display/next", HTTP_POST, [](AsyncWebServerRequest* r) { handle_display_next(r); });
+    server.on("/api/display/prev", HTTP_POST, [](AsyncWebServerRequest* r) { handle_display_prev(r); });
 
     // POST /api/config with body
     server.on("/api/config", HTTP_POST,
         [](AsyncWebServerRequest* request) {},
         NULL,
         handle_post_config
+    );
+
+    // POST /api/notify with body
+    server.on("/api/notify", HTTP_POST,
+        [](AsyncWebServerRequest* request) {},
+        NULL,
+        handle_post_notify
+    );
+
+    // POST /api/sysmon with body
+    server.on("/api/sysmon", HTTP_POST,
+        [](AsyncWebServerRequest* request) {},
+        NULL,
+        handle_post_sysmon
     );
 
     // CORS headers for development

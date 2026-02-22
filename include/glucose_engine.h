@@ -9,7 +9,12 @@ enum DisplayState {
     STATE_GLUCOSE_DISPLAY,
     STATE_TIME_DISPLAY,
     STATE_WEATHER_DISPLAY,
+    STATE_TIMER_DISPLAY,
+    STATE_STOPWATCH_DISPLAY,
+    STATE_SYSMON_DISPLAY,
+    STATE_COUNTDOWN_DISPLAY,
     STATE_MESSAGE_DISPLAY,
+    STATE_NOTIFY_DISPLAY,
     STATE_STALE_WARNING,
     STATE_NO_DATA,
     STATE_NO_WIFI,
@@ -37,6 +42,9 @@ void engine_loop();
 // Get current display state
 DisplayState engine_get_state();
 
+// Get the user-selected mode (for returning after notifications)
+DisplayState engine_get_user_mode();
+
 // Get state name string
 const char* engine_state_name(DisplayState state);
 
@@ -52,8 +60,23 @@ void engine_set_message(const char* msg);
 // Set the preferred default mode (glucose or time)
 void engine_set_default_mode(DisplayState mode);
 
-// Toggle between glucose and time display
+// Toggle between display modes (data-driven array)
 void engine_toggle_mode();
+
+// Toggle to previous display mode
+void engine_toggle_mode_prev();
+
+// Rebuild the toggle order array (call after config changes)
+void engine_rebuild_toggle_order();
+
+// Reset the auto-cycle timer (call on manual button press to restart countdown)
+void engine_reset_auto_cycle();
+
+// Context-sensitive right button action
+void engine_right_button_action();
+
+// Context-sensitive right long-press action
+void engine_right_long_action();
 
 // Snooze buzzer alerts (called from button press)
 void engine_snooze_alerts();

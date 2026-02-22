@@ -101,6 +101,26 @@ void display_draw_trend(int trend, int x, int y, uint16_t color) {
     }
 }
 
+void display_draw_bar(int value, int max_val, uint16_t color) {
+    if (max_val <= 0) max_val = 100;
+    int fill = (value * MATRIX_WIDTH) / max_val;
+    if (fill > MATRIX_WIDTH) fill = MATRIX_WIDTH;
+    if (fill < 0) fill = 0;
+
+    // Draw bar on bottom 3 rows (rows 5, 6, 7)
+    for (int x = 0; x < fill; x++) {
+        for (int y = 5; y < 8; y++) {
+            matrix.drawPixel(x, y, color);
+        }
+    }
+    // Draw dim outline for remaining
+    uint16_t dim = matrix.Color(30, 30, 30);
+    for (int x = fill; x < MATRIX_WIDTH; x++) {
+        matrix.drawPixel(x, 5, dim);
+        matrix.drawPixel(x, 7, dim);
+    }
+}
+
 void display_draw_time(int hour, int minute, bool show_colon, bool use_24h, uint16_t color) {
     display_clear();
 

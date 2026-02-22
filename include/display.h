@@ -32,6 +32,10 @@ void display_draw_trend(int trend, int x, int y, uint16_t color);
 // Draw time display centered on matrix
 void display_draw_time(int hour, int minute, bool show_colon, bool use_24h, uint16_t color);
 
+// Draw a horizontal bar graph (bottom 3 rows of display)
+// value/max determines fill width across 32 pixels
+void display_draw_bar(int value, int max_val, uint16_t color);
+
 // Fill entire matrix with a single color (for testing)
 void display_fill(uint8_t r, uint8_t g, uint8_t b);
 

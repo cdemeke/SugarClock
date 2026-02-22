@@ -11,8 +11,13 @@
 #include "http_client.h"
 #include "weather_client.h"
 #include "web_server.h"
+#include "buzzer.h"
+#include "timer_engine.h"
+#include "notify_engine.h"
+#include "sysmon_engine.h"
+#include "countdown_engine.h"
 
-#define FIRMWARE_VERSION "1.0.0"
+#define FIRMWARE_VERSION "2.0.0"
 #define WDT_TIMEOUT_SEC  30
 
 // Performance tracking
@@ -29,8 +34,8 @@ void setup() {
     Serial.begin(115200);
     delay(100);
 
-    // 2. Silence buzzer immediately
-    pinMode(PIN_BUZZER, INPUT_PULLDOWN);
+    // 2. Initialize buzzer (silences immediately)
+    buzzer_init();
 
     // Log boot reason
     esp_reset_reason_t reason = esp_reset_reason();
@@ -73,10 +78,16 @@ void setup() {
     // 11. Init web server routes (doesn't start serving yet)
     webserver_init();
 
-    // 11. Init glucose engine (state machine)
+    // 12. Init new feature engines
+    timer_init();
+    notify_init();
+    sysmon_init();
+    countdown_init();
+
+    // 13. Init glucose engine (state machine)
     engine_init();
 
-    // 12. Enable watchdog timer
+    // 14. Enable watchdog timer
     esp_task_wdt_init(WDT_TIMEOUT_SEC, true);
     esp_task_wdt_add(NULL); // add current task
 
@@ -134,11 +145,18 @@ void loop() {
                 engine_snooze_alerts();
                 Serial.println("[BTN] Alerts snoozed");
                 break;
+            case BTN_RIGHT_SHORT:
+                // Context-sensitive right button
+                engine_right_button_action();
+                break;
             case BTN_LEFT_LONG:
-            case BTN_RIGHT_LONG:
                 engine_clear_force();
                 engine_set_default_mode(STATE_GLUCOSE_DISPLAY);
                 Serial.println("[BTN] Overrides cleared");
+                break;
+            case BTN_RIGHT_LONG:
+                // Context-sensitive right long press
+                engine_right_long_action();
                 break;
             default:
                 break;
@@ -155,7 +173,14 @@ void loop() {
         display_set_brightness(auto_brt);
     }
 
-    // 6. Engine state machine + rendering
+    // 6. Feature engine loops
+    buzzer_loop();
+    timer_loop();
+    notify_loop();
+    sysmon_loop();
+    countdown_loop();
+
+    // 7. Engine state machine + rendering
     engine_loop();
 
     // Performance tracking

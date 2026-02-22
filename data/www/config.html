@@ -29,17 +29,19 @@
         </div>
 
         <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('general')">General</button>
+            <button class="tab-btn active" onclick="switchTab('connection')">Connection</button>
             <button class="tab-btn" onclick="switchTab('display')">Display</button>
-            <button class="tab-btn" onclick="switchTab('alerts')">Alerts</button>
-            <button class="tab-btn" onclick="switchTab('theme')">Theme</button>
+            <button class="tab-btn" onclick="switchTab('glucose')">Glucose</button>
+            <button class="tab-btn" onclick="switchTab('time')">Time</button>
             <button class="tab-btn" onclick="switchTab('weather')">Weather</button>
+            <button class="tab-btn" onclick="switchTab('integrations')">Integrations</button>
+            <button class="tab-btn" onclick="switchTab('danger')">Danger</button>
         </div>
 
         <form id="config-form">
 
-            <!-- GENERAL TAB -->
-            <div class="tab-panel active" id="tab-general">
+            <!-- CONNECTION TAB -->
+            <div class="tab-panel active" id="tab-connection">
                 <div class="card">
                     <h2>WiFi Network</h2>
                     <div class="form-row">
@@ -109,38 +111,11 @@
                             <div class="hint">Show STALE after this long</div>
                         </div>
                     </div>
-                </div>
 
-                <div class="card">
-                    <h2>Time & Date</h2>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Timezone</label>
-                            <select id="timezone">
-                                <option value="EST5EDT,M3.2.0,M11.1.0">Eastern (ET)</option>
-                                <option value="CST6CDT,M3.2.0,M11.1.0">Central (CT)</option>
-                                <option value="MST7MDT,M3.2.0,M11.1.0">Mountain (MT)</option>
-                                <option value="PST8PDT,M3.2.0,M11.1.0">Pacific (PT)</option>
-                                <option value="AST9ADT,M3.2.0,M11.1.0">Alaska (AKT)</option>
-                                <option value="HST10">Hawaii (HST)</option>
-                                <option value="GMT0BST,M3.5.0/1,M10.5.0">UK (GMT/BST)</option>
-                                <option value="CET-1CEST,M3.5.0,M10.5.0/3">Central Europe</option>
-                                <option value="EET-2EEST,M3.5.0/3,M10.5.0/4">Eastern Europe</option>
-                                <option value="IST-5:30">India (IST)</option>
-                                <option value="JST-9">Japan (JST)</option>
-                                <option value="CST-8">China (CST)</option>
-                                <option value="AEST-10AEDT,M10.1.0,M4.1.0/3">Australia East</option>
-                                <option value="NZST-12NZDT,M9.5.0,M4.1.0/3">New Zealand</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Custom POSIX</label>
-                            <input type="text" id="timezone_custom" placeholder="Overrides dropdown">
-                        </div>
-                    </div>
-                    <div class="toggle-row">
-                        <label>24-Hour Format</label>
-                        <input type="checkbox" id="use_24h">
+                    <div class="divider"></div>
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <button type="button" class="btn btn-outline" id="test-glucose-btn">Test Connection</button>
+                        <span class="test-result" id="test-glucose-result"></span>
                     </div>
                 </div>
             </div>
@@ -209,10 +184,39 @@
                         <div class="hint">Automatically dims during night hours</div>
                     </div>
                 </div>
+
+                <div class="card">
+                    <h2>Auto-Cycle</h2>
+                    <p style="font-size:13px; color:var(--text-secondary); margin:-8px 0 16px;">
+                        Automatically rotate through enabled display screens.
+                    </p>
+                    <div class="toggle-row">
+                        <label>Enable Auto-Cycle</label>
+                        <input type="checkbox" id="auto_cycle_enabled">
+                    </div>
+                    <div class="divider"></div>
+                    <div class="form-group">
+                        <label>Cycle Interval (seconds)</label>
+                        <input type="number" id="auto_cycle_sec" min="3" max="300" value="10">
+                        <div class="hint">Time on each screen before advancing (3-300s)</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Remote Control</h2>
+                    <p style="font-size:13px; color:var(--text-secondary); margin:-8px 0 16px;">
+                        Switch the device display from here.
+                    </p>
+                    <div style="display:flex;gap:12px;align-items:center;justify-content:center;padding:8px 0;">
+                        <button type="button" class="btn btn-outline" id="display-prev-btn" style="min-width:80px;">&larr; Prev</button>
+                        <span id="current-mode" style="font-size:15px;font-weight:600;color:var(--text);min-width:100px;text-align:center;">--</span>
+                        <button type="button" class="btn btn-outline" id="display-next-btn" style="min-width:80px;">Next &rarr;</button>
+                    </div>
+                </div>
             </div>
 
-            <!-- ALERTS TAB -->
-            <div class="tab-panel" id="tab-alerts">
+            <!-- GLUCOSE TAB (Thresholds + Colors + Alerts) -->
+            <div class="tab-panel" id="tab-glucose">
                 <div class="card">
                     <h2>Glucose Thresholds</h2>
                     <div class="threshold-bar">
@@ -245,33 +249,6 @@
                 </div>
 
                 <div class="card">
-                    <h2>Buzzer Alerts</h2>
-                    <div class="toggle-row">
-                        <label>Enable Buzzer Alerts</label>
-                        <input type="checkbox" id="alert_enabled">
-                    </div>
-                    <div class="divider"></div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Alert Below (mg/dL)</label>
-                            <input type="number" id="alert_low" min="40" max="120" value="70">
-                        </div>
-                        <div class="form-group">
-                            <label>Alert Above (mg/dL)</label>
-                            <input type="number" id="alert_high" min="150" max="400" value="250">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Snooze Duration (minutes)</label>
-                        <input type="number" id="alert_snooze" min="1" max="120" value="15">
-                        <div class="hint">Hold middle button to snooze</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- THEME TAB -->
-            <div class="tab-panel" id="tab-theme">
-                <div class="card">
                     <h2>Range Colors</h2>
                     <p style="font-size:13px; color:var(--text-secondary); margin:-8px 0 16px;">
                         Customize colors for each glucose range on the LED and web dashboard.
@@ -302,6 +279,156 @@
                         <span class="color-hex" id="hex_urgent_high">#ef4444</span>
                     </div>
                 </div>
+
+                <div class="card">
+                    <h2>Buzzer Alerts</h2>
+                    <div class="toggle-row">
+                        <label>Enable Buzzer Alerts</label>
+                        <input type="checkbox" id="alert_enabled">
+                    </div>
+                    <div class="divider"></div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Alert Below (mg/dL)</label>
+                            <input type="number" id="alert_low" min="40" max="120" value="70">
+                        </div>
+                        <div class="form-group">
+                            <label>Alert Above (mg/dL)</label>
+                            <input type="number" id="alert_high" min="150" max="400" value="250">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Snooze Duration (minutes)</label>
+                        <input type="number" id="alert_snooze" min="1" max="120" value="15">
+                        <div class="hint">Hold middle button to snooze</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TIME TAB (Clock, Date, Timers, Countdown) -->
+            <div class="tab-panel" id="tab-time">
+                <div class="card">
+                    <h2>Clock</h2>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Timezone</label>
+                            <select id="timezone">
+                                <option value="EST5EDT,M3.2.0,M11.1.0">Eastern (ET)</option>
+                                <option value="CST6CDT,M3.2.0,M11.1.0">Central (CT)</option>
+                                <option value="MST7MDT,M3.2.0,M11.1.0">Mountain (MT)</option>
+                                <option value="PST8PDT,M3.2.0,M11.1.0">Pacific (PT)</option>
+                                <option value="AST9ADT,M3.2.0,M11.1.0">Alaska (AKT)</option>
+                                <option value="HST10">Hawaii (HST)</option>
+                                <option value="GMT0BST,M3.5.0/1,M10.5.0">UK (GMT/BST)</option>
+                                <option value="CET-1CEST,M3.5.0,M10.5.0/3">Central Europe</option>
+                                <option value="EET-2EEST,M3.5.0/3,M10.5.0/4">Eastern Europe</option>
+                                <option value="IST-5:30">India (IST)</option>
+                                <option value="JST-9">Japan (JST)</option>
+                                <option value="CST-8">China (CST)</option>
+                                <option value="AEST-10AEDT,M10.1.0,M4.1.0/3">Australia East</option>
+                                <option value="NZST-12NZDT,M9.5.0,M4.1.0/3">New Zealand</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Custom POSIX</label>
+                            <input type="text" id="timezone_custom" placeholder="Overrides dropdown">
+                        </div>
+                    </div>
+                    <div class="toggle-row">
+                        <label>24-Hour Format</label>
+                        <input type="checkbox" id="use_24h">
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Date Display</h2>
+                    <p style="font-size:13px; color:var(--text-secondary); margin:-8px 0 16px;">
+                        Alternates with the clock every 5 seconds on the time screen.
+                    </p>
+                    <div class="toggle-row">
+                        <label>Show Date on Time Screen</label>
+                        <input type="checkbox" id="date_on_time_screen">
+                    </div>
+                    <div class="divider"></div>
+                    <div class="form-group">
+                        <label>Date Format</label>
+                        <select id="date_format">
+                            <option value="0">M/DD (2/20)</option>
+                            <option value="1">MMMDD (FEB20)</option>
+                            <option value="2">DD/MM (20/2)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Pomodoro Timer</h2>
+                    <p style="font-size:13px; color:var(--text-secondary); margin:-8px 0 16px;">
+                        Focus timer with work/break cycles. Right button starts/pauses when viewing timer.
+                    </p>
+                    <div class="toggle-row">
+                        <label>Enable Timer in Toggle Cycle</label>
+                        <input type="checkbox" id="timer_enabled">
+                    </div>
+                    <div class="divider"></div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Work Duration (min)</label>
+                            <input type="number" id="timer_work_min" min="1" max="120" value="25">
+                        </div>
+                        <div class="form-group">
+                            <label>Short Break (min)</label>
+                            <input type="number" id="timer_break_min" min="1" max="60" value="5">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Long Break (min)</label>
+                            <input type="number" id="timer_long_break_min" min="1" max="60" value="15">
+                        </div>
+                        <div class="form-group">
+                            <label>Sessions Before Long Break</label>
+                            <input type="number" id="timer_sessions" min="1" max="12" value="4">
+                        </div>
+                    </div>
+                    <div class="toggle-row">
+                        <label>Buzzer on Completion</label>
+                        <input type="checkbox" id="timer_buzzer">
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Stopwatch</h2>
+                    <p style="font-size:13px; color:var(--text-secondary); margin:-8px 0 16px;">
+                        Count-up timer. Right button starts/pauses. Right long-press resets.
+                    </p>
+                    <div class="toggle-row">
+                        <label>Enable Stopwatch in Toggle Cycle</label>
+                        <input type="checkbox" id="stopwatch_enabled">
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Countdown to Event</h2>
+                    <p style="font-size:13px; color:var(--text-secondary); margin:-8px 0 16px;">
+                        Shows days/hours until a target date. Displays "NOW!" when reached.
+                    </p>
+                    <div class="toggle-row">
+                        <label>Enable Countdown in Toggle Cycle</label>
+                        <input type="checkbox" id="countdown_enabled">
+                    </div>
+                    <div class="divider"></div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Event Name</label>
+                            <input type="text" id="countdown_name" maxlength="15" placeholder="e.g. Vacation">
+                        </div>
+                        <div class="form-group">
+                            <label>Target Date & Time</label>
+                            <input type="datetime-local" id="countdown_date">
+                            <div class="hint">Set the date/time you're counting down to</div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- WEATHER TAB -->
@@ -309,7 +436,7 @@
                 <div class="card">
                     <h2>Weather Display</h2>
                     <p style="font-size:13px; color:var(--text-secondary); margin:-8px 0 16px;">
-                        Show current temperature in the button toggle cycle (Glucose &rarr; Time &rarr; Weather).
+                        Show current temperature in the display cycle. Uses OpenWeatherMap.
                     </p>
                     <div class="toggle-row">
                         <label>Enable Weather in Toggle Cycle</label>
@@ -322,9 +449,9 @@
                         <div class="hint">Get a free key at <a href="https://openweathermap.org/appid" target="_blank" style="color:var(--accent);">openweathermap.org</a></div>
                     </div>
                     <div class="form-group">
-                        <label>City / Location</label>
-                        <input type="text" id="weather_city" maxlength="63" placeholder="New York,US">
-                        <div class="hint">Format: City,CountryCode (e.g. London,GB)</div>
+                        <label>Location</label>
+                        <input type="text" id="weather_city" maxlength="63" placeholder="London,GB or 90210">
+                        <div class="hint">City,Country (London,GB) or zip code (90210 or 90210,US). Zip codes without a country default to US.</div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
@@ -340,23 +467,132 @@
                             <div class="hint">Minimum 5 min</div>
                         </div>
                     </div>
+
+                    <div class="divider"></div>
+                    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                        <button type="button" class="btn btn-outline" id="test-weather-btn">Test Weather API</button>
+                        <span class="test-result" id="test-weather-result"></span>
+                    </div>
+                    <div class="hint" style="margin-top:8px;">Save config first, then test. New API keys can take up to 2 hours to activate.</div>
                 </div>
             </div>
 
-            <button type="submit" class="btn btn-primary btn-block" style="margin-top:8px;">
+            <!-- INTEGRATIONS TAB (Notifications + System Monitor) -->
+            <div class="tab-panel" id="tab-integrations">
+                <div class="card">
+                    <h2>Push Notifications</h2>
+                    <p style="font-size:13px; color:var(--text-secondary); margin:-8px 0 16px;">
+                        Receive text notifications via <code>POST /api/notify</code>. Auto-expires after duration.
+                    </p>
+                    <div class="toggle-row">
+                        <label>Enable Notifications</label>
+                        <input type="checkbox" id="notify_enabled">
+                    </div>
+                    <div class="divider"></div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Default Duration (seconds)</label>
+                            <input type="number" id="notify_default_duration" min="5" max="600" value="60">
+                        </div>
+                        <div class="form-group">
+                            <div class="toggle-row" style="padding-top:24px;">
+                                <label>Allow Buzzer for Urgent</label>
+                                <input type="checkbox" id="notify_allow_buzzer">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="divider"></div>
+                    <h3 style="font-size:14px;margin-bottom:12px;">Test Notification</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Message</label>
+                            <input type="text" id="test_notify_text" placeholder="Hello!" maxlength="63">
+                        </div>
+                        <div class="form-group">
+                            <label>Duration (sec)</label>
+                            <input type="number" id="test_notify_dur" value="10" min="1" max="300">
+                        </div>
+                    </div>
+                    <div class="form-row" style="align-items:end;">
+                        <div class="toggle-row">
+                            <label>Urgent</label>
+                            <input type="checkbox" id="test_notify_urgent">
+                        </div>
+                        <button type="button" class="btn btn-outline" id="test-notify-btn">Send Test</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>System Monitor</h2>
+                    <p style="font-size:13px; color:var(--text-secondary); margin:-8px 0 16px;">
+                        Push CPU/RAM data from your computer via <code>POST /api/sysmon</code>. Auto-hides after 30s of no data.
+                    </p>
+                    <div class="toggle-row">
+                        <label>Enable System Monitor</label>
+                        <input type="checkbox" id="sysmon_enabled">
+                    </div>
+                    <div class="divider"></div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Display Mode</label>
+                            <select id="sysmon_display_mode">
+                                <option value="0">Text (CPU42)</option>
+                                <option value="1">Bar Graph</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Default Label</label>
+                            <input type="text" id="sysmon_label" maxlength="7" value="CPU">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Warning Threshold (%)</label>
+                            <input type="number" id="sysmon_warn_pct" min="0" max="100" value="50">
+                        </div>
+                        <div class="form-group">
+                            <label>Critical Threshold (%)</label>
+                            <input type="number" id="sysmon_crit_pct" min="0" max="100" value="80">
+                        </div>
+                    </div>
+                    <div class="divider"></div>
+                    <h3 style="font-size:14px;margin-bottom:8px;">Example Push Scripts</h3>
+                    <pre>
+# macOS CPU usage
+curl -X POST http://DEVICE_IP/api/sysmon \
+  -H "Content-Type: application/json" \
+  -d "{\"label\":\"CPU\",\"value\":$(top -l 1 | awk '/CPU usage/{print int($3)}'),\"max\":100}"
+
+# Linux RAM usage
+curl -X POST http://DEVICE_IP/api/sysmon \
+  -H "Content-Type: application/json" \
+  -d "{\"label\":\"RAM\",\"value\":$(free -m | awk 'NR==2{print $3}'),\"max\":$(free -m | awk 'NR==2{print $2}')}"</pre>
+                </div>
+            </div>
+
+            <!-- DANGER TAB -->
+            <div class="tab-panel" id="tab-danger">
+                <div class="card danger-card">
+                    <h2>Restart Device</h2>
+                    <p style="color:var(--text-secondary); margin:-8px 0 16px; font-size:13px;">
+                        Reboot the device. Settings are preserved.
+                    </p>
+                    <button type="button" class="btn btn-outline" id="restart-config-btn">Restart</button>
+                </div>
+
+                <div class="card danger-card">
+                    <h2>Factory Reset</h2>
+                    <p style="color:var(--text-secondary); margin:-8px 0 16px; font-size:13px;">
+                        Erase all settings and restore factory defaults. The device will restart and show SETUP.
+                    </p>
+                    <button type="button" class="btn btn-danger" id="factory-reset-btn">Factory Reset</button>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block" style="margin-top:8px;" id="save-btn">
                 Save Configuration
             </button>
         </form>
-
-        <div style="margin-top:24px;"></div>
-
-        <div class="card danger-card">
-            <h2>Danger Zone</h2>
-            <p style="color:var(--text-secondary); margin:-8px 0 16px; font-size:13px;">
-                Reset all settings to factory defaults. The device will restart.
-            </p>
-            <button type="button" class="btn btn-danger" id="factory-reset-btn">Factory Reset</button>
-        </div>
     </div>
 
     <div class="toast" id="toast"></div>
@@ -367,6 +603,7 @@
             document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
             document.getElementById('tab-' + id).classList.add('active');
             event.target.classList.add('active');
+            document.getElementById('save-btn').style.display = (id === 'danger') ? 'none' : '';
         }
 
         function toggleSource() {
@@ -394,6 +631,7 @@
                 const r = await fetch('/api/config');
                 const c = await r.json();
 
+                // Connection
                 document.getElementById('wifi_ssid').value = c.wifi_ssid || '';
                 document.getElementById('data_source').value = c.data_source || 0;
                 document.getElementById('server_url').value = c.server_url || '';
@@ -405,29 +643,24 @@
                 document.getElementById('stale_timeout').value = c.stale_timeout_min || 20;
                 toggleSource();
 
-                const tzSel = document.getElementById('timezone');
-                const tz = c.timezone || '';
-                let found = false;
-                for (let o of tzSel.options) { if (o.value === tz) { o.selected = true; found = true; break; } }
-                if (!found) document.getElementById('timezone_custom').value = tz;
-                document.getElementById('use_24h').checked = c.use_24h;
-
+                // Display
                 document.getElementById('brightness').value = c.brightness;
                 document.getElementById('auto_brightness').checked = c.auto_brightness;
                 document.getElementById('default_mode').value = c.default_mode;
                 document.getElementById('show_delta').checked = c.show_delta || false;
                 document.getElementById('use_mmol').value = c.use_mmol ? '1' : '0';
-
                 document.getElementById('night_mode_enabled').checked = c.night_mode_enabled || false;
                 document.getElementById('night_start').value = c.night_start_hour !== undefined ? c.night_start_hour : 22;
                 document.getElementById('night_end').value = c.night_end_hour !== undefined ? c.night_end_hour : 7;
                 document.getElementById('night_brightness').value = c.night_brightness || 10;
+                document.getElementById('auto_cycle_enabled').checked = c.auto_cycle_enabled !== false;
+                document.getElementById('auto_cycle_sec').value = c.auto_cycle_sec || 10;
 
+                // Glucose
                 document.getElementById('thresh_urgent_low').value = c.thresh_urgent_low;
                 document.getElementById('thresh_low').value = c.thresh_low;
                 document.getElementById('thresh_high').value = c.thresh_high;
                 document.getElementById('thresh_urgent_high').value = c.thresh_urgent_high;
-
                 document.getElementById('alert_enabled').checked = c.alert_enabled || false;
                 document.getElementById('alert_low').value = c.alert_low || 70;
                 document.getElementById('alert_high').value = c.alert_high || 250;
@@ -444,12 +677,47 @@
                     if (inp && hex) hex.textContent = inp.value;
                 });
 
+                // Time
+                const tzSel = document.getElementById('timezone');
+                const tz = c.timezone || '';
+                let found = false;
+                for (let o of tzSel.options) { if (o.value === tz) { o.selected = true; found = true; break; } }
+                if (!found) document.getElementById('timezone_custom').value = tz;
+                document.getElementById('use_24h').checked = c.use_24h;
+                document.getElementById('date_on_time_screen').checked = c.date_on_time_screen !== false;
+                document.getElementById('date_format').value = c.date_format || 0;
+                document.getElementById('timer_enabled').checked = c.timer_enabled !== false;
+                document.getElementById('timer_work_min').value = c.timer_work_min || 25;
+                document.getElementById('timer_break_min').value = c.timer_break_min || 5;
+                document.getElementById('timer_long_break_min').value = c.timer_long_break_min || 15;
+                document.getElementById('timer_sessions').value = c.timer_sessions || 4;
+                document.getElementById('timer_buzzer').checked = c.timer_buzzer !== false;
+                document.getElementById('stopwatch_enabled').checked = c.stopwatch_enabled !== false;
+                document.getElementById('countdown_enabled').checked = c.countdown_enabled || false;
+                document.getElementById('countdown_name').value = c.countdown_name || '';
+                if (c.countdown_target > 0) {
+                    const d = new Date(c.countdown_target * 1000);
+                    const pad = n => String(n).padStart(2,'0');
+                    document.getElementById('countdown_date').value =
+                        `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                }
+
                 // Weather
                 document.getElementById('weather_enabled').checked = c.weather_enabled || false;
                 document.getElementById('weather_api_key').placeholder = c.weather_api_key ? 'Key set (leave blank to keep)' : 'No key set';
                 document.getElementById('weather_city').value = c.weather_city || '';
                 document.getElementById('weather_use_f').value = c.weather_use_f ? '1' : '0';
                 document.getElementById('weather_poll_min').value = c.weather_poll_min || 15;
+
+                // Integrations
+                document.getElementById('notify_enabled').checked = c.notify_enabled !== false;
+                document.getElementById('notify_default_duration').value = c.notify_default_duration || 60;
+                document.getElementById('notify_allow_buzzer').checked = c.notify_allow_buzzer !== false;
+                document.getElementById('sysmon_enabled').checked = c.sysmon_enabled !== false;
+                document.getElementById('sysmon_label').value = c.sysmon_label || 'CPU';
+                document.getElementById('sysmon_display_mode').value = c.sysmon_display_mode || 0;
+                document.getElementById('sysmon_warn_pct').value = c.sysmon_warn_pct || 50;
+                document.getElementById('sysmon_crit_pct').value = c.sysmon_crit_pct || 80;
             } catch (e) {
                 showToast('Failed to load config', 'error');
             }
@@ -461,6 +729,13 @@
             if (poll < 15) { showToast('Poll interval must be >= 15s', 'error'); return; }
 
             const tzCustom = document.getElementById('timezone_custom').value.trim();
+
+            let cdTarget = 0;
+            const cdDate = document.getElementById('countdown_date').value;
+            if (cdDate) {
+                cdTarget = Math.floor(new Date(cdDate).getTime() / 1000);
+            }
+
             const data = {
                 wifi_ssid: document.getElementById('wifi_ssid').value,
                 data_source: parseInt(document.getElementById('data_source').value),
@@ -469,8 +744,6 @@
                 dexcom_us: document.getElementById('dexcom_us').value === '1',
                 poll_interval: poll,
                 stale_timeout_min: parseInt(document.getElementById('stale_timeout').value),
-                timezone: tzCustom || document.getElementById('timezone').value,
-                use_24h: document.getElementById('use_24h').checked,
                 brightness: parseInt(document.getElementById('brightness').value),
                 auto_brightness: document.getElementById('auto_brightness').checked,
                 default_mode: parseInt(document.getElementById('default_mode').value),
@@ -480,6 +753,8 @@
                 night_start_hour: parseInt(document.getElementById('night_start').value),
                 night_end_hour: parseInt(document.getElementById('night_end').value),
                 night_brightness: parseInt(document.getElementById('night_brightness').value),
+                auto_cycle_enabled: document.getElementById('auto_cycle_enabled').checked,
+                auto_cycle_sec: parseInt(document.getElementById('auto_cycle_sec').value),
                 thresh_urgent_low: parseInt(document.getElementById('thresh_urgent_low').value),
                 thresh_low: parseInt(document.getElementById('thresh_low').value),
                 thresh_high: parseInt(document.getElementById('thresh_high').value),
@@ -493,10 +768,32 @@
                 color_in_range: document.getElementById('color_in_range').value,
                 color_high: document.getElementById('color_high').value,
                 color_urgent_high: document.getElementById('color_urgent_high').value,
+                timezone: tzCustom || document.getElementById('timezone').value,
+                use_24h: document.getElementById('use_24h').checked,
+                date_on_time_screen: document.getElementById('date_on_time_screen').checked,
+                date_format: parseInt(document.getElementById('date_format').value),
+                timer_enabled: document.getElementById('timer_enabled').checked,
+                timer_work_min: parseInt(document.getElementById('timer_work_min').value),
+                timer_break_min: parseInt(document.getElementById('timer_break_min').value),
+                timer_long_break_min: parseInt(document.getElementById('timer_long_break_min').value),
+                timer_sessions: parseInt(document.getElementById('timer_sessions').value),
+                timer_buzzer: document.getElementById('timer_buzzer').checked,
+                stopwatch_enabled: document.getElementById('stopwatch_enabled').checked,
+                countdown_enabled: document.getElementById('countdown_enabled').checked,
+                countdown_name: document.getElementById('countdown_name').value,
+                countdown_target: cdTarget,
                 weather_enabled: document.getElementById('weather_enabled').checked,
                 weather_city: document.getElementById('weather_city').value,
                 weather_use_f: document.getElementById('weather_use_f').value === '1',
-                weather_poll_min: parseInt(document.getElementById('weather_poll_min').value)
+                weather_poll_min: parseInt(document.getElementById('weather_poll_min').value),
+                notify_enabled: document.getElementById('notify_enabled').checked,
+                notify_default_duration: parseInt(document.getElementById('notify_default_duration').value),
+                notify_allow_buzzer: document.getElementById('notify_allow_buzzer').checked,
+                sysmon_enabled: document.getElementById('sysmon_enabled').checked,
+                sysmon_label: document.getElementById('sysmon_label').value,
+                sysmon_display_mode: parseInt(document.getElementById('sysmon_display_mode').value),
+                sysmon_warn_pct: parseInt(document.getElementById('sysmon_warn_pct').value),
+                sysmon_crit_pct: parseInt(document.getElementById('sysmon_crit_pct').value)
             };
             const pw = document.getElementById('wifi_password').value;
             if (pw) data.wifi_password = pw;
@@ -513,11 +810,106 @@
             } catch (e) { showToast('Network error', 'error'); }
         });
 
+        // Test notification button
+        document.getElementById('test-notify-btn').addEventListener('click', async function() {
+            const text = document.getElementById('test_notify_text').value || 'Hello!';
+            const dur = parseInt(document.getElementById('test_notify_dur').value) || 10;
+            const urgent = document.getElementById('test_notify_urgent').checked;
+            try {
+                const r = await fetch('/api/notify', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({text, duration_sec: dur, urgent})
+                });
+                showToast(r.ok ? 'Notification sent!' : 'Failed', r.ok ? 'success' : 'error');
+            } catch (e) { showToast('Network error', 'error'); }
+        });
+
         document.getElementById('factory-reset-btn').addEventListener('click', async function() {
             if (!confirm('Factory reset? All settings will be erased.')) return;
             try { await fetch('/api/factory-reset', { method: 'POST' }); showToast('Resetting...'); }
             catch (e) { showToast('Failed', 'error'); }
         });
+
+        document.getElementById('restart-config-btn').addEventListener('click', async function() {
+            if (!confirm('Restart the device?')) return;
+            try { await fetch('/api/restart', { method: 'POST' }); showToast('Restarting...'); }
+            catch (e) { showToast('Failed', 'error'); }
+        });
+
+        // Test Weather API
+        document.getElementById('test-weather-btn').addEventListener('click', async function() {
+            const btn = this;
+            const res = document.getElementById('test-weather-result');
+            btn.disabled = true;
+            btn.textContent = 'Testing...';
+            res.className = 'test-result';
+            res.textContent = '';
+            try {
+                const r = await fetch('/api/test/weather', { method: 'POST' });
+                const d = await r.json();
+                if (d.ok) {
+                    res.textContent = Math.round(d.temp) + '\u00B0 ' + d.description + ' (Humidity: ' + d.humidity + '%)';
+                    res.className = 'test-result test-success';
+                } else {
+                    res.textContent = d.error || ('HTTP ' + d.http_code);
+                    res.className = 'test-result test-error';
+                }
+            } catch (e) {
+                res.textContent = 'Network error';
+                res.className = 'test-result test-error';
+            }
+            btn.disabled = false;
+            btn.textContent = 'Test Weather API';
+        });
+
+        // Test Glucose Data Source
+        document.getElementById('test-glucose-btn').addEventListener('click', async function() {
+            const btn = this;
+            const res = document.getElementById('test-glucose-result');
+            btn.disabled = true;
+            btn.textContent = 'Testing...';
+            res.className = 'test-result';
+            res.textContent = '';
+            try {
+                const r = await fetch('/api/test/glucose', { method: 'POST' });
+                const d = await r.json();
+                if (d.ok) {
+                    res.textContent = 'Glucose: ' + d.glucose + ' mg/dL, Trend: ' + d.trend;
+                    res.className = 'test-result test-success';
+                } else {
+                    res.textContent = d.error || ('HTTP ' + d.http_code);
+                    res.className = 'test-result test-error';
+                }
+            } catch (e) {
+                res.textContent = 'Network error';
+                res.className = 'test-result test-error';
+            }
+            btn.disabled = false;
+            btn.textContent = 'Test Connection';
+        });
+
+        // Display prev/next controls
+        async function displayControl(direction) {
+            try {
+                const r = await fetch('/api/display/' + direction, { method: 'POST' });
+                const d = await r.json();
+                document.getElementById('current-mode').textContent = d.mode || '--';
+            } catch (e) { showToast('Network error', 'error'); }
+        }
+        document.getElementById('display-prev-btn').addEventListener('click', () => displayControl('prev'));
+        document.getElementById('display-next-btn').addEventListener('click', () => displayControl('next'));
+
+        // Periodically update current mode display
+        async function updateCurrentMode() {
+            try {
+                const r = await fetch('/api/status');
+                const d = await r.json();
+                document.getElementById('current-mode').textContent = d.state || '--';
+            } catch (e) {}
+        }
+        setInterval(updateCurrentMode, 3000);
+        updateCurrentMode();
 
         loadConfig();
     </script>

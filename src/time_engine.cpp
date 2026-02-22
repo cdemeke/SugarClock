@@ -189,6 +189,43 @@ void time_get_string(char* buf, int bufsize, bool use_24h) {
     snprintf(buf, bufsize, "%d:%02d", h, timeinfo.tm_min);
 }
 
+int time_get_day() {
+    struct tm timeinfo;
+    if (getLocalTime(&timeinfo, 10)) {
+        return timeinfo.tm_mday;
+    }
+    return -1;
+}
+
+int time_get_month() {
+    struct tm timeinfo;
+    if (getLocalTime(&timeinfo, 10)) {
+        return timeinfo.tm_mon + 1;  // tm_mon is 0-11
+    }
+    return -1;
+}
+
+int time_get_weekday() {
+    struct tm timeinfo;
+    if (getLocalTime(&timeinfo, 10)) {
+        return timeinfo.tm_wday;  // 0=Sun
+    }
+    return -1;
+}
+
+static const char* MONTH_ABBRS[] = {
+    "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+    "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"
+};
+
+const char* time_get_month_abbr() {
+    struct tm timeinfo;
+    if (getLocalTime(&timeinfo, 10)) {
+        return MONTH_ABBRS[timeinfo.tm_mon];
+    }
+    return "???";
+}
+
 unsigned long time_get_uptime_sec() {
     return (millis() - boot_millis) / 1000;
 }

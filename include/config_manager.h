@@ -40,7 +40,7 @@ struct AppConfig {
     bool use_24h;              // default false
 
     // Display mode
-    int default_mode;          // 0=glucose, 1=time
+    int default_mode;          // 0=glucose, 1=time, 2=weather
 
     // Alerts (buzzer on PIN 15)
     bool alert_enabled;        // default false
@@ -70,6 +70,42 @@ struct AppConfig {
     char weather_city[64];      // "City,CC" format, default "New York,US"
     bool weather_use_f;         // true=Fahrenheit, false=Celsius, default true
     int weather_poll_min;       // update interval, default 15, min 5
+
+    // Date display on time screen
+    bool date_on_time_screen;  // default true
+    int date_format;           // 0=M/DD, 1=MMMDD, 2=DD/MM, default 0
+
+    // Pomodoro timer
+    bool timer_enabled;        // default true
+    int timer_work_min;        // default 25
+    int timer_break_min;       // default 5
+    int timer_long_break_min;  // default 15
+    int timer_sessions;        // default 4
+    bool timer_buzzer;         // default true
+
+    // Stopwatch
+    bool stopwatch_enabled;    // default true
+
+    // Notifications
+    bool notify_enabled;           // default true
+    int notify_default_duration;   // default 60 seconds
+    bool notify_allow_buzzer;      // default true
+
+    // System monitor
+    bool sysmon_enabled;       // default true
+    char sysmon_label[8];      // default "CPU"
+    int sysmon_display_mode;   // 0=text, 1=bar, default 0
+    int sysmon_warn_pct;       // default 50
+    int sysmon_crit_pct;       // default 80
+
+    // Auto-cycle display
+    bool auto_cycle_enabled;   // default true
+    int auto_cycle_sec;        // default 10, min 3, max 300
+
+    // Countdown to event
+    bool countdown_enabled;    // default false
+    char countdown_name[16];   // event name, default ""
+    unsigned long countdown_target; // unix timestamp, default 0
 
     // Config validity marker
     uint32_t magic;            // 0xGLUC to verify config is initialized

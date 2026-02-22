@@ -77,6 +77,42 @@ static void config_set_defaults() {
     config.weather_use_f = true;
     config.weather_poll_min = 15;
 
+    // Date display
+    config.date_on_time_screen = true;
+    config.date_format = 0;  // M/DD
+
+    // Pomodoro timer
+    config.timer_enabled = true;
+    config.timer_work_min = 25;
+    config.timer_break_min = 5;
+    config.timer_long_break_min = 15;
+    config.timer_sessions = 4;
+    config.timer_buzzer = true;
+
+    // Stopwatch
+    config.stopwatch_enabled = true;
+
+    // Notifications
+    config.notify_enabled = true;
+    config.notify_default_duration = 60;
+    config.notify_allow_buzzer = true;
+
+    // System monitor
+    config.sysmon_enabled = true;
+    strncpy(config.sysmon_label, "CPU", sizeof(config.sysmon_label));
+    config.sysmon_display_mode = 0;
+    config.sysmon_warn_pct = 50;
+    config.sysmon_crit_pct = 80;
+
+    // Countdown
+    config.countdown_enabled = false;
+    config.countdown_name[0] = '\0';
+    config.countdown_target = 0;
+
+    // Auto-cycle
+    config.auto_cycle_enabled = true;
+    config.auto_cycle_sec = 10;
+
     config.magic = CONFIG_MAGIC;
 }
 
@@ -147,6 +183,47 @@ void config_init() {
         config.weather_poll_min = prefs.getInt("wx_poll", 15);
         if (config.weather_poll_min < 5) config.weather_poll_min = 5;
 
+        // Date display
+        config.date_on_time_screen = prefs.getBool("date_en", true);
+        config.date_format = prefs.getInt("date_fmt", 0);
+
+        // Timer
+        config.timer_enabled = prefs.getBool("tmr_en", true);
+        config.timer_work_min = prefs.getInt("tmr_work", 25);
+        config.timer_break_min = prefs.getInt("tmr_brk", 5);
+        config.timer_long_break_min = prefs.getInt("tmr_lbrk", 15);
+        config.timer_sessions = prefs.getInt("tmr_sess", 4);
+        config.timer_buzzer = prefs.getBool("tmr_buzz", true);
+
+        // Stopwatch
+        config.stopwatch_enabled = prefs.getBool("sw_en", true);
+
+        // Notifications
+        config.notify_enabled = prefs.getBool("ntfy_en", true);
+        config.notify_default_duration = prefs.getInt("ntfy_dur", 60);
+        config.notify_allow_buzzer = prefs.getBool("ntfy_buzz", true);
+
+        // System monitor
+        config.sysmon_enabled = prefs.getBool("smon_en", true);
+        prefs.getString("smon_lbl", config.sysmon_label, sizeof(config.sysmon_label));
+        if (strlen(config.sysmon_label) == 0) {
+            strncpy(config.sysmon_label, "CPU", sizeof(config.sysmon_label));
+        }
+        config.sysmon_display_mode = prefs.getInt("smon_dmode", 0);
+        config.sysmon_warn_pct = prefs.getInt("smon_warn", 50);
+        config.sysmon_crit_pct = prefs.getInt("smon_crit", 80);
+
+        // Countdown
+        config.countdown_enabled = prefs.getBool("cd_en", false);
+        prefs.getString("cd_name", config.countdown_name, sizeof(config.countdown_name));
+        config.countdown_target = prefs.getULong("cd_target", 0);
+
+        // Auto-cycle
+        config.auto_cycle_enabled = prefs.getBool("acyc_en", true);
+        config.auto_cycle_sec = prefs.getInt("acyc_sec", 10);
+        if (config.auto_cycle_sec < 3) config.auto_cycle_sec = 3;
+        if (config.auto_cycle_sec > 300) config.auto_cycle_sec = 300;
+
         config.magic = CONFIG_MAGIC;
 
         // Enforce minimum poll interval
@@ -210,6 +287,42 @@ void config_save() {
     prefs.putString("wx_city", config.weather_city);
     prefs.putBool("wx_use_f", config.weather_use_f);
     prefs.putInt("wx_poll", config.weather_poll_min);
+
+    // Date display
+    prefs.putBool("date_en", config.date_on_time_screen);
+    prefs.putInt("date_fmt", config.date_format);
+
+    // Timer
+    prefs.putBool("tmr_en", config.timer_enabled);
+    prefs.putInt("tmr_work", config.timer_work_min);
+    prefs.putInt("tmr_brk", config.timer_break_min);
+    prefs.putInt("tmr_lbrk", config.timer_long_break_min);
+    prefs.putInt("tmr_sess", config.timer_sessions);
+    prefs.putBool("tmr_buzz", config.timer_buzzer);
+
+    // Stopwatch
+    prefs.putBool("sw_en", config.stopwatch_enabled);
+
+    // Notifications
+    prefs.putBool("ntfy_en", config.notify_enabled);
+    prefs.putInt("ntfy_dur", config.notify_default_duration);
+    prefs.putBool("ntfy_buzz", config.notify_allow_buzzer);
+
+    // System monitor
+    prefs.putBool("smon_en", config.sysmon_enabled);
+    prefs.putString("smon_lbl", config.sysmon_label);
+    prefs.putInt("smon_dmode", config.sysmon_display_mode);
+    prefs.putInt("smon_warn", config.sysmon_warn_pct);
+    prefs.putInt("smon_crit", config.sysmon_crit_pct);
+
+    // Countdown
+    prefs.putBool("cd_en", config.countdown_enabled);
+    prefs.putString("cd_name", config.countdown_name);
+    prefs.putULong("cd_target", config.countdown_target);
+
+    // Auto-cycle
+    prefs.putBool("acyc_en", config.auto_cycle_enabled);
+    prefs.putInt("acyc_sec", config.auto_cycle_sec);
 
     Serial.println("[CONFIG] Saved to NVS");
 }

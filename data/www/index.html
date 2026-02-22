@@ -60,6 +60,68 @@
             <svg id="history-graph" viewBox="0 0 600 100" preserveAspectRatio="none"></svg>
         </div>
 
+        <!-- Feature status cards -->
+        <div class="card-grid" id="feature-cards">
+            <div class="card card-compact" id="timer-card" style="display:none;">
+                <h2>Pomodoro Timer</h2>
+                <div class="status-row">
+                    <span class="status-label">State</span>
+                    <span class="status-value"><span class="badge badge-blue" id="timer-state">--</span></span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Remaining</span>
+                    <span class="status-value" id="timer-remaining">--</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Session</span>
+                    <span class="status-value" id="timer-session">--</span>
+                </div>
+            </div>
+
+            <div class="card card-compact" id="stopwatch-card" style="display:none;">
+                <h2>Stopwatch</h2>
+                <div class="status-row">
+                    <span class="status-label">State</span>
+                    <span class="status-value"><span class="badge badge-green" id="sw-state">--</span></span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Elapsed</span>
+                    <span class="status-value" id="sw-elapsed">00:00</span>
+                </div>
+            </div>
+
+            <div class="card card-compact" id="weather-card" style="display:none;">
+                <h2>Weather</h2>
+                <div class="status-row">
+                    <span class="status-label">Temperature</span>
+                    <span class="status-value" id="weather-temp">--</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Condition</span>
+                    <span class="status-value" id="weather-desc">--</span>
+                </div>
+            </div>
+
+            <div class="card card-compact" id="sysmon-card" style="display:none;">
+                <h2>System Monitor</h2>
+                <div class="status-row">
+                    <span class="status-label" id="sysmon-label-text">CPU</span>
+                    <span class="status-value" id="sysmon-value">--</span>
+                </div>
+                <div class="sysmon-bar-container" style="margin-top:8px;">
+                    <div class="sysmon-bar" id="sysmon-bar" style="width:0%;"></div>
+                </div>
+            </div>
+
+            <div class="card card-compact" id="countdown-card" style="display:none;">
+                <h2 id="countdown-title">Countdown</h2>
+                <div class="status-row">
+                    <span class="status-label">Remaining</span>
+                    <span class="status-value" id="countdown-remaining">--</span>
+                </div>
+            </div>
+        </div>
+
         <div class="card-grid">
             <div class="card card-compact">
                 <h2>Connection</h2>
@@ -93,9 +155,13 @@
     <script>
         const trendMap = {'RisingFast':'\u2191\u2191','Rising':'\u2191','Flat':'\u2192','Falling':'\u2193','FallingFast':'\u2193\u2193','Unknown':'?'};
         const colorMap = {'red':'color-red','orange':'color-orange','green':'color-green','gray':'color-gray'};
+        const timerNames = ['Idle','Running','Paused','Break','Long Break','Done'];
+        const swNames = ['Idle','Running','Paused'];
 
         function fmtUp(s){const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60);if(d>0)return d+'d '+h+'h';if(h>0)return h+'h '+m+'m';return m+'m';}
         function fmtAge(s){if(s<0)return'No data';if(s<60)return s+'s ago';if(s<3600)return Math.floor(s/60)+'m '+s%60+'s ago';return Math.floor(s/3600)+'h ago';}
+        function fmtSec(s){const m=Math.floor(s/60),ss=s%60;return m+':'+(ss<10?'0':'')+ss;}
+        function fmtCountdown(s){if(s<=0)return'NOW!';if(s<3600)return Math.floor(s/60)+'m';if(s<86400){const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h+'h '+m+'m';}return Math.floor(s/86400)+'d';}
 
         function drawGraph(hist){
             const c=document.getElementById('history-container'),svg=document.getElementById('history-graph');
@@ -127,6 +193,52 @@
                 document.getElementById('uptime').textContent=fmtUp(d.uptime_sec);document.getElementById('brightness').textContent=d.brightness;
                 document.getElementById('message').textContent=d.message||'--';
                 if(d.thresholds)window._t=d.thresholds;if(hist&&hist.readings)drawGraph(hist.readings);
+
+                // Timer card
+                const tc=document.getElementById('timer-card');
+                if(d.timer_state!==undefined&&d.timer_state>0){
+                    tc.style.display='';
+                    document.getElementById('timer-state').textContent=timerNames[d.timer_state]||'--';
+                    document.getElementById('timer-remaining').textContent=fmtSec(d.timer_remaining);
+                    document.getElementById('timer-session').textContent=d.timer_session||'--';
+                }else{tc.style.display=d.timer_state===0?'':'none';}
+                if(d.timer_state===0){tc.style.display='';document.getElementById('timer-state').textContent='Idle';document.getElementById('timer-remaining').textContent=fmtSec(d.timer_remaining);document.getElementById('timer-session').textContent='-';}
+
+                // Stopwatch card
+                const sc=document.getElementById('stopwatch-card');
+                if(d.stopwatch_state!==undefined){
+                    sc.style.display='';
+                    document.getElementById('sw-state').textContent=swNames[d.stopwatch_state]||'--';
+                    document.getElementById('sw-elapsed').textContent=fmtSec(d.stopwatch_elapsed);
+                }
+
+                // Weather card
+                const wc=document.getElementById('weather-card');
+                if(d.weather_temp!==undefined){
+                    wc.style.display='';
+                    document.getElementById('weather-temp').textContent=Math.round(d.weather_temp)+'°';
+                    document.getElementById('weather-desc').textContent=d.weather_desc||'--';
+                }
+
+                // Sysmon card
+                const smc=document.getElementById('sysmon-card');
+                if(d.sysmon_value!==undefined){
+                    smc.style.display='';
+                    document.getElementById('sysmon-label-text').textContent=d.sysmon_label||'CPU';
+                    document.getElementById('sysmon-value').textContent=d.sysmon_value+'/'+d.sysmon_max;
+                    const pct=d.sysmon_max>0?Math.round(d.sysmon_value*100/d.sysmon_max):0;
+                    const bar=document.getElementById('sysmon-bar');
+                    bar.style.width=pct+'%';
+                    bar.style.background=pct>=80?'var(--red)':pct>=50?'var(--orange)':'var(--green)';
+                }
+
+                // Countdown card
+                const cdc=document.getElementById('countdown-card');
+                if(d.countdown_remaining!==undefined){
+                    cdc.style.display='';
+                    document.getElementById('countdown-title').textContent=d.countdown_name||'Countdown';
+                    document.getElementById('countdown-remaining').textContent=fmtCountdown(d.countdown_remaining);
+                }
             }catch(e){document.getElementById('glucose-value').textContent='ERR';}
         }
         refresh();setInterval(refresh,5000);

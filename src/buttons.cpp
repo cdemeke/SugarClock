@@ -23,7 +23,9 @@ void buttons_init() {
     buttons[1] = { PIN_BUTTON_MIDDLE, true, true, false, 0, 0, false };
     buttons[2] = { PIN_BUTTON_RIGHT,  true, true, false, 0, 0, false };
 
-    // Pins already configured as INPUT_PULLUP in main.cpp
+    pinMode(PIN_BUTTON_LEFT, INPUT_PULLUP);
+    pinMode(PIN_BUTTON_MIDDLE, INPUT_PULLUP);
+    pinMode(PIN_BUTTON_RIGHT, INPUT_PULLUP);
 }
 
 void buttons_loop() {
