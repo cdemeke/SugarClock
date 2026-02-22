@@ -1,6 +1,6 @@
 # SugarClock — A DIY CGM Display for Ulanzi TC001
 
-Custom firmware that turns the [Ulanzi TC001 Smart Pixel Clock](https://www.amazon.com/ULANZI-TC001-Smart-Pixel-Clock/dp/B0CXX91TY5) (~$40-50) into a real-time continuous glucose monitor (CGM) display and desk companion. Connects to Dexcom Share or a custom server to show your blood glucose, trend arrows, and alerts on an 8x32 RGB LED matrix — plus a pomodoro timer, stopwatch, push notifications, system monitor, countdown, and more. Full web UI for configuration.
+Custom firmware that turns the [Ulanzi TC001 Smart Pixel Clock](https://amzn.to/4rrqbjz) (~$40-50) into a real-time continuous glucose monitor (CGM) display and desk companion. Connects to Dexcom Share or a custom server to show your blood glucose, trend arrows, and alerts on an 8x32 RGB LED matrix — plus a pomodoro timer, stopwatch, push notifications, system monitor, countdown, and more. Full web UI for configuration.
 
 **Cost:** ~$40-50 one-time (the Ulanzi TC001) + ~1 hour of setup time. Compare to the [SugarPixel](https://customtypeone.com/products/sugarpixel) (~$100) which does something similar via a mobile app.
 
@@ -320,7 +320,7 @@ esptool.py -p /dev/cu.usbserial-* -b 460800 write_flash 0x0 tc001_factory_backup
 
 ## Where to Buy
 
-- [Ulanzi TC001 Smart Pixel Clock -- Amazon US](https://www.amazon.com/ULANZI-TC001-Smart-Pixel-Clock/dp/B0CXX91TY5) (~$40-50)
+- [Ulanzi TC001 Smart Pixel Clock -- Amazon US](https://amzn.to/4rrqbjz) (~$40-50)
 - Use a **high-quality USB-C data cable** -- the included cable can be flaky
 
 ## Acknowledgments

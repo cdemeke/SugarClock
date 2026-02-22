@@ -82,6 +82,10 @@ final class SetupState: ObservableObject {
     @Published var hasEsptool: Bool = false
     @Published var hasGit: Bool = false
     @Published var isCheckingPrereqs: Bool = false
+    @Published var isInstallingPrereqs: Bool = false
+    @Published var installLog: String = ""
+    @Published var installError: String? = nil
+    @Published var installingItem: String? = nil  // "git", "platformio", nil
 
     var allPrereqsMet: Bool {
         hasPlatformIO && hasEsptool && hasGit
