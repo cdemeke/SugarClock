@@ -462,6 +462,14 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
         display_set_brightness(cfg.brightness);
     }
 
+    // If WiFi credentials were just saved while in AP mode, reboot to connect
+    if (wifi_is_ap_mode() && config_has_wifi()) {
+        request->send(200, "application/json", "{\"status\":\"ok\",\"reboot\":true}");
+        delay(1000);
+        ESP.restart();
+        return;
+    }
+
     request->send(200, "application/json", "{\"status\":\"ok\"}");
 }
 

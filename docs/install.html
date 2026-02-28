@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Install SugarClock — Web Flasher</title>
+  <meta name="description"
+    content="Flash SugarClock firmware directly from your browser. No downloads required — just Chrome or Edge and a USB cable.">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;700;800&display=swap"
+    rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+
+  <script src="https://unpkg.com/feather-icons"></script>
+  <script
+    type="module"
+    src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"
+  ></script>
+</head>
+
+<body class="dark-theme">
+
+  <!-- ========== NAVIGATION ========== -->
+  <nav class="site-nav">
+    <div class="container">
+      <a href="index.html" class="nav-brand">
+        <img src="images/logo.png" alt="SugarClock" class="nav-logo">
+        <span>SugarClock</span>
+      </a>
+      <button class="nav-toggle" aria-label="Open menu"
+        onclick="document.querySelector('.nav-links').classList.toggle('open')">
+        <span></span><span></span><span></span>
+      </button>
+      <ul class="nav-links">
+        <li><a href="index.html">Project Home</a></li>
+        <li><a href="install.html" class="active">Install</a></li>
+        <li><a href="setup.html">Setup Guide</a></li>
+        <li><a href="support.html">Documentation</a></li>
+        <li><a href="install.html" class="btn btn-primary btn-sm">Install Now</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main>
+    <!-- ========== HERO ========== -->
+    <section class="hero dark-hero" style="padding: 10rem 0 4rem; text-align: center;">
+      <div class="container">
+        <div class="fade-up">
+          <div class="badge-pill mb-4" style="margin: 0 auto 2rem;">
+            <span class="info-dot"></span> Works on Mac, Windows &amp; Linux
+          </div>
+          <h1 class="hero-title" style="font-size: 3rem; margin-bottom: 1rem;">Install SugarClock</h1>
+          <p class="hero-subtitle" style="margin: 0 auto; max-width: 650px;">
+            Flash the firmware directly from your browser. No downloads, no terminal, no coding.
+            Just plug in the clock and click the button below.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== FLASHER ========== -->
+    <section class="section-py" style="padding-top: 2rem;">
+      <div class="container" style="max-width: 720px;">
+
+        <!-- Browser compatibility warning -->
+        <div id="browser-warning" class="callout callout-warning install-browser-warning fade-up" style="display: none;">
+          <div class="callout-icon"><i data-feather="alert-triangle"></i></div>
+          <div class="callout-text">
+            <strong>Unsupported browser.</strong> The Web Serial API requires
+            <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> on desktop.
+            Safari, Firefox, and mobile browsers are not supported.
+            <br><br>
+            <strong>Alternative options:</strong>
+            <a href="https://github.com/cdemeke/SugarClock/releases/latest">Download the Mac app</a> or
+            <a href="setup.html#manual-setup">use the CLI</a>.
+          </div>
+        </div>
+
+        <!-- Flash card -->
+        <div class="clean-card install-flash-card fade-up delay-1">
+          <div class="install-flash-inner">
+            <div class="install-flash-header">
+              <div class="feature-icon bg-soft-green" style="margin-bottom: 0;">
+                <i data-feather="download"></i>
+              </div>
+              <div>
+                <h2 style="font-size: 1.5rem; margin-bottom: 0.25rem;">Flash Firmware</h2>
+                <p class="text-muted text-sm">SugarClock v0.1.0 &mdash; ESP32</p>
+              </div>
+            </div>
+
+            <ol class="install-prereq-list">
+              <li>Plug the Ulanzi TC001 into your computer with a USB-C <strong>data</strong> cable</li>
+              <li>Click the button below and select the serial port when prompted</li>
+              <li>Wait for the flash to complete (~2 minutes)</li>
+            </ol>
+
+            <div class="callout callout-info" style="margin: 0 0 1.5rem;">
+              <div class="callout-icon"><i data-feather="volume-2"></i></div>
+              <div class="callout-text">
+                <strong>You may hear a beeping noise</strong> from the clock while the software is being
+                installed. This is completely normal and will stop once installation is complete.
+              </div>
+            </div>
+
+            <div class="install-button-wrap">
+              <esp-web-install-button manifest="manifest.json">
+                <button class="btn btn-primary btn-lg" slot="activate">
+                  <i data-feather="zap"></i>
+                  Install SugarClock
+                </button>
+              </esp-web-install-button>
+            </div>
+
+            <p class="text-muted text-sm" style="text-align: center; margin-top: 1rem;">
+              Installation takes about 2 minutes. On first install the device storage will be erased to start fresh.
+            </p>
+          </div>
+        </div>
+
+        <!-- Post-flash instructions -->
+        <div id="post-flash" class="clean-card install-steps-card fade-up delay-2" style="margin-top: 2rem;">
+          <div class="install-flash-inner">
+            <h2 style="font-size: 1.5rem; margin-bottom: 1.5rem;">After Flashing</h2>
+
+            <div class="callout callout-success install-finish-callout" style="margin-top: 0;">
+              <div class="callout-icon"><i data-feather="wifi"></i></div>
+              <div class="callout-text">
+                <strong>To finish setup:</strong> Connect to the <code>SugarClock-Setup</code> WiFi network,
+                then open <strong><code>http://192.168.4.1/config.html</code></strong> in your browser.
+              </div>
+            </div>
+
+            <p class="text-muted" style="margin-bottom: 1.5rem;">
+              The clock reboots and creates a temporary WiFi network so you can configure it. Here's the full walkthrough:
+            </p>
+
+            <ol class="install-steps">
+              <li>
+                <div class="install-step-num">1</div>
+                <div>
+                  <strong>Clock shows "SETUP"</strong>
+                  <p class="text-muted text-sm">The clock reboots and displays "SETUP" while it waits for WiFi configuration.</p>
+                </div>
+              </li>
+              <li>
+                <div class="install-step-num">2</div>
+                <div>
+                  <strong>Connect to "SugarClock-Setup" WiFi</strong>
+                  <p class="text-muted text-sm">On your phone or laptop, join the open WiFi network named <code>SugarClock-Setup</code>.</p>
+                </div>
+              </li>
+              <li>
+                <div class="install-step-num">3</div>
+                <div>
+                  <strong>Open the config page</strong>
+                  <p class="text-muted text-sm">Navigate to <code>http://192.168.4.1/config.html</code> in your browser.</p>
+                </div>
+              </li>
+              <li>
+                <div class="install-step-num">4</div>
+                <div>
+                  <strong>Enter WiFi &amp; glucose source</strong>
+                  <p class="text-muted text-sm">Fill in your home WiFi name/password and choose Dexcom Share, Nightscout, or a custom URL. Click <strong>Save</strong>.</p>
+                </div>
+              </li>
+              <li>
+                <div class="install-step-num">5</div>
+                <div>
+                  <strong>Clock reboots &amp; connects</strong>
+                  <p class="text-muted text-sm">The clock restarts, joins your home WiFi, and your glucose reading appears within a minute.</p>
+                </div>
+              </li>
+            </ol>
+          </div>
+        </div>
+
+        <!-- Troubleshooting -->
+        <div style="margin-top: 3rem;" class="fade-up">
+          <h3 style="margin-bottom: 1rem;">Troubleshooting</h3>
+          <div class="faq-accordion">
+            <div class="faq-item clean-card">
+              <button class="faq-question">
+                <span>I don't see a "Connect" prompt when I click Install</span>
+                <i data-feather="chevron-down"></i>
+              </button>
+              <div class="faq-answer">
+                <p>Make sure you're using <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> on a
+                  desktop computer. Mobile browsers and Safari/Firefox do not support Web Serial.
+                  Also ensure the USB cable is a <strong>data</strong> cable (not charge-only).</p>
+              </div>
+            </div>
+            <div class="faq-item clean-card">
+              <button class="faq-question">
+                <span>The flash fails or gets stuck</span>
+                <i data-feather="chevron-down"></i>
+              </button>
+              <div class="faq-answer">
+                <p>Try a different USB port (directly on your computer, not through a hub).
+                  If the flash still fails, hold the <strong>middle button</strong> on the clock while plugging
+                  in the USB cable to enter bootloader mode, then try again.
+                  You may also need the <a href="https://sparks.gogo.co.nz/ch340.html">CH340 USB driver</a>.</p>
+              </div>
+            </div>
+            <div class="faq-item clean-card">
+              <button class="faq-question">
+                <span>I can't find "SugarClock-Setup" WiFi after flashing</span>
+                <i data-feather="chevron-down"></i>
+              </button>
+              <div class="faq-answer">
+                <p>Wait about 10 seconds after the clock reboots. The AP network should appear on your
+                  phone or laptop's WiFi list as <code>SugarClock-Setup</code> (open, no password).
+                  If it doesn't appear, unplug and re-plug the clock to power cycle it.</p>
+              </div>
+            </div>
+            <div class="faq-item clean-card">
+              <button class="faq-question">
+                <span>I'm on Mac — should I use the web flasher or the Mac app?</span>
+                <i data-feather="chevron-down"></i>
+              </button>
+              <div class="faq-answer">
+                <p>Either works! The <a href="https://github.com/cdemeke/SugarClock/releases/latest">Mac app</a>
+                  lets you enter WiFi and glucose credentials before flashing, so the clock connects
+                  immediately. The web flasher is simpler but requires the extra AP-mode configuration step
+                  after flashing.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========== FOOTER ========== -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand-col">
+          <a href="/" class="nav-brand">
+            <img src="images/logo.png" alt="SugarClock" class="nav-logo gray icon-sm">
+            <span class="text-dark">SugarClock</span>
+          </a>
+          <p class="footer-desc mt-3">An open-source DIY project aimed at making glucose data more visible and
+            accessible.</p>
+        </div>
+        <div class="footer-links">
+          <h4>Documentation</h4>
+          <ul>
+            <li><a href="install.html">Web Installer</a></li>
+            <li><a href="setup.html">Setup Guide</a></li>
+            <li><a href="support.html">Troubleshooting</a></li>
+          </ul>
+        </div>
+        <div class="footer-links">
+          <h4>Project</h4>
+          <ul>
+            <li><a href="#" target="_blank" rel="noopener">Source Code</a></li>
+            <li><a href="#" target="_blank" rel="noopener">Issue Tracker</a></li>
+            <li><a href="#" target="_blank" rel="noopener">Community Discord</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2024 SugarClock Contributors. Released under the MIT License.</p>
+        <p class="disclaimer mt-2"><strong>Disclaimer:</strong> SugarClock is not a medical device. Do not use its
+          display for making medical decisions. Always consult your primary CGM receiver/app.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    feather.replace();
+
+    // Detect unsupported browsers (no Web Serial API)
+    if (!("serial" in navigator)) {
+      document.getElementById("browser-warning").style.display = "flex";
+    }
+
+    // Intersection Observer for scroll animations
+    document.addEventListener("DOMContentLoaded", () => {
+      const observer = new IntersectionObserver((entries, obs) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+            obs.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.1 });
+
+      document.querySelectorAll('.fade-up').forEach((el) => observer.observe(el));
+
+      // FAQ Accordion
+      document.querySelectorAll('.faq-question').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const item = btn.closest('.faq-item');
+          item.classList.toggle('active');
+          const answer = item.querySelector('.faq-answer');
+          if (item.classList.contains('active')) {
+            answer.style.maxHeight = answer.scrollHeight + "px";
+          } else {
+            answer.style.maxHeight = 0;
+          }
+        });
+      });
+    });
+  </script>
+</body>
+
+</html>

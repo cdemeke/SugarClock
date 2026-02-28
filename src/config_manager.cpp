@@ -13,9 +13,9 @@ static Preferences prefs;
 static void config_set_defaults() {
     memset(&config, 0, sizeof(AppConfig));
 
-    // WiFi
-    strncpy(config.wifi_ssid, "tight*5", sizeof(config.wifi_ssid));
-    strncpy(config.wifi_password, "redcat153", sizeof(config.wifi_password));
+    // WiFi (empty by default — triggers AP mode on fresh flash)
+    config.wifi_ssid[0] = '\0';
+    config.wifi_password[0] = '\0';
 
     // Data source
     config.data_source = 0; // custom URL by default

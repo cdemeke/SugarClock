@@ -21,4 +21,10 @@ int wifi_get_rssi();
 // Get WiFi status string
 const char* wifi_get_status();
 
+// Check if running in AP mode (no WiFi credentials configured)
+bool wifi_is_ap_mode();
+
+// Get AP mode IP address as string
+const char* wifi_get_ap_ip();
+
 #endif // WIFI_MANAGER_H

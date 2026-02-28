@@ -104,8 +104,8 @@ void loop() {
     // 1. WiFi management
     wifi_loop();
 
-    // Start web server once WiFi connects (one-time)
-    if (wifi_is_connected() && !webserver_started) {
+    // Start web server once WiFi connects or in AP mode (one-time)
+    if ((wifi_is_connected() || wifi_is_ap_mode()) && !webserver_started) {
         webserver_start();
         webserver_started = true;
     }
