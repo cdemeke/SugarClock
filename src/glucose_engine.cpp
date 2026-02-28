@@ -3,6 +3,7 @@
 #include "display.h"
 #include "config_manager.h"
 #include "wifi_manager.h"
+#include <WiFi.h>
 #include "http_client.h"
 #include "time_engine.h"
 #include "trend_arrows.h"
@@ -124,6 +125,33 @@ static void weather_particles_update_and_draw(int anim_type) {
 // Thunder flash state
 static unsigned long next_flash_ms = 0;
 static unsigned long flash_end_ms = 0;
+
+// Track last weather render time to detect gaps from blocking fetches
+static unsigned long last_weather_render_ms = 0;
+
+// Called by weather_client just before a blocking HTTP fetch.
+// Clears particle animations and renders a clean frame so the display
+// doesn't show frozen particles during the 1-3 second network call.
+static void on_weather_pre_fetch() {
+    // Reset all particles
+    for (int i = 0; i < MAX_PARTICLES; i++) particles[i].active = false;
+
+    // Only force-render a clean frame if currently showing weather
+    if (current_state == STATE_WEATHER_DISPLAY && weather_has_data()) {
+        AppConfig& cfg = config_get();
+        const WeatherReading& wx = weather_get_reading();
+
+        display_clear();
+        char tbuf[8];
+        int temp_int = (int)(wx.temp + 0.5f);
+        snprintf(tbuf, sizeof(tbuf), "%d*%s", temp_int,
+                 cfg.weather_use_f ? "F" : "C");
+        int tlen = strlen(tbuf);
+        int tx = (MATRIX_WIDTH - tlen * 6) / 2;
+        display_draw_text(tbuf, tx, 0, color_from_uint32(cfg.color_weather));
+        display_show();
+    }
+}
 
 // Data-driven toggle order
 static DisplayState toggle_order[12];
@@ -255,9 +283,12 @@ void engine_init() {
 
     engine_rebuild_toggle_order();
 
-    // Show boot screen
+    // Register pre-fetch callback so weather animations clear before blocking HTTP calls
+    weather_set_pre_fetch_callback(on_weather_pre_fetch);
+
+    // Show initial boot frame (scrolling animation starts in engine_loop)
     display_clear();
-    display_draw_text("SUGAR", 1, 0, display_color(0, 200, 200));
+    display_draw_text("SugarClock", MATRIX_WIDTH, 0, display_color(255, 255, 255));
     display_show();
 }
 
@@ -265,8 +296,8 @@ static DisplayState evaluate_state() {
     AppConfig& cfg = config_get();
     unsigned long stale_ms = (unsigned long)cfg.stale_timeout_min * 60UL * 1000UL;
 
-    // Boot screen for first 2 seconds
-    if (millis() - boot_start_ms < 2000) {
+    // Boot screen: scroll "SugarClock" across the display
+    if (millis() - boot_start_ms < 3000) {
         return STATE_BOOT;
     }
 
@@ -275,9 +306,11 @@ static DisplayState evaluate_state() {
         return STATE_NO_WIFI;
     }
 
-    // No config
-    if (!config_has_server() && !config_has_wifi()) {
-        return STATE_NO_CFG;
+    // No config — either no WiFi at all, or WiFi but no glucose source
+    if (!config_has_server()) {
+        if (!config_has_wifi() || wifi_is_connected()) {
+            return STATE_NO_CFG;
+        }
     }
 
     // Active notification takes priority
@@ -325,7 +358,16 @@ static void render_state(DisplayState state) {
     switch (state) {
         case STATE_BOOT: {
             display_clear();
-            display_draw_text("SUGAR", 1, 0, display_color(0, 200, 200));
+            // Marquee scroll "SugarClock" across the display
+            unsigned long elapsed = millis() - boot_start_ms;
+            const char* boot_text = "SugarClock";
+            int text_w = 10 * 6; // 60px
+            int start_x = MATRIX_WIDTH;  // enter from right edge
+            int end_x = -text_w;         // exit past left edge
+            int total_dist = start_x - end_x; // 92px total travel
+            int scroll_x = start_x - (int)((long)total_dist * elapsed / 3000);
+            if (scroll_x < end_x) scroll_x = end_x;
+            display_draw_text(boot_text, scroll_x, 0, display_color(255, 255, 255));
             display_show();
             break;
         }
@@ -452,6 +494,20 @@ static void render_state(DisplayState state) {
         case STATE_WEATHER_DISPLAY: {
             display_set_brightness(effective_brightness());
             display_clear();
+
+            // Detect render gaps caused by blocking weather fetches.
+            // If the last render was more than 500ms ago, a fetch likely just
+            // blocked the loop — reset particles so the animation restarts
+            // cleanly from the top instead of resuming mid-screen.
+            {
+                unsigned long now_wx = millis();
+                if (last_weather_render_ms > 0 &&
+                    (now_wx - last_weather_render_ms > 500)) {
+                    for (int i = 0; i < MAX_PARTICLES; i++)
+                        particles[i].active = false;
+                }
+                last_weather_render_ms = now_wx;
+            }
 
             if (!weather_has_data()) {
                 display_draw_text("WX...", 4, 0, color_from_uint32(cfg.color_weather));
@@ -722,7 +778,21 @@ static void render_state(DisplayState state) {
 
         case STATE_NO_CFG: {
             display_clear();
-            display_draw_text("SETUP", 1, 0, display_color(255, 255, 255));
+            char setup_msg[64];
+            if (wifi_is_connected()) {
+                // WiFi connected but no glucose source — show device IP
+                IPAddress ip = WiFi.localIP();
+                snprintf(setup_msg, sizeof(setup_msg), "Visit %d.%d.%d.%d to setup",
+                         ip[0], ip[1], ip[2], ip[3]);
+            } else {
+                // No WiFi — AP mode, show AP address
+                snprintf(setup_msg, sizeof(setup_msg), "Setup: visit 192.168.4.1");
+            }
+            int msg_len = strlen(setup_msg);
+            int total_w = msg_len * 6;
+            int scroll_offset = (millis() / 80) % (total_w + MATRIX_WIDTH);
+            display_draw_text(setup_msg, MATRIX_WIDTH - scroll_offset, 0,
+                              display_color(0, 200, 200));
             display_show();
             break;
         }

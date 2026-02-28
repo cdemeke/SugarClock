@@ -11,6 +11,7 @@ static unsigned long last_poll_ms = 0;
 static bool ever_received = false;
 static int last_http_code = 0;
 static char last_response[256] = "";
+static WeatherPreFetchCallback pre_fetch_cb = nullptr;
 
 // Detect whether the location string looks like a zip/postal code.
 // Returns true for patterns like "90210", "90210,US", "SW1A 1AA,GB"
@@ -97,6 +98,11 @@ static bool weather_do_fetch() {
     }
 
     http.setTimeout(10000);
+
+    // Notify engine before the blocking HTTP call so it can clear
+    // particle animations and render a clean frame.
+    if (pre_fetch_cb) pre_fetch_cb();
+
     int httpCode = http.GET();
     last_http_code = httpCode;
 
@@ -204,6 +210,10 @@ const WeatherReading& weather_get_reading() {
 
 bool weather_has_data() {
     return ever_received && current_weather.valid;
+}
+
+void weather_set_pre_fetch_callback(WeatherPreFetchCallback cb) {
+    pre_fetch_cb = cb;
 }
 
 void weather_set_mock(float temp, const char* desc, int condition_id) {

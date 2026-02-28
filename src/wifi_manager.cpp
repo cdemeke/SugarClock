@@ -7,22 +7,30 @@
 #define WIFI_RETRY_INTERVAL_MS    30000
 
 static char ip_buf[16] = "0.0.0.0";
+static char ap_ip_buf[16] = "0.0.0.0";
 static const char* status_str = "IDLE";
 static unsigned long last_attempt_ms = 0;
 static bool connecting = false;
 static bool was_connected = false;
+static bool ap_mode = false;
 
 void wifi_init() {
-    WiFi.mode(WIFI_STA);
-    WiFi.setAutoReconnect(true);
-
     AppConfig& cfg = config_get();
 
     if (!config_has_wifi()) {
-        Serial.println("[WIFI] No WiFi credentials configured");
-        status_str = "NO CREDS";
+        Serial.println("[WIFI] No WiFi credentials — starting AP mode");
+        WiFi.mode(WIFI_AP);
+        WiFi.softAP("SugarClock-Setup");
+        ap_mode = true;
+        IPAddress apIp = WiFi.softAPIP();
+        snprintf(ap_ip_buf, sizeof(ap_ip_buf), "%d.%d.%d.%d", apIp[0], apIp[1], apIp[2], apIp[3]);
+        Serial.printf("[WIFI] AP started: SSID=SugarClock-Setup  IP=%s\n", ap_ip_buf);
+        status_str = "AP MODE";
         return;
     }
+
+    WiFi.mode(WIFI_STA);
+    WiFi.setAutoReconnect(true);
 
     Serial.printf("[WIFI] Connecting to '%s'...\n", cfg.wifi_ssid);
     WiFi.begin(cfg.wifi_ssid, cfg.wifi_password);
@@ -32,6 +40,7 @@ void wifi_init() {
 }
 
 void wifi_loop() {
+    if (ap_mode) return;
     if (!config_has_wifi()) return;
 
     if (WiFi.status() == WL_CONNECTED) {
@@ -90,4 +99,12 @@ int wifi_get_rssi() {
 
 const char* wifi_get_status() {
     return status_str;
+}
+
+bool wifi_is_ap_mode() {
+    return ap_mode;
+}
+
+const char* wifi_get_ap_ip() {
+    return ap_ip_buf;
 }

@@ -16,8 +16,9 @@
 #include "notify_engine.h"
 #include "sysmon_engine.h"
 #include "countdown_engine.h"
+#include "improv_serial.h"
 
-#define FIRMWARE_VERSION "2.0.0"
+#define FIRMWARE_VERSION "0.1.0"
 #define WDT_TIMEOUT_SEC  30
 
 // Performance tracking
@@ -84,7 +85,10 @@ void setup() {
     sysmon_init();
     countdown_init();
 
-    // 13. Init glucose engine (state machine)
+    // 13. Init Improv Wi-Fi serial handler
+    improv_init();
+
+    // 14. Init glucose engine (state machine)
     engine_init();
 
     // 14. Enable watchdog timer
@@ -104,8 +108,11 @@ void loop() {
     // 1. WiFi management
     wifi_loop();
 
-    // Start web server once WiFi connects (one-time)
-    if (wifi_is_connected() && !webserver_started) {
+    // 1b. Improv Wi-Fi serial (for ESP Web Tools credential input)
+    improv_loop();
+
+    // Start web server once WiFi connects or in AP mode (one-time)
+    if ((wifi_is_connected() || wifi_is_ap_mode()) && !webserver_started) {
         webserver_start();
         webserver_started = true;
     }

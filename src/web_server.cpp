@@ -328,10 +328,10 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
 
     // Clock & weather colors
     if (doc["color_clock"].is<const char*>()) {
-        cfg.color_clock = hex_to_color(doc["color_clock"] | "#00ffff");
+        cfg.color_clock = hex_to_color(doc["color_clock"] | "#ffffff");
     }
     if (doc["color_weather"].is<const char*>()) {
-        cfg.color_weather = hex_to_color(doc["color_weather"] | "#00ffff");
+        cfg.color_weather = hex_to_color(doc["color_weather"] | "#ffffff");
     }
 
     // Night mode
@@ -460,6 +460,14 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     // Apply brightness immediately
     if (!cfg.auto_brightness) {
         display_set_brightness(cfg.brightness);
+    }
+
+    // If WiFi credentials were just saved while in AP mode, reboot to connect
+    if (wifi_is_ap_mode() && config_has_wifi()) {
+        request->send(200, "application/json", "{\"status\":\"ok\",\"reboot\":true}");
+        delay(1000);
+        ESP.restart();
+        return;
     }
 
     request->send(200, "application/json", "{\"status\":\"ok\"}");
