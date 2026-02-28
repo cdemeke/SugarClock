@@ -17,17 +17,8 @@ TOOLS_DIR="$RESOURCES_DIR/Tools"
 FIRMWARE_DIR="$RESOURCES_DIR/Firmware"
 WEBUI_DIR="$RESOURCES_DIR/WebUI/www"
 
-# Versions
-ESPTOOL_VERSION="v4.8.1"
-MKLITTLEFS_VERSION="3.2.0"
-
 # Detect architecture
 ARCH=$(uname -m)
-if [ "$ARCH" = "arm64" ]; then
-    ESPTOOL_PLATFORM="macos-arm64"
-else
-    ESPTOOL_PLATFORM="macos-amd64"
-fi
 
 echo "=== SugarClock Setup Resource Downloader ==="
 echo "Project dir: $PROJECT_DIR"
@@ -39,15 +30,18 @@ echo ""
 mkdir -p "$TOOLS_DIR" "$FIRMWARE_DIR" "$WEBUI_DIR"
 
 # ── 1. Download esptool ──────────────────────────────────────────────
+ESPTOOL_VERSION="v4.8.1"
 echo "--- Downloading esptool $ESPTOOL_VERSION ---"
-ESPTOOL_URL="https://github.com/espressif/esptool/releases/download/${ESPTOOL_VERSION}/esptool-${ESPTOOL_VERSION}-${ESPTOOL_PLATFORM}.zip"
+
+# v4.8.1 uses a single "macos" zip (universal binary)
+ESPTOOL_URL="https://github.com/espressif/esptool/releases/download/${ESPTOOL_VERSION}/esptool-${ESPTOOL_VERSION}-macos.zip"
 ESPTOOL_TMP="/tmp/esptool_download.zip"
 
 if [ -f "$TOOLS_DIR/esptool" ]; then
     echo "esptool already exists, skipping download."
 else
     echo "Downloading from: $ESPTOOL_URL"
-    curl -L -o "$ESPTOOL_TMP" "$ESPTOOL_URL"
+    curl -fL -o "$ESPTOOL_TMP" "$ESPTOOL_URL"
     ESPTOOL_EXTRACT="/tmp/esptool_extract"
     rm -rf "$ESPTOOL_EXTRACT"
     unzip -q "$ESPTOOL_TMP" -d "$ESPTOOL_EXTRACT"
@@ -64,22 +58,24 @@ else
 fi
 
 # ── 2. Download mklittlefs ───────────────────────────────────────────
+MKLITTLEFS_VERSION="4.1.0"
 echo ""
 echo "--- Downloading mklittlefs $MKLITTLEFS_VERSION ---"
 
 if [ "$ARCH" = "arm64" ]; then
-    MKLITTLEFS_SUFFIX="darwin-arm64"
+    # v4.1.0 asset name for arm64
+    MKLITTLEFS_ASSET="aarch64-apple-darwin-mklittlefs-42acb97.tar.gz"
 else
-    MKLITTLEFS_SUFFIX="darwin-amd64"
+    MKLITTLEFS_ASSET="x86_64-apple-darwin-mklittlefs-42acb97.tar.gz"
 fi
-MKLITTLEFS_URL="https://github.com/earlephilhower/mklittlefs/releases/download/${MKLITTLEFS_VERSION}/mklittlefs-${MKLITTLEFS_SUFFIX}.tar.gz"
+MKLITTLEFS_URL="https://github.com/earlephilhower/mklittlefs/releases/download/${MKLITTLEFS_VERSION}/${MKLITTLEFS_ASSET}"
 MKLITTLEFS_TMP="/tmp/mklittlefs_download.tar.gz"
 
 if [ -f "$TOOLS_DIR/mklittlefs" ]; then
     echo "mklittlefs already exists, skipping download."
 else
     echo "Downloading from: $MKLITTLEFS_URL"
-    curl -L -o "$MKLITTLEFS_TMP" "$MKLITTLEFS_URL"
+    curl -fL -o "$MKLITTLEFS_TMP" "$MKLITTLEFS_URL"
     MKLITTLEFS_EXTRACT="/tmp/mklittlefs_extract"
     rm -rf "$MKLITTLEFS_EXTRACT"
     mkdir -p "$MKLITTLEFS_EXTRACT"

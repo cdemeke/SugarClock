@@ -64,8 +64,8 @@ static void config_set_defaults() {
     config.color_urgent_high = 0xEA4335;
 
     // Clock & weather colors
-    config.color_clock   = 0x00FFFF;
-    config.color_weather = 0x00FFFF;
+    config.color_clock   = 0xFFFFFF;
+    config.color_weather = 0xFFFFFF;
 
     // Night mode
     config.night_mode_enabled = false;
@@ -84,11 +84,11 @@ static void config_set_defaults() {
     config.weather_poll_min = 15;
 
     // Date display
-    config.date_on_time_screen = true;
+    config.date_on_time_screen = false;
     config.date_format = 0;  // M/DD
 
     // Pomodoro timer
-    config.timer_enabled = true;
+    config.timer_enabled = false;
     config.timer_work_min = 25;
     config.timer_break_min = 5;
     config.timer_long_break_min = 15;
@@ -96,7 +96,7 @@ static void config_set_defaults() {
     config.timer_buzzer = true;
 
     // Stopwatch
-    config.stopwatch_enabled = true;
+    config.stopwatch_enabled = false;
 
     // Notifications
     config.notify_enabled = true;
@@ -226,8 +226,8 @@ void config_init() {
         config.color_urgent_high = prefs.getUInt("c_uhigh", 0xEA4335);
 
         // Clock & weather colors
-        config.color_clock   = prefs.getUInt("c_clock", 0x00FFFF);
-        config.color_weather = prefs.getUInt("c_weather", 0x00FFFF);
+        config.color_clock   = prefs.getUInt("c_clock", 0xFFFFFF);
+        config.color_weather = prefs.getUInt("c_weather", 0xFFFFFF);
 
         // Night mode
         config.night_mode_enabled = prefs.getBool("night_en", false);
@@ -250,11 +250,11 @@ void config_init() {
         if (config.weather_poll_min < 5) config.weather_poll_min = 5;
 
         // Date display
-        config.date_on_time_screen = prefs.getBool("date_en", true);
+        config.date_on_time_screen = prefs.getBool("date_en", false);
         config.date_format = prefs.getInt("date_fmt", 0);
 
         // Timer
-        config.timer_enabled = prefs.getBool("tmr_en", true);
+        config.timer_enabled = prefs.getBool("tmr_en", false);
         config.timer_work_min = prefs.getInt("tmr_work", 25);
         config.timer_break_min = prefs.getInt("tmr_brk", 5);
         config.timer_long_break_min = prefs.getInt("tmr_lbrk", 15);
@@ -262,7 +262,7 @@ void config_init() {
         config.timer_buzzer = prefs.getBool("tmr_buzz", true);
 
         // Stopwatch
-        config.stopwatch_enabled = prefs.getBool("sw_en", true);
+        config.stopwatch_enabled = prefs.getBool("sw_en", false);
 
         // Notifications
         config.notify_enabled = prefs.getBool("ntfy_en", true);

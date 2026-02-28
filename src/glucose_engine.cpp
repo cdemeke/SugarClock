@@ -3,6 +3,7 @@
 #include "display.h"
 #include "config_manager.h"
 #include "wifi_manager.h"
+#include <WiFi.h>
 #include "http_client.h"
 #include "time_engine.h"
 #include "trend_arrows.h"
@@ -305,9 +306,11 @@ static DisplayState evaluate_state() {
         return STATE_NO_WIFI;
     }
 
-    // No config
-    if (!config_has_server() && !config_has_wifi()) {
-        return STATE_NO_CFG;
+    // No config — either no WiFi at all, or WiFi but no glucose source
+    if (!config_has_server()) {
+        if (!config_has_wifi() || wifi_is_connected()) {
+            return STATE_NO_CFG;
+        }
     }
 
     // Active notification takes priority
@@ -775,7 +778,16 @@ static void render_state(DisplayState state) {
 
         case STATE_NO_CFG: {
             display_clear();
-            const char* setup_msg = "Connect to SugarClock-Setup WiFi, then visit 192.168.4.1";
+            char setup_msg[64];
+            if (wifi_is_connected()) {
+                // WiFi connected but no glucose source — show device IP
+                IPAddress ip = WiFi.localIP();
+                snprintf(setup_msg, sizeof(setup_msg), "Visit %d.%d.%d.%d to setup",
+                         ip[0], ip[1], ip[2], ip[3]);
+            } else {
+                // No WiFi — AP mode, show AP address
+                snprintf(setup_msg, sizeof(setup_msg), "Setup: visit 192.168.4.1");
+            }
             int msg_len = strlen(setup_msg);
             int total_w = msg_len * 6;
             int scroll_offset = (millis() / 80) % (total_w + MATRIX_WIDTH);

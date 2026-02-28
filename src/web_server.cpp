@@ -328,10 +328,10 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
 
     // Clock & weather colors
     if (doc["color_clock"].is<const char*>()) {
-        cfg.color_clock = hex_to_color(doc["color_clock"] | "#00ffff");
+        cfg.color_clock = hex_to_color(doc["color_clock"] | "#ffffff");
     }
     if (doc["color_weather"].is<const char*>()) {
-        cfg.color_weather = hex_to_color(doc["color_weather"] | "#00ffff");
+        cfg.color_weather = hex_to_color(doc["color_weather"] | "#ffffff");
     }
 
     // Night mode

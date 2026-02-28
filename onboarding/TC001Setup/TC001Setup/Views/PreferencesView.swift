@@ -21,7 +21,7 @@ struct PreferencesView: View {
                 Text("Preferences")
                     .font(.largeTitle.bold())
 
-                Text("Configure how your SugarClock displays glucose information.")
+                Text("Configure how your SugarClock displays glucose information. You can always change these later from the device's web dashboard.")
                     .font(.body)
                     .foregroundStyle(.secondary)
             }

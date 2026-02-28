@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SugarClock Notify">
+    <title>SugarClock - Send Notification</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
+        .notify-card { width: 100%; max-width: 400px; }
+        .notify-card h2 { text-align: center; border-bottom: none; margin-bottom: 8px; font-size: 18px; }
+        .notify-card .subtitle { text-align: center; font-size: 13px; color: var(--text-secondary); margin-bottom: 24px; }
+        .notify-input { font-size: 18px !important; height: 50px !important; text-align: center; }
+        .notify-btn { margin-top: 16px; font-size: 16px; height: 48px; }
+        .notify-feedback { text-align: center; margin-top: 12px; font-size: 14px; font-weight: 500; min-height: 22px; }
+        .feedback-ok { color: var(--green); }
+        .feedback-err { color: var(--red); }
+    </style>
+</head>
+<body>
+    <div class="card notify-card">
+        <h2>Send to Display</h2>
+        <p class="subtitle">SugarClock Notification</p>
+        <input type="text" id="msg" class="notify-input" placeholder="Type a message" maxlength="63" autofocus>
+        <button class="btn btn-primary btn-block notify-btn" id="send-btn" onclick="sendMsg()">Send</button>
+        <div class="notify-feedback" id="feedback"></div>
+    </div>
+
+    <script>
+        const inp = document.getElementById('msg');
+        const fb = document.getElementById('feedback');
+
+        inp.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') sendMsg();
+        });
+
+        async function sendMsg() {
+            const text = inp.value.trim();
+            if (!text) { inp.focus(); return; }
+
+            const btn = document.getElementById('send-btn');
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
+            fb.textContent = '';
+            fb.className = 'notify-feedback';
+
+            try {
+                const r = await fetch('/api/notify', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({text})
+                });
+                if (r.ok) {
+                    fb.textContent = 'Sent!';
+                    fb.className = 'notify-feedback feedback-ok';
+                    inp.value = '';
+                } else {
+                    const d = await r.json().catch(() => ({}));
+                    fb.textContent = d.error || 'Failed to send';
+                    fb.className = 'notify-feedback feedback-err';
+                }
+            } catch (e) {
+                fb.textContent = 'Network error';
+                fb.className = 'notify-feedback feedback-err';
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'Send';
+            inp.focus();
+
+            setTimeout(() => { fb.textContent = ''; fb.className = 'notify-feedback'; }, 3000);
+        }
+    </script>
+</body>
+</html>

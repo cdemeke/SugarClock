@@ -40,48 +40,53 @@ SugarClock is free, open-source firmware that turns the [Ulanzi TC001 Smart Pixe
 |------|-------|
 | [Ulanzi TC001 pixel clock](https://amzn.to/4rrqbjz) | ~$40 on Amazon |
 | USB-C data cable | Usually included with the clock |
-| A computer | Windows, Mac, or Linux — only needed for initial setup |
+| A Mac (or any computer) | Mac has a one-click installer; Windows/Linux can use the command line |
 | WiFi (2.4 GHz) | The clock connects to your home WiFi |
 | Dexcom account or Nightscout URL | Your glucose data source |
 
-## Quick Start
+## Quick Start (Mac)
 
-### 1. Install the tools
+### 1. Download the installer
 
-```bash
-# Install PlatformIO (the tool that loads firmware onto the clock)
-pip install platformio
-```
+Download **SugarClock Setup.dmg** from the [latest release on GitHub](https://github.com/cdemeke/SugarClock/releases/latest). Open the DMG and drag **SugarClock Setup** into your Applications folder.
 
-You may also need the [CH340 USB driver](https://sparks.gogo.co.nz/ch340.html) on Windows. Mac and Linux usually have it built in.
+### 2. Plug in the clock
 
-### 2. Download & build
+Connect your Ulanzi TC001 to your Mac with the included USB-C cable. Use a port directly on your Mac (not a hub).
 
-```bash
-git clone https://github.com/cdemeke/SugarClock.git
-cd SugarClock
-pio run
-pio run --target buildfs
-```
+### 3. Run the setup app
 
-### 3. Flash the clock
+Open **SugarClock Setup** and follow the on-screen steps. The app will walk you through everything:
 
-Connect the Ulanzi TC001 via USB-C, then:
+1. **Detect your clock** over USB
+2. **Pick your WiFi network** from a list
+3. **Connect your glucose source** (Dexcom Share, Nightscout, or custom URL)
+4. **Set your preferences** (units, alerts, brightness, timezone)
+5. **Flash the firmware** — the app installs everything onto the clock automatically
 
-```bash
-pio run --target upload
-pio run --target uploadfs
-```
-
-If the upload fails, hold the **middle button** while plugging in USB to enter flash mode.
-
-### 4. Configure
-
-1. Set your WiFi credentials in `src/config_manager.cpp`, rebuild, and re-flash
-2. Check the serial monitor (`pio device monitor`) for your device's IP address
-3. Open `http://<device-ip>/config.html` in a browser to set up your glucose data source, alerts, colors, and more
+When it's done, the clock restarts and your glucose reading should appear within a minute.
 
 For detailed step-by-step instructions (with screenshots), see the **[Setup Guide](https://cdemeke.github.io/SugarClock/setup.html)**.
+
+<details>
+<summary><strong>Advanced: Build from source (all platforms)</strong></summary>
+
+If you'd rather build and flash manually (or you're on Windows/Linux):
+
+```bash
+pip install platformio
+git clone https://github.com/cdemeke/SugarClock.git
+cd SugarClock
+pio run && pio run --target buildfs      # build firmware + filesystem
+pio run --target upload                   # flash firmware
+pio run --target uploadfs                 # flash filesystem
+```
+
+Then set your WiFi credentials in `src/config_manager.cpp`, rebuild, and re-flash. Use `pio device monitor` to find the device IP, then open `http://<device-ip>/config.html` to configure your glucose source.
+
+You may need the [CH340 USB driver](https://sparks.gogo.co.nz/ch340.html) on Windows.
+
+</details>
 
 ## Troubleshooting
 

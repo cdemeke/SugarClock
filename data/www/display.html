@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SugarClock - Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <script>if(localStorage.getItem('theme')==='dark')document.documentElement.setAttribute('data-theme','dark');</script>
+</head>
+<body>
+    <nav class="topnav">
+        <div class="topnav-inner">
+            <a href="/" class="brand">
+                <div class="brand-icon">G</div>
+                <span>SugarClock</span>
+            </a>
+            <ul class="topnav-links">
+                <li><a href="/display.html" class="active">Dashboard</a></li>
+                <li><a href="/">Config</a></li>
+                <li><a href="/debug.html">Debug</a></li>
+                <li><a href="/device.html">Device</a></li>
+            </ul>
+            <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">&#9790;</button>
+        </div>
+    </nav>
+
+    <div class="page">
+        <div class="card">
+            <div class="glucose-hero">
+                <div class="reading">
+                    <span class="value" id="glucose-value">---</span>
+                    <span class="trend" id="trend-arrow"></span>
+                    <span class="unit" id="unit-label">mg/dL</span>
+                </div>
+                <div class="delta" id="delta-display"></div>
+                <div class="meta" id="data-age">--</div>
+            </div>
+        </div>
+
+        <div class="stat-grid">
+            <div class="stat-card">
+                <div class="stat-label">Status</div>
+                <div class="stat-value" id="display-state" style="font-size:16px;">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">WiFi</div>
+                <div class="stat-value" id="wifi-status" style="font-size:14px;">--</div>
+                <div class="stat-sub" id="wifi-rssi">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Failures</div>
+                <div class="stat-value" id="failure-count">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Uptime</div>
+                <div class="stat-value" id="uptime" style="font-size:16px;">--</div>
+            </div>
+        </div>
+
+        <!-- Feature status cards -->
+        <div class="card-grid" id="feature-cards">
+            <div class="card card-compact" id="timer-card" style="display:none;">
+                <h2>Pomodoro Timer <a href="/#time" class="gear-link" title="Configure">&#9881;</a></h2>
+                <div class="status-row">
+                    <span class="status-label">State</span>
+                    <span class="status-value"><span class="badge badge-blue" id="timer-state">--</span></span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Remaining</span>
+                    <span class="status-value" id="timer-remaining">--</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Session</span>
+                    <span class="status-value" id="timer-session">--</span>
+                </div>
+            </div>
+
+            <div class="card card-compact" id="stopwatch-card" style="display:none;">
+                <h2>Stopwatch <a href="/#time" class="gear-link" title="Configure">&#9881;</a></h2>
+                <div class="status-row">
+                    <span class="status-label">State</span>
+                    <span class="status-value"><span class="badge badge-green" id="sw-state">--</span></span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Elapsed</span>
+                    <span class="status-value" id="sw-elapsed">00:00</span>
+                </div>
+            </div>
+
+            <div class="card card-compact" id="weather-card" style="display:none;">
+                <h2>Weather <a href="/#weather" class="gear-link" title="Configure">&#9881;</a></h2>
+                <div class="status-row">
+                    <span class="status-label">Temperature</span>
+                    <span class="status-value" id="weather-temp">--</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Condition</span>
+                    <span class="status-value" id="weather-desc">--</span>
+                </div>
+            </div>
+
+            <div class="card card-compact" id="sysmon-card" style="display:none;">
+                <h2>System Monitor <a href="/#integrations" class="gear-link" title="Configure">&#9881;</a></h2>
+                <div class="status-row">
+                    <span class="status-label" id="sysmon-label-text">CPU</span>
+                    <span class="status-value" id="sysmon-value">--</span>
+                </div>
+                <div class="sysmon-bar-container" style="margin-top:8px;">
+                    <div class="sysmon-bar" id="sysmon-bar" style="width:0%;"></div>
+                </div>
+            </div>
+
+            <div class="card card-compact" id="countdown-card" style="display:none;">
+                <h2 id="countdown-title">Countdown <a href="/#time" class="gear-link" title="Configure">&#9881;</a></h2>
+                <div class="status-row">
+                    <span class="status-label">Remaining</span>
+                    <span class="status-value" id="countdown-remaining">--</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-grid">
+            <div class="card card-compact">
+                <h2>Connection <a href="/#connection" class="gear-link" title="Configure">&#9881;</a></h2>
+                <div class="status-row">
+                    <span class="status-label">IP Address</span>
+                    <span class="status-value" id="wifi-ip">--</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Signal</span>
+                    <span class="status-value" id="wifi-rssi-dbm">--</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Brightness</span>
+                    <span class="status-value" id="brightness">--</span>
+                </div>
+            </div>
+            <div class="card card-compact">
+                <h2>Info</h2>
+                <div class="status-row">
+                    <span class="status-label">Message</span>
+                    <span class="status-value" id="message">--</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">State</span>
+                    <span class="status-value"><span class="badge badge-blue" id="state-badge">--</span></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const trendMap = {'RisingFast':'\u2191\u2191','Rising':'\u2191','Flat':'\u2192','Falling':'\u2193','FallingFast':'\u2193\u2193','Unknown':'?'};
+        const colorMap = {'red':'color-red','orange':'color-orange','green':'color-green','gray':'color-gray'};
+        const timerNames = ['Idle','Running','Paused','Break','Long Break','Done'];
+        const swNames = ['Idle','Running','Paused'];
+
+        function fmtUp(s){const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60);if(d>0)return d+'d '+h+'h';if(h>0)return h+'h '+m+'m';return m+'m';}
+        function fmtAge(s){if(s<0)return'No data';if(s<60)return s+'s ago';if(s<3600)return Math.floor(s/60)+'m '+s%60+'s ago';return Math.floor(s/3600)+'h ago';}
+        function fmtSec(s){const m=Math.floor(s/60),ss=s%60;return m+':'+(ss<10?'0':'')+ss;}
+        function fmtCountdown(s){if(s<=0)return'NOW!';if(s<3600)return Math.floor(s/60)+'m';if(s<86400){const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h+'h '+m+'m';}return Math.floor(s/86400)+'d';}
+
+        async function refresh(){
+            try{
+                const sr=await fetch('/api/status');
+                const d=await sr.json();
+                const gv=document.getElementById('glucose-value'),ta=document.getElementById('trend-arrow'),dd=document.getElementById('delta-display');
+                if(d.valid&&d.glucose>0){gv.textContent=d.glucose;ta.textContent=trendMap[d.trend]||'?';}else{gv.textContent='---';ta.textContent='';}
+                const cc=colorMap[d.color]||'';gv.className='value '+cc;ta.className='trend '+cc;
+                if(d.delta!==undefined&&d.delta!==null&&d.delta!==0){dd.textContent=(d.delta>0?'+':'')+d.delta+' mg/dL';dd.className='delta '+(d.delta>0?'delta-positive':d.delta<0?'delta-negative':'delta-neutral');}else{dd.textContent='';dd.className='delta';}
+                document.getElementById('data-age').textContent=fmtAge(d.data_age_sec);
+                document.getElementById('display-state').textContent=d.state;document.getElementById('state-badge').textContent=d.state;
+                const we=document.getElementById('wifi-status');we.textContent=d.wifi_connected?'Connected':'Disconnected';we.style.color=d.wifi_connected?'var(--green)':'var(--red)';
+                document.getElementById('wifi-ip').textContent=d.wifi_ip||'--';document.getElementById('wifi-rssi').textContent=d.wifi_rssi+' dBm';
+                document.getElementById('wifi-rssi-dbm').textContent=d.wifi_rssi+' dBm';document.getElementById('failure-count').textContent=d.failure_count;
+                document.getElementById('uptime').textContent=fmtUp(d.uptime_sec);document.getElementById('brightness').textContent=d.brightness;
+                document.getElementById('message').textContent=d.message||'--';
+                if(d.thresholds)window._t=d.thresholds;
+
+                // Timer card
+                const tc=document.getElementById('timer-card');
+                if(d.timer_state!==undefined&&d.timer_state>0){
+                    tc.style.display='';
+                    document.getElementById('timer-state').textContent=timerNames[d.timer_state]||'--';
+                    document.getElementById('timer-remaining').textContent=fmtSec(d.timer_remaining);
+                    document.getElementById('timer-session').textContent=d.timer_session||'--';
+                }else{tc.style.display=d.timer_state===0?'':'none';}
+                if(d.timer_state===0){tc.style.display='';document.getElementById('timer-state').textContent='Idle';document.getElementById('timer-remaining').textContent=fmtSec(d.timer_remaining);document.getElementById('timer-session').textContent='-';}
+
+                // Stopwatch card
+                const sc=document.getElementById('stopwatch-card');
+                if(d.stopwatch_state!==undefined){
+                    sc.style.display='';
+                    document.getElementById('sw-state').textContent=swNames[d.stopwatch_state]||'--';
+                    document.getElementById('sw-elapsed').textContent=fmtSec(d.stopwatch_elapsed);
+                }
+
+                // Weather card
+                const wc=document.getElementById('weather-card');
+                if(d.weather_temp!==undefined){
+                    wc.style.display='';
+                    document.getElementById('weather-temp').textContent=Math.round(d.weather_temp)+'°';
+                    document.getElementById('weather-desc').textContent=d.weather_desc||'--';
+                }
+
+                // Sysmon card
+                const smc=document.getElementById('sysmon-card');
+                if(d.sysmon_value!==undefined){
+                    smc.style.display='';
+                    document.getElementById('sysmon-label-text').textContent=d.sysmon_label||'CPU';
+                    document.getElementById('sysmon-value').textContent=d.sysmon_value+'/'+d.sysmon_max;
+                    const pct=d.sysmon_max>0?Math.round(d.sysmon_value*100/d.sysmon_max):0;
+                    const bar=document.getElementById('sysmon-bar');
+                    bar.style.width=pct+'%';
+                    bar.style.background=pct>=80?'var(--red)':pct>=50?'var(--orange)':'var(--green)';
+                }
+
+                // Countdown card
+                const cdc=document.getElementById('countdown-card');
+                if(d.countdown_remaining!==undefined){
+                    cdc.style.display='';
+                    document.getElementById('countdown-title').textContent=d.countdown_name||'Countdown';
+                    document.getElementById('countdown-remaining').textContent=fmtCountdown(d.countdown_remaining);
+                }
+            }catch(e){document.getElementById('glucose-value').textContent='ERR';}
+        }
+        refresh();setInterval(refresh,5000);
+
+        function toggleTheme(){
+            const d=document.documentElement;
+            const dark=d.getAttribute('data-theme')==='dark';
+            if(dark){d.removeAttribute('data-theme');localStorage.removeItem('theme');}
+            else{d.setAttribute('data-theme','dark');localStorage.setItem('theme','dark');}
+            document.querySelector('.theme-toggle').innerHTML=dark?'&#9790;':'&#9728;';
+        }
+        if(localStorage.getItem('theme')==='dark')document.querySelector('.theme-toggle').innerHTML='&#9728;';
+    </script>
+</body>
+</html>

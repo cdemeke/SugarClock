@@ -6,29 +6,26 @@
 :root {
   /* Brand Colors - Vibrant Neubrutalism */
   --primary: #82EDA6;
-  /* Maggie App Green */
   --primary-hover: #5ad585;
+  --primary-light: rgba(130, 237, 166, 0.2);
 
   --accent-pink: #FCCDDC;
   --accent-yellow: #FFFF94;
   --accent-blue: #AEFBFF;
 
-  /* UI Colors - Dark Mode Base */
-  --bg-base: #18181b;
-  /* zinc-900 */
-  --bg-surface: #27272a;
-  /* zinc-800 */
-  --bg-soft: rgba(39, 39, 42, 0.5);
+  /* UI Colors - Light Mode Base (Default) */
+  --bg-base: #fafafa;
+  --bg-surface: #ffffff;
+  --bg-soft: rgba(0, 0, 0, 0.05);
+  --bg-nav: rgba(255, 255, 255, 0.8);
 
-  --border-light: #3f3f46;
-  /* zinc-700 */
+  --grid-color: rgba(0, 0, 0, 0.1);
 
-  --text-main: #f4f4f5;
-  /* zinc-100 */
-  --text-muted: #a1a1aa;
-  /* zinc-400 */
+  --border-light: #e4e4e7;
+
+  --text-main: #18181b;
+  --text-muted: #52525b;
   --text-dark: #18181b;
-  /* For text on light/vibrant backgrounds */
 
   /* Fonts */
   --font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -44,6 +41,22 @@
   --shadow-brutal: -4px 4px 0px 0px #000000;
   --shadow-brutal-hover: -2px 2px 0px 0px #000000;
   --border-brutal: 3px solid #000000;
+}
+
+body.dark-theme,
+.dark-theme {
+  /* UI Colors - Dark Mode Base */
+  --bg-base: #18181b;
+  --bg-surface: #27272a;
+  --bg-soft: rgba(39, 39, 42, 0.5);
+  --bg-nav: rgba(24, 24, 27, 0.8);
+
+  --grid-color: rgba(255, 255, 255, 0.4);
+
+  --border-light: #3f3f46;
+
+  --text-main: #f4f4f5;
+  --text-muted: #a1a1aa;
 }
 
 * {
@@ -177,8 +190,7 @@ h6 {
   left: 0;
   right: 0;
   z-index: 1000;
-  background: rgba(24, 24, 27, 0.8);
-  /* zinc-900 */
+  background: var(--bg-nav);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 2px solid var(--border-light);
@@ -260,10 +272,45 @@ h6 {
   box-shadow: var(--shadow-brutal);
 }
 
+.theme-toggle {
+  background: transparent;
+  border: none;
+  color: var(--text-main);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.theme-toggle:hover {
+  background-color: var(--bg-soft);
+}
+
+.theme-toggle .moon-icon {
+  display: none;
+}
+
+body.dark-theme .theme-toggle .sun-icon {
+  display: none;
+}
+
+body.dark-theme .theme-toggle .moon-icon {
+  display: block;
+}
+
+
+
 .btn:hover {
   text-decoration: none;
   transform: translate(-2px, 2px);
   box-shadow: var(--shadow-brutal-hover);
+}
+
+.feature-card .btn {
+  margin-top: auto;
 }
 
 .btn-sm {
@@ -386,15 +433,15 @@ main {
   background-repeat: repeat;
   background-size: 60px 60px;
   background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.4) 1px, transparent 0),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.4) 1px, transparent 0);
+    linear-gradient(to right, var(--grid-color) 1px, transparent 0),
+    linear-gradient(to bottom, var(--grid-color) 1px, transparent 0);
   animation: retro-grid-anim 15s linear infinite;
 }
 
 .retro-grid-fade {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, transparent, rgba(255, 255, 255, 0.5) 90%);
+  background: linear-gradient(to top, transparent, var(--bg-base) 90%);
 }
 
 .hero .container {
@@ -475,6 +522,8 @@ main {
 
 .feature-card {
   padding: 2rem;
+  display: flex;
+  flex-direction: column;
 }
 
 .feature-card:hover {
@@ -505,6 +554,8 @@ main {
 .feature-card p {
   color: var(--text-muted);
   font-size: 0.95rem;
+  margin-bottom: auto;
+  /* push the button to the bottom */
 }
 
 /* --- Steps Modern --- */
@@ -618,12 +669,12 @@ main {
   font-family: var(--font-heading);
   font-size: 1rem;
   font-weight: 600;
-  color: var(--text-dark);
+  color: var(--text-main);
   background: rgba(0, 0, 0, 0.02);
 }
 
 .comparison-table tbody tr:hover {
-  background: rgba(0, 0, 0, 0.01);
+  background: var(--bg-soft);
 }
 
 .highlight-col {
@@ -655,7 +706,7 @@ main {
 .site-footer {
   background: transparent;
   padding: 4rem 0 2rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.3);
+  border-top: 1px solid var(--border-light);
 }
 
 .footer-grid {
@@ -1177,6 +1228,71 @@ main {
 /* Browser warning callout */
 .install-browser-warning {
   margin-bottom: 1.5rem;
+}
+
+/* WiFi config form */
+.install-wifi-form {
+  max-width: 100%;
+}
+
+.install-field {
+  margin-bottom: 1rem;
+}
+
+.install-field label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 0.4rem;
+  color: var(--text-main);
+}
+
+.install-field input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--border-light);
+  border-radius: 12px;
+  background: var(--bg-base);
+  color: var(--text-main);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  transition: border-color 0.2s ease;
+}
+
+.install-field input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.install-field input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.install-wifi-status {
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.install-wifi-status.status-progress {
+  background: rgba(174, 251, 255, 0.1);
+  border: 1px solid var(--accent-blue);
+  color: var(--accent-blue);
+}
+
+.install-wifi-status.status-success {
+  background: rgba(130, 237, 166, 0.1);
+  border: 1px solid var(--primary);
+  color: var(--primary);
+}
+
+.install-wifi-status.status-error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid #ef4444;
+  color: #ef4444;
 }
 
 @media (max-width: 600px) {
