@@ -73,8 +73,8 @@
       <div class="hero-content" style="position: relative; z-index: 10; text-align: center; margin-top: 330px;">
         <p class="hero-subtitle"
           style="margin: 0 auto 2rem auto; font-size: 1.25rem; opacity: 0; animation: fadeIn 1s ease 2.5s forwards; max-width: 600px;">
-          High-end glucose monitoring shouldn't cost a fortune. Turn a ~$40 smart clock into a dedicated, color-coded
-          CGM display.
+          A blood sugar monitoring device shouldn't cost a fortune. Turn a ~$40 smart clock into a dedicated,
+          color-coded CGM display with SugarClock.
         </p>
         <div class="hero-buttons" style="justify-content: center; opacity: 0; animation: fadeIn 1s ease 3s forwards;">
           <a href="#setup-cards" class="btn btn-primary">Setup Guide</a>
@@ -140,22 +140,42 @@
             required.</p>
         </div>
 
-        <!-- Browser compatibility warning -->
-        <div id="browser-warning" class="callout callout-warning install-browser-warning fade-up"
-          style="display: none;">
-          <div class="callout-icon"><i data-feather="alert-triangle"></i></div>
-          <div class="callout-text">
-            <strong>Unsupported browser.</strong> The Web Serial API requires
-            <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> on desktop.
-            Safari, Firefox, and mobile browsers are not supported.
-            <br><br>
-            <strong>Alternative options:</strong>
-            <a href="https://github.com/cdemeke/SugarClock/releases/latest">Download the Mac app</a>.
+        <!-- Alternative: Mac app card (shown when Web Serial unavailable) -->
+        <div id="mac-app-card" class="clean-card install-flash-card fade-up delay-1" style="display: none;">
+          <div class="install-flash-inner">
+            <div class="install-flash-header">
+              <div class="feature-icon bg-soft-green" style="margin-bottom: 0;">
+                <i data-feather="monitor"></i>
+              </div>
+              <div>
+                <h2 style="font-size: 1.5rem; margin-bottom: 0.25rem;">Install with the Mac App</h2>
+                <p class="text-muted text-sm">Your browser doesn't support direct USB installation. Use our free Mac app instead.</p>
+              </div>
+            </div>
+
+            <ol class="install-prereq-list">
+              <li>Download and open the <strong>SugarClock Setup</strong> app on your Mac</li>
+              <li>Plug the Ulanzi TC001 into your Mac with a USB-C <strong>data</strong> cable</li>
+              <li>Follow the guided steps — the app handles everything automatically</li>
+            </ol>
+
+            <div class="install-button-wrap">
+              <a href="https://github.com/cdemeke/SugarClock/releases/latest" target="_blank" rel="noopener"
+                class="btn btn-primary btn-lg" style="text-decoration: none;">
+                <i data-feather="download"></i>
+                Download Mac App
+              </a>
+            </div>
+
+            <p class="text-muted text-sm" style="text-align: center; margin-top: 1rem;">
+              Want to use the browser installer instead? Open this page in
+              <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> on desktop.
+            </p>
           </div>
         </div>
 
-        <!-- Flash card -->
-        <div class="clean-card install-flash-card fade-up delay-1">
+        <!-- Flash card (shown when Web Serial is available) -->
+        <div id="web-flash-card" class="clean-card install-flash-card fade-up delay-1">
           <div class="install-flash-inner">
             <div class="install-flash-header">
               <div class="feature-icon bg-soft-green" style="margin-bottom: 0;">
@@ -163,7 +183,7 @@
               </div>
               <div>
                 <h2 style="font-size: 1.5rem; margin-bottom: 0.25rem;">Install SugarClock</h2>
-                <p class="text-muted text-sm">SugarClock v0.1.0 &mdash; ESP32 &mdash; Build 27</p>
+                <p class="text-muted text-sm">SugarClock v0.1.0 &mdash; ESP32 &mdash; Build 28</p>
               </div>
             </div>
 
@@ -274,7 +294,8 @@
           <h4>Help</h4>
           <ul>
             <li><a href="support.html">FAQ</a></li>
-            <li><a href="https://github.com/cdemeke/SugarClock/issues" target="_blank" rel="noopener">Issue Tracker</a></li>
+            <li><a href="https://github.com/cdemeke/SugarClock/issues" target="_blank" rel="noopener">Issue Tracker</a>
+            </li>
           </ul>
         </div>
         <div class="footer-links">
@@ -370,7 +391,9 @@
 
     // Detect unsupported browsers (no Web Serial API)
     if (!("serial" in navigator)) {
-      document.getElementById("browser-warning").style.display = "flex";
+      document.getElementById("web-flash-card").style.display = "none";
+      document.getElementById("mac-app-card").style.display = "block";
+      feather.replace(); // re-render icons in the newly visible card
     }
   </script>
   <script>
