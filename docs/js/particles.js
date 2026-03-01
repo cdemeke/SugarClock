@@ -424,9 +424,27 @@ function animate() {
 
 // Initial setup
 let resizeTimeout;
+let lastWidth = window.innerWidth;
+let lastHeight = window.innerHeight;
+
 window.addEventListener('resize', () => {
-    clearTimeout(resizeTimeout);
-    resizeTimeout = setTimeout(resize, 250);
+    const currentWidth = window.innerWidth;
+    const currentHeight = window.innerHeight;
+
+    // On mobile devices, scrolling often triggers a resize event because the address bar 
+    // hiding/showing changes innerHeight. To prevent the animation from resetting,
+    // we ignore height-only changes on small screens.
+    const isMobile = currentWidth <= 768;
+    const widthChanged = currentWidth !== lastWidth;
+    const heightChanged = currentHeight !== lastHeight;
+
+    if (widthChanged || (!isMobile && heightChanged)) {
+        lastWidth = currentWidth;
+        lastHeight = currentHeight;
+
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(resize, 250);
+    }
 });
 
 resize();
