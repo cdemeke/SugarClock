@@ -4,7 +4,7 @@ const particles = [];
 const ambientParticles = [];
 
 // SugarClock Brand Colors
-const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ffffff', '#94a3b8'];
+const colors = ['#82EDA6', '#AEFBFF', '#FCCDDC', '#FFFF94', '#94a3b8'];
 
 let width, height;
 // Offscreen canvas to render text and sample pixels
@@ -151,7 +151,7 @@ class Particle {
 
         // Once settled AND active, become a solid brand green color
         const isActive = this.activeInStates[currentState];
-        ctx.fillStyle = (this.settled && isActive) ? '#10b981' : this.color;
+        ctx.fillStyle = (this.settled && isActive) ? '#82EDA6' : this.color;
 
         ctx.fillRect(this.x + offsetX, this.y + offsetY, this.size, this.size);
         ctx.restore();
