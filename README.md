@@ -9,10 +9,10 @@
 </p>
 
 <p align="center">
-  <a href="https://cdemeke.github.io/SugarClock/">Website</a> &bull;
-  <a href="https://amzn.to/4rrqbjz">Buy the Clock (~$40)</a> &bull;
-  <a href="https://cdemeke.github.io/SugarClock/setup.html">Setup Guide</a> &bull;
-  <a href="https://cdemeke.github.io/SugarClock/support.html">Help & FAQ</a>
+  <a href="https://sugarclock.com/">Website</a> &bull;
+  <a href="#quick-start">Quick Start</a> &bull;
+  <a href="https://sugarclock.com/setup.html">Setup Guide</a> &bull;
+  <a href="https://sugarclock.com/support.html">Help & FAQ</a>
 </p>
 
 ---
@@ -66,7 +66,7 @@ Open **SugarClock Setup** and follow the on-screen steps. The app will walk you 
 
 When it's done, the clock restarts and your glucose reading should appear within a minute.
 
-For detailed step-by-step instructions (with screenshots), see the **[Setup Guide](https://cdemeke.github.io/SugarClock/setup.html)**.
+For detailed step-by-step instructions (with screenshots), see the **[Setup Guide](https://sugarclock.com/setup.html)**.
 
 <details>
 <summary><strong>Advanced: Build from source (all platforms)</strong></summary>
@@ -97,7 +97,7 @@ You may need the [CH340 USB driver](https://sparks.gogo.co.nz/ch340.html) on Win
 | `NO WIFI` on display | Check SSID/password, make sure it's a 2.4 GHz network |
 | `NO DATA` on display | Check Dexcom credentials or server URL on the config page |
 
-See the **[Help & FAQ](https://cdemeke.github.io/SugarClock/support.html)** for more.
+See the **[Help & FAQ](https://sugarclock.com/support.html)** for more.
 
 ## Backup & Restore Factory Firmware
 
