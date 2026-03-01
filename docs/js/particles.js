@@ -4,7 +4,7 @@ const particles = [];
 const ambientParticles = [];
 
 // SugarClock Brand Colors
-const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ffffff', '#94a3b8'];
+const colors = ['#82EDA6', '#AEFBFF', '#FCCDDC', '#FFFF94', '#94a3b8'];
 
 let width, height;
 // Offscreen canvas to render text and sample pixels
@@ -151,7 +151,7 @@ class Particle {
 
         // Once settled AND active, become a solid brand green color
         const isActive = this.activeInStates[currentState];
-        ctx.fillStyle = (this.settled && isActive) ? '#10b981' : this.color;
+        ctx.fillStyle = (this.settled && isActive) ? '#82EDA6' : this.color;
 
         ctx.fillRect(this.x + offsetX, this.y + offsetY, this.size, this.size);
         ctx.restore();
@@ -160,7 +160,8 @@ class Particle {
 
 function generateTargets(text, step) {
     offscreenCtx.clearRect(0, 0, width, height);
-    offscreenCtx.fillText(text, width / 2, height / 2 - 50);
+    const centerY = width <= 480 ? height / 4 + 20 : height / 2 - 50;
+    offscreenCtx.fillText(text, width / 2, centerY);
 
     const imgData = offscreenCtx.getImageData(0, 0, width, height);
     const data = imgData.data;
@@ -187,7 +188,7 @@ function initParticles() {
     offscreenCanvas.height = height;
 
     // Increase font size to fill more vertical and horizontal space in the box
-    let fontSize = width > 768 ? 160 : (width > 480 ? 100 : 70);
+    let fontSize = width > 768 ? 160 : (width > 480 ? 100 : 50);
     offscreenCtx.fillStyle = 'white';
     offscreenCtx.font = `800 ${fontSize}px "Outfit", sans-serif`;
     offscreenCtx.textAlign = 'center';
@@ -203,10 +204,11 @@ function initParticles() {
     const textWidth = metrics.width;
     const paddingX = 20; // tighter framing
     const paddingY = 15; // tighter framing
+    const centerY = width <= 480 ? height / 4 + 20 : height / 2 - 50;
     boxWidth = textWidth + paddingX * 2;
     boxHeight = textHeight + paddingY * 2;
     boxX = (width - boxWidth) / 2;
-    boxY = (height / 2 - 50) - textHeight / 2 - paddingY;
+    boxY = centerY - textHeight / 2 - paddingY;
 
     // Generate coordinate targets for all phrases
     const phrases = ['SugarClock', '102 ->', '+2'];
@@ -254,8 +256,20 @@ function animate() {
     }
 
     // Calculate Parallax Tilt for 3D Effect
-    const targetTiltX = ((mouseX / width) - 0.5) * 40; // up to 20px tilt
-    const targetTiltY = ((mouseY / height) - 0.5) * 40;
+    let targetTiltX = ((mouseX / width) - 0.5) * 40; // up to 20px tilt
+    let targetTiltY = ((mouseY / height) - 0.5) * 40;
+
+    // Auto-breathe effect for mobile/tablet where mouse isn't active
+    if (width <= 768) {
+        if (borderAlpha >= 1) {
+            const time = Date.now() / 1000;
+            targetTiltX = Math.sin(time * 0.75) * 20;
+            targetTiltY = (Math.cos(time * 0.6) * 2.5) + 4; // Positive Y to reveal the top buttons
+        } else {
+            targetTiltX = 0;
+            targetTiltY = 0;
+        }
+    }
     currentTiltX += (targetTiltX - currentTiltX) * 0.1;
     currentTiltY += (targetTiltY - currentTiltY) * 0.1;
 
