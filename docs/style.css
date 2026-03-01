@@ -471,6 +471,33 @@ main {
   border-radius: 50%;
 }
 
+.hero-content {
+  position: relative;
+  z-index: 10;
+  text-align: center;
+  margin-top: 330px;
+}
+
+@media (max-width: 768px) {
+  .hero-content {
+    margin-top: 15vh;
+  }
+
+  .hero-subtitle {
+    margin-bottom: 3rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-content {
+    margin-top: 15vh;
+  }
+
+  .hero-subtitle {
+    margin-bottom: 4rem !important;
+  }
+}
+
 .hero-title {
   font-size: 3.5rem;
   font-weight: 800;
@@ -489,6 +516,13 @@ main {
 .hero-buttons {
   display: flex;
   gap: 1rem;
+}
+
+@media (max-width: 480px) {
+  .hero-buttons {
+    flex-direction: column;
+    padding: 0 1rem;
+  }
 }
 
 /* Hero Photo */
@@ -556,6 +590,13 @@ main {
   font-size: 0.95rem;
   margin-bottom: auto;
   /* push the button to the bottom */
+}
+
+@media (max-width: 768px) {
+  .feature-card {
+    text-align: center;
+    align-items: center;
+  }
 }
 
 /* --- Steps Modern --- */
@@ -998,6 +1039,14 @@ main {
   border: 1px solid rgba(255, 255, 255, 0.5);
 }
 
+@media (max-width: 600px) {
+  .callout {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+}
+
 .callout-icon {
   flex-shrink: 0;
 }
@@ -1163,6 +1212,14 @@ main {
   padding: 0;
 }
 
+@media (max-width: 600px) {
+  .install-prereq-list {
+    margin: 0 0 2rem 0;
+    list-style-position: inside;
+    text-align: center;
+  }
+}
+
 .install-prereq-list li {
   margin-bottom: 0.5rem;
   color: var(--text-muted);
@@ -1298,10 +1355,11 @@ main {
 @media (max-width: 600px) {
   .install-flash-inner {
     padding: 1.5rem;
+    text-align: center;
   }
 
   .install-flash-header {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
   }
 }
