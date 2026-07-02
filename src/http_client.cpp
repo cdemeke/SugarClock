@@ -434,11 +434,121 @@ static bool generic_fetch() {
     return success;
 }
 
+// Nightscout: fetch latest SGV entry from a Nightscout instance.
+// cfg.server_url holds the base URL (e.g. https://mysite.herokuapp.com) and
+// cfg.auth_token holds an optional Nightscout access token. The base URL is
+// expected to be the site root; any trailing '/' is stripped before the API
+// path is appended.
+static bool nightscout_fetch() {
+    AppConfig& cfg = config_get();
+
+    // Strip trailing slashes from the base URL so we don't build a URL with
+    // a double slash before /api.
+    char base[256];
+    strncpy(base, cfg.server_url, sizeof(base) - 1);
+    base[sizeof(base) - 1] = '\0';
+    size_t base_len = strlen(base);
+    while (base_len > 0 && base[base_len - 1] == '/') {
+        base[--base_len] = '\0';
+    }
+
+    char url[384];
+    if (strlen(cfg.auth_token) > 0) {
+        snprintf(url, sizeof(url), "%s/api/v1/entries/sgv.json?count=1&token=%s",
+                 base, cfg.auth_token);
+    } else {
+        snprintf(url, sizeof(url), "%s/api/v1/entries/sgv.json?count=1", base);
+    }
+
+    esp_task_wdt_reset();
+
+    WiFiClientSecure client;
+    client.setInsecure();
+    client.setTimeout(HTTP_TIMEOUT_SEC);
+
+    HTTPClient http;
+    Serial.printf("[NS] Polling: %s/api/v1/entries/sgv.json?count=1\n", base);
+
+    if (!http.begin(client, url)) {
+        Serial.println("[NS] Failed to begin connection");
+        failure_count++;
+        last_response_code = -1;
+        return false;
+    }
+
+    http.setTimeout(HTTP_TIMEOUT_MS);
+    http.addHeader("Accept", "application/json");
+
+    int httpCode = http.GET();
+    last_response_code = httpCode;
+
+    bool success = false;
+
+    if (httpCode == HTTP_CODE_OK) {
+        String payload = http.getString();
+        set_last_response(payload.c_str());
+
+        JsonDocument doc;
+        DeserializationError err = deserializeJson(doc, payload);
+
+        if (err) {
+            Serial.printf("[NS] JSON parse error: %s\n", err.c_str());
+            failure_count++;
+        } else {
+            JsonArray arr = doc.as<JsonArray>();
+            if (arr.size() == 0) {
+                Serial.println("[NS] Empty entries array");
+                set_last_response("Empty entries array");
+                failure_count++;
+            } else {
+                JsonObject entry = arr[0];
+
+                GlucoseReading r = {};
+                r.glucose = entry["sgv"] | 0;
+                // Nightscout "date" is epoch milliseconds and exceeds 32-bit.
+                unsigned long long date_ms = entry["date"] | 0ULL;
+                r.timestamp = (unsigned long)(date_ms / 1000ULL);
+                r.received_at_ms = millis();
+                r.force_mode = -1;
+                r.trend = parse_trend(entry["direction"] | "Unknown");
+                r.message[0] = '\0';
+                r.valid = (r.glucose > 0);
+
+                commit_reading(r);
+
+                if (r.valid) {
+                    failure_count = 0;
+                    ever_received = true;
+                    last_success_ms = millis();
+                    success = true;
+                    Serial.printf("[NS] Glucose: %d, Trend: %s\n",
+                                  r.glucose, TREND_NAMES[r.trend]);
+                } else {
+                    failure_count++;
+                    Serial.println("[NS] Invalid glucose value");
+                }
+            }
+        }
+    } else {
+        char errbuf[32];
+        snprintf(errbuf, sizeof(errbuf), "HTTP %d", httpCode);
+        set_last_response(errbuf);
+        Serial.printf("[NS] Error: %d\n", httpCode);
+        failure_count++;
+    }
+
+    http.end();
+    return success;
+}
+
 // Run the configured fetch (network task only)
 static bool do_fetch() {
     AppConfig& cfg = config_get();
     if (cfg.data_source == 1) {
         return dexcom_fetch_glucose();
+    }
+    if (cfg.data_source == 2) {
+        return nightscout_fetch();
     }
     return generic_fetch();
 }
