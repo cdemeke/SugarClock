@@ -178,16 +178,17 @@
                         <select id="data_source" onchange="toggleSource()">
                             <option value="0">Custom URL</option>
                             <option value="1">Dexcom Share</option>
+                            <option value="2">Nightscout</option>
                         </select>
                     </div>
 
                     <div id="custom-fields">
                         <div class="form-group">
-                            <label>Server URL</label>
+                            <label id="server_url_label">Server URL</label>
                             <input type="url" id="server_url" placeholder="https://example.com/api/glucose" maxlength="255">
                         </div>
                         <div class="form-group">
-                            <label>Auth Token</label>
+                            <label id="auth_token_label">Auth Token</label>
                             <div class="pw-wrap">
                                 <input type="password" id="auth_token" maxlength="255">
                                 <button type="button" class="pw-toggle" onclick="togglePw('auth_token')">&#128065;</button>
@@ -707,8 +708,23 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
         function toggleSource() {
             const src = document.getElementById('data_source').value;
-            document.getElementById('custom-fields').style.display = src === '0' ? 'block' : 'none';
+            // Custom URL (0) and Nightscout (2) both reuse the server_url +
+            // auth_token fields; only the labels/placeholder differ.
+            document.getElementById('custom-fields').style.display = (src === '0' || src === '2') ? 'block' : 'none';
             document.getElementById('dexcom-fields').style.display = src === '1' ? 'block' : 'none';
+
+            const urlLabel = document.getElementById('server_url_label');
+            const tokenLabel = document.getElementById('auth_token_label');
+            const urlInput = document.getElementById('server_url');
+            if (src === '2') {
+                urlLabel.textContent = 'Nightscout URL';
+                urlInput.placeholder = 'https://your-site.example.com';
+                tokenLabel.textContent = 'Access Token (optional)';
+            } else {
+                urlLabel.textContent = 'Server URL';
+                urlInput.placeholder = 'https://example.com/api/glucose';
+                tokenLabel.textContent = 'Auth Token';
+            }
         }
 
         function showToast(msg, type) {

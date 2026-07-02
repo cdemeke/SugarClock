@@ -9,7 +9,9 @@ struct AppConfig {
     char wifi_ssid[64];
     char wifi_password[64];
 
-    // Data source: 0=custom URL, 1=Dexcom Share
+    // Data source: 0=custom URL, 1=Dexcom Share, 2=Nightscout
+    // For 2=Nightscout, server_url holds the base URL and auth_token holds
+    // an optional Nightscout access token (fields reused from custom URL).
     int data_source;
 
     // Custom server
