@@ -17,6 +17,7 @@
 #include "sysmon_engine.h"
 #include "countdown_engine.h"
 #include "improv_serial.h"
+#include "net_task.h"
 
 #define FIRMWARE_VERSION "0.1.0"
 #define WDT_TIMEOUT_SEC  30
@@ -91,9 +92,13 @@ void setup() {
     // 14. Init glucose engine (state machine)
     engine_init();
 
-    // 14. Enable watchdog timer
+    // 15. Enable watchdog timer
     esp_task_wdt_init(WDT_TIMEOUT_SEC, true);
     esp_task_wdt_add(NULL); // add current task
+
+    // 16. Start background network task (glucose + weather fetches run on
+    // core 0 so they never block rendering/buttons on this task)
+    net_task_start();
 
     Serial.println("[BOOT] Setup complete");
     Serial.printf("[BOOT] Free heap: %d bytes\n", ESP.getFreeHeap());
@@ -117,11 +122,7 @@ void loop() {
         webserver_started = true;
     }
 
-    // 2. HTTP polling
-    http_loop();
-
-    // 2b. Weather polling
-    weather_loop();
+    // (HTTP + weather polling run on the background network task)
 
     // 3. Time management
     time_loop();
