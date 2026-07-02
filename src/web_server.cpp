@@ -118,13 +118,15 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     AppConfig& cfg = config_get();
     JsonDocument doc;
 
+    // Secrets are write-only: never return them over the network. Instead
+    // report whether each one is set so the UI can show a "saved" placeholder.
     doc["wifi_ssid"] = cfg.wifi_ssid;
-    doc["wifi_password"] = cfg.wifi_password;
+    doc["wifi_password_set"] = cfg.wifi_password[0] != '\0';
     doc["data_source"] = cfg.data_source;
     doc["server_url"] = cfg.server_url;
-    doc["auth_token"] = cfg.auth_token;
+    doc["auth_token_set"] = cfg.auth_token[0] != '\0';
     doc["dexcom_username"] = cfg.dexcom_username;
-    doc["dexcom_password"] = cfg.dexcom_password;
+    doc["dexcom_password_set"] = cfg.dexcom_password[0] != '\0';
     doc["dexcom_us"] = cfg.dexcom_us;
     doc["poll_interval"] = cfg.poll_interval_sec;
     doc["brightness"] = cfg.brightness;
@@ -167,7 +169,7 @@ static void handle_get_config(AsyncWebServerRequest* request) {
 
     // Weather
     doc["weather_enabled"] = cfg.weather_enabled;
-    doc["weather_api_key"] = cfg.weather_api_key;
+    doc["weather_api_key_set"] = cfg.weather_api_key[0] != '\0';
     doc["weather_city"] = cfg.weather_city;
     doc["weather_use_f"] = cfg.weather_use_f;
     doc["weather_poll_min"] = cfg.weather_poll_min;
