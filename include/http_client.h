@@ -2,6 +2,7 @@
 #define HTTP_CLIENT_H
 
 #include <stdint.h>
+#include <stddef.h>
 #include "trend_arrows.h"
 
 // Glucose reading from server
@@ -27,11 +28,13 @@ struct GlucoseHistoryEntry {
 // Initialize HTTP polling client
 void http_init();
 
-// Non-blocking polling loop
-void http_loop();
+// Run one polling tick: executes any pending forced fetch, then a scheduled
+// poll if due. Fetches block for seconds, so this must only be called from
+// the background network task (net_task.cpp).
+void http_poll_tick();
 
-// Get the latest glucose reading
-const GlucoseReading& http_get_reading();
+// Get the latest glucose reading (thread-safe copy)
+GlucoseReading http_get_reading();
 
 // Get failure count since last success
 int http_get_failure_count();
@@ -39,8 +42,8 @@ int http_get_failure_count();
 // Get last HTTP response code
 int http_get_last_response_code();
 
-// Get last raw response body (for debug)
-const char* http_get_last_response_body();
+// Copy last raw response body (for debug) into out, NUL-terminated
+void http_get_last_response_body(char* out, size_t out_len);
 
 // Check if we've ever received a valid reading
 bool http_has_ever_received();
@@ -54,7 +57,10 @@ int http_get_delta();
 // Get history buffer (returns count, fills array)
 int http_get_history(GlucoseHistoryEntry* out, int max_count);
 
-// Force an immediate glucose fetch (for testing), returns true on success
-bool http_force_fetch();
+// Request an immediate fetch on the network task and wait up to timeout_ms
+// for it to finish. Returns true if it completed with a valid reading;
+// false on failure or timeout (a timed-out fetch keeps running and its
+// result is published normally).
+bool http_force_fetch(unsigned long timeout_ms);
 
 #endif // HTTP_CLIENT_H

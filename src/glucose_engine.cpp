@@ -126,33 +126,6 @@ static void weather_particles_update_and_draw(int anim_type) {
 static unsigned long next_flash_ms = 0;
 static unsigned long flash_end_ms = 0;
 
-// Track last weather render time to detect gaps from blocking fetches
-static unsigned long last_weather_render_ms = 0;
-
-// Called by weather_client just before a blocking HTTP fetch.
-// Clears particle animations and renders a clean frame so the display
-// doesn't show frozen particles during the 1-3 second network call.
-static void on_weather_pre_fetch() {
-    // Reset all particles
-    for (int i = 0; i < MAX_PARTICLES; i++) particles[i].active = false;
-
-    // Only force-render a clean frame if currently showing weather
-    if (current_state == STATE_WEATHER_DISPLAY && weather_has_data()) {
-        AppConfig& cfg = config_get();
-        const WeatherReading& wx = weather_get_reading();
-
-        display_clear();
-        char tbuf[8];
-        int temp_int = (int)(wx.temp + 0.5f);
-        snprintf(tbuf, sizeof(tbuf), "%d*%s", temp_int,
-                 cfg.weather_use_f ? "F" : "C");
-        int tlen = strlen(tbuf);
-        int tx = (MATRIX_WIDTH - tlen * 6) / 2;
-        display_draw_text(tbuf, tx, 0, color_from_uint32(cfg.color_weather));
-        display_show();
-    }
-}
-
 // Data-driven toggle order
 static DisplayState toggle_order[12];
 static int toggle_count = 0;
@@ -244,7 +217,7 @@ static void check_alerts() {
     AppConfig& cfg = config_get();
     if (!cfg.alert_enabled) return;
 
-    const GlucoseReading& reading = http_get_reading();
+    GlucoseReading reading = http_get_reading();
     if (!reading.valid) return;
 
     // Check if snoozed
@@ -282,9 +255,6 @@ void engine_init() {
     user_mode = default_mode;
 
     engine_rebuild_toggle_order();
-
-    // Register pre-fetch callback so weather animations clear before blocking HTTP calls
-    weather_set_pre_fetch_callback(on_weather_pre_fetch);
 
     // Show initial boot frame (scrolling animation starts in engine_loop)
     display_clear();
@@ -338,7 +308,7 @@ static DisplayState evaluate_state() {
     }
 
     // Check for server-pushed force_mode
-    const GlucoseReading& reading = http_get_reading();
+    GlucoseReading reading = http_get_reading();
     if (reading.valid && reading.force_mode >= 0) {
         return (DisplayState)reading.force_mode;
     }
@@ -373,7 +343,7 @@ static void render_state(DisplayState state) {
         }
 
         case STATE_GLUCOSE_DISPLAY: {
-            const GlucoseReading& reading = http_get_reading();
+            GlucoseReading reading = http_get_reading();
             if (!reading.valid) {
                 display_clear();
                 display_draw_text("---", 7, 0, display_color(100, 100, 100));
@@ -495,24 +465,10 @@ static void render_state(DisplayState state) {
             display_set_brightness(effective_brightness());
             display_clear();
 
-            // Detect render gaps caused by blocking weather fetches.
-            // If the last render was more than 500ms ago, a fetch likely just
-            // blocked the loop — reset particles so the animation restarts
-            // cleanly from the top instead of resuming mid-screen.
-            {
-                unsigned long now_wx = millis();
-                if (last_weather_render_ms > 0 &&
-                    (now_wx - last_weather_render_ms > 500)) {
-                    for (int i = 0; i < MAX_PARTICLES; i++)
-                        particles[i].active = false;
-                }
-                last_weather_render_ms = now_wx;
-            }
-
             if (!weather_has_data()) {
                 display_draw_text("WX...", 4, 0, color_from_uint32(cfg.color_weather));
             } else {
-                const WeatherReading& wx = weather_get_reading();
+                WeatherReading wx = weather_get_reading();
                 int anim = weather_anim_type(wx.condition_id);
 
                 // Spawn and draw weather particles behind text
@@ -684,7 +640,7 @@ static void render_state(DisplayState state) {
             display_set_brightness(effective_brightness());
             display_clear();
 
-            const GlucoseReading& reading = http_get_reading();
+            GlucoseReading reading = http_get_reading();
             if (!reading.valid || reading.trend == TREND_UNKNOWN) {
                 display_draw_text("---", 7, 0, display_color(100, 100, 100));
             } else {

@@ -5,6 +5,9 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <Arduino.h>
+#include <esp_task_wdt.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 
 // Dexcom Share constants
 #define DEXCOM_APP_ID "d89443d2-327c-4a6f-89e5-496bbb0317db"
@@ -16,32 +19,54 @@
 #define DEXCOM_NULL_SESSION "00000000-0000-0000-0000-000000000000"
 #define DEXCOM_SESSION_LIFETIME_MS (3600000UL) // re-auth every hour
 
-static GlucoseReading current_reading;
-static int failure_count = 0;
-static int last_response_code = 0;
-static char last_response_body[512] = "";
-static bool ever_received = false;
-static unsigned long last_poll_ms = 0;
-static unsigned long last_success_ms = 0;
+// Per-call timeouts. Kept below the 30s task watchdog so a single blocking
+// connect + read can never starve the WDT between feeds.
+#define HTTP_TIMEOUT_SEC  10
+#define HTTP_TIMEOUT_MS   10000
 
-// Delta tracking
+// Fetches run only on the background network task (net_task.cpp). The data
+// below is also read from the UI loop (core 1) and the async web server
+// task, so struct/string state is guarded by data_mutex and word-sized
+// counters are volatile (32-bit loads/stores are atomic on ESP32).
+static SemaphoreHandle_t data_mutex = NULL;
+static SemaphoreHandle_t force_done_sem = NULL;
+static volatile bool force_requested = false;
+static volatile bool force_result = false;
+
+static GlucoseReading current_reading;            // guarded by data_mutex
+static volatile int failure_count = 0;
+static volatile int last_response_code = 0;
+static char last_response_body[512] = "";         // guarded by data_mutex
+static volatile bool ever_received = false;
+static unsigned long last_poll_ms = 0;            // network task only
+static volatile unsigned long last_success_ms = 0;
+
+// Delta tracking (guarded by data_mutex)
 static int prev_glucose = 0;
-static int current_delta = 0;
+static volatile int current_delta = 0;
 static bool has_prev_reading = false;
 static unsigned long last_recorded_timestamp = 0;
 
-// History circular buffer
+// History circular buffer (guarded by data_mutex)
 static GlucoseHistoryEntry history_buf[GLUCOSE_HISTORY_SIZE];
 static int history_write_idx = 0;
 static int history_count = 0;
 
-// Dexcom session state
+// Dexcom session state (network task only)
 static char dexcom_session_id[64] = "";
 static unsigned long dexcom_session_time_ms = 0;
 
-// Record a glucose value to history and update delta.
-// reading_timestamp is the CGM timestamp (epoch seconds) so we can skip
-// duplicate readings that arrive when we poll faster than the CGM updates.
+static void set_last_response(const char* s) {
+    xSemaphoreTake(data_mutex, portMAX_DELAY);
+    strncpy(last_response_body, s, sizeof(last_response_body) - 1);
+    last_response_body[sizeof(last_response_body) - 1] = '\0';
+    xSemaphoreGive(data_mutex);
+}
+
+// Record a glucose value to history and update delta. Caller must hold
+// data_mutex. reading_timestamp is the CGM timestamp (epoch seconds) so we
+// can skip duplicate readings that arrive when we poll faster than the CGM
+// updates.
 static void record_reading(int glucose, unsigned long reading_timestamp) {
     // Skip duplicate readings — same CGM timestamp means same reading
     if (reading_timestamp > 0 && reading_timestamp == last_recorded_timestamp) {
@@ -67,6 +92,16 @@ static void record_reading(int glucose, unsigned long reading_timestamp) {
     }
 
     Serial.printf("[HTTP] Delta: %+d (prev: %d, now: %d)\n", current_delta, prev_glucose - current_delta, glucose);
+}
+
+// Publish a parsed reading for the UI loop and web server to consume.
+static void commit_reading(const GlucoseReading& r) {
+    xSemaphoreTake(data_mutex, portMAX_DELAY);
+    current_reading = r;
+    if (r.valid) {
+        record_reading(r.glucose, r.timestamp);
+    }
+    xSemaphoreGive(data_mutex);
 }
 
 // Parse trend string to enum
@@ -98,9 +133,13 @@ static TrendType parse_trend_number(int trend) {
 
 // Helper: POST JSON to Dexcom endpoint, return response string
 static String dexcom_post(const char* url, const String& body, int& httpCode) {
+    // Feed the watchdog before each blocking call so multi-step flows
+    // (auth -> login -> fetch) never exceed the WDT window in aggregate.
+    esp_task_wdt_reset();
+
     WiFiClientSecure client;
     client.setInsecure();
-    client.setTimeout(15);
+    client.setTimeout(HTTP_TIMEOUT_SEC);
 
     HTTPClient http;
     if (!http.begin(client, url)) {
@@ -108,7 +147,7 @@ static String dexcom_post(const char* url, const String& body, int& httpCode) {
         return "";
     }
 
-    http.setTimeout(15000);
+    http.setTimeout(HTTP_TIMEOUT_MS);
     http.addHeader("Content-Type", "application/json");
     http.addHeader("Accept", "application/json");
 
@@ -138,7 +177,7 @@ static bool dexcom_login() {
 
     int authCode;
     String authResp = dexcom_post(auth_url, authBody, authCode);
-    strncpy(last_response_body, authResp.c_str(), sizeof(last_response_body) - 1);
+    set_last_response(authResp.c_str());
     last_response_code = authCode;
 
     Serial.printf("[DEXCOM] Auth step 1: HTTP %d, body: %.60s\n", authCode, authResp.c_str());
@@ -166,7 +205,7 @@ static bool dexcom_login() {
 
     int loginCode;
     String loginResp = dexcom_post(login_url, loginBody, loginCode);
-    strncpy(last_response_body, loginResp.c_str(), sizeof(last_response_body) - 1);
+    set_last_response(loginResp.c_str());
     last_response_code = loginCode;
 
     Serial.printf("[DEXCOM] Auth step 2: HTTP %d, body: %.60s\n", loginCode, loginResp.c_str());
@@ -179,7 +218,7 @@ static bool dexcom_login() {
         if (loginResp == DEXCOM_NULL_SESSION || loginResp.length() < 10) {
             Serial.println("[DEXCOM] Got null session! Dexcom Share may not be enabled.");
             Serial.println("[DEXCOM] Enable Share in Dexcom app: Settings > Share > enable sharing");
-            strncpy(last_response_body, "Null session - enable Dexcom Share in app", sizeof(last_response_body) - 1);
+            set_last_response("Null session - enable Dexcom Share in app");
             return false;
         }
 
@@ -211,9 +250,11 @@ static bool dexcom_fetch_glucose() {
     snprintf(url, sizeof(url), "%s%s?sessionId=%s&minutes=10&maxCount=1",
              base, DEXCOM_GLUCOSE_PATH, dexcom_session_id);
 
+    esp_task_wdt_reset();
+
     WiFiClientSecure client;
     client.setInsecure();
-    client.setTimeout(10);
+    client.setTimeout(HTTP_TIMEOUT_SEC);
 
     HTTPClient http;
     if (!http.begin(client, url)) {
@@ -222,7 +263,7 @@ static bool dexcom_fetch_glucose() {
         return false;
     }
 
-    http.setTimeout(15000);
+    http.setTimeout(HTTP_TIMEOUT_MS);
     http.addHeader("Accept", "application/json");
 
     int httpCode = http.POST(""); // Dexcom requires POST even for reads
@@ -230,8 +271,8 @@ static bool dexcom_fetch_glucose() {
 
     if (httpCode == HTTP_CODE_OK) {
         String payload = http.getString();
-        strncpy(last_response_body, payload.c_str(), sizeof(last_response_body) - 1);
-        last_response_body[sizeof(last_response_body) - 1] = '\0';
+        http.end();
+        set_last_response(payload.c_str());
 
         // Parse JSON array response
         JsonDocument doc;
@@ -240,7 +281,6 @@ static bool dexcom_fetch_glucose() {
         if (err) {
             Serial.printf("[DEXCOM] JSON parse error: %s\n", err.c_str());
             failure_count++;
-            http.end();
             return false;
         }
 
@@ -249,24 +289,24 @@ static bool dexcom_fetch_glucose() {
         if (arr.size() == 0) {
             Serial.println("[DEXCOM] Empty glucose array");
             failure_count++;
-            http.end();
             return false;
         }
 
         JsonObject reading = arr[0];
 
-        current_reading.glucose = reading["Value"] | 0;
-        current_reading.received_at_ms = millis();
-        current_reading.force_mode = -1;
-        current_reading.message[0] = '\0';
+        GlucoseReading r = {};
+        r.glucose = reading["Value"] | 0;
+        r.received_at_ms = millis();
+        r.force_mode = -1;
+        r.message[0] = '\0';
 
         // Parse trend - can be string or number
         if (reading["Trend"].is<int>()) {
-            current_reading.trend = parse_trend_number(reading["Trend"].as<int>());
+            r.trend = parse_trend_number(reading["Trend"].as<int>());
         } else if (reading["Trend"].is<const char*>()) {
-            current_reading.trend = parse_trend(reading["Trend"] | "Unknown");
+            r.trend = parse_trend(reading["Trend"] | "Unknown");
         } else {
-            current_reading.trend = TREND_UNKNOWN;
+            r.trend = TREND_UNKNOWN;
         }
 
         // Parse timestamp from "Date(1234567890000)" or "WT" field
@@ -275,26 +315,24 @@ static bool dexcom_fetch_glucose() {
             // Extract epoch ms from "Date(1234567890000)" or "/Date(1234567890000)/"
             const char* start = strchr(wt, '(');
             if (start) {
-                current_reading.timestamp = (unsigned long)(strtoull(start + 1, NULL, 10) / 1000ULL);
+                r.timestamp = (unsigned long)(strtoull(start + 1, NULL, 10) / 1000ULL);
             }
         }
 
-        current_reading.valid = (current_reading.glucose > 0);
+        r.valid = (r.glucose > 0);
+        commit_reading(r);
 
-        if (current_reading.valid) {
-            record_reading(current_reading.glucose, current_reading.timestamp);
+        if (r.valid) {
             failure_count = 0;
             ever_received = true;
             last_success_ms = millis();
             Serial.printf("[DEXCOM] Glucose: %d, Trend: %s\n",
-                          current_reading.glucose,
-                          TREND_NAMES[current_reading.trend]);
+                          r.glucose, TREND_NAMES[r.trend]);
         } else {
             failure_count++;
         }
 
-        http.end();
-        return current_reading.valid;
+        return r.valid;
     }
 
     // Session expired? Try re-login
@@ -304,7 +342,7 @@ static bool dexcom_fetch_glucose() {
     }
 
     String resp = http.getString();
-    strncpy(last_response_body, resp.c_str(), sizeof(last_response_body) - 1);
+    set_last_response(resp.c_str());
     Serial.printf("[DEXCOM] Fetch failed: HTTP %d\n", httpCode);
     failure_count++;
     http.end();
@@ -312,12 +350,14 @@ static bool dexcom_fetch_glucose() {
 }
 
 // Generic URL fetch (original behavior)
-static void generic_fetch() {
+static bool generic_fetch() {
     AppConfig& cfg = config_get();
+
+    esp_task_wdt_reset();
 
     WiFiClientSecure client;
     client.setInsecure();
-    client.setTimeout(10);
+    client.setTimeout(HTTP_TIMEOUT_SEC);
 
     HTTPClient http;
     Serial.printf("[HTTP] Polling: %s\n", cfg.server_url);
@@ -326,10 +366,10 @@ static void generic_fetch() {
         Serial.println("[HTTP] Failed to begin connection");
         failure_count++;
         last_response_code = -1;
-        return;
+        return false;
     }
 
-    http.setTimeout(10000);
+    http.setTimeout(HTTP_TIMEOUT_MS);
     http.addHeader("Accept", "application/json");
 
     if (strlen(cfg.auth_token) > 0) {
@@ -341,10 +381,11 @@ static void generic_fetch() {
     int httpCode = http.GET();
     last_response_code = httpCode;
 
+    bool success = false;
+
     if (httpCode == HTTP_CODE_OK) {
         String payload = http.getString();
-        strncpy(last_response_body, payload.c_str(), sizeof(last_response_body) - 1);
-        last_response_body[sizeof(last_response_body) - 1] = '\0';
+        set_last_response(payload.c_str());
 
         JsonDocument doc;
         DeserializationError err = deserializeJson(doc, payload);
@@ -353,42 +394,63 @@ static void generic_fetch() {
             Serial.printf("[HTTP] JSON parse error: %s\n", err.c_str());
             failure_count++;
         } else {
-            current_reading.glucose = doc["glucose"] | 0;
-            current_reading.timestamp = doc["timestamp"] | 0UL;
-            current_reading.received_at_ms = millis();
-            current_reading.force_mode = doc["force_mode"] | -1;
-            current_reading.valid = (current_reading.glucose > 0);
+            GlucoseReading r = {};
+            r.glucose = doc["glucose"] | 0;
+            r.timestamp = doc["timestamp"] | 0UL;
+            r.received_at_ms = millis();
+            r.force_mode = doc["force_mode"] | -1;
+            r.valid = (r.glucose > 0);
 
             const char* trend_str = doc["trend"] | "Unknown";
-            current_reading.trend = parse_trend(trend_str);
+            r.trend = parse_trend(trend_str);
 
             const char* msg = doc["message"] | "";
-            strncpy(current_reading.message, msg, sizeof(current_reading.message) - 1);
-            current_reading.message[sizeof(current_reading.message) - 1] = '\0';
+            strncpy(r.message, msg, sizeof(r.message) - 1);
+            r.message[sizeof(r.message) - 1] = '\0';
 
-            if (current_reading.valid) {
-                record_reading(current_reading.glucose, current_reading.timestamp);
+            commit_reading(r);
+
+            if (r.valid) {
                 failure_count = 0;
                 ever_received = true;
                 last_success_ms = millis();
+                success = true;
                 Serial.printf("[HTTP] Glucose: %d, Trend: %s\n",
-                              current_reading.glucose,
-                              TREND_NAMES[current_reading.trend]);
+                              r.glucose, TREND_NAMES[r.trend]);
             } else {
                 failure_count++;
                 Serial.println("[HTTP] Invalid glucose value");
             }
         }
     } else {
+        char errbuf[32];
+        snprintf(errbuf, sizeof(errbuf), "HTTP %d", httpCode);
+        set_last_response(errbuf);
         Serial.printf("[HTTP] Error: %d\n", httpCode);
-        snprintf(last_response_body, sizeof(last_response_body), "HTTP %d", httpCode);
         failure_count++;
     }
 
     http.end();
+    return success;
+}
+
+// Run the configured fetch (network task only)
+static bool do_fetch() {
+    AppConfig& cfg = config_get();
+    if (cfg.data_source == 1) {
+        return dexcom_fetch_glucose();
+    }
+    return generic_fetch();
 }
 
 void http_init() {
+    if (data_mutex == NULL) {
+        data_mutex = xSemaphoreCreateMutex();
+    }
+    if (force_done_sem == NULL) {
+        force_done_sem = xSemaphoreCreateBinary();
+    }
+
     memset(&current_reading, 0, sizeof(GlucoseReading));
     current_reading.valid = false;
     current_reading.force_mode = -1;
@@ -405,7 +467,19 @@ void http_init() {
     last_recorded_timestamp = 0;
 }
 
-void http_loop() {
+void http_poll_tick() {
+    // Forced fetch (web UI test button) takes priority over the schedule
+    if (force_requested) {
+        force_requested = false;
+        force_result = false;
+        if (wifi_is_connected() && config_has_server()) {
+            last_poll_ms = millis();
+            force_result = do_fetch();
+        }
+        xSemaphoreGive(force_done_sem);
+        return;
+    }
+
     if (!wifi_is_connected()) return;
     if (!config_has_server()) return;
 
@@ -418,16 +492,15 @@ void http_loop() {
     }
 
     last_poll_ms = millis();
-
-    if (cfg.data_source == 1) {
-        dexcom_fetch_glucose();
-    } else {
-        generic_fetch();
-    }
+    do_fetch();
 }
 
-const GlucoseReading& http_get_reading() {
-    return current_reading;
+GlucoseReading http_get_reading() {
+    GlucoseReading r;
+    xSemaphoreTake(data_mutex, portMAX_DELAY);
+    r = current_reading;
+    xSemaphoreGive(data_mutex);
+    return r;
 }
 
 int http_get_failure_count() {
@@ -438,8 +511,12 @@ int http_get_last_response_code() {
     return last_response_code;
 }
 
-const char* http_get_last_response_body() {
-    return last_response_body;
+void http_get_last_response_body(char* out, size_t out_len) {
+    if (out == NULL || out_len == 0) return;
+    xSemaphoreTake(data_mutex, portMAX_DELAY);
+    strncpy(out, last_response_body, out_len - 1);
+    out[out_len - 1] = '\0';
+    xSemaphoreGive(data_mutex);
 }
 
 bool http_has_ever_received() {
@@ -457,23 +534,27 @@ int http_get_delta() {
     return current_delta;
 }
 
-bool http_force_fetch() {
+bool http_force_fetch(unsigned long timeout_ms) {
     if (!wifi_is_connected()) return false;
     if (!config_has_server()) return false;
 
-    AppConfig& cfg = config_get();
-    last_poll_ms = millis(); // reset timer so regular loop doesn't re-fetch
+    // Drain a stale completion from a previously timed-out request
+    xSemaphoreTake(force_done_sem, 0);
+    force_requested = true;
 
-    if (cfg.data_source == 1) {
-        return dexcom_fetch_glucose();
-    } else {
-        generic_fetch();
-        return current_reading.valid;
+    if (xSemaphoreTake(force_done_sem, pdMS_TO_TICKS(timeout_ms)) != pdTRUE) {
+        return false; // still running; result will be published when done
     }
+    return force_result;
 }
 
 int http_get_history(GlucoseHistoryEntry* out, int max_count) {
-    if (history_count == 0) return 0;
+    xSemaphoreTake(data_mutex, portMAX_DELAY);
+
+    if (history_count == 0) {
+        xSemaphoreGive(data_mutex);
+        return 0;
+    }
 
     int count = min(max_count, history_count);
     // Read from oldest to newest
@@ -488,5 +569,7 @@ int http_get_history(GlucoseHistoryEntry* out, int max_count) {
         int idx = (start + (history_count - count) + i) % GLUCOSE_HISTORY_SIZE;
         out[i] = history_buf[idx];
     }
+
+    xSemaphoreGive(data_mutex);
     return count;
 }
