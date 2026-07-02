@@ -170,15 +170,9 @@ void loop() {
         }
     }
 
-    // 5. Sensor readings
+    // 5. Sensor readings (maintains LDR rolling average + battery reading;
+    //    auto-brightness is applied by the renderer via effective_brightness())
     sensors_loop();
-
-    // Apply auto-brightness if enabled
-    AppConfig& cfg = config_get();
-    if (cfg.auto_brightness) {
-        uint8_t auto_brt = sensors_get_auto_brightness();
-        display_set_brightness(auto_brt);
-    }
 
     // 6. Feature engine loops
     buzzer_loop();

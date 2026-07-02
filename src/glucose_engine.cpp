@@ -13,6 +13,7 @@
 #include "notify_engine.h"
 #include "sysmon_engine.h"
 #include "countdown_engine.h"
+#include "sensors.h"
 #include <Arduino.h>
 
 #define STALE_WARNING_MS   (10UL * 60 * 1000)   // 10 minutes
@@ -230,11 +231,16 @@ static bool is_night_mode() {
     }
 }
 
-// Get effective brightness considering night mode
+// Get effective brightness. Precedence: night mode > auto-brightness > manual.
+// Night mode wins over auto so the display stays guaranteed-dim during sleep
+// hours regardless of room light (a bedside lamp shouldn't blast it at 2am).
 static uint8_t effective_brightness() {
     AppConfig& cfg = config_get();
     if (is_night_mode()) {
         return cfg.night_brightness;
+    }
+    if (cfg.auto_brightness) {
+        return sensors_get_auto_brightness();
     }
     return cfg.brightness;
 }
