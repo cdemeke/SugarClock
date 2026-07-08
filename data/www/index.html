@@ -487,6 +487,35 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="card">
+                    <div class="card-header-toggle">
+                        <h2>Time Blocks</h2>
+                        <input type="checkbox" id="blocks_enabled">
+                    </div>
+                    <div class="card-details" id="blocks-details">
+                        <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+                            Show each child's remaining daily screen-time blocks, managed from the cloud dashboard.
+                        </p>
+                        <div class="form-group">
+                            <label>Device URL</label>
+                            <input type="text" id="blocks_url" maxlength="255" placeholder="https://your-app.vercel.app/api/h/hh_.../blocks">
+                            <div class="hint">Paste the device link from your Time Blocks dashboard. Keep it private &mdash; anyone with it can read your counts.</div>
+                        </div>
+                        <div class="form-group">
+                            <label>Update Interval (minutes)</label>
+                            <input type="number" id="blocks_poll_min" min="1" max="60" value="1">
+                            <div class="hint">Minimum 1 min</div>
+                        </div>
+
+                        <div class="divider"></div>
+                        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                            <button type="button" class="btn btn-test" id="test-blocks-btn">Test Time Blocks</button>
+                            <span class="test-result" id="test-blocks-result"></span>
+                        </div>
+                        <div class="hint" style="margin-top:8px;">Save config first, then test.</div>
+                    </div>
+                </div>
             </div>
 
             <!-- WEATHER TAB -->
@@ -731,6 +760,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 ['timer_enabled', 'timer-details'],
                 ['stopwatch_enabled', 'stopwatch-details'],
                 ['countdown_enabled', 'countdown-details'],
+                ['blocks_enabled', 'blocks-details'],
                 ['weather_enabled', 'weather-details'],
                 ['notify_enabled', 'notify-details'],
                 ['sysmon_enabled', 'sysmon-details']
@@ -864,6 +894,11 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                         `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
                 }
 
+                // Time blocks
+                document.getElementById('blocks_enabled').checked = c.blocks_enabled || false;
+                document.getElementById('blocks_url').value = c.blocks_url || '';
+                document.getElementById('blocks_poll_min').value = c.blocks_poll_min || 1;
+
                 // Weather
                 document.getElementById('weather_enabled').checked = c.weather_enabled || false;
                 document.getElementById('weather_api_key').value = c.weather_api_key || '';
@@ -952,6 +987,9 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 countdown_enabled: document.getElementById('countdown_enabled').checked,
                 countdown_name: document.getElementById('countdown_name').value,
                 countdown_target: cdTarget,
+                blocks_enabled: document.getElementById('blocks_enabled').checked,
+                blocks_url: document.getElementById('blocks_url').value,
+                blocks_poll_min: parseInt(document.getElementById('blocks_poll_min').value),
                 weather_enabled: document.getElementById('weather_enabled').checked,
                 weather_api_key: document.getElementById('weather_api_key').value,
                 weather_city: document.getElementById('weather_city').value,
@@ -1024,6 +1062,36 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             }
             btn.disabled = false;
             btn.textContent = 'Test Weather API';
+        });
+
+        // Test Time Blocks
+        document.getElementById('test-blocks-btn').addEventListener('click', async function() {
+            const btn = this;
+            const res = document.getElementById('test-blocks-result');
+            btn.disabled = true;
+            btn.textContent = 'Testing...';
+            res.className = 'test-result';
+            res.textContent = '';
+            try {
+                const r = await fetch('/api/test/blocks', { method: 'POST' });
+                const d = await r.json();
+                if (d.ok) {
+                    if (d.first) {
+                        res.textContent = d.first.name + ': ' + d.first.remaining + '/' + d.first.allocation + ' (' + d.kid_count + ' kid' + (d.kid_count === 1 ? '' : 's') + ')';
+                    } else {
+                        res.textContent = 'OK, but no kids configured';
+                    }
+                    res.className = 'test-result test-success';
+                } else {
+                    res.textContent = d.error || ('HTTP ' + d.http_code);
+                    res.className = 'test-result test-error';
+                }
+            } catch (e) {
+                res.textContent = 'Network error';
+                res.className = 'test-result test-error';
+            }
+            btn.disabled = false;
+            btn.textContent = 'Test Time Blocks';
         });
 
         // Test Glucose Data Source
