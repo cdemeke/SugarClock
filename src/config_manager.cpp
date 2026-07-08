@@ -115,6 +115,11 @@ static void config_set_defaults() {
     config.countdown_name[0] = '\0';
     config.countdown_target = 0;
 
+    // Time blocks
+    config.blocks_enabled = false;
+    config.blocks_url[0] = '\0';
+    config.blocks_poll_min = 1;
+
     // Auto-cycle
     config.auto_cycle_enabled = true;
     config.auto_cycle_sec = 10;
@@ -284,6 +289,13 @@ void config_init() {
         prefs.getString("cd_name", config.countdown_name, sizeof(config.countdown_name));
         config.countdown_target = prefs.getULong("cd_target", 0);
 
+        // Time blocks
+        config.blocks_enabled = prefs.getBool("blk_en", false);
+        prefs.getString("blk_url", config.blocks_url, sizeof(config.blocks_url));
+        config.blocks_poll_min = prefs.getInt("blk_poll", 1);
+        if (config.blocks_poll_min < 1) config.blocks_poll_min = 1;
+        if (config.blocks_poll_min > 60) config.blocks_poll_min = 60;
+
         // Auto-cycle
         config.auto_cycle_enabled = prefs.getBool("acyc_en", true);
         config.auto_cycle_sec = prefs.getInt("acyc_sec", 10);
@@ -392,6 +404,11 @@ void config_save() {
     prefs.putBool("cd_en", config.countdown_enabled);
     prefs.putString("cd_name", config.countdown_name);
     prefs.putULong("cd_target", config.countdown_target);
+
+    // Time blocks
+    prefs.putBool("blk_en", config.blocks_enabled);
+    prefs.putString("blk_url", config.blocks_url);
+    prefs.putInt("blk_poll", config.blocks_poll_min);
 
     // Auto-cycle
     prefs.putBool("acyc_en", config.auto_cycle_enabled);
