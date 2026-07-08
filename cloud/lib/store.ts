@@ -11,7 +11,16 @@
 import { Redis } from "@upstash/redis";
 import type { Household } from "./types";
 
-const memory = new Map<string, Household>();
+// Hang the dev map off globalThis so it is a single instance across Next's
+// per-route bundles (routes are compiled separately and would otherwise each
+// get their own module-level Map).
+const globalForStore = globalThis as unknown as {
+  __householdMemory?: Map<string, Household>;
+};
+const memory =
+  globalForStore.__householdMemory ??
+  (globalForStore.__householdMemory = new Map<string, Household>());
+
 let _redis: Redis | null = null;
 let warnedMemory = false;
 
