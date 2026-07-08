@@ -41,7 +41,13 @@ cd cloud
 npm install
 cp .env.example .env.local   # fill in KV_REST_API_URL / KV_REST_API_TOKEN
 npm run dev                  # http://localhost:3000
+npm test                     # domain-logic unit tests (no env required)
 ```
+
+If the KV env vars are **not** set, the app falls back to a process-local
+in-memory store (see [`lib/store.ts`](lib/store.ts)) so you can try the flows
+without Upstash. That store is not persistent and not shared across instances —
+production must always set the KV env vars.
 
 ## Deploying to Vercel
 
