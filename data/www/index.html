@@ -1077,9 +1077,9 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 const d = await r.json();
                 if (d.ok) {
                     if (d.first) {
-                        res.textContent = d.first.name + ': ' + d.first.remaining + '/' + d.first.allocation + ' (' + d.kid_count + ' kid' + (d.kid_count === 1 ? '' : 's') + ')';
+                        res.textContent = 'HTTP ' + d.http_code + ' — ' + d.first.name + ': ' + d.first.remaining + '/' + d.first.allocation + ' (' + d.kid_count + ' kid' + (d.kid_count === 1 ? '' : 's') + ')';
                     } else {
-                        res.textContent = 'OK, but no kids configured';
+                        res.textContent = 'HTTP ' + d.http_code + ' — OK, but no kids configured';
                     }
                     res.className = 'test-result test-success';
                 } else {

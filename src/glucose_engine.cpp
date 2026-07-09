@@ -748,7 +748,7 @@ static void render_state(DisplayState state) {
                 nbuf[3] = '\0';
                 display_draw_text(nbuf, 0, 0, name_color);
 
-                uint16_t spent_color = stale ? display_color(30, 30, 30)
+                uint16_t spent_color = stale ? display_color(100, 100, 100)
                                              : (out ? display_color(60, 0, 0)
                                                     : display_color(0, 60, 0));
                 int py = 3; // vertically center a 2px-tall pip in 8 rows
@@ -915,6 +915,11 @@ void engine_loop() {
         Serial.printf("[ENGINE] State: %s -> %s\n",
                       engine_state_name(current_state),
                       engine_state_name(new_state));
+        // Entering the blocks page: restart the 3s per-kid timer so the current
+        // kid gets a full interval (the render case re-inits it from 0).
+        if (new_state == STATE_BLOCKS_DISPLAY) {
+            blocks_last_advance_ms = 0;
+        }
         current_state = new_state;
     }
 

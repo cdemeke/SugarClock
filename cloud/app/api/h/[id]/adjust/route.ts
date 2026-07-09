@@ -51,15 +51,15 @@ export async function POST(
   child.remaining = after;
   child.updated_at = ts;
 
-  if (applied !== 0) {
-    pushLog(h, {
-      ts,
-      child_id: child.id,
-      action: delta < 0 ? "deduct" : "add",
-      delta: applied,
-      note: "",
-    });
-  }
+  // Append a log entry unconditionally (§4.3). When clamping makes the change a
+  // no-op, applied is 0 and is recorded as such.
+  pushLog(h, {
+    ts,
+    child_id: child.id,
+    action: delta < 0 ? "deduct" : "add",
+    delta: applied,
+    note: "",
+  });
 
   await saveHousehold(h);
   return NextResponse.json({ child });

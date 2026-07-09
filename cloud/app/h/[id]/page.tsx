@@ -37,6 +37,13 @@ export default function Dashboard() {
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // Show the "save these URLs" banner right after creation (?created=1).
+  const [showCreated, setShowCreated] = useState(false);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("created") === "1") setShowCreated(true);
+  }, []);
+
   // PIN modal
   const [pinOpen, setPinOpen] = useState(false);
   const [pinInput, setPinInput] = useState("");
@@ -134,6 +141,10 @@ export default function Dashboard() {
         <h1 className="text-xl font-bold">{hh.name}</h1>
         <span className="text-xs text-slate-500">{hh.timezone}</span>
       </header>
+
+      {showCreated && (
+        <CreatedBanner id={id} onDismiss={() => setShowCreated(false)} />
+      )}
 
       {err && (
         <p className="rounded-lg bg-red-950 px-3 py-2 text-sm text-red-300">
@@ -435,6 +446,86 @@ function LogView({ hh }: { hh: Household }) {
         ))}
       </ul>
     </section>
+  );
+}
+
+function CreatedBanner({
+  id,
+  onDismiss,
+}: {
+  id: string;
+  onDismiss: () => void;
+}) {
+  const [origin, setOrigin] = useState("");
+  useEffect(() => setOrigin(window.location.origin), []);
+  const dashboardUrl = origin ? `${origin}/h/${id}` : "";
+  const deviceUrl = origin ? `${origin}/api/h/${id}/blocks` : "";
+
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl bg-sky-950/60 p-4 ring-1 ring-sky-700">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex flex-col gap-1">
+          <span className="text-sm font-semibold">Household created 🎉</span>
+          <span className="text-xs text-slate-400">
+            Save both links below. Anyone with a link can use it, so keep them
+            private.
+          </span>
+        </div>
+        <button
+          onClick={onDismiss}
+          aria-label="Dismiss"
+          className="shrink-0 rounded-md px-2 py-1 text-slate-400 hover:text-slate-200"
+        >
+          ✕
+        </button>
+      </div>
+      <UrlRow
+        label="Dashboard URL"
+        hint="Open this on your phone to manage blocks."
+        url={dashboardUrl}
+      />
+      <UrlRow
+        label="Device URL"
+        hint="Paste this into each SugarClock's Time Blocks setting."
+        url={deviceUrl}
+      />
+    </div>
+  );
+}
+
+function UrlRow({
+  label,
+  hint,
+  url,
+}: {
+  label: string;
+  hint: string;
+  url: string;
+}) {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard unavailable */
+    }
+  }
+  return (
+    <div className="flex flex-col gap-1 rounded-lg bg-slate-900/60 p-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-semibold">{label}</span>
+        <button
+          onClick={copy}
+          className="shrink-0 rounded-md bg-slate-700 px-2 py-0.5 text-[11px] hover:bg-slate-600"
+        >
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+      <code className="break-all text-[11px] text-sky-300">{url || "…"}</code>
+      <span className="text-[10px] text-slate-500">{hint}</span>
+    </div>
   );
 }
 

@@ -83,7 +83,7 @@ export default function Home() {
       if (!res.ok) {
         throw new Error(data?.error || "Failed to create household");
       }
-      router.push(`/h/${data.id}`);
+      router.push(`/h/${data.id}?created=1`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
       setSubmitting(false);
