@@ -178,7 +178,12 @@
                         <select id="data_source" onchange="toggleSource()">
                             <option value="0">Custom URL</option>
                             <option value="1">Dexcom Share</option>
+                            <option value="2">Demo Mode (no real data)</option>
                         </select>
+                    </div>
+
+                    <div id="demo-fields" style="display:none;">
+                        <div class="hint">Demo mode shows a fake glucose value that gently fluctuates in the 80&ndash;100 range. No WiFi or CGM connection is needed &mdash; great for recording videos or giving demos.</div>
                     </div>
 
                     <div id="custom-fields">
@@ -709,6 +714,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             const src = document.getElementById('data_source').value;
             document.getElementById('custom-fields').style.display = src === '0' ? 'block' : 'none';
             document.getElementById('dexcom-fields').style.display = src === '1' ? 'block' : 'none';
+            document.getElementById('demo-fields').style.display = src === '2' ? 'block' : 'none';
         }
 
         function showToast(msg, type) {

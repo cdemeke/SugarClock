@@ -416,6 +416,7 @@ bool config_has_wifi() {
 }
 
 bool config_has_server() {
+    if (config.data_source == 2) return true;  // demo mode needs no config
     if (config.data_source == 1) return config_has_dexcom();
     return strlen(config.server_url) > 0;
 }
