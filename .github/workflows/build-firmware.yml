@@ -1,0 +1,82 @@
+name: Build & publish firmware
+
+# Rebuilds the firmware + web UI on every change to the device source and
+# publishes the resulting binaries into docs/firmware/, which is what the
+# web flasher at sugarclock.com installs. GitHub Pages redeploys docs/
+# automatically, so after this runs the site always offers the latest build.
+on:
+  push:
+    branches: [main]
+    # Only build when something that affects the binaries changes. The commit
+    # this workflow makes only touches docs/, so it won't re-trigger itself.
+    paths:
+      - 'src/**'
+      - 'include/**'
+      - 'data/**'
+      - 'platformio.ini'
+      - 'partitions_custom.csv'
+      - '.github/workflows/build-firmware.yml'
+  workflow_dispatch: {}   # allow manual "redeploy" from the Actions tab
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write     # needed to push the rebuilt binaries back to main
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            ~/.cache/pip
+          key: pio-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
+          restore-keys: pio-${{ runner.os }}-
+
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+
+      - name: Build firmware
+        run: pio run -e esp32dev
+
+      - name: Build filesystem (web UI)
+        run: pio run -e esp32dev --target buildfs
+
+      - name: Copy binaries into docs/firmware/
+        run: |
+          set -e
+          BUILD=.pio/build/esp32dev
+          cp "$BUILD/firmware.bin"   docs/firmware/firmware.bin
+          cp "$BUILD/bootloader.bin" docs/firmware/bootloader.bin
+          cp "$BUILD/partitions.bin" docs/firmware/partitions.bin
+          cp "$BUILD/littlefs.bin"   docs/firmware/littlefs.bin
+          # boot_app0.bin ships with the Arduino-ESP32 framework, not the build
+          BOOT_APP0=$(find "$HOME/.platformio/packages" -name boot_app0.bin | head -n1)
+          if [ -n "$BOOT_APP0" ]; then
+            cp "$BOOT_APP0" docs/firmware/boot_app0.bin
+          fi
+
+      - name: Stamp manifest version with commit SHA
+        run: |
+          jq --arg v "${GITHUB_SHA:0:7}" '.version = $v' docs/manifest.json > docs/manifest.tmp
+          mv docs/manifest.tmp docs/manifest.json
+
+      - name: Commit updated binaries
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/firmware docs/manifest.json
+          if git diff --cached --quiet; then
+            echo "No firmware changes to publish."
+          else
+            git commit -m "ci: publish firmware build ${GITHUB_SHA:0:7} [skip ci]"
+            git push
+          fi
