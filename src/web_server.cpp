@@ -673,6 +673,21 @@ static void handle_test_weather_mock(AsyncWebServerRequest* request, uint8_t* da
 static void handle_test_glucose(AsyncWebServerRequest* request) {
     AppConfig& cfg = config_get();
 
+    // Demo mode: no network involved, just return a synthetic reading.
+    if (cfg.data_source == 2) {
+        http_force_fetch();
+        const GlucoseReading& r = http_get_reading();
+        JsonDocument doc;
+        doc["ok"] = true;
+        doc["http_code"] = 200;
+        doc["glucose"] = r.glucose;
+        doc["trend"] = TREND_NAMES[r.trend];
+        String output;
+        serializeJson(doc, output);
+        request->send(200, "application/json", output);
+        return;
+    }
+
     if (!wifi_is_connected()) {
         request->send(503, "application/json", "{\"ok\":false,\"error\":\"WiFi not connected\"}");
         return;

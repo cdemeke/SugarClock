@@ -301,15 +301,21 @@ static DisplayState evaluate_state() {
         return STATE_BOOT;
     }
 
-    // No WiFi
-    if (!wifi_is_connected() && config_has_wifi()) {
-        return STATE_NO_WIFI;
-    }
+    // Demo mode synthesizes its own readings, so skip all the connectivity and
+    // freshness guards below — always fall through to the normal display.
+    bool demo = (cfg.data_source == 2);
 
-    // No config — either no WiFi at all, or WiFi but no glucose source
-    if (!config_has_server()) {
-        if (!config_has_wifi() || wifi_is_connected()) {
-            return STATE_NO_CFG;
+    if (!demo) {
+        // No WiFi
+        if (!wifi_is_connected() && config_has_wifi()) {
+            return STATE_NO_WIFI;
+        }
+
+        // No config — either no WiFi at all, or WiFi but no glucose source
+        if (!config_has_server()) {
+            if (!config_has_wifi() || wifi_is_connected()) {
+                return STATE_NO_CFG;
+            }
         }
     }
 
@@ -318,18 +324,20 @@ static DisplayState evaluate_state() {
         return STATE_NOTIFY_DISPLAY;
     }
 
-    // Check for NO DATA conditions
-    int failures = http_get_failure_count();
-    if (failures >= FAILURE_NODATA_COUNT || !http_has_ever_received()) {
-        if (config_has_server() && millis() - boot_start_ms > 5000) {
-            return STATE_NO_DATA;
+    if (!demo) {
+        // Check for NO DATA conditions
+        int failures = http_get_failure_count();
+        if (failures >= FAILURE_NODATA_COUNT || !http_has_ever_received()) {
+            if (config_has_server() && millis() - boot_start_ms > 5000) {
+                return STATE_NO_DATA;
+            }
         }
-    }
 
-    // Check staleness using configurable timeout
-    unsigned long age = http_time_since_last_reading();
-    if (age >= stale_ms || failures >= FAILURE_STALE_COUNT) {
-        return STATE_STALE_WARNING;
+        // Check staleness using configurable timeout
+        unsigned long age = http_time_since_last_reading();
+        if (age >= stale_ms || failures >= FAILURE_STALE_COUNT) {
+            return STATE_STALE_WARNING;
+        }
     }
 
     // Server force override

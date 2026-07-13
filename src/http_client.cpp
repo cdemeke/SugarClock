@@ -39,6 +39,12 @@ static int history_count = 0;
 static char dexcom_session_id[64] = "";
 static unsigned long dexcom_session_time_ms = 0;
 
+// Demo mode: synthetic glucose that gently wanders in a normal 80-100 range.
+// Used for recording videos / demos without a real CGM connection.
+#define DEMO_UPDATE_MS 5000
+static unsigned long demo_last_update_ms = 0;
+static int demo_value = 90;
+
 // Record a glucose value to history and update delta.
 // reading_timestamp is the CGM timestamp (epoch seconds) so we can skip
 // duplicate readings that arrive when we poll faster than the CGM updates.
@@ -388,6 +394,44 @@ static void generic_fetch() {
     http.end();
 }
 
+// Demo mode: generate a synthetic in-range reading. Wanders gently via a
+// small random walk clamped to 80-100 so the display looks "alive" on camera.
+static void demo_generate() {
+    unsigned long now = millis();
+
+    // First reading is produced immediately; after that, update on an interval
+    // slow enough to look like a real CGM but fast enough to visibly fluctuate.
+    if (demo_last_update_ms != 0 && (now - demo_last_update_ms < DEMO_UPDATE_MS)) {
+        return;
+    }
+    demo_last_update_ms = now;
+
+    demo_value += (int)random(-4, 5);   // -4..+4
+    if (demo_value < 80) demo_value = 80;
+    if (demo_value > 100) demo_value = 100;
+
+    // Derive a plausible trend arrow from the change (before record_reading
+    // overwrites prev_glucose).
+    int delta = has_prev_reading ? (demo_value - prev_glucose) : 0;
+    if (delta > 1)       current_reading.trend = TREND_RISING;
+    else if (delta < -1) current_reading.trend = TREND_FALLING;
+    else                 current_reading.trend = TREND_FLAT;
+
+    current_reading.glucose = demo_value;
+    current_reading.received_at_ms = now;
+    current_reading.force_mode = -1;
+    current_reading.message[0] = '\0';
+    current_reading.timestamp = now / 1000;   // synthetic, unique per update
+    current_reading.valid = true;
+
+    record_reading(demo_value, current_reading.timestamp);
+    failure_count = 0;
+    ever_received = true;
+    last_response_code = 200;
+    last_success_ms = now;
+    strncpy(last_response_body, "demo mode", sizeof(last_response_body) - 1);
+}
+
 void http_init() {
     memset(&current_reading, 0, sizeof(GlucoseReading));
     current_reading.valid = false;
@@ -403,13 +447,23 @@ void http_init() {
     current_delta = 0;
     prev_glucose = 0;
     last_recorded_timestamp = 0;
+
+    // Demo mode state
+    demo_last_update_ms = 0;
+    demo_value = 90;
 }
 
 void http_loop() {
+    AppConfig& cfg = config_get();
+
+    // Demo mode needs no WiFi or configured data source — just synthesize data.
+    if (cfg.data_source == 2) {
+        demo_generate();
+        return;
+    }
+
     if (!wifi_is_connected()) return;
     if (!config_has_server()) return;
-
-    AppConfig& cfg = config_get();
 
     unsigned long interval_ms = max(15, cfg.poll_interval_sec) * 1000UL;
 
@@ -458,10 +512,18 @@ int http_get_delta() {
 }
 
 bool http_force_fetch() {
+    AppConfig& cfg = config_get();
+
+    // Demo mode: produce a fresh synthetic reading immediately.
+    if (cfg.data_source == 2) {
+        demo_last_update_ms = 0;
+        demo_generate();
+        return true;
+    }
+
     if (!wifi_is_connected()) return false;
     if (!config_has_server()) return false;
 
-    AppConfig& cfg = config_get();
     last_poll_ms = millis(); // reset timer so regular loop doesn't re-fetch
 
     if (cfg.data_source == 1) {
