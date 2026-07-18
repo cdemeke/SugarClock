@@ -376,7 +376,7 @@ h6 {
 }
 
 .hero-photo,
-.youtube-placeholder {
+.youtube-embed {
   width: 100%;
   aspect-ratio: 4 / 3;
   border-radius: 8px;
@@ -387,62 +387,11 @@ h6 {
   transform: scale(1.24);
 }
 
-.youtube-placeholder {
-  position: relative;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
+.youtube-embed {
+  display: block;
+  aspect-ratio: 16 / 9;
   border: var(--border-thin);
-  background:
-    linear-gradient(rgba(8, 8, 8, 0.12), rgba(8, 8, 8, 0.12)),
-    radial-gradient(circle at 48% 44%, rgba(130, 237, 166, 0.34), transparent 8rem),
-    #171717;
-  color: #fffdf3;
-  font-size: 14px;
-  font-weight: 600;
-  text-align: center;
-}
-
-.youtube-placeholder::before {
-  content: "154 ->";
-  position: absolute;
-  top: 38%;
-  left: 50%;
-  color: #82eda6;
-  font-family: var(--font-display);
-  font-size: clamp(36px, 5vw, 56px);
-  line-height: 1;
-  text-shadow: 0 0 12px rgba(130, 237, 166, 0.65);
-  transform: translate(-50%, -50%);
-}
-
-.youtube-placeholder span {
-  position: absolute;
-  bottom: 1rem;
-  left: 1rem;
-  right: 1rem;
-}
-
-.youtube-play {
-  position: relative;
-  z-index: 1;
-  width: 74px;
-  height: 52px;
-  border: var(--border-thin);
-  border-radius: 16px;
-  background: var(--accent);
-  box-shadow: 4px 5px 0 var(--ink);
-}
-
-.youtube-play::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 52%;
-  border-top: 12px solid transparent;
-  border-bottom: 12px solid transparent;
-  border-left: 18px solid #fff4dc;
-  transform: translate(-50%, -50%);
+  background: #171717;
 }
 
 .hero-photo-wrap figcaption {
