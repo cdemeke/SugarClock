@@ -366,41 +366,69 @@ h6 {
 
 .hero-photo-wrap {
   margin: 0;
-  padding: 0.52rem;
+  padding: 0;
   border: var(--border);
   border-radius: var(--radius-lg);
-  background: var(--panel);
+  background: #171717;
   box-shadow: var(--shadow);
   transform: rotate(0.75deg);
   overflow: hidden;
 }
 
-.hero-photo,
-.youtube-embed {
+.youtube-facade {
+  position: relative;
+  display: block;
   width: 100%;
-  aspect-ratio: 4 / 3;
-  border-radius: 8px;
+  padding: 0;
+  border: 0;
+  background: #171717;
+  cursor: pointer;
 }
 
-.hero-photo {
+.youtube-facade img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
   object-fit: cover;
-  transform: scale(1.24);
+}
+
+.youtube-play {
+  position: absolute;
+  top: 72%;
+  left: 50%;
+  width: 54px;
+  height: 38px;
+  border: var(--border-thin);
+  border-radius: 12px;
+  background: var(--accent);
+  box-shadow: 3px 4px 0 var(--ink);
+  transform: translate(-50%, -50%);
+  transition: transform 0.16s ease, background 0.16s ease;
+}
+
+.youtube-play::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 53%;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-left: 13px solid #fff4dc;
+  transform: translate(-50%, -50%);
+}
+
+.youtube-facade:hover .youtube-play,
+.youtube-facade:focus-visible .youtube-play {
+  background: var(--accent-dark);
+  transform: translate(-50%, -50%) scale(1.08);
 }
 
 .youtube-embed {
   display: block;
+  width: 100%;
   aspect-ratio: 16 / 9;
-  border: var(--border-thin);
+  border: 0;
   background: #171717;
-}
-
-.hero-photo-wrap figcaption {
-  padding: 0.75rem 0.4rem 0.25rem;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.55;
-  text-align: center;
-  overflow-wrap: anywhere;
 }
 
 .section-py {
@@ -1179,9 +1207,5 @@ h6 {
 
   .trust-note {
     max-width: 340px;
-  }
-
-  .hero-photo-wrap figcaption {
-    padding-inline: 1rem;
   }
 }
