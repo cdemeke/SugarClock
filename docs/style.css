@@ -96,7 +96,6 @@ h6 {
 }
 
 .brand-title,
-.hero-copy h2,
 .nav-brand {
   font-family: var(--font-display);
 }
@@ -1087,13 +1086,7 @@ h6 {
     justify-content: flex-end;
   }
 
-  .masthead,
-  .hero-grid {
-    grid-template-columns: 1fr;
-  }
-
   .masthead {
-    justify-items: center;
     text-align: center;
   }
 
@@ -1105,10 +1098,6 @@ h6 {
   .brand-mark {
     width: 124px;
     height: 124px;
-  }
-
-  .hero-copy {
-    text-align: center;
   }
 
   .hero-actions {
@@ -1260,7 +1249,6 @@ h6 {
     line-height: 1.55;
   }
 
-  .hero-copy p,
   .section-desc {
     max-width: 340px;
     margin-left: auto;
