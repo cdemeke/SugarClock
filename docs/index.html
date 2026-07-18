@@ -87,6 +87,7 @@
     <section id="why" class="section-py">
       <div class="container">
         <div class="section-header fade-up">
+          <span class="section-label">Why</span>
           <h2>What makes SugarClock different</h2>
           <p class="section-desc"><strong>Most CGM displays are expensive, locked down, or hard to customize.</strong>
             SugarClock is different: it is affordable, open, and made for everyday visibility.</p>
@@ -323,6 +324,23 @@
       }, { threshold: 0.1 });
 
       document.querySelectorAll(".fade-up").forEach(el => observer.observe(el));
+
+      // Scroll-spy: highlight the nav link for the section currently in view
+      const spySections = [...document.querySelectorAll("#why, #process")];
+      const navMap = {};
+      spySections.forEach(s => {
+        navMap[s.id] = document.querySelector('.nav-links a[href="#' + s.id + '"]');
+      });
+      const spyState = new Map();
+      const spyObserver = new IntersectionObserver(entries => {
+        entries.forEach(e => spyState.set(e.target.id, e.isIntersecting));
+        let activeId = null;
+        spySections.forEach(s => { if (!activeId && spyState.get(s.id)) activeId = s.id; });
+        Object.entries(navMap).forEach(([id, link]) => {
+          if (link) link.classList.toggle("active", id === activeId);
+        });
+      }, { rootMargin: "-45% 0px -50% 0px", threshold: 0 });
+      spySections.forEach(s => spyObserver.observe(s));
 
       const facade = document.querySelector(".youtube-facade");
       if (facade) {
