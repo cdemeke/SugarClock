@@ -18,7 +18,7 @@
   --shadow: 6px 6px 0 var(--ink);
   --container: 848px;
   --font-display: "Lilita One", "Arial Black", Impact, sans-serif;
-  --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-body: "Source Sans 3", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 * {
@@ -127,7 +127,7 @@ h6 {
   display: inline-flex;
   align-items: center;
   gap: 0.75rem;
-  font-size: 1.45rem;
+  font-size: 1.65rem;
   line-height: 1;
 }
 
@@ -139,6 +139,11 @@ h6 {
     1.5px -1.5px 0 var(--ink),
     -1.5px 1.5px 0 var(--ink),
     1.5px 1.5px 0 var(--ink);
+}
+
+.nav-brand:hover,
+.nav-brand:hover span {
+  text-decoration: none;
 }
 
 .nav-logo {
@@ -161,10 +166,20 @@ h6 {
 .nav-links a:not(.btn) {
   display: inline-flex;
   align-items: center;
-  min-height: 44px;
+  min-height: 40px;
+  padding: 0.25rem 0.9rem;
+  border: 2.5px solid transparent;
+  border-radius: var(--radius-pill);
   font-weight: 600;
   font-size: 14px;
-  letter-spacing: 0.01em;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.nav-links a:not(.btn):hover {
+  background: var(--accent);
+  border-color: var(--ink);
+  color: #fff4dc;
+  text-decoration: none;
 }
 
 .nav-actions {
@@ -241,18 +256,20 @@ h6 {
 }
 
 .masthead {
-  display: grid;
-  grid-template-columns: 128px 1fr;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 1.5rem;
+  text-align: center;
+  gap: 1.25rem;
   margin-bottom: clamp(2rem, 4vw, 3rem);
 }
 
 .brand-mark {
-  width: 128px;
-  height: 128px;
+  width: 104px;
+  height: 104px;
   object-fit: contain;
   filter: drop-shadow(4px 5px 0 var(--ink));
+  animation: hero-pop 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .brand-lockup {
@@ -265,6 +282,7 @@ h6 {
   font-size: clamp(3.2rem, 8.4vw, 6.9rem);
   line-height: 0.78;
   letter-spacing: 0.04em;
+  animation: hero-rise 0.6s ease-out 0.22s both;
   text-shadow:
     -3px -3px 0 var(--ink),
     3px -3px 0 var(--ink),
@@ -274,34 +292,64 @@ h6 {
 }
 
 .masthead-tagline {
-  max-width: 720px;
-  margin: 1rem 0 0;
+  max-width: 620px;
+  margin: 2rem auto 0;
   color: var(--ink);
-  font-size: clamp(15px, 1.5vw, 19px);
-  font-weight: 600;
-  line-height: 1.32;
+  font-size: clamp(13px, 1.2vw, 16px);
+  font-weight: 400;
+  line-height: 1.55;
+  animation: hero-rise 0.6s ease-out 0.38s both;
 }
 
-.hero-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.08fr) minmax(300px, 0.92fr);
+@keyframes hero-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.82) translateY(10px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.04) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes hero-rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-mark,
+  .brand-title,
+  .masthead-tagline,
+  .reassurance-list li {
+    animation: none;
+  }
+}
+
+.hero-stack {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: clamp(2rem, 5vw, 4rem);
-}
-
-.hero-copy p {
-  max-width: 640px;
-  margin-bottom: 1.15rem;
-  color: var(--muted);
-  font-size: 16px;
-  line-height: 1.6;
+  text-align: center;
+  gap: clamp(1.75rem, 4vw, 2.75rem);
 }
 
 .reassurance-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.85rem 1rem;
-  margin: 0 0 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem 1.75rem;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
@@ -316,6 +364,19 @@ h6 {
   font-weight: 600;
   line-height: 1.55;
   overflow-wrap: anywhere;
+  animation: hero-rise 0.5s ease-out both;
+}
+
+.reassurance-list li:nth-child(1) {
+  animation-delay: 0.58s;
+}
+
+.reassurance-list li:nth-child(2) {
+  animation-delay: 0.72s;
+}
+
+.reassurance-list li:nth-child(3) {
+  animation-delay: 0.86s;
 }
 
 .reassurance-list svg {
@@ -327,11 +388,8 @@ h6 {
 }
 
 .trust-note {
-  display: inline-block;
-  max-width: 620px;
-  margin: 1.75rem 0 0;
-  padding-left: 0.9rem;
-  border-left: var(--border-thin);
+  max-width: 480px;
+  margin: 0 auto;
   color: var(--muted);
   font-size: 14px;
   font-weight: 500;
@@ -342,8 +400,9 @@ h6 {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: 1rem;
-  margin-top: 1.25rem;
+  margin-top: 0;
 }
 
 .hero-actions .btn-primary {
@@ -365,7 +424,9 @@ h6 {
 }
 
 .hero-photo-wrap {
-  margin: 0;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
   padding: 0;
   border: var(--border);
   border-radius: var(--radius-lg);
@@ -513,7 +574,7 @@ h6 {
 
 .comparison-table td {
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 700;
 }
 
 .comparison-table strong {
@@ -1168,7 +1229,8 @@ h6 {
   }
 
   .reassurance-list {
-    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: flex-start;
     max-width: 340px;
     margin-left: auto;
     margin-right: auto;
@@ -1195,7 +1257,7 @@ h6 {
   .masthead-tagline {
     max-width: 340px;
     font-size: 17px;
-    line-height: 1.35;
+    line-height: 1.55;
   }
 
   .hero-copy p,

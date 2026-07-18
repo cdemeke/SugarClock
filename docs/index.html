@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Lilita+One&amp;display=swap"
+    href="https://fonts.googleapis.com/css2?family=Lilita+One&amp;family=Source+Sans+3:wght@300;400;500;600;700&amp;display=swap"
     rel="stylesheet">
 
   <link rel="stylesheet" href="style.css">
@@ -52,33 +52,24 @@
           <img src="images/logo.png" alt="SugarClock display showing a glucose trend" class="brand-mark">
           <div class="brand-lockup">
             <h1 class="brand-title">SugarClock</h1>
-            <p class="masthead-tagline">A glanceable CGM display for desks and shared family spaces.</p>
+            <p class="masthead-tagline">A glanceable CGM for shared spaces.</p>
           </div>
+
+          <ul class="reassurance-list">
+            <li><i data-feather="check" aria-hidden="true"></i>No subscription</li>
+            <li><i data-feather="check" aria-hidden="true"></i>Works with Dexcom / Nightscout</li>
+            <li><i data-feather="check" aria-hidden="true"></i>No coding required</li>
+          </ul>
         </div>
 
-        <div class="hero-grid">
-          <div class="hero-copy fade-up delay-1">
-            <p>SugarClock turns a low-cost Ulanzi TC001 smart pixel clock into an open-source display for people with
-              diabetes and families who want glucose numbers visible without opening a phone.</p>
-
-            <ul class="reassurance-list">
-              <li><i data-feather="check" aria-hidden="true"></i>No coding required</li>
-              <li><i data-feather="check" aria-hidden="true"></i>Runs locally</li>
-              <li><i data-feather="check" aria-hidden="true"></i>Works with Nightscout / Dexcom Share</li>
-              <li><i data-feather="check" aria-hidden="true"></i>No subscription</li>
-            </ul>
-
-            <div class="hero-actions">
-              <a href="#install" class="btn btn-primary">Install Now</a>
-              <a href="https://github.com/cdemeke/SugarClock" class="btn btn-secondary" target="_blank"
-                rel="noopener"><i data-feather="github" aria-hidden="true"></i>View on GitHub</a>
-            </div>
-
-            <p class="trust-note">Built on about <strong>$40 hardware</strong>, open source, and designed as a
-              convenience display for your home.</p>
+        <div class="hero-stack">
+          <div class="hero-actions">
+            <a href="#install" class="btn btn-primary">Install Now</a>
+            <a href="https://github.com/cdemeke/SugarClock" class="btn btn-secondary" target="_blank"
+              rel="noopener"><i data-feather="github" aria-hidden="true"></i>View on GitHub</a>
           </div>
 
-          <figure class="hero-photo-wrap fade-up delay-2">
+          <figure class="hero-photo-wrap">
             <button class="youtube-facade" type="button" data-video-id="vfTbYTnHQdA"
               aria-label="Play video: SugarClock demo">
               <img src="https://img.youtube.com/vi/vfTbYTnHQdA/maxresdefault.jpg"
@@ -86,6 +77,9 @@
               <span class="youtube-play" aria-hidden="true"></span>
             </button>
           </figure>
+
+          <p class="trust-note">Built on about <strong>$40 hardware</strong>, open source, and designed as a
+            convenience display for your home.</p>
         </div>
       </div>
     </section>
