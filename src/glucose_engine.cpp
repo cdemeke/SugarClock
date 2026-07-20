@@ -8,6 +8,7 @@
 #include "time_engine.h"
 #include "trend_arrows.h"
 #include "weather_client.h"
+#include "blocks_client.h"
 #include "buzzer.h"
 #include "timer_engine.h"
 #include "notify_engine.h"
@@ -153,6 +154,17 @@ static void on_weather_pre_fetch() {
     }
 }
 
+// Clears particle animations and renders a clean frame before the blocking
+// blocks fetch, so the display doesn't freeze during the network call.
+static void on_blocks_pre_fetch() {
+    for (int i = 0; i < MAX_PARTICLES; i++) particles[i].active = false;
+
+    if (current_state == STATE_BLOCKS_DISPLAY) {
+        display_clear();
+        display_show();
+    }
+}
+
 // Data-driven toggle order
 static DisplayState toggle_order[12];
 static int toggle_count = 0;
@@ -160,6 +172,10 @@ static int toggle_index = 0;
 
 // Auto-cycle timer
 static unsigned long last_cycle_ms = 0;
+
+// Time blocks page: which kid is shown, and when it last advanced (3s cadence).
+static int blocks_kid_index = 0;
+static unsigned long blocks_last_advance_ms = 0;
 
 void engine_rebuild_toggle_order() {
     AppConfig& cfg = config_get();
@@ -172,6 +188,7 @@ void engine_rebuild_toggle_order() {
     if (cfg.stopwatch_enabled) toggle_order[toggle_count++] = STATE_STOPWATCH_DISPLAY;
     if (cfg.sysmon_enabled && sysmon_has_data()) toggle_order[toggle_count++] = STATE_SYSMON_DISPLAY;
     if (cfg.countdown_enabled) toggle_order[toggle_count++] = STATE_COUNTDOWN_DISPLAY;
+    if (cfg.blocks_enabled && blocks_has_data()) toggle_order[toggle_count++] = STATE_BLOCKS_DISPLAY;
 
     // Reset toggle_index to match current user_mode
     for (int i = 0; i < toggle_count; i++) {
@@ -285,6 +302,7 @@ void engine_init() {
 
     // Register pre-fetch callback so weather animations clear before blocking HTTP calls
     weather_set_pre_fetch_callback(on_weather_pre_fetch);
+    blocks_set_pre_fetch_callback(on_blocks_pre_fetch);
 
     // Show initial boot frame (scrolling animation starts in engine_loop)
     display_clear();
@@ -688,6 +706,74 @@ static void render_state(DisplayState state) {
             break;
         }
 
+        case STATE_BLOCKS_DISPLAY: {
+            display_set_brightness(effective_brightness());
+            display_clear();
+
+            const BlocksReading& br = blocks_get_reading();
+            if (!blocks_has_data() || br.kid_count <= 0) {
+                // Enabled but no data yet — same empty state as other pages.
+                display_draw_text("....", 4, 0, display_color(100, 100, 100));
+                display_show();
+                break;
+            }
+
+            int count = br.kid_count;
+
+            // Keep the kid index valid and auto-advance every 3 seconds.
+            if (blocks_kid_index >= count) blocks_kid_index = 0;
+            if (blocks_last_advance_ms == 0) blocks_last_advance_ms = millis();
+            if (millis() - blocks_last_advance_ms >= 3000) {
+                blocks_kid_index = (blocks_kid_index + 1) % count;
+                blocks_last_advance_ms = millis();
+            }
+
+            const BlocksKid& kid = br.kids[blocks_kid_index];
+            bool stale = blocks_is_stale();
+            bool out = (kid.remaining <= 0);
+
+            uint16_t name_color = stale ? display_color(100, 100, 100)
+                                        : color_from_uint32(cfg.color_clock);
+            uint16_t count_color = stale ? display_color(100, 100, 100)
+                                         : (out ? display_color(220, 0, 0)
+                                                : display_color(0, 200, 0));
+
+            if (kid.allocation > 4) {
+                // Too many blocks for pips — fall back to "R/A" text.
+                // Name shrinks to 2 chars so both fit on the 32px matrix.
+                char nbuf[3];
+                strncpy(nbuf, kid.name, 2);
+                nbuf[2] = '\0';
+                display_draw_text(nbuf, 0, 0, name_color);
+
+                char rbuf[8];
+                snprintf(rbuf, sizeof(rbuf), "%d/%d", kid.remaining, kid.allocation);
+                display_draw_text(rbuf, 14, 0, count_color);
+            } else {
+                // Name (3 chars) + 2x2 pips: filled for remaining, dim for spent.
+                char nbuf[4];
+                strncpy(nbuf, kid.name, 3);
+                nbuf[3] = '\0';
+                display_draw_text(nbuf, 0, 0, name_color);
+
+                uint16_t spent_color = stale ? display_color(100, 100, 100)
+                                             : (out ? display_color(60, 0, 0)
+                                                    : display_color(0, 60, 0));
+                int py = 3; // vertically center a 2px-tall pip in 8 rows
+                for (int i = 0; i < kid.allocation && i < 4; i++) {
+                    int px = 20 + i * 3;
+                    uint16_t c = (i < kid.remaining) ? count_color : spent_color;
+                    display_draw_pixel(px,     py,     c);
+                    display_draw_pixel(px + 1, py,     c);
+                    display_draw_pixel(px,     py + 1, c);
+                    display_draw_pixel(px + 1, py + 1, c);
+                }
+            }
+
+            display_show();
+            break;
+        }
+
         case STATE_TREND_DISPLAY: {
             display_set_brightness(effective_brightness());
             display_clear();
@@ -837,6 +923,11 @@ void engine_loop() {
         Serial.printf("[ENGINE] State: %s -> %s\n",
                       engine_state_name(current_state),
                       engine_state_name(new_state));
+        // Entering the blocks page: restart the 3s per-kid timer so the current
+        // kid gets a full interval (the render case re-inits it from 0).
+        if (new_state == STATE_BLOCKS_DISPLAY) {
+            blocks_last_advance_ms = 0;
+        }
         current_state = new_state;
     }
 
@@ -864,6 +955,7 @@ const char* engine_state_name(DisplayState state) {
         case STATE_STOPWATCH_DISPLAY: return "STOPWATCH";
         case STATE_SYSMON_DISPLAY:    return "SYSMON";
         case STATE_COUNTDOWN_DISPLAY: return "COUNTDOWN";
+        case STATE_BLOCKS_DISPLAY:    return "BLOCKS";
         case STATE_TREND_DISPLAY:     return "TREND";
         case STATE_MESSAGE_DISPLAY:   return "MESSAGE";
         case STATE_NOTIFY_DISPLAY:    return "NOTIFY";
@@ -920,6 +1012,15 @@ void engine_right_button_action() {
         case STATE_STOPWATCH_DISPLAY:
             stopwatch_toggle_start_pause();
             break;
+        case STATE_BLOCKS_DISPLAY: {
+            // Manually advance to the next kid, resetting the 3s auto-timer.
+            const BlocksReading& br = blocks_get_reading();
+            if (br.kid_count > 0) {
+                blocks_kid_index = (blocks_kid_index + 1) % br.kid_count;
+            }
+            blocks_last_advance_ms = millis();
+            break;
+        }
         default:
             // Navigate backwards through screens
             engine_toggle_mode_prev();

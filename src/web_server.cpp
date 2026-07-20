@@ -7,6 +7,7 @@
 #include "sensors.h"
 #include "display.h"
 #include "weather_client.h"
+#include "blocks_client.h"
 #include "timer_engine.h"
 #include "notify_engine.h"
 #include "sysmon_engine.h"
@@ -203,6 +204,11 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     doc["countdown_enabled"] = cfg.countdown_enabled;
     doc["countdown_name"] = cfg.countdown_name;
     doc["countdown_target"] = cfg.countdown_target;
+
+    // Time blocks
+    doc["blocks_enabled"] = cfg.blocks_enabled;
+    doc["blocks_url"] = cfg.blocks_url;
+    doc["blocks_poll_min"] = cfg.blocks_poll_min;
 
     // Auto-cycle
     doc["auto_cycle_enabled"] = cfg.auto_cycle_enabled;
@@ -446,6 +452,18 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
         cfg.countdown_target = doc["countdown_target"].as<unsigned long>();
     }
 
+    // Time blocks
+    if (doc["blocks_enabled"].is<bool>()) {
+        cfg.blocks_enabled = doc["blocks_enabled"].as<bool>();
+    }
+    if (doc["blocks_url"].is<const char*>()) {
+        strncpy(cfg.blocks_url, doc["blocks_url"] | "", sizeof(cfg.blocks_url) - 1);
+        cfg.blocks_url[sizeof(cfg.blocks_url) - 1] = '\0';
+    }
+    if (doc["blocks_poll_min"].is<int>()) {
+        cfg.blocks_poll_min = constrain(doc["blocks_poll_min"].as<int>(), 1, 60);
+    }
+
     // Auto-cycle
     if (doc["auto_cycle_enabled"].is<bool>()) {
         cfg.auto_cycle_enabled = doc["auto_cycle_enabled"].as<bool>();
@@ -517,6 +535,17 @@ static void handle_debug(AsyncWebServerRequest* request) {
         doc["raw_force_mode"] = r.force_mode;
         doc["raw_delta"] = http_get_delta();
     }
+
+    // Time blocks state
+    AppConfig& cfg = config_get();
+    doc["blocks_enabled"] = cfg.blocks_enabled;
+    doc["blocks_has_data"] = blocks_has_data();
+    doc["blocks_kid_count"] = blocks_get_reading().kid_count;
+    doc["blocks_last_http_code"] = blocks_get_last_http_code();
+    doc["blocks_is_stale"] = blocks_is_stale();
+    doc["blocks_secs_since_fetch"] = blocks_has_data()
+        ? (long)((millis() - blocks_get_reading().received_at_ms) / 1000UL)
+        : -1;
 
     String output;
     serializeJson(doc, output);
@@ -628,6 +657,31 @@ static void handle_test_weather(AsyncWebServerRequest* request) {
         doc["humidity"] = wx.humidity;
     } else {
         doc["error"] = weather_get_last_response();
+    }
+
+    String output;
+    serializeJson(doc, output);
+    request->send(ok ? 200 : 502, "application/json", output);
+}
+
+// POST /api/test/blocks
+static void handle_test_blocks(AsyncWebServerRequest* request) {
+    bool ok = blocks_force_fetch();
+    JsonDocument doc;
+    doc["ok"] = ok;
+    doc["http_code"] = blocks_get_last_http_code();
+
+    if (ok) {
+        const BlocksReading& br = blocks_get_reading();
+        doc["kid_count"] = br.kid_count;
+        if (br.kid_count > 0) {
+            JsonObject first = doc["first"].to<JsonObject>();
+            first["name"] = br.kids[0].name;
+            first["remaining"] = br.kids[0].remaining;
+            first["allocation"] = br.kids[0].allocation;
+        }
+    } else {
+        doc["error"] = blocks_get_last_response();
     }
 
     String output;
@@ -786,6 +840,7 @@ void webserver_init() {
     server.on("/api/restart", HTTP_POST, [](AsyncWebServerRequest* r) { handle_restart(r); });
     server.on("/api/factory-reset", HTTP_POST, [](AsyncWebServerRequest* r) { handle_factory_reset(r); });
     server.on("/api/test/weather", HTTP_POST, [](AsyncWebServerRequest* r) { handle_test_weather(r); });
+    server.on("/api/test/blocks", HTTP_POST, [](AsyncWebServerRequest* r) { handle_test_blocks(r); });
     server.on("/api/test/glucose", HTTP_POST, [](AsyncWebServerRequest* r) { handle_test_glucose(r); });
 
     // POST /api/test/weather-mock with body

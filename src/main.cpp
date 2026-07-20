@@ -10,6 +10,7 @@
 #include "sensors.h"
 #include "http_client.h"
 #include "weather_client.h"
+#include "blocks_client.h"
 #include "web_server.h"
 #include "buzzer.h"
 #include "timer_engine.h"
@@ -76,6 +77,9 @@ void setup() {
     // 10. Init weather client
     weather_init();
 
+    // 10b. Init time blocks client
+    blocks_init();
+
     // 11. Init web server routes (doesn't start serving yet)
     webserver_init();
 
@@ -122,6 +126,9 @@ void loop() {
 
     // 2b. Weather polling
     weather_loop();
+
+    // 2c. Time blocks polling
+    blocks_loop();
 
     // 3. Time management
     time_loop();

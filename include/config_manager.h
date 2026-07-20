@@ -111,6 +111,11 @@ struct AppConfig {
     char countdown_name[16];   // event name, default ""
     unsigned long countdown_target; // unix timestamp, default 0
 
+    // Time blocks (cloud-managed screen time credits)
+    bool blocks_enabled;       // default false
+    char blocks_url[256];      // full device endpoint URL, e.g. https://.../api/h/hh_xxx/blocks
+    int  blocks_poll_min;      // poll interval in minutes, default 1, min 1, max 60
+
     // Config validity marker
     uint32_t magic;            // 0xGLUC to verify config is initialized
 };
