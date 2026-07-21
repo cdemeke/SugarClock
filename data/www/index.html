@@ -710,6 +710,15 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             inp.type = inp.type === 'password' ? 'text' : 'password';
         }
 
+        // Secrets are never sent back by GET /api/config. Leave the field blank
+        // and show a "saved" placeholder when the firmware reports one is stored.
+        // On save, an empty secret field is omitted so the stored value survives.
+        function setSecretField(id, isSet) {
+            const inp = document.getElementById(id);
+            inp.value = '';
+            inp.placeholder = isSet ? '••••• (saved)' : '';
+        }
+
         function toggleSource() {
             const src = document.getElementById('data_source').value;
             document.getElementById('custom-fields').style.display = src === '0' ? 'block' : 'none';
@@ -786,12 +795,12 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
                 // Connection
                 document.getElementById('wifi_ssid').value = c.wifi_ssid || '';
-                document.getElementById('wifi_password').value = c.wifi_password || '';
+                setSecretField('wifi_password', c.wifi_password_set);
                 document.getElementById('data_source').value = c.data_source || 0;
                 document.getElementById('server_url').value = c.server_url || '';
-                document.getElementById('auth_token').value = c.auth_token || '';
+                setSecretField('auth_token', c.auth_token_set);
                 document.getElementById('dexcom_username').value = c.dexcom_username || '';
-                document.getElementById('dexcom_password').value = c.dexcom_password || '';
+                setSecretField('dexcom_password', c.dexcom_password_set);
                 document.getElementById('dexcom_us').value = c.dexcom_us ? '1' : '0';
                 document.getElementById('poll_interval').value = c.poll_interval;
                 document.getElementById('stale_timeout').value = c.stale_timeout_min || 20;
@@ -872,7 +881,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
                 // Weather
                 document.getElementById('weather_enabled').checked = c.weather_enabled || false;
-                document.getElementById('weather_api_key').value = c.weather_api_key || '';
+                setSecretField('weather_api_key', c.weather_api_key_set);
                 document.getElementById('weather_city').value = c.weather_city || '';
                 document.getElementById('weather_use_f').value = c.weather_use_f ? '1' : '0';
                 document.getElementById('weather_poll_min').value = c.weather_poll_min || 15;
@@ -909,12 +918,9 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
             const data = {
                 wifi_ssid: document.getElementById('wifi_ssid').value,
-                wifi_password: document.getElementById('wifi_password').value,
                 data_source: parseInt(document.getElementById('data_source').value),
                 server_url: document.getElementById('server_url').value,
-                auth_token: document.getElementById('auth_token').value,
                 dexcom_username: document.getElementById('dexcom_username').value,
-                dexcom_password: document.getElementById('dexcom_password').value,
                 dexcom_us: document.getElementById('dexcom_us').value === '1',
                 poll_interval: poll,
                 stale_timeout_min: parseInt(document.getElementById('stale_timeout').value),
@@ -959,7 +965,6 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 countdown_name: document.getElementById('countdown_name').value,
                 countdown_target: cdTarget,
                 weather_enabled: document.getElementById('weather_enabled').checked,
-                weather_api_key: document.getElementById('weather_api_key').value,
                 weather_city: document.getElementById('weather_city').value,
                 weather_use_f: document.getElementById('weather_use_f').value === '1',
                 weather_poll_min: parseInt(document.getElementById('weather_poll_min').value),
@@ -972,6 +977,13 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 sysmon_warn_pct: parseInt(document.getElementById('sysmon_warn_pct').value),
                 sysmon_crit_pct: parseInt(document.getElementById('sysmon_crit_pct').value)
             };
+
+            // Only send secrets the user actually typed. An empty field means
+            // "leave the stored value alone" — the POST handler skips absent keys.
+            ['wifi_password', 'auth_token', 'dexcom_password', 'weather_api_key'].forEach(id => {
+                const v = document.getElementById(id).value;
+                if (v) data[id] = v;
+            });
 
             try {
                 const r = await fetch('/api/config', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
