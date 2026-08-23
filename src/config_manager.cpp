@@ -69,6 +69,7 @@ static void config_set_defaults() {
     config.color_in_range    = 0x34A853;
     config.color_high        = 0xFBBC04;
     config.color_urgent_high = 0xEA4335;
+    config.color_stale       = 0x808080;
 
     // Clock & weather colors
     config.color_clock   = 0xFFFFFF;
@@ -261,6 +262,7 @@ void config_init() {
         config.color_in_range    = prefs.getUInt("c_inrange", 0x34A853);
         config.color_high        = prefs.getUInt("c_high", 0xFBBC04);
         config.color_urgent_high = prefs.getUInt("c_uhigh", 0xEA4335);
+        config.color_stale       = prefs.getUInt("c_stale", 0x808080);
 
         // Clock & weather colors
         config.color_clock   = prefs.getUInt("c_clock", 0xFFFFFF);
@@ -384,6 +386,7 @@ void config_save() {
     prefs.putUInt("c_inrange", config.color_in_range);
     prefs.putUInt("c_high", config.color_high);
     prefs.putUInt("c_uhigh", config.color_urgent_high);
+    prefs.putUInt("c_stale", config.color_stale);
 
     // Clock & weather colors
     prefs.putUInt("c_clock", config.color_clock);

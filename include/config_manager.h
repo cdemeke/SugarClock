@@ -66,6 +66,7 @@ struct AppConfig {
     uint32_t color_in_range;     // default 0x34A853 (green)
     uint32_t color_high;         // default 0xFBBC04 (orange/yellow)
     uint32_t color_urgent_high;  // default 0xEA4335 (red)
+    uint32_t color_stale;        // default 0x808080 (gray)
 
     // Clock & weather display colors
     uint32_t color_clock;        // default 0x00FFFF (cyan)

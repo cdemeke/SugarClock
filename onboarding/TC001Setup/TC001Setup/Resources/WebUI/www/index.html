@@ -326,7 +326,7 @@
                         <div class="form-group">
                             <label>Stale Timeout (minutes)</label>
                             <input type="number" id="stale_timeout" min="5" max="60" value="20">
-                            <div class="hint">Show STALE after this long</div>
+                            <div class="hint">Show stale color after this long</div>
                         </div>
                     </div>
 
@@ -397,6 +397,11 @@
                         <input type="color" id="color_urgent_high" value="#ef4444">
                         <span class="color-label">Urgent High</span>
                         <span class="color-hex" id="hex_urgent_high">#ef4444</span>
+                    </div>
+                    <div class="color-row">
+                        <input type="color" id="color_stale" value="#808080">
+                        <span class="color-label">Stale Data</span>
+                        <span class="color-hex" id="hex_stale">#808080</span>
                     </div>
                 </div>
 
@@ -1179,7 +1184,8 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 if (c.color_in_range) document.getElementById('color_in_range').value = c.color_in_range;
                 if (c.color_high) document.getElementById('color_high').value = c.color_high;
                 if (c.color_urgent_high) document.getElementById('color_urgent_high').value = c.color_urgent_high;
-                ['urgent_low','low','in_range','high','urgent_high'].forEach(k => {
+                if (c.color_stale) document.getElementById('color_stale').value = c.color_stale;
+                ['urgent_low','low','in_range','high','urgent_high','stale'].forEach(k => {
                     const inp = document.getElementById('color_' + k);
                     const hex = document.getElementById('hex_' + k);
                     if (inp && hex) hex.textContent = inp.value;
@@ -1296,6 +1302,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 color_in_range: document.getElementById('color_in_range').value,
                 color_high: document.getElementById('color_high').value,
                 color_urgent_high: document.getElementById('color_urgent_high').value,
+                color_stale: document.getElementById('color_stale').value,
                 color_clock: document.getElementById('color_clock').value,
                 color_weather: document.getElementById('color_weather').value,
                 timezone: tzCustom || document.getElementById('timezone').value,
@@ -1508,7 +1515,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
         }
         // Attach presets to all color pickers
         ['color_clock','color_weather','color_clock_time','color_weather_wx',
-         'color_urgent_low','color_low','color_in_range','color_high','color_urgent_high'
+         'color_urgent_low','color_low','color_in_range','color_high','color_urgent_high','color_stale'
         ].forEach(attachPresets);
 
         // Hash-based tab navigation (for gear links from dashboard)

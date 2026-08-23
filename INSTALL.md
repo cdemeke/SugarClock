@@ -279,8 +279,8 @@ Supported trend values: `RisingFast`, `Rising`, `Flat`, `Falling`, `FallingFast`
 | Glucose number | Green | In range (80-180 mg/dL default) |
 | Glucose number | Orange | Low (70-80) or High (180-250) |
 | Glucose number | Red | Urgent low (<70) or Urgent high (>250) |
-| Dimmed + `!` | Yellow | Data 10-20 minutes old |
-| `STALE` | Yellow | Data >20 min old or 5+ fetch failures |
+| Dimmed + `!` | Yellow | Data 10-20 minutes old (warning) |
+| Glucose number | Gray | Data >20 min old or 5+ fetch failures (stale) |
 | `NO DATA` | Red | 10+ failures or never received data |
 | `NO WIFI` | Red | WiFi disconnected |
 | Setup AP name / `192.168.4.1` | Teal | On-device WiFi setup is available |

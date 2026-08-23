@@ -61,8 +61,15 @@ static void handle_status(AsyncWebServerRequest* request) {
 
     // Glucose color info
     AppConfig& cfg = config_get();
+    unsigned long age = http_time_since_last_reading();
+    unsigned long stale_ms = (unsigned long)cfg.stale_timeout_min * 60UL * 1000UL;
+    int failures = http_get_failure_count();
+    bool is_stale = (cfg.data_source != 2) && (age >= stale_ms || failures >= 5);
+
     if (r.valid) {
-        if (r.glucose < cfg.thresh_urgent_low || r.glucose > cfg.thresh_urgent_high) {
+        if (is_stale) {
+            doc["color"] = "gray";
+        } else if (r.glucose < cfg.thresh_urgent_low || r.glucose > cfg.thresh_urgent_high) {
             doc["color"] = "red";
         } else if (r.glucose < cfg.thresh_low || r.glucose > cfg.thresh_high) {
             doc["color"] = "orange";
@@ -165,6 +172,7 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     doc["color_in_range"] = color_to_hex(cfg.color_in_range);
     doc["color_high"] = color_to_hex(cfg.color_high);
     doc["color_urgent_high"] = color_to_hex(cfg.color_urgent_high);
+    doc["color_stale"] = color_to_hex(cfg.color_stale);
 
     // Clock & weather colors
     doc["color_clock"] = color_to_hex(cfg.color_clock);
@@ -371,6 +379,9 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     }
     if (doc["color_urgent_high"].is<const char*>()) {
         cfg.color_urgent_high = hex_to_color(doc["color_urgent_high"] | "#ea4335");
+    }
+    if (doc["color_stale"].is<const char*>()) {
+        cfg.color_stale = hex_to_color(doc["color_stale"] | "#808080");
     }
 
     // Clock & weather colors
