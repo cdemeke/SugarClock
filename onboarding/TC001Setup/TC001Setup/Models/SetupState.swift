@@ -86,9 +86,10 @@ final class SetupState: ObservableObject {
     @Published var wifiSSID: String = ""
     @Published var wifiPassword: String = ""
     @Published var showPassword: Bool = false
+    @Published var configureWiFiOnDevice: Bool = false
 
     var isWiFiValid: Bool {
-        !wifiSSID.trimmingCharacters(in: .whitespaces).isEmpty
+        configureWiFiOnDevice || !wifiSSID.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     // MARK: - Step 3: Data Source
@@ -186,14 +187,24 @@ final class SetupState: ObservableObject {
     /// and later POST-ed to /api/config.
     func buildConfigDictionary() -> [String: Any] {
         var config: [String: Any] = [
-            "wifi_ssid": wifiSSID,
-            "wifi_password": wifiPassword,
             "timezone": timezone,
             "use_mmol": glucoseUnit == .mmol,
             "brightness": brightness.value,
             "alert_low": lowAlertThreshold,
             "alert_high": highAlertThreshold,
         ]
+
+        if configureWiFiOnDevice {
+            // Explicitly clear retained credentials on a re-flash so the clock
+            // immediately presents SugarClock-Setup for phone configuration.
+            config["wifi_ssid"] = ""
+            config["wifi_password"] = ""
+            config["wifi_security"] = 0
+        } else {
+            config["wifi_ssid"] = wifiSSID
+            config["wifi_password"] = wifiPassword
+            config["wifi_security"] = 0
+        }
 
         switch glucoseSource {
         case .dexcom:

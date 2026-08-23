@@ -125,6 +125,26 @@
             </div>
           </div>
 
+          <div class="faq-item">
+            <button class="faq-question" type="button">
+              <span>Can SugarClock connect to school or WPA2-Enterprise Wi-Fi?</span>
+              <i data-feather="chevron-down"></i>
+            </button>
+            <div class="faq-answer">
+              <p>Yes. Install the firmware, take the clock on site, join the open
+                <strong>SugarClock-Setup</strong> network from your phone, and open
+                <code>http://192.168.4.1</code> in Safari or Chrome. Enterprise networks are marked in the list and
+                support PEAP or EAP-TTLS with a username and password.</p>
+              <p>Enter the identity exactly as school IT specifies: it may be
+                <code>user@district.org</code>, <code>DISTRICT\user</code>, or a bare username. An optional CA
+                certificate can be uploaded for server validation.</p>
+              <p>Ask IT to allow outbound HTTPS to <code>share2.dexcom.com</code>,
+                <code>shareous1.dexcom.com</code>, <code>api.openweathermap.org</code>, and your Nightscout host when
+                used, plus NTP over UDP port 123. Hotel-style browser sign-in portals are not supported; use a travel
+                router or phone hotspot for those.</p>
+            </div>
+          </div>
+
           <h3 class="faq-group-title">Technical</h3>
 
           <div class="faq-item">

@@ -13,6 +13,8 @@
 #include "notify_engine.h"
 #include "sysmon_engine.h"
 #include "countdown_engine.h"
+#include "net_check.h"
+#include "sensors.h"
 #include <Arduino.h>
 
 #define STALE_WARNING_MS   (10UL * 60 * 1000)   // 10 minutes
@@ -39,7 +41,20 @@ static unsigned long alert_snooze_until_ms = 0;
 static unsigned long last_beep_ms = 0;
 #define BEEP_INTERVAL_MS 10000  // beep every 10 seconds when alerting
 
-#define RENDER_INTERVAL_MS 100  // ~10 FPS
+#define RENDER_INTERVAL_MS 50   // ~20 FPS keeps fades smooth without blocking other work
+#define DISPLAY_FADE_MS    600  // slow fade out, swap frame, then fade in
+
+enum TransitionPhase {
+    TRANSITION_NONE,
+    TRANSITION_FADE_OUT,
+    TRANSITION_FADE_IN
+};
+
+static TransitionPhase transition_phase = TRANSITION_NONE;
+static DisplayState transition_target = STATE_BOOT;
+static unsigned long transition_started_ms = 0;
+static uint8_t transition_level = 255;
+static uint8_t transition_start_level = 255;
 
 // Helper: convert uint32_t packed RGB to 16-bit display color
 static uint16_t color_from_uint32(uint32_t c) {
@@ -166,7 +181,7 @@ void engine_rebuild_toggle_order() {
     toggle_count = 0;
     toggle_order[toggle_count++] = STATE_GLUCOSE_DISPLAY;
     toggle_order[toggle_count++] = STATE_TREND_DISPLAY;
-    toggle_order[toggle_count++] = STATE_TIME_DISPLAY;
+    if (cfg.time_display_enabled) toggle_order[toggle_count++] = STATE_TIME_DISPLAY;
     if (cfg.weather_enabled) toggle_order[toggle_count++] = STATE_WEATHER_DISPLAY;
     if (cfg.timer_enabled) toggle_order[toggle_count++] = STATE_TIMER_DISPLAY;
     if (cfg.stopwatch_enabled) toggle_order[toggle_count++] = STATE_STOPWATCH_DISPLAY;
@@ -181,6 +196,7 @@ void engine_rebuild_toggle_order() {
         }
     }
     toggle_index = 0;
+    user_mode = toggle_order[0];
 }
 
 // Get color for glucose value using custom theme colors from config
@@ -236,6 +252,9 @@ static uint8_t effective_brightness() {
     if (is_night_mode()) {
         return cfg.night_brightness;
     }
+    if (cfg.auto_brightness) {
+        return sensors_get_auto_brightness();
+    }
     return cfg.brightness;
 }
 
@@ -274,12 +293,16 @@ void engine_init() {
     AppConfig& cfg = config_get();
     if (cfg.default_mode == 2) {
         default_mode = STATE_WEATHER_DISPLAY;
-    } else if (cfg.default_mode == 1) {
+    } else if (cfg.default_mode == 1 && cfg.time_display_enabled) {
         default_mode = STATE_TIME_DISPLAY;
     } else {
         default_mode = STATE_GLUCOSE_DISPLAY;
     }
     user_mode = default_mode;
+    transition_phase = TRANSITION_NONE;
+    transition_target = STATE_BOOT;
+    transition_level = 255;
+    transition_start_level = 255;
 
     engine_rebuild_toggle_order();
 
@@ -306,9 +329,22 @@ static DisplayState evaluate_state() {
     bool demo = (cfg.data_source == 2);
 
     if (!demo) {
+        // Setup portal up — the user needs the AP name and portal address, and
+        // nothing else on the display matters until they have them.
+        if (wifi_is_ap_mode()) {
+            return STATE_SETUP_AP;
+        }
+
         // No WiFi
         if (!wifi_is_connected() && config_has_wifi()) {
             return STATE_NO_WIFI;
+        }
+
+        // Associated but the network is filtering us. Distinct from NO_DATA so
+        // the user is told what to fix rather than watching a stale reading.
+        if (wifi_is_connected() &&
+            (netcheck_dns() == NC_FAIL || netcheck_data() == NC_FAIL)) {
+            return STATE_NET_LIMITED;
         }
 
         // No config — either no WiFi at all, or WiFi but no glucose source
@@ -357,11 +393,18 @@ static DisplayState evaluate_state() {
         return STATE_MESSAGE_DISPLAY;
     }
 
+    if (user_mode == STATE_TIME_DISPLAY && cfg.date_on_time_screen &&
+        time_is_available() && ((millis() / 5000) % 2 == 1)) {
+        return STATE_DATE_DISPLAY;
+    }
+
     return user_mode;
 }
 
 static void render_state(DisplayState state) {
     AppConfig& cfg = config_get();
+    display_set_brightness(effective_brightness());
+    display_set_transition_level(transition_level);
 
     switch (state) {
         case STATE_BOOT: {
@@ -468,34 +511,29 @@ static void render_state(DisplayState state) {
             int m = time_get_minute();
             int s = time_get_second();
 
-            // Alternate between time and date every 5 seconds
-            bool show_date = cfg.date_on_time_screen && ((millis() / 5000) % 2 == 1);
+            bool show_colon = (s % 2 == 0);
+            display_draw_time(h, m, show_colon, cfg.use_24h, color_from_uint32(cfg.color_clock));
+            display_show();
+            break;
+        }
 
-            if (show_date) {
-                display_clear();
-                char dbuf[8];
-                int day = time_get_day();
-                int month = time_get_month();
-                if (cfg.date_format == 1) {
-                    // MMMDD format
-                    const char* abbr = time_get_month_abbr();
-                    snprintf(dbuf, sizeof(dbuf), "%s%d", abbr, day);
-                } else if (cfg.date_format == 2) {
-                    // DD/MM format
-                    snprintf(dbuf, sizeof(dbuf), "%d/%d", day, month);
-                } else {
-                    // M/DD format (default)
-                    snprintf(dbuf, sizeof(dbuf), "%d/%d", month, day);
-                }
-                int len = strlen(dbuf);
-                int tx = (MATRIX_WIDTH - len * 6) / 2;
-                display_draw_text(dbuf, tx, 0, color_from_uint32(cfg.color_clock));
-                display_show();
+        case STATE_DATE_DISPLAY: {
+            display_clear();
+            char dbuf[8];
+            int day = time_get_day();
+            int month = time_get_month();
+            if (cfg.date_format == 1) {
+                const char* abbr = time_get_month_abbr();
+                snprintf(dbuf, sizeof(dbuf), "%s%d", abbr, day);
+            } else if (cfg.date_format == 2) {
+                snprintf(dbuf, sizeof(dbuf), "%d/%d", day, month);
             } else {
-                bool show_colon = (s % 2 == 0);
-                display_draw_time(h, m, show_colon, cfg.use_24h, color_from_uint32(cfg.color_clock));
-                display_show();
+                snprintf(dbuf, sizeof(dbuf), "%d/%d", month, day);
             }
+            int len = strlen(dbuf);
+            int tx = (MATRIX_WIDTH - len * 6) / 2;
+            display_draw_text(dbuf, tx, 0, color_from_uint32(cfg.color_clock));
+            display_show();
             break;
         }
 
@@ -784,6 +822,64 @@ static void render_state(DisplayState state) {
             break;
         }
 
+        case STATE_SETUP_AP: {
+            display_clear();
+            WifiTrialState trial = wifi_trial_get_state();
+            if (trial != WIFI_TRIAL_IDLE) {
+                char trial_line[96];
+                switch (trial) {
+                    case WIFI_TRIAL_ASSOCIATING:
+                        snprintf(trial_line, sizeof(trial_line), "Joining %s", wifi_trial_ssid());
+                        break;
+                    case WIFI_TRIAL_AUTHENTICATING:
+                        snprintf(trial_line, sizeof(trial_line), "Authenticating %s", wifi_trial_ssid());
+                        break;
+                    case WIFI_TRIAL_CONNECTED:
+                        snprintf(trial_line, sizeof(trial_line), "Connected! IP %s", wifi_get_ip());
+                        break;
+                    case WIFI_TRIAL_FAILED_AUTH:
+                        snprintf(trial_line, sizeof(trial_line), "Credentials rejected. Check username and password");
+                        break;
+                    case WIFI_TRIAL_FAILED_NO_AP:
+                        snprintf(trial_line, sizeof(trial_line), "Network not found. Check SSID and 2.4 GHz");
+                        break;
+                    case WIFI_TRIAL_FAILED_TIMEOUT:
+                        snprintf(trial_line, sizeof(trial_line), "Connection timed out. Try again");
+                        break;
+                    default:
+                        trial_line[0] = '\0';
+                        break;
+                }
+                display_scroll_text(trial_line, 0, display_color(0, 200, 200), 70);
+                display_show();
+                break;
+            }
+
+            // Page between the AP name and portal address while no trial is
+            // active: neither fits on 8x32 statically, and the user needs both.
+            static int setup_page = 0;
+            char line[64];
+            if (setup_page == 0) {
+                snprintf(line, sizeof(line), "WiFi setup: join %s", wifi_get_ap_ssid());
+            } else {
+                snprintf(line, sizeof(line), "Then open http://%s", wifi_get_ap_ip());
+            }
+            if (display_scroll_text(line, 0, display_color(0, 200, 200), 70)) {
+                setup_page ^= 1;
+            }
+            display_show();
+            break;
+        }
+
+        case STATE_NET_LIMITED: {
+            display_clear();
+            const char* msg = netcheck_summary();
+            display_scroll_text(msg[0] ? msg : "Connected but no data path",
+                                0, display_color(255, 140, 0), 70);
+            display_show();
+            break;
+        }
+
         case STATE_NO_CFG: {
             display_clear();
             char setup_msg[64];
@@ -832,12 +928,60 @@ void engine_loop() {
         }
     }
 
-    DisplayState new_state = evaluate_state();
-    if (new_state != current_state) {
-        Serial.printf("[ENGINE] State: %s -> %s\n",
-                      engine_state_name(current_state),
-                      engine_state_name(new_state));
-        current_state = new_state;
+    DisplayState desired_state = evaluate_state();
+    unsigned long now = millis();
+
+    if (transition_phase == TRANSITION_NONE && desired_state != current_state) {
+        transition_phase = TRANSITION_FADE_OUT;
+        transition_target = desired_state;
+        transition_started_ms = now;
+        transition_start_level = transition_level;
+    }
+
+    if (transition_phase == TRANSITION_FADE_OUT) {
+        if (desired_state == current_state) {
+            // The condition disappeared before the fade completed; recover
+            // smoothly from the current level instead of flashing back on.
+            transition_phase = TRANSITION_FADE_IN;
+            transition_started_ms = now;
+            transition_start_level = transition_level;
+        } else {
+            transition_target = desired_state;
+            unsigned long elapsed = now - transition_started_ms;
+            if (elapsed >= DISPLAY_FADE_MS) {
+                Serial.printf("[ENGINE] State: %s -> %s\n",
+                              engine_state_name(current_state),
+                              engine_state_name(transition_target));
+                current_state = transition_target;
+                display_scroll_reset();
+                transition_level = 0;
+                transition_start_level = 0;
+                transition_started_ms = now;
+                transition_phase = TRANSITION_FADE_IN;
+            } else {
+                transition_level = (uint8_t)((uint16_t)transition_start_level *
+                    (DISPLAY_FADE_MS - elapsed) / DISPLAY_FADE_MS);
+            }
+        }
+    }
+
+    if (transition_phase == TRANSITION_FADE_IN) {
+        if (desired_state != current_state) {
+            transition_phase = TRANSITION_FADE_OUT;
+            transition_target = desired_state;
+            transition_started_ms = now;
+            transition_start_level = transition_level;
+        } else {
+            unsigned long elapsed = now - transition_started_ms;
+            if (elapsed >= DISPLAY_FADE_MS) {
+                transition_level = 255;
+                transition_phase = TRANSITION_NONE;
+            } else {
+                transition_level = transition_start_level +
+                    (uint8_t)((uint16_t)(255 - transition_start_level) * elapsed /
+                              DISPLAY_FADE_MS);
+            }
+        }
     }
 
     render_state(current_state);
@@ -871,6 +1015,9 @@ const char* engine_state_name(DisplayState state) {
         case STATE_NO_DATA:           return "NO_DATA";
         case STATE_NO_WIFI:           return "NO_WIFI";
         case STATE_NO_CFG:            return "NO_CFG";
+        case STATE_SETUP_AP:          return "SETUP_AP";
+        case STATE_NET_LIMITED:       return "NET_LIMITED";
+        case STATE_DATE_DISPLAY:      return "DATE";
         default:                      return "UNKNOWN";
     }
 }
@@ -890,6 +1037,9 @@ void engine_set_message(const char* msg) {
 }
 
 void engine_set_default_mode(DisplayState mode) {
+    if (mode == STATE_TIME_DISPLAY && !config_get().time_display_enabled) {
+        mode = STATE_GLUCOSE_DISPLAY;
+    }
     default_mode = mode;
     user_mode = mode;
 }

@@ -41,19 +41,111 @@
             <div class="tab-panel" id="tab-connection">
                 <div class="card">
                     <h2>WiFi Network</h2>
+
+                    <div class="wifi-listbar">
+                        <span class="wifi-listbar-title">Networks the clock can see</span>
+                        <button type="button" class="btn btn-outline btn-sm" id="wifi-refresh-btn" onclick="refreshScan()">Refresh</button>
+                    </div>
+                    <div class="hint">Scanning borrows the radio for a few seconds, so this page may stall or briefly drop while it runs. If that happens, wait &mdash; it comes back on its own.</div>
+                    <div id="wifi-list" class="wifi-list">
+                        <select id="wifi_network_picker" class="wifi-picker" onchange="selectDiscoveredNetwork()">
+                            <option value="">Loading discovered networks…</option>
+                        </select>
+                    </div>
+
                     <div class="form-row">
                         <div class="form-group">
-                            <label>SSID</label>
-                            <input type="text" id="wifi_ssid" maxlength="63" placeholder="Network name">
+                            <label>Network name (SSID)</label>
+                            <input type="text" id="wifi_ssid" maxlength="32" placeholder="Network name"
+                                   autocapitalize="off" autocorrect="off" spellcheck="false">
+                            <div class="hint">Pick one above, or type it here for a hidden network.</div>
                         </div>
+                        <div class="form-group">
+                            <label>Security</label>
+                            <select id="wifi_security" onchange="onSecurityChange()">
+                                <option value="0">Password only (home / WPA2)</option>
+                                <option value="1">Username + password (WPA2-Enterprise)</option>
+                            </select>
+                            <div class="hint">School and workplace networks are usually the second one.</div>
+                        </div>
+                    </div>
+
+                    <div id="wifi-personal-fields">
                         <div class="form-group">
                             <label>Password</label>
                             <div class="pw-wrap">
-                                <input type="password" id="wifi_password" maxlength="63">
+                                <input type="password" id="wifi_password" maxlength="63"
+                                       autocapitalize="off" autocorrect="off" spellcheck="false">
                                 <button type="button" class="pw-toggle" onclick="togglePw('wifi_password')">&#128065;</button>
                             </div>
+                            <div class="hint" id="wifi_password_hint">Leave blank for an open network.</div>
                         </div>
                     </div>
+
+                    <div id="wifi-enterprise-fields" hidden>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Username / identity</label>
+                                <input type="text" id="wifi_identity" maxlength="127" placeholder="student@district.org"
+                                       autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off">
+                                <div class="hint">Exactly as IT gave it to you. Some networks want <code>user@district.org</code>, some want <code>DISTRICT\user</code>, some want just <code>user</code>.</div>
+                            </div>
+                            <div class="form-group">
+                                <label>Password</label>
+                                <div class="pw-wrap">
+                                    <input type="password" id="wifi_eap_password" maxlength="127"
+                                           autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off">
+                                    <button type="button" class="pw-toggle" onclick="togglePw('wifi_eap_password')">&#128065;</button>
+                                </div>
+                                <div class="hint" id="wifi_eap_password_hint"></div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>EAP method</label>
+                            <select id="wifi_eap_method">
+                                <option value="0">PEAP (almost always this)</option>
+                                <option value="1">EAP-TTLS</option>
+                            </select>
+                        </div>
+
+                        <details class="wifi-advanced">
+                            <summary>Advanced</summary>
+                            <div class="form-group">
+                                <label>Anonymous (outer) identity</label>
+                                <input type="text" id="wifi_anon_identity" maxlength="127" placeholder="Optional"
+                                       autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off">
+                                <div class="hint">Leave blank unless IT told you to set one.</div>
+                            </div>
+                            <div class="form-group">
+                                <label>Server certificate</label>
+                                <div id="wifi-ca-state" class="wifi-ca-state">No certificate uploaded &mdash; the clock will trust whatever the network presents, the same thing your phone does when you tap &ldquo;Trust&rdquo;.</div>
+                                <textarea id="wifi_ca_pem" rows="4" placeholder="-----BEGIN CERTIFICATE-----" spellcheck="false"></textarea>
+                                <div class="btn-group" style="margin-top:8px">
+                                    <button type="button" class="btn btn-outline btn-sm" onclick="uploadCa()">Upload certificate</button>
+                                    <button type="button" class="btn btn-outline btn-sm" onclick="deleteCa()">Remove</button>
+                                </div>
+                                <div class="hint">Optional. With a certificate loaded, the clock checks the network's identity before sending your password.</div>
+                            </div>
+                        </details>
+                    </div>
+
+                    <div class="btn-group" style="margin-top:18px">
+                        <button type="button" class="btn btn-primary" id="wifi-join-btn" onclick="joinNetwork()">Join this network</button>
+                    </div>
+                    <div class="hint">The clock tries the network first and only saves the details once the join succeeds.</div>
+
+                    <div id="wifi-progress" class="wifi-progress" hidden></div>
+                </div>
+
+                <div class="card">
+                    <h2>Connection health</h2>
+                    <div class="hint">A school network can let the clock on and still block what it needs. These are checked separately after every connection.</div>
+                    <div class="status-row"><span class="status-label">Network</span><span class="status-value" id="chk-network">&mdash;</span></div>
+                    <div class="status-row"><span class="status-label">DNS lookups</span><span class="status-value" id="chk-dns">&mdash;</span></div>
+                    <div class="status-row"><span class="status-label">Data source (HTTPS)</span><span class="status-value" id="chk-data">&mdash;</span></div>
+                    <div class="status-row"><span class="status-label">Time sync (NTP, UDP 123)</span><span class="status-value" id="chk-ntp">&mdash;</span></div>
+                    <div id="chk-summary" class="wifi-summary"></div>
                 </div>
             </div>
 
@@ -337,6 +429,14 @@
             <div class="tab-panel" id="tab-time">
                 <div class="card">
                     <h2>Clock</h2>
+                    <div class="toggle-row">
+                        <div>
+                            <label>Show Time Display</label>
+                            <div class="hint">Include the clock in button navigation and auto-cycle.</div>
+                        </div>
+                        <input type="checkbox" id="time_display_enabled" checked>
+                    </div>
+                    <div class="divider"></div>
                     <div class="form-row">
                         <div class="form-group">
                             <label>Timezone</label>
@@ -729,6 +829,14 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             if (sel.value) document.getElementById('timezone_custom').value = sel.value;
         }
 
+        function updateTimeDisplaySetting() {
+            const enabled = document.getElementById('time_display_enabled').checked;
+            const defaultMode = document.getElementById('default_mode');
+            const timeOption = defaultMode.querySelector('option[value="1"]');
+            timeOption.disabled = !enabled;
+            if (!enabled && defaultMode.value === '1') defaultMode.value = '0';
+        }
+
         function setupToggleCards() {
             [
                 ['night_mode_enabled', 'night-details'],
@@ -779,6 +887,239 @@ curl -X POST http://DEVICE_IP/api/sysmon \
         syncColorPickers('color_clock', 'color_clock_time');
         syncColorPickers('color_weather', 'color_weather_wx');
 
+        // ---- On-device WiFi setup ----
+        let wifiCaPresent = false;
+        let wifiScanPoll = null;
+
+        function onSecurityChange() {
+            const enterprise = document.getElementById('wifi_security').value === '1';
+            document.getElementById('wifi-personal-fields').hidden = enterprise;
+            document.getElementById('wifi-enterprise-fields').hidden = !enterprise;
+        }
+
+        function signalLabel(rssi) {
+            if (rssi >= -60) return 'Strong signal';
+            if (rssi >= -75) return 'Medium signal';
+            return 'Weak signal';
+        }
+
+        function renderNetworks(networks) {
+            const picker = document.getElementById('wifi_network_picker');
+            picker.replaceChildren();
+
+            const prompt = document.createElement('option');
+            prompt.value = '';
+            prompt.textContent = networks && networks.length
+                ? 'Select a discovered network…'
+                : 'No networks found — enter one manually below';
+            picker.appendChild(prompt);
+
+            if (!networks || networks.length === 0) {
+                picker.disabled = true;
+                return;
+            }
+
+            picker.disabled = false;
+            networks.forEach(network => {
+                const option = document.createElement('option');
+                option.value = network.ssid;
+                option.dataset.enterprise = network.enterprise ? '1' : '0';
+                option.textContent = `${network.ssid} — ${network.enterprise ? 'Enterprise — ' : ''}${signalLabel(network.rssi)}`;
+                picker.appendChild(option);
+            });
+        }
+
+        function selectDiscoveredNetwork() {
+            const picker = document.getElementById('wifi_network_picker');
+            const option = picker.options[picker.selectedIndex];
+            if (!option || !option.value) return;
+            document.getElementById('wifi_ssid').value = option.value;
+            document.getElementById('wifi_security').value = option.dataset.enterprise === '1' ? '1' : '0';
+            onSecurityChange();
+        }
+
+        async function loadWifiScan() {
+            try {
+                const response = await fetch('/api/wifi/scan', {cache: 'no-store'});
+                const data = await response.json();
+                renderNetworks(data.networks || []);
+                const button = document.getElementById('wifi-refresh-btn');
+                button.disabled = !!data.scanning;
+                button.textContent = data.scanning ? 'Scanning…' : 'Refresh';
+                if (data.scanning) {
+                    clearTimeout(wifiScanPoll);
+                    wifiScanPoll = setTimeout(loadWifiScan, 1000);
+                }
+            } catch (error) {
+                // The AP and STA share one radio. A scan can briefly make this
+                // page unreachable, so retry instead of presenting a hard error.
+                clearTimeout(wifiScanPoll);
+                wifiScanPoll = setTimeout(loadWifiScan, 1500);
+            }
+        }
+
+        async function refreshScan() {
+            const button = document.getElementById('wifi-refresh-btn');
+            button.disabled = true;
+            button.textContent = 'Scanning…';
+            try {
+                await fetch('/api/wifi/scan/refresh', {method: 'POST'});
+            } catch (error) {
+                // Losing the request during a radio scan is expected; the
+                // cached endpoint will answer again when the phone reconnects.
+            }
+            clearTimeout(wifiScanPoll);
+            wifiScanPoll = setTimeout(loadWifiScan, 1000);
+        }
+
+        function setCaState(present) {
+            wifiCaPresent = !!present;
+            const state = document.getElementById('wifi-ca-state');
+            if (wifiCaPresent) {
+                state.className = 'wifi-ca-state present';
+                state.textContent = 'Certificate loaded — the clock will validate the network before sending your password.';
+            } else {
+                state.className = 'wifi-ca-state';
+                state.textContent = 'No certificate uploaded — the clock will trust whatever the network presents, the same thing your phone does when you tap “Trust”.';
+            }
+        }
+
+        async function uploadCa() {
+            const pem = document.getElementById('wifi_ca_pem').value.trim();
+            if (!pem.includes('-----BEGIN CERTIFICATE-----')) {
+                showToast('Paste a PEM CA certificate first', 'error');
+                return;
+            }
+            try {
+                const response = await fetch('/api/wifi/ca', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'text/plain'},
+                    body: pem + '\n'
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Upload failed');
+                document.getElementById('wifi_ca_pem').value = '';
+                setCaState(true);
+                showToast('CA certificate uploaded', 'success');
+            } catch (error) {
+                showToast(error.message || 'Certificate upload failed', 'error');
+            }
+        }
+
+        async function deleteCa() {
+            try {
+                const response = await fetch('/api/wifi/ca', {method: 'DELETE'});
+                if (!response.ok) throw new Error('Remove failed');
+                setCaState(false);
+                showToast('CA certificate removed', 'success');
+            } catch (error) {
+                showToast(error.message || 'Could not remove certificate', 'error');
+            }
+        }
+
+        const trialMessages = {
+            associating: 'Finding the network and associating…',
+            authenticating: 'Network found. Authenticating and waiting for an address…',
+            failed_auth: 'The network rejected the credentials.',
+            failed_no_ap: 'That network was not found. Check the name and make sure it is 2.4 GHz.',
+            failed_timeout: 'The connection timed out. The network may be out of range or blocking the clock.',
+            connected: 'Connected successfully.'
+        };
+
+        function checkLabel(value, pending) {
+            if (pending) return 'Checking…';
+            if (value === 'ok') return 'Reachable';
+            if (value === 'fail') return 'Blocked';
+            return 'Not checked';
+        }
+
+        function renderWifiStatus(data) {
+            const progress = document.getElementById('wifi-progress');
+            const trial = data.trial || 'idle';
+            if (trial !== 'idle') {
+                progress.hidden = false;
+                progress.className = 'wifi-progress ' +
+                    (trial === 'connected' ? 'success' : trial.startsWith('failed_') ? 'error' : 'active');
+                progress.textContent = data.detail || trialMessages[trial] || trial;
+            }
+
+            const terminal = trial === 'connected' || trial.startsWith('failed_');
+            document.getElementById('wifi-join-btn').disabled = !terminal && trial !== 'idle';
+            document.getElementById('chk-network').textContent = data.connected
+                ? `Connected${data.ip ? ' — ' + data.ip : ''}`
+                : (data.ap_active ? `Setup AP — ${data.ap_ip}` : 'Disconnected');
+
+            const checks = data.checks || {};
+            document.getElementById('chk-dns').textContent = checkLabel(checks.dns, checks.running && checks.dns === 'unknown');
+            document.getElementById('chk-data').textContent = checkLabel(checks.data, checks.running && checks.data === 'unknown');
+            document.getElementById('chk-ntp').textContent = checkLabel(checks.ntp, checks.running && checks.ntp === 'unknown');
+            document.getElementById('chk-summary').textContent = checks.summary || '';
+        }
+
+        async function pollWifiStatus() {
+            try {
+                const response = await fetch('/api/wifi/status', {cache: 'no-store'});
+                const data = await response.json();
+                renderWifiStatus(data);
+            } catch (error) {
+                const progress = document.getElementById('wifi-progress');
+                if (!progress.hidden) {
+                    progress.className = 'wifi-progress active';
+                    progress.textContent = 'The clock changed WiFi channels. Reconnecting and checking the attempt again…';
+                }
+            }
+        }
+
+        async function joinNetwork() {
+            const security = parseInt(document.getElementById('wifi_security').value, 10);
+            const ssid = document.getElementById('wifi_ssid').value.trim();
+            const identity = document.getElementById('wifi_identity').value.trim();
+            const password = security === 1
+                ? document.getElementById('wifi_eap_password').value
+                : document.getElementById('wifi_password').value;
+
+            if (!ssid) {
+                showToast('Choose or enter a network name', 'error');
+                return;
+            }
+            if (security === 1 && (!identity || !password)) {
+                showToast('Enterprise WiFi needs both identity and password', 'error');
+                return;
+            }
+
+            const progress = document.getElementById('wifi-progress');
+            progress.hidden = false;
+            progress.className = 'wifi-progress active';
+            progress.textContent = 'Starting connection attempt…';
+            document.getElementById('wifi-join-btn').disabled = true;
+
+            const body = {
+                ssid,
+                security,
+                eap_method: parseInt(document.getElementById('wifi_eap_method').value, 10),
+                identity,
+                password,
+                anon_identity: document.getElementById('wifi_anon_identity').value.trim(),
+                validate_ca: wifiCaPresent
+            };
+
+            try {
+                const response = await fetch('/api/wifi/connect', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(body)
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Could not start connection');
+                progress.textContent = trialMessages.associating;
+            } catch (error) {
+                // A channel change can drop the response after the firmware has
+                // accepted it. Status polling is authoritative and will recover.
+                progress.textContent = `${error.message || 'Connection interrupted'} Checking the clock for progress…`;
+            }
+            pollWifiStatus();
+        }
+
         async function loadConfig() {
             try {
                 const r = await fetch('/api/config');
@@ -786,7 +1127,20 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
                 // Connection
                 document.getElementById('wifi_ssid').value = c.wifi_ssid || '';
-                document.getElementById('wifi_password').value = c.wifi_password || '';
+                document.getElementById('wifi_password').value = '';
+                document.getElementById('wifi_security').value = String(c.wifi_security || 0);
+                document.getElementById('wifi_eap_method').value = String(c.wifi_eap_method || 0);
+                document.getElementById('wifi_identity').value = c.wifi_identity || '';
+                document.getElementById('wifi_eap_password').value = '';
+                document.getElementById('wifi_anon_identity').value = c.wifi_anon_identity || '';
+                document.getElementById('wifi_password_hint').textContent = c.has_wifi_password
+                    ? 'A password is saved. Enter it again only when joining a network.'
+                    : 'Leave blank for an open network.';
+                document.getElementById('wifi_eap_password_hint').textContent = c.has_wifi_eap_password
+                    ? 'A password is saved. Enter it again to test a new connection.'
+                    : '';
+                setCaState(c.has_wifi_ca);
+                onSecurityChange();
                 document.getElementById('data_source').value = c.data_source || 0;
                 document.getElementById('server_url').value = c.server_url || '';
                 document.getElementById('auth_token').value = c.auth_token || '';
@@ -852,6 +1206,8 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 for (let o of tzSel.options) { if (o.value === tz) { o.selected = true; found = true; break; } }
                 if (!found) document.getElementById('timezone_custom').value = tz;
                 document.getElementById('use_24h').checked = c.use_24h;
+                document.getElementById('time_display_enabled').checked = c.time_display_enabled !== false;
+                updateTimeDisplaySetting();
                 document.getElementById('date_on_time_screen').checked = c.date_on_time_screen || false;
                 document.getElementById('date_format').value = c.date_format || 0;
                 document.getElementById('timer_enabled').checked = c.timer_enabled || false;
@@ -908,8 +1264,6 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             }
 
             const data = {
-                wifi_ssid: document.getElementById('wifi_ssid').value,
-                wifi_password: document.getElementById('wifi_password').value,
                 data_source: parseInt(document.getElementById('data_source').value),
                 server_url: document.getElementById('server_url').value,
                 auth_token: document.getElementById('auth_token').value,
@@ -946,6 +1300,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 color_weather: document.getElementById('color_weather').value,
                 timezone: tzCustom || document.getElementById('timezone').value,
                 use_24h: document.getElementById('use_24h').checked,
+                time_display_enabled: document.getElementById('time_display_enabled').checked,
                 date_on_time_screen: document.getElementById('date_on_time_screen').checked,
                 date_format: parseInt(document.getElementById('date_format').value),
                 timer_enabled: document.getElementById('timer_enabled').checked,
@@ -1160,7 +1515,14 @@ curl -X POST http://DEVICE_IP/api/sysmon \
         const initHash = window.location.hash.replace('#', '');
         if (initHash) switchTab(initHash);
 
+        document.getElementById('time_display_enabled')
+            .addEventListener('change', updateTimeDisplaySetting);
+        updateTimeDisplaySetting();
+
         loadConfig();
+        loadWifiScan();
+        pollWifiStatus();
+        setInterval(pollWifiStatus, 2000);
 
         function toggleTheme(){
             const d=document.documentElement;

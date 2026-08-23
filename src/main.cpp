@@ -17,6 +17,7 @@
 #include "sysmon_engine.h"
 #include "countdown_engine.h"
 #include "improv_serial.h"
+#include "net_check.h"
 
 #define FIRMWARE_VERSION "0.1.0"
 #define WDT_TIMEOUT_SEC  30
@@ -88,6 +89,9 @@ void setup() {
     // 13. Init Improv Wi-Fi serial handler
     improv_init();
 
+    // 13b. Init post-connection reachability checks
+    netcheck_init();
+
     // 14. Init glucose engine (state machine)
     engine_init();
 
@@ -110,6 +114,9 @@ void loop() {
 
     // 1b. Improv Wi-Fi serial (for ESP Web Tools credential input)
     improv_loop();
+
+    // 1c. Reachability probes (DNS / data source / NTP) once online
+    netcheck_loop();
 
     // Start web server once WiFi connects or in AP mode (one-time)
     if ((wifi_is_connected() || wifi_is_ap_mode()) && !webserver_started) {
@@ -172,13 +179,6 @@ void loop() {
 
     // 5. Sensor readings
     sensors_loop();
-
-    // Apply auto-brightness if enabled
-    AppConfig& cfg = config_get();
-    if (cfg.auto_brightness) {
-        uint8_t auto_brt = sensors_get_auto_brightness();
-        display_set_brightness(auto_brt);
-    }
 
     // 6. Feature engine loops
     buzzer_loop();

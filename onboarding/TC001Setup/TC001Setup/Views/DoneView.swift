@@ -29,7 +29,9 @@ struct DoneView: View {
                 Text("You're All Set!")
                     .font(.largeTitle.bold())
 
-                Text("Your SugarClock is configured and running.")
+                Text(state.configureWiFiOnDevice
+                     ? "SugarClock is installed and ready for WiFi setup."
+                     : "Your SugarClock is configured and running.")
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -44,7 +46,7 @@ struct DoneView: View {
                     infoRow(label: "Device Address", value: state.deviceIP)
                     infoRow(label: "Web Dashboard", value: "http://\(state.deviceIP)")
                 }
-                infoRow(label: "WiFi Network", value: state.wifiSSID)
+                infoRow(label: "WiFi Network", value: state.configureWiFiOnDevice ? "Set up on device" : state.wifiSSID)
                 infoRow(label: "Data Source", value: state.glucoseSource.rawValue)
                 infoRow(label: "Units", value: state.glucoseUnit.rawValue)
             }
@@ -96,6 +98,10 @@ struct DoneView: View {
                     Text("What's next")
                         .font(.subheadline.bold())
 
+                    if state.configureWiFiOnDevice {
+                        bulletPoint("On your phone, join the open SugarClock-Setup network.")
+                        bulletPoint("Open http://192.168.4.1 in Safari or Chrome and choose the on-site network.")
+                    }
                     bulletPoint("Place your SugarClock where you can easily see the display.")
                     bulletPoint("It will automatically fetch your glucose data at regular intervals.")
                     bulletPoint("Use the web dashboard to adjust settings at any time.")

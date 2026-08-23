@@ -5,17 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SugarClock - Debug</title>
     <link rel="stylesheet" href="style.css">
+    <script>if(localStorage.getItem('theme')==='dark')document.documentElement.setAttribute('data-theme','dark');</script>
 </head>
 <body>
     <nav class="topnav">
         <div class="topnav-inner">
             <a href="/" class="brand"><div class="brand-icon">G</div><span>SugarClock</span></a>
             <ul class="topnav-links">
-                <li><a href="/">Dashboard</a></li>
-                <li><a href="/config.html">Config</a></li>
+                <li><a href="/display.html">Dashboard</a></li>
+                <li><a href="/">Config</a></li>
                 <li><a href="/debug.html" class="active">Debug</a></li>
                 <li><a href="/device.html">Device</a></li>
             </ul>
+            <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">&#9790;</button>
         </div>
     </nav>
 
@@ -148,6 +150,15 @@
 
         refresh(); setInterval(refresh, 3000);
         refreshButtons(); setInterval(refreshButtons, 500);
+
+        function toggleTheme(){
+            const d=document.documentElement;
+            const dark=d.getAttribute('data-theme')==='dark';
+            if(dark){d.removeAttribute('data-theme');localStorage.removeItem('theme');}
+            else{d.setAttribute('data-theme','dark');localStorage.setItem('theme','dark');}
+            document.querySelector('.theme-toggle').innerHTML=dark?'&#9790;':'&#9728;';
+        }
+        if(localStorage.getItem('theme')==='dark')document.querySelector('.theme-toggle').innerHTML='&#9728;';
     </script>
 </body>
 </html>
