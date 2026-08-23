@@ -16,6 +16,12 @@ static void config_set_defaults() {
     // WiFi (empty by default — triggers AP mode on fresh flash)
     config.wifi_ssid[0] = '\0';
     config.wifi_password[0] = '\0';
+    config.wifi_security = 0;      // personal/open
+    config.wifi_eap_method = 0;    // PEAP
+    config.wifi_identity[0] = '\0';
+    config.wifi_eap_password[0] = '\0';
+    config.wifi_anon_identity[0] = '\0';
+    config.wifi_validate_ca = false;
 
     // Data source
     config.data_source = 0; // custom URL by default
@@ -46,6 +52,7 @@ static void config_set_defaults() {
     // Time
     strncpy(config.timezone, "EST5EDT,M3.2.0,M11.1.0", sizeof(config.timezone));
     config.use_24h = false;
+    config.time_display_enabled = true;
 
     // Default mode
     config.default_mode = 0; // glucose
@@ -153,8 +160,28 @@ static void config_check_littlefs_overlay() {
         return;
     }
 
-    if (doc["wifi_ssid"].is<const char*>())     strncpy(config.wifi_ssid, doc["wifi_ssid"], sizeof(config.wifi_ssid));
-    if (doc["wifi_password"].is<const char*>())  strncpy(config.wifi_password, doc["wifi_password"], sizeof(config.wifi_password));
+    if (doc["wifi_ssid"].is<const char*>())     strncpy(config.wifi_ssid, doc["wifi_ssid"], sizeof(config.wifi_ssid) - 1);
+    if (doc["wifi_password"].is<const char*>())  strncpy(config.wifi_password, doc["wifi_password"], sizeof(config.wifi_password) - 1);
+    if (doc["wifi_security"].is<int>()) {
+        config.wifi_security = doc["wifi_security"];
+    } else if (doc["wifi_ssid"].is<const char*>()) {
+        // Existing onboarding/Improv-style overlays contain only SSID + PSK.
+        config.wifi_security = 0;
+        config.wifi_eap_method = 0;
+        config.wifi_identity[0] = '\0';
+        config.wifi_eap_password[0] = '\0';
+        config.wifi_anon_identity[0] = '\0';
+        config.wifi_validate_ca = false;
+    }
+    if (doc["wifi_eap_method"].is<int>())         config.wifi_eap_method = doc["wifi_eap_method"];
+    if (doc["wifi_identity"].is<const char*>())   strncpy(config.wifi_identity, doc["wifi_identity"], sizeof(config.wifi_identity) - 1);
+    if (doc["wifi_eap_password"].is<const char*>()) strncpy(config.wifi_eap_password, doc["wifi_eap_password"], sizeof(config.wifi_eap_password) - 1);
+    if (doc["wifi_anon_identity"].is<const char*>()) strncpy(config.wifi_anon_identity, doc["wifi_anon_identity"], sizeof(config.wifi_anon_identity) - 1);
+    config.wifi_ssid[sizeof(config.wifi_ssid) - 1] = '\0';
+    config.wifi_password[sizeof(config.wifi_password) - 1] = '\0';
+    config.wifi_identity[sizeof(config.wifi_identity) - 1] = '\0';
+    config.wifi_eap_password[sizeof(config.wifi_eap_password) - 1] = '\0';
+    config.wifi_anon_identity[sizeof(config.wifi_anon_identity) - 1] = '\0';
     if (doc["data_source"].is<int>())            config.data_source = doc["data_source"];
     if (doc["dexcom_username"].is<const char*>()) strncpy(config.dexcom_username, doc["dexcom_username"], sizeof(config.dexcom_username));
     if (doc["dexcom_password"].is<const char*>()) strncpy(config.dexcom_password, doc["dexcom_password"], sizeof(config.dexcom_password));
@@ -165,6 +192,7 @@ static void config_check_littlefs_overlay() {
     if (doc["server_url"].is<const char*>())     strncpy(config.server_url, doc["server_url"], sizeof(config.server_url));
     if (doc["auth_token"].is<const char*>())     strncpy(config.auth_token, doc["auth_token"], sizeof(config.auth_token));
     if (doc["timezone"].is<const char*>())       strncpy(config.timezone, doc["timezone"], sizeof(config.timezone));
+    if (doc["time_display_enabled"].is<bool>()) config.time_display_enabled = doc["time_display_enabled"];
     if (doc["use_mmol"].is<bool>())              config.use_mmol = doc["use_mmol"];
     if (doc["brightness"].is<int>())             config.brightness = doc["brightness"];
     if (doc["alert_low"].is<int>())              config.alert_low = doc["alert_low"];
@@ -193,6 +221,14 @@ void config_init() {
 
         prefs.getString("wifi_ssid", config.wifi_ssid, sizeof(config.wifi_ssid));
         prefs.getString("wifi_pass", config.wifi_password, sizeof(config.wifi_password));
+        // Absent on configs written before enterprise support: the defaults below
+        // reproduce the old personal-WPA2 behaviour exactly.
+        config.wifi_security = prefs.getInt("wifi_sec", 0);
+        config.wifi_eap_method = prefs.getInt("wifi_eap", 0);
+        prefs.getString("wifi_ident", config.wifi_identity, sizeof(config.wifi_identity));
+        prefs.getString("wifi_epass", config.wifi_eap_password, sizeof(config.wifi_eap_password));
+        prefs.getString("wifi_anon", config.wifi_anon_identity, sizeof(config.wifi_anon_identity));
+        config.wifi_validate_ca = prefs.getBool("wifi_ca_val", false);
         config.data_source = prefs.getInt("data_src", 0);
         prefs.getString("server_url", config.server_url, sizeof(config.server_url));
         prefs.getString("auth_token", config.auth_token, sizeof(config.auth_token));
@@ -210,6 +246,7 @@ void config_init() {
         config.thresh_urgent_high = prefs.getInt("t_uhigh", 250);
         prefs.getString("timezone", config.timezone, sizeof(config.timezone));
         config.use_24h = prefs.getBool("use_24h", false);
+        config.time_display_enabled = prefs.getBool("time_en", true);
         config.default_mode = prefs.getInt("def_mode", 0);
 
         // Alerts
@@ -309,6 +346,12 @@ void config_save() {
     prefs.putUInt("magic", CONFIG_MAGIC);
     prefs.putString("wifi_ssid", config.wifi_ssid);
     prefs.putString("wifi_pass", config.wifi_password);
+    prefs.putInt("wifi_sec", config.wifi_security);
+    prefs.putInt("wifi_eap", config.wifi_eap_method);
+    prefs.putString("wifi_ident", config.wifi_identity);
+    prefs.putString("wifi_epass", config.wifi_eap_password);
+    prefs.putString("wifi_anon", config.wifi_anon_identity);
+    prefs.putBool("wifi_ca_val", config.wifi_validate_ca);
     prefs.putInt("data_src", config.data_source);
     prefs.putString("server_url", config.server_url);
     prefs.putString("auth_token", config.auth_token);
@@ -326,6 +369,7 @@ void config_save() {
     prefs.putInt("t_uhigh", config.thresh_urgent_high);
     prefs.putString("timezone", config.timezone);
     prefs.putBool("use_24h", config.use_24h);
+    prefs.putBool("time_en", config.time_display_enabled);
     prefs.putInt("def_mode", config.default_mode);
 
     // Alerts
@@ -423,4 +467,61 @@ bool config_has_server() {
 
 bool config_has_dexcom() {
     return strlen(config.dexcom_username) > 0 && strlen(config.dexcom_password) > 0;
+}
+
+bool config_has_enterprise() {
+    return config.wifi_security == 1;
+}
+
+// --- CA certificate storage (LittleFS) ---
+
+#define CA_PATH "/wifi_ca.pem"
+
+// config_check_littlefs_overlay() unmounts LittleFS when it is done, and
+// webserver_init() does not run until well after wifi_init(), so every CA
+// accessor mounts on demand and leaves the mount in place.
+static bool ca_mount() {
+    return LittleFS.begin(true);
+}
+
+bool config_ca_exists() {
+    if (!ca_mount()) return false;
+    return LittleFS.exists(CA_PATH);
+}
+
+size_t config_ca_size() {
+    if (!ca_mount()) return 0;
+    File f = LittleFS.open(CA_PATH, "r");
+    if (!f) return 0;
+    size_t n = f.size();
+    f.close();
+    return n;
+}
+
+size_t config_ca_read(char* out, size_t out_size) {
+    if (!out || out_size == 0) return 0;
+    out[0] = '\0';
+    if (!ca_mount()) return 0;
+    File f = LittleFS.open(CA_PATH, "r");
+    if (!f) return 0;
+    size_t n = f.readBytes(out, out_size - 1);
+    out[n] = '\0';
+    f.close();
+    return n;
+}
+
+bool config_ca_write(const char* pem, size_t len) {
+    if (!pem || len == 0) return false;
+    if (!ca_mount()) return false;
+    File f = LittleFS.open(CA_PATH, "w");
+    if (!f) return false;
+    size_t written = f.write((const uint8_t*)pem, len);
+    f.close();
+    return written == len;
+}
+
+bool config_ca_delete() {
+    if (!ca_mount()) return false;
+    if (!LittleFS.exists(CA_PATH)) return true;
+    return LittleFS.remove(CA_PATH);
 }

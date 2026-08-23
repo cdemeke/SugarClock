@@ -14,6 +14,8 @@
 #include "buzzer.h"
 #include "buttons.h"
 #include "hardware_pins.h"
+#include "captive_portal.h"
+#include "net_check.h"
 
 #include <ESPAsyncWebServer.h>
 #include <LittleFS.h>
@@ -118,13 +120,24 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     AppConfig& cfg = config_get();
     JsonDocument doc;
 
+    // Secrets are never echoed back. This endpoint is reachable over plain HTTP,
+    // including from an open setup AP, so the UI is told only whether a value is
+    // set. POST treats an empty string as "leave unchanged", which is what makes
+    // a round-trip through the form safe.
     doc["wifi_ssid"] = cfg.wifi_ssid;
-    doc["wifi_password"] = cfg.wifi_password;
+    doc["has_wifi_password"] = strlen(cfg.wifi_password) > 0;
+    doc["wifi_security"] = cfg.wifi_security;
+    doc["wifi_eap_method"] = cfg.wifi_eap_method;
+    doc["wifi_identity"] = cfg.wifi_identity;
+    doc["has_wifi_eap_password"] = strlen(cfg.wifi_eap_password) > 0;
+    doc["wifi_anon_identity"] = cfg.wifi_anon_identity;
+    doc["wifi_validate_ca"] = cfg.wifi_validate_ca;
+    doc["has_wifi_ca"] = config_ca_exists();
     doc["data_source"] = cfg.data_source;
     doc["server_url"] = cfg.server_url;
-    doc["auth_token"] = cfg.auth_token;
+    doc["has_auth_token"] = strlen(cfg.auth_token) > 0;
     doc["dexcom_username"] = cfg.dexcom_username;
-    doc["dexcom_password"] = cfg.dexcom_password;
+    doc["has_dexcom_password"] = strlen(cfg.dexcom_password) > 0;
     doc["dexcom_us"] = cfg.dexcom_us;
     doc["poll_interval"] = cfg.poll_interval_sec;
     doc["brightness"] = cfg.brightness;
@@ -137,6 +150,7 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     doc["thresh_urgent_high"] = cfg.thresh_urgent_high;
     doc["timezone"] = cfg.timezone;
     doc["use_24h"] = cfg.use_24h;
+    doc["time_display_enabled"] = cfg.time_display_enabled;
     doc["default_mode"] = cfg.default_mode;
 
     // Alerts
@@ -167,7 +181,7 @@ static void handle_get_config(AsyncWebServerRequest* request) {
 
     // Weather
     doc["weather_enabled"] = cfg.weather_enabled;
-    doc["weather_api_key"] = cfg.weather_api_key;
+    doc["has_weather_api_key"] = strlen(cfg.weather_api_key) > 0;
     doc["weather_city"] = cfg.weather_city;
     doc["weather_use_f"] = cfg.weather_use_f;
     doc["weather_poll_min"] = cfg.weather_poll_min;
@@ -237,8 +251,35 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     if (doc["wifi_ssid"].is<const char*>()) {
         strncpy(cfg.wifi_ssid, doc["wifi_ssid"] | "", sizeof(cfg.wifi_ssid) - 1);
     }
-    if (doc["wifi_password"].is<const char*>()) {
+    // Secret fields: an empty value means the form was rendered without it (see
+    // the GET handler), so keep whatever is already stored.
+    if (doc["wifi_password"].is<const char*>() && strlen(doc["wifi_password"] | "") > 0) {
         strncpy(cfg.wifi_password, doc["wifi_password"] | "", sizeof(cfg.wifi_password) - 1);
+    }
+    if (doc["wifi_security"].is<int>()) {
+        cfg.wifi_security = constrain(doc["wifi_security"].as<int>(), 0, 1);
+        if (cfg.wifi_security == 0) {
+            cfg.wifi_eap_method = 0;
+            cfg.wifi_identity[0] = '\0';
+            cfg.wifi_eap_password[0] = '\0';
+            cfg.wifi_anon_identity[0] = '\0';
+            cfg.wifi_validate_ca = false;
+        }
+    }
+    if (doc["wifi_eap_method"].is<int>()) {
+        cfg.wifi_eap_method = constrain(doc["wifi_eap_method"].as<int>(), 0, 1);
+    }
+    if (doc["wifi_identity"].is<const char*>()) {
+        strncpy(cfg.wifi_identity, doc["wifi_identity"] | "", sizeof(cfg.wifi_identity) - 1);
+        cfg.wifi_identity[sizeof(cfg.wifi_identity) - 1] = '\0';
+    }
+    if (doc["wifi_eap_password"].is<const char*>() && strlen(doc["wifi_eap_password"] | "") > 0) {
+        strncpy(cfg.wifi_eap_password, doc["wifi_eap_password"] | "", sizeof(cfg.wifi_eap_password) - 1);
+        cfg.wifi_eap_password[sizeof(cfg.wifi_eap_password) - 1] = '\0';
+    }
+    if (doc["wifi_anon_identity"].is<const char*>()) {
+        strncpy(cfg.wifi_anon_identity, doc["wifi_anon_identity"] | "", sizeof(cfg.wifi_anon_identity) - 1);
+        cfg.wifi_anon_identity[sizeof(cfg.wifi_anon_identity) - 1] = '\0';
     }
     if (doc["data_source"].is<int>()) {
         cfg.data_source = doc["data_source"].as<int>();
@@ -246,13 +287,13 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     if (doc["server_url"].is<const char*>()) {
         strncpy(cfg.server_url, doc["server_url"] | "", sizeof(cfg.server_url) - 1);
     }
-    if (doc["auth_token"].is<const char*>()) {
+    if (doc["auth_token"].is<const char*>() && strlen(doc["auth_token"] | "") > 0) {
         strncpy(cfg.auth_token, doc["auth_token"] | "", sizeof(cfg.auth_token) - 1);
     }
     if (doc["dexcom_username"].is<const char*>()) {
         strncpy(cfg.dexcom_username, doc["dexcom_username"] | "", sizeof(cfg.dexcom_username) - 1);
     }
-    if (doc["dexcom_password"].is<const char*>()) {
+    if (doc["dexcom_password"].is<const char*>() && strlen(doc["dexcom_password"] | "") > 0) {
         strncpy(cfg.dexcom_password, doc["dexcom_password"] | "", sizeof(cfg.dexcom_password) - 1);
     }
     if (doc["dexcom_us"].is<bool>()) {
@@ -291,8 +332,14 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     if (doc["use_24h"].is<bool>()) {
         cfg.use_24h = doc["use_24h"].as<bool>();
     }
+    if (doc["time_display_enabled"].is<bool>()) {
+        cfg.time_display_enabled = doc["time_display_enabled"].as<bool>();
+    }
     if (doc["default_mode"].is<int>()) {
         cfg.default_mode = doc["default_mode"].as<int>();
+    }
+    if (!cfg.time_display_enabled && cfg.default_mode == 1) {
+        cfg.default_mode = 0;
     }
 
     // Alerts
@@ -357,7 +404,7 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     if (doc["weather_enabled"].is<bool>()) {
         cfg.weather_enabled = doc["weather_enabled"].as<bool>();
     }
-    if (doc["weather_api_key"].is<const char*>()) {
+    if (doc["weather_api_key"].is<const char*>() && strlen(doc["weather_api_key"] | "") > 0) {
         strncpy(cfg.weather_api_key, doc["weather_api_key"] | "", sizeof(cfg.weather_api_key) - 1);
         cfg.weather_api_key[sizeof(cfg.weather_api_key) - 1] = '\0';
     }
@@ -462,8 +509,10 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
         display_set_brightness(cfg.brightness);
     }
 
-    // If WiFi credentials were just saved while in AP mode, reboot to connect
-    if (wifi_is_ap_mode() && config_has_wifi()) {
+    // If WiFi credentials were just saved from the setup portal while the STA is
+    // still offline, reboot to pick them up. When the trial flow already got us
+    // online there is nothing to restart for.
+    if (wifi_is_ap_mode() && !wifi_is_connected() && config_has_wifi()) {
         request->send(200, "application/json", "{\"status\":\"ok\",\"reboot\":true}");
         delay(1000);
         ESP.restart();
@@ -766,6 +815,196 @@ static void handle_factory_reset(AsyncWebServerRequest* request) {
     ESP.restart();
 }
 
+
+// ---------------------------------------------------------------------------
+// WiFi setup portal API
+//
+// ESPAsyncWebServer runs handlers on the async TCP task; blocking there stalls
+// every other connection and can trip the watchdog. Nothing below waits on the
+// radio — scans and connection attempts are queued and driven from wifi_loop().
+
+static const char* wifi_state_name(WifiState st) {
+    switch (st) {
+        case WIFI_ST_CONNECTING: return "connecting";
+        case WIFI_ST_CONNECTED:  return "connected";
+        case WIFI_ST_RETRY_WAIT: return "retry_wait";
+        case WIFI_ST_SETUP_AP:   return "setup_ap";
+        default:                 return "idle";
+    }
+}
+
+static const char* netcheck_name(NetCheckResult r) {
+    switch (r) {
+        case NC_OK:   return "ok";
+        case NC_FAIL: return "fail";
+        default:      return "unknown";
+    }
+}
+
+// GET /api/wifi/scan — cached results only; scanning is never background-polled
+static void handle_wifi_scan(AsyncWebServerRequest* request) {
+    JsonDocument doc;
+    doc["scanning"] = wifi_scan_in_progress();
+    doc["age_ms"] = wifi_scan_age_ms();
+
+    JsonArray arr = doc["networks"].to<JsonArray>();
+    for (int i = 0; i < wifi_scan_count(); i++) {
+        const WifiScanEntry* e = wifi_scan_get(i);
+        if (!e) continue;
+        JsonObject o = arr.add<JsonObject>();
+        o["ssid"] = e->ssid;
+        o["rssi"] = e->rssi;
+        o["channel"] = e->channel;
+        o["enc"] = e->enc;
+        o["enterprise"] = e->enterprise;
+    }
+
+    String output;
+    serializeJson(doc, output);
+    request->send(200, "application/json", output);
+}
+
+// POST /api/wifi/scan/refresh — kicks off an async scan and returns immediately
+static void handle_wifi_scan_refresh(AsyncWebServerRequest* request) {
+    bool ok = wifi_scan_start();
+    JsonDocument doc;
+    doc["started"] = ok;
+    doc["scanning"] = wifi_scan_in_progress();
+    if (!ok) doc["error"] = "A scan is already running";
+    String output;
+    serializeJson(doc, output);
+    request->send(200, "application/json", output);
+}
+
+// GET /api/wifi/status — poll target for the portal page
+static void handle_wifi_status(AsyncWebServerRequest* request) {
+    JsonDocument doc;
+    doc["state"] = wifi_state_name(wifi_get_state());
+    doc["trial"] = wifi_trial_status_str();
+    doc["trial_ssid"] = wifi_trial_ssid();
+    doc["detail"] = wifi_trial_detail();
+    doc["connected"] = wifi_is_connected();
+    doc["ip"] = wifi_get_ip();
+    doc["rssi"] = wifi_get_rssi();
+    doc["ssid"] = config_get().wifi_ssid;
+    doc["enterprise"] = config_has_enterprise();
+    doc["ap_active"] = wifi_is_ap_mode();
+    doc["ap_ssid"] = wifi_get_ap_ssid();
+    doc["ap_ip"] = wifi_get_ap_ip();
+    doc["ap_stations"] = wifi_ap_station_count();
+
+    JsonObject checks = doc["checks"].to<JsonObject>();
+    checks["dns"] = netcheck_name(netcheck_dns());
+    checks["data"] = netcheck_name(netcheck_data());
+    checks["ntp"] = netcheck_name(netcheck_ntp());
+    checks["host"] = netcheck_data_host();
+    checks["summary"] = netcheck_summary();
+    checks["running"] = netcheck_running();
+
+    String output;
+    serializeJson(doc, output);
+    request->send(200, "application/json", output);
+}
+
+// POST /api/wifi/connect — start a trial. Credentials are not persisted here;
+// wifi_loop() writes them to NVS only once the join actually succeeds.
+static char wifi_body[1024];
+
+static void handle_wifi_connect(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
+    if (total > sizeof(wifi_body) - 1) {
+        request->send(413, "application/json", "{\"error\":\"Body too large\"}");
+        return;
+    }
+    memcpy(wifi_body + index, data, len);
+    if (index + len < total) return;
+    wifi_body[total] = '\0';
+
+    JsonDocument doc;
+    if (deserializeJson(doc, wifi_body, total)) {
+        request->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
+        return;
+    }
+
+    WifiTrialParams p;
+    memset(&p, 0, sizeof(p));
+    strncpy(p.ssid, doc["ssid"] | "", sizeof(p.ssid) - 1);
+    p.security = doc["security"] | 0;
+    p.eap_method = doc["eap_method"] | 0;
+    strncpy(p.identity, doc["identity"] | "", sizeof(p.identity) - 1);
+    strncpy(p.password, doc["password"] | "", sizeof(p.password) - 1);
+    strncpy(p.anon_identity, doc["anon_identity"] | "", sizeof(p.anon_identity) - 1);
+    p.validate_ca = doc["validate_ca"] | false;
+
+    if (p.ssid[0] == '\0') {
+        request->send(400, "application/json", "{\"error\":\"ssid is required\"}");
+        return;
+    }
+    if (strlen(p.ssid) > 32) {
+        request->send(400, "application/json", "{\"error\":\"ssid must be 32 characters or fewer\"}");
+        return;
+    }
+    if (p.security != 0 && p.security != 1) {
+        request->send(400, "application/json", "{\"error\":\"unsupported security type\"}");
+        return;
+    }
+    if (p.eap_method != 0 && p.eap_method != 1) {
+        request->send(400, "application/json", "{\"error\":\"unsupported EAP method\"}");
+        return;
+    }
+    if (p.security == 1 && p.identity[0] == '\0') {
+        request->send(400, "application/json", "{\"error\":\"identity is required for enterprise networks\"}");
+        return;
+    }
+
+    if (p.validate_ca && !config_ca_exists()) {
+        request->send(400, "application/json", "{\"error\":\"upload a CA certificate before enabling validation\"}");
+        return;
+    }
+
+    if (!wifi_trial_start(p)) {
+        request->send(409, "application/json", "{\"error\":\"A connection attempt is already running\"}");
+        return;
+    }
+
+    request->send(202, "application/json", "{\"status\":\"started\"}");
+}
+
+// POST /api/wifi/ca — raw PEM body
+static char ca_body[4096];
+
+static void handle_wifi_ca_upload(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
+    if (total > sizeof(ca_body) - 1) {
+        request->send(413, "application/json", "{\"error\":\"Certificate too large (4 KB max)\"}");
+        return;
+    }
+    memcpy(ca_body + index, data, len);
+    if (index + len < total) return;
+    ca_body[total] = '\0';
+
+    if (!strstr(ca_body, "-----BEGIN CERTIFICATE-----") ||
+        !strstr(ca_body, "-----END CERTIFICATE-----")) {
+        request->send(400, "application/json", "{\"error\":\"Expected a PEM certificate\"}");
+        return;
+    }
+    if (!config_ca_write(ca_body, total)) {
+        request->send(500, "application/json", "{\"error\":\"Failed to store certificate\"}");
+        return;
+    }
+    request->send(200, "application/json", "{\"status\":\"ok\"}");
+}
+
+// DELETE /api/wifi/ca
+static void handle_wifi_ca_delete(AsyncWebServerRequest* request) {
+    if (!config_ca_delete()) {
+        request->send(500, "application/json", "{\"error\":\"Failed to remove certificate\"}");
+        return;
+    }
+    AppConfig& cfg = config_get();
+    cfg.wifi_validate_ca = false;
+    config_save();
+    request->send(200, "application/json", "{\"status\":\"ok\"}");
+}
+
 void webserver_init() {
     // Initialize LittleFS
     if (!LittleFS.begin(true)) {
@@ -775,7 +1014,8 @@ void webserver_init() {
     Serial.println("[WEB] LittleFS mounted");
 
     // Static files from /www/
-    server.serveStatic("/", LittleFS, "/www/").setDefaultFile("index.html");
+    server.serveStatic("/", LittleFS, "/www/", "no-store, no-cache, must-revalidate")
+        .setDefaultFile("index.html");
 
     // API routes
     server.on("/api/status", HTTP_GET, handle_status);
@@ -794,6 +1034,22 @@ void webserver_init() {
         NULL,
         handle_test_weather_mock
     );
+    // WiFi setup portal
+    server.on("/api/wifi/scan", HTTP_GET, handle_wifi_scan);
+    server.on("/api/wifi/status", HTTP_GET, handle_wifi_status);
+    server.on("/api/wifi/scan/refresh", HTTP_POST, [](AsyncWebServerRequest* r) { handle_wifi_scan_refresh(r); });
+    server.on("/api/wifi/ca", HTTP_DELETE, [](AsyncWebServerRequest* r) { handle_wifi_ca_delete(r); });
+    server.on("/api/wifi/connect", HTTP_POST,
+        [](AsyncWebServerRequest* request) {},
+        NULL,
+        handle_wifi_connect
+    );
+    server.on("/api/wifi/ca", HTTP_POST,
+        [](AsyncWebServerRequest* request) {},
+        NULL,
+        handle_wifi_ca_upload
+    );
+
     server.on("/api/display/next", HTTP_POST, [](AsyncWebServerRequest* r) { handle_display_next(r); });
     server.on("/api/display/prev", HTTP_POST, [](AsyncWebServerRequest* r) { handle_display_prev(r); });
 
@@ -820,8 +1076,12 @@ void webserver_init() {
 
     // CORS headers for development
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
-    DefaultHeaders::Instance().addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    DefaultHeaders::Instance().addHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "Content-Type");
+
+    // Registered last: this installs the onNotFound catch-all, which must not
+    // shadow any real route.
+    captive_portal_register_routes(server);
 
     Serial.println("[WEB] Routes registered");
 }

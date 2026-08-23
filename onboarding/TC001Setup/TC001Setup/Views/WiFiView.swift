@@ -27,6 +27,38 @@ struct WiFiView: View {
 
             Divider()
 
+            GroupBox {
+                HStack(alignment: .center, spacing: 12) {
+                    Image(systemName: state.configureWiFiOnDevice ? "iphone.and.arrow.forward" : "building.2")
+                        .foregroundStyle(state.configureWiFiOnDevice ? Color.accentColor : Color.secondary)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(state.configureWiFiOnDevice ? "WiFi setup deferred" : "Using school or enterprise WiFi?")
+                            .font(.subheadline.bold())
+                        Text(state.configureWiFiOnDevice
+                             ? "After installation, join SugarClock-Setup from your phone and open 192.168.4.1."
+                             : "You can install now and choose the network later, where the clock can see it.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer()
+
+                    Button(state.configureWiFiOnDevice ? "Set up here instead" : "Skip — I’ll set this up on the device") {
+                        state.configureWiFiOnDevice.toggle()
+                        if state.configureWiFiOnDevice {
+                            state.wifiSSID = ""
+                            state.wifiPassword = ""
+                        } else {
+                            scanNetworks()
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
             // Network selection
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
@@ -104,6 +136,8 @@ struct WiFiView: View {
                     }
                 }
             }
+            .disabled(state.configureWiFiOnDevice)
+            .opacity(state.configureWiFiOnDevice ? 0.45 : 1)
 
             // Password
             VStack(alignment: .leading, spacing: 8) {
@@ -130,6 +164,8 @@ struct WiFiView: View {
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
+            .disabled(state.configureWiFiOnDevice)
+            .opacity(state.configureWiFiOnDevice ? 0.45 : 1)
 
             Spacer()
 
@@ -154,7 +190,9 @@ struct WiFiView: View {
                     state.wifiSSID = ssid
                 }
             }
-            scanNetworks()
+            if !state.configureWiFiOnDevice {
+                scanNetworks()
+            }
         }
     }
 

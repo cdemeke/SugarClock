@@ -2,12 +2,23 @@
 #define CONFIG_MANAGER_H
 
 #include <stdint.h>
+#include <stddef.h>
 
 // Application configuration stored in NVS
 struct AppConfig {
     // WiFi
     char wifi_ssid[64];
     char wifi_password[64];
+
+    // WiFi security. Defaults keep personal/open behaviour byte-for-byte identical
+    // to pre-enterprise builds: a saved config with none of these keys loads as
+    // security=0 and never touches the 802.1X code path.
+    int  wifi_security;            // 0 = personal/open (default), 1 = WPA2-Enterprise
+    int  wifi_eap_method;          // 0 = PEAP (default), 1 = EAP-TTLS
+    char wifi_identity[128];       // 802.1X username
+    char wifi_eap_password[128];   // 802.1X password
+    char wifi_anon_identity[128];  // optional outer identity
+    bool wifi_validate_ca;         // default false; only meaningful with /wifi_ca.pem present
 
     // Data source: 0=custom URL, 1=Dexcom Share, 2=Demo (synthetic data)
     int data_source;
@@ -38,6 +49,7 @@ struct AppConfig {
     // Time
     char timezone[64];         // POSIX timezone string
     bool use_24h;              // default false
+    bool time_display_enabled; // include the time screen in navigation/auto-cycle
 
     // Display mode
     int default_mode;          // 0=glucose, 1=time, 2=weather
@@ -135,5 +147,25 @@ bool config_has_server();
 
 // Check if Dexcom Share is configured
 bool config_has_dexcom();
+
+// True when the saved network is configured as WPA2-Enterprise
+bool config_has_enterprise();
+
+// --- 802.1X CA certificate, stored on LittleFS at /wifi_ca.pem ---
+
+// True if a CA certificate has been uploaded
+bool config_ca_exists();
+
+// Size of the stored CA in bytes (0 if none)
+size_t config_ca_size();
+
+// Read the stored CA into `out` (NUL-terminated). Returns bytes read, 0 if none.
+size_t config_ca_read(char* out, size_t out_size);
+
+// Write a PEM CA certificate. Returns false on failure.
+bool config_ca_write(const char* pem, size_t len);
+
+// Remove the stored CA certificate
+bool config_ca_delete();
 
 #endif // CONFIG_MANAGER_H

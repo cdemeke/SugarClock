@@ -149,6 +149,14 @@ static void handle_wifi_settings(const uint8_t* data, uint8_t len) {
         cfg.wifi_ssid[sizeof(cfg.wifi_ssid) - 1] = '\0';
         strncpy(cfg.wifi_password, password, sizeof(cfg.wifi_password) - 1);
         cfg.wifi_password[sizeof(cfg.wifi_password) - 1] = '\0';
+        // Improv has no identity field and deliberately remains a personal/open
+        // WiFi protocol. Clear any enterprise mode retained in NVS.
+        cfg.wifi_security = 0;
+        cfg.wifi_eap_method = 0;
+        cfg.wifi_identity[0] = '\0';
+        cfg.wifi_eap_password[0] = '\0';
+        cfg.wifi_anon_identity[0] = '\0';
+        cfg.wifi_validate_ca = false;
         cfg.server_url[0] = '\0';
         cfg.dexcom_username[0] = '\0';
         cfg.dexcom_password[0] = '\0';

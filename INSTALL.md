@@ -61,7 +61,7 @@ pio run
 Expected output:
 ```
 RAM:   [==        ]  15.9% (used 52084 bytes from 327680 bytes)
-Flash: [====      ]  35.4% (used 1112977 bytes from 3145728 bytes)
+Flash: [======    ]  XX.X% (used XXXXXXX bytes from 2097152 bytes)
 ========================= [SUCCESS] Took X seconds =========================
 ```
 
@@ -127,7 +127,7 @@ esptool.py -p /dev/cu.usbserial-1410 -b 460800 write_flash \
   0x8000  .pio/build/esp32dev/partitions.bin \
   0xe000  ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin \
   0x10000 .pio/build/esp32dev/firmware.bin \
-  0x310000 .pio/build/esp32dev/littlefs.bin
+  0x210000 .pio/build/esp32dev/littlefs.bin
 ```
 
 ---
@@ -160,21 +160,66 @@ The LED matrix should briefly show `SUGAR` in teal, then transition to `SETUP` (
 
 ### First-Time WiFi Setup
 
-On first boot with no WiFi configured, the display shows `SETUP`. You'll need to configure WiFi credentials. There are two ways:
+On first boot with no WiFi configured, the clock starts an open network named
+`SugarClock-Setup`. The display cycles the network name and `192.168.4.1`.
 
-#### Option A: Serial Configuration (First Boot)
+1. Join `SugarClock-Setup` from a phone or computer.
+2. If a captive-network window appears, follow its signpost and open a normal Safari,
+   Chrome, or Edge window. The setup process is too long-lived for the captive webview.
+3. Open `http://192.168.4.1`.
+4. Open the **WiFi** tab, choose a visible 2.4 GHz network (or type a hidden SSID), and
+   select **Join this network**.
+5. The clock tests the credentials first and saves them only after the connection succeeds.
 
-Connect via serial monitor and use the web UI after connecting to WiFi. For initial setup, you can pre-configure WiFi before flashing by editing `src/config_manager.cpp` and changing the defaults:
+If saved WiFi cannot connect, the same setup network starts automatically after about two
+minutes. The clock continues retrying the saved network whenever no phone is using the setup
+page.
 
-```cpp
-// In config_set_defaults(), change:
-strncpy(config.wifi_ssid, "YourNetworkName", sizeof(config.wifi_ssid));
-strncpy(config.wifi_password, "YourPassword", sizeof(config.wifi_password));
+### School and WPA2-Enterprise WiFi
+
+SugarClock supports WPA2-Enterprise with PEAP or EAP-TTLS username/password authentication.
+It does not support certificate-based EAP-TLS.
+
+For the easiest on-site flow, choose **Skip — I’ll set this up on the device** in the macOS
+installer. At the school, power the clock, join `SugarClock-Setup` from a phone, open
+`http://192.168.4.1`, and select the school network. Enterprise networks are marked in the
+network list. PEAP is the right default for most K-12 networks; use EAP-TTLS only when school
+IT specifies it.
+
+Enter the identity exactly as IT provides it. Common formats are:
+
+- `user@district.org`
+- `DISTRICT\user`
+- `user`
+
+A correct password with the wrong identity format will still be rejected. Anonymous identity
+is optional under **Advanced**.
+
+By default, the clock trusts the authentication server certificate, equivalent to accepting a
+certificate prompt on a phone. For stronger verification, paste the school CA certificate in
+PEM format under **Advanced** before joining. When a CA is loaded, SugarClock validates the
+network against it.
+
+School IT can copy this outbound allowlist (also allow normal DNS resolution):
+
+```text
+TCP 443: share2.dexcom.com
+TCP 443: shareous1.dexcom.com
+TCP 443: api.openweathermap.org
+TCP 443: the configured Nightscout host (when used)
+UDP 123: pool.ntp.org
+UDP 123: time.nist.gov
+UDP 123: time.google.com
 ```
 
-Then rebuild and reflash. The device will connect to your WiFi automatically.
+After association, the WiFi page reports DNS, data-source HTTPS, and NTP reachability
+separately. This helps distinguish bad credentials from a school firewall that admits the
+device but blocks the services it needs.
 
-#### Option B: Web UI Configuration
+Hotel-style captive login pages are not supported: the clock has no browser and each portal
+works differently. Use a travel router or phone hotspot for those networks.
+
+### Finding the Web UI After Connection
 
 Once connected to WiFi, the serial monitor shows the device's IP address:
 ```
@@ -188,8 +233,8 @@ Open that IP in a browser to access the web UI.
 
 | Page | URL | Purpose |
 |------|-----|---------|
-| Status | `/` | Live glucose reading, trend, data age |
-| Config | `/config.html` | WiFi, server URL, thresholds, display settings |
+| Status | `/display.html` | Live glucose reading, trend, data age |
+| Config | `/` | WiFi, server URL, thresholds, display settings |
 | Debug | `/debug.html` | HTTP responses, heap usage, sensor data |
 | Device | `/device.html` | Firmware info, restart/reset buttons |
 
@@ -238,7 +283,9 @@ Supported trend values: `RisingFast`, `Rising`, `Flat`, `Falling`, `FallingFast`
 | `STALE` | Yellow | Data >20 min old or 5+ fetch failures |
 | `NO DATA` | Red | 10+ failures or never received data |
 | `NO WIFI` | Red | WiFi disconnected |
-| `SETUP` | White | No WiFi/server configured |
+| Setup AP name / `192.168.4.1` | Teal | On-device WiFi setup is available |
+| Connection failure detail | Teal | A trial WiFi join needs attention |
+| Network limitation detail | Orange | Associated, but DNS, data HTTPS, or NTP is blocked |
 
 ---
 

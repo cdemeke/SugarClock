@@ -19,7 +19,10 @@ enum DisplayState {
     STATE_STALE_WARNING,
     STATE_NO_DATA,
     STATE_NO_WIFI,
-    STATE_NO_CFG
+    STATE_NO_CFG,
+    STATE_SETUP_AP,      // setup portal is up: shows AP name and portal IP
+    STATE_NET_LIMITED,   // associated, but DNS / data source / NTP is blocked
+    STATE_DATE_DISPLAY   // internal date page of the time display (kept last for API compatibility)
 };
 
 // Glucose thresholds for color coding

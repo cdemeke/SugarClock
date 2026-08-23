@@ -221,18 +221,25 @@ struct FlashView: View {
             state.flashProgress = 4.0 / totalStages
             appendLog("Waiting for your device to start up...\n")
 
-            let ip = await waitForDeviceIP(port: port)
-            if let ip = ip {
-                state.deviceIP = ip
-                appendLog("Device is online at \(ip)\n\n")
+            if state.configureWiFiOnDevice {
+                state.deviceIP = ""
+                appendLog("WiFi setup was deferred. The clock will start the SugarClock-Setup network for your phone.\n\n")
             } else {
-                appendLog("Could not detect device address automatically. You can find it in your router settings.\n\n")
+                let ip = await waitForDeviceIP(port: port)
+                if let ip = ip {
+                    state.deviceIP = ip
+                    appendLog("Device is online at \(ip)\n\n")
+                } else {
+                    appendLog("Could not detect device address automatically. You can find it in your router settings.\n\n")
+                }
             }
 
             // Stage 5: Push config via HTTP (belt-and-suspenders)
             state.flashStage = .pushingConfig
             state.flashProgress = 4.5 / totalStages
-            if !state.deviceIP.isEmpty {
+            if state.configureWiFiOnDevice {
+                appendLog("Skipping network settings push until on-device WiFi setup is complete.\n\n")
+            } else if !state.deviceIP.isEmpty {
                 appendLog("Applying settings to device...\n")
                 let pushed = await pushConfigToDevice()
                 if pushed {

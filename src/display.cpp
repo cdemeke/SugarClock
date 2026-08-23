@@ -18,16 +18,19 @@ static FastLED_NeoMatrix matrix(
 );
 
 static uint8_t current_brightness = 40;
+static uint8_t transition_level = 255;
 
 void display_init() {
     FastLED.addLeds<WS2812B, PIN_MATRIX_DATA, GRB>(leds, MATRIX_NUM_LEDS);
-    FastLED.setBrightness(current_brightness);
+    // Keep FastLED's global brightness stable. Per-frame output scaling in
+    // display_show() avoids rapid global brightness writes, which can produce
+    // colored sparkle artifacts on some WS2812 matrices.
+    FastLED.setBrightness(255);
+    FastLED.setDither(DISABLE_DITHER);
     FastLED.setMaxPowerInVoltsAndMilliamps(5, 2000); // limit power draw
 
     matrix.begin();
     matrix.setTextWrap(false);
-    matrix.setBrightness(current_brightness);
-
     display_clear();
     display_show();
 }
@@ -37,17 +40,21 @@ void display_clear() {
 }
 
 void display_show() {
-    matrix.show();
+    uint8_t output_brightness = (uint8_t)(((uint16_t)current_brightness *
+        transition_level + 127) / 255);
+    FastLED.show(output_brightness);
 }
 
 void display_set_brightness(uint8_t brightness) {
     current_brightness = brightness;
-    matrix.setBrightness(brightness);
-    FastLED.setBrightness(brightness);
 }
 
 uint8_t display_get_brightness() {
     return current_brightness;
+}
+
+void display_set_transition_level(uint8_t level) {
+    transition_level = level;
 }
 
 uint16_t display_color(uint8_t r, uint8_t g, uint8_t b) {
@@ -62,18 +69,70 @@ void display_draw_pixel(int x, int y, uint16_t color) {
 
 void display_flash(uint8_t r, uint8_t g, uint8_t b) {
     matrix.fillScreen(matrix.Color(r, g, b));
-    matrix.show();
+    display_show();
 }
 
 void display_fill(uint8_t r, uint8_t g, uint8_t b) {
     matrix.fillScreen(matrix.Color(r, g, b));
-    matrix.show();
+    display_show();
 }
 
 void display_draw_text(const char* text, int x, int y, uint16_t color) {
     matrix.setTextColor(color);
     matrix.setCursor(x, y);
     matrix.print(text);
+}
+
+int display_text_width(const char* text) {
+    if (!text) return 0;
+    // Default Adafruit GFX 5x7 font advances 6px per glyph
+    return (int)strlen(text) * 6;
+}
+
+void display_draw_text_scrolled(const char* text, int y, uint16_t color, int offset) {
+    if (!text) return;
+    matrix.setTextColor(color);
+    matrix.setCursor(MATRIX_WIDTH - offset, y);
+    matrix.print(text);
+}
+
+// Marquee state. A single shared marquee is enough: only one screen scrolls at
+// a time, and switching strings restarts the scroll from the right edge.
+static char scroll_text[96] = "";
+static int scroll_offset = 0;
+static unsigned long scroll_last_step_ms = 0;
+
+void display_scroll_reset() {
+    scroll_text[0] = '\0';
+    scroll_offset = 0;
+    scroll_last_step_ms = 0;
+}
+
+bool display_scroll_text(const char* text, int y, uint16_t color, unsigned int speed_ms) {
+    if (!text) return false;
+    if (strncmp(scroll_text, text, sizeof(scroll_text) - 1) != 0) {
+        strncpy(scroll_text, text, sizeof(scroll_text) - 1);
+        scroll_text[sizeof(scroll_text) - 1] = '\0';
+        scroll_offset = 0;
+        scroll_last_step_ms = millis();
+    }
+
+    int span = display_text_width(scroll_text) + MATRIX_WIDTH;
+    bool cycled = false;
+
+    unsigned long now = millis();
+    if (speed_ms == 0) speed_ms = 1;
+    while (now - scroll_last_step_ms >= speed_ms) {
+        scroll_last_step_ms += speed_ms;
+        scroll_offset++;
+        if (scroll_offset >= span) {
+            scroll_offset = 0;
+            cycled = true;
+        }
+    }
+
+    display_draw_text_scrolled(scroll_text, y, color, scroll_offset);
+    return cycled;
 }
 
 void display_draw_glucose(int value, uint16_t color) {
