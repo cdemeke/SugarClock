@@ -16,6 +16,8 @@
 #include "hardware_pins.h"
 #include "captive_portal.h"
 #include "net_check.h"
+#include "web_assets.h"
+#include "ota_manager.h"
 
 #include <ESPAsyncWebServer.h>
 #include <LittleFS.h>
@@ -24,6 +26,13 @@
 
 static AsyncWebServer server(80);
 static bool started = false;
+
+#ifndef SUGARCLOCK_VERSION
+#define SUGARCLOCK_VERSION "unknown"
+#endif
+#ifndef SUGARCLOCK_HARDWARE_ID
+#define SUGARCLOCK_HARDWARE_ID "ulanzi-tc001-esp32-4mb"
+#endif
 
 // Helper: convert uint32_t RGB to "#RRGGBB" hex string
 static String color_to_hex(uint32_t c) {
@@ -55,6 +64,12 @@ static void handle_status(AsyncWebServerRequest* request) {
     doc["failure_count"] = http_get_failure_count();
     doc["brightness"] = display_get_brightness();
     doc["message"] = r.message;
+    OtaStatusSnapshot ota;
+    ota_get_status(ota);
+    doc["firmware_version"] = SUGARCLOCK_VERSION;
+    doc["hardware"] = SUGARCLOCK_HARDWARE_ID;
+    doc["running_partition"] = ota.running_partition;
+    doc["boot_partition"] = ota.boot_partition;
 
     // Delta
     doc["delta"] = http_get_delta();
@@ -619,6 +634,87 @@ static void handle_timer_status(AsyncWebServerRequest* request) {
     request->send(200, "application/json", output);
 }
 
+// GET /api/ota/status
+static void handle_ota_status(AsyncWebServerRequest* request) {
+    OtaStatusSnapshot snapshot;
+    ota_get_status(snapshot);
+    JsonDocument doc;
+    doc["current_version"] = snapshot.current_version;
+    doc["state"] = ota_state_name(snapshot.state);
+    doc["available_version"] = snapshot.available_version;
+    doc["progress"] = snapshot.progress;
+    doc["last_check"] = snapshot.last_check;
+    doc["last_error"] = snapshot.last_error;
+    doc["safety_reason"] = snapshot.safety_reason;
+    doc["auto_update_enabled"] = snapshot.auto_update_enabled;
+    doc["auto_update_hour"] = snapshot.auto_update_hour;
+    doc["running_partition"] = snapshot.running_partition;
+    doc["boot_partition"] = snapshot.boot_partition;
+    doc["pending_verification"] = snapshot.pending_verification;
+    String output;
+    serializeJson(doc, output);
+    request->send(200, "application/json", output);
+}
+
+static void send_ota_request_result(AsyncWebServerRequest* request, OtaRequestResult result) {
+    switch (result) {
+        case OTA_REQUEST_QUEUED:
+            request->send(202, "application/json", "{\"status\":\"queued\"}");
+            break;
+        case OTA_REQUEST_BUSY:
+            request->send(409, "application/json", "{\"error\":\"ota_busy\"}");
+            break;
+        case OTA_REQUEST_UNSAFE: {
+            OtaStatusSnapshot snapshot;
+            ota_get_status(snapshot);
+            JsonDocument doc;
+            doc["error"] = "safety_requirements_not_met";
+            doc["reason"] = snapshot.safety_reason;
+            String output;
+            serializeJson(doc, output);
+            request->send(412, "application/json", output);
+            break;
+        }
+        case OTA_REQUEST_NO_UPDATE:
+            request->send(409, "application/json", "{\"error\":\"no_update_available\"}");
+            break;
+        default:
+            request->send(500, "application/json", "{\"error\":\"internal_failure\"}");
+            break;
+    }
+}
+
+static char ota_settings_body[256];
+static void handle_ota_settings(AsyncWebServerRequest* request, uint8_t* data,
+                                size_t len, size_t index, size_t total) {
+    if (total > sizeof(ota_settings_body) - 1) {
+        request->send(413, "application/json", "{\"error\":\"Body too large\"}");
+        return;
+    }
+    memcpy(ota_settings_body + index, data, len);
+    if (index + len < total) return;
+    ota_settings_body[total] = '\0';
+    JsonDocument doc;
+    if (deserializeJson(doc, ota_settings_body, total)) {
+        request->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
+        return;
+    }
+    AppConfig& cfg = config_get();
+    if (doc["auto_update_enabled"].is<bool>()) {
+        cfg.auto_update_enabled = doc["auto_update_enabled"].as<bool>();
+    }
+    if (doc["auto_update_hour"].is<int>()) {
+        int hour = doc["auto_update_hour"].as<int>();
+        if (hour < 0 || hour > 23) {
+            request->send(400, "application/json", "{\"error\":\"Hour must be 0-23\"}");
+            return;
+        }
+        cfg.auto_update_hour = hour;
+    }
+    config_save();
+    request->send(200, "application/json", "{\"status\":\"ok\"}");
+}
+
 // POST /api/notify
 static void handle_post_notify(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
     if (index != 0) return;
@@ -1017,16 +1113,25 @@ static void handle_wifi_ca_delete(AsyncWebServerRequest* request) {
 }
 
 void webserver_init() {
-    // Initialize LittleFS
-    if (!LittleFS.begin(true)) {
-        Serial.println("[WEB] LittleFS mount failed");
-        return;
+    // LittleFS is only an optional config/certificate overlay. Embedded web
+    // assets keep the UI and firmware atomic and remain available if it fails.
+    if (!LittleFS.begin(false)) {
+        Serial.println("[WEB] LittleFS mount failed; continuing with embedded UI");
+    } else {
+        Serial.println("[WEB] LittleFS mounted for config overlay");
     }
-    Serial.println("[WEB] LittleFS mounted");
 
-    // Static files from /www/
-    server.serveStatic("/", LittleFS, "/www/", "no-store, no-cache, must-revalidate")
-        .setDefaultFile("index.html");
+    for (size_t i = 0; i < get_web_assets_count(); ++i) {
+        const WebAsset* asset = get_web_asset_at(i);
+        server.on(asset->path, HTTP_GET, [asset](AsyncWebServerRequest* request) {
+            AsyncWebServerResponse* response = request->beginResponse(
+                200, asset->mime_type, asset->data, asset->size);
+            response->addHeader("Content-Encoding", "gzip");
+            response->addHeader("Cache-Control", "no-cache");
+            response->addHeader("ETag", asset->etag);
+            request->send(response);
+        });
+    }
 
     // API routes
     server.on("/api/status", HTTP_GET, handle_status);
@@ -1034,6 +1139,15 @@ void webserver_init() {
     server.on("/api/debug", HTTP_GET, handle_debug);
     server.on("/api/history", HTTP_GET, handle_history);
     server.on("/api/timer", HTTP_GET, handle_timer_status);
+    server.on("/api/ota/status", HTTP_GET, handle_ota_status);
+    server.on("/api/ota/check", HTTP_POST, [](AsyncWebServerRequest* r) {
+        send_ota_request_result(r, ota_request_check());
+    });
+    server.on("/api/ota/install", HTTP_POST, [](AsyncWebServerRequest* r) {
+        send_ota_request_result(r, ota_request_install(true));
+    });
+    server.on("/api/ota/settings", HTTP_POST,
+        [](AsyncWebServerRequest* request) {}, NULL, handle_ota_settings);
     server.on("/api/restart", HTTP_POST, [](AsyncWebServerRequest* r) { handle_restart(r); });
     server.on("/api/factory-reset", HTTP_POST, [](AsyncWebServerRequest* r) { handle_factory_reset(r); });
     server.on("/api/test/weather", HTTP_POST, [](AsyncWebServerRequest* r) { handle_test_weather(r); });
@@ -1085,10 +1199,13 @@ void webserver_init() {
         handle_post_sysmon
     );
 
-    // CORS headers for development
+    // Same-origin production UI needs no wildcard CORS. It can be enabled for
+    // local development only with -DSUGARCLOCK_DEV_CORS.
+#ifdef SUGARCLOCK_DEV_CORS
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "Content-Type");
+#endif
 
     // Registered last: this installs the onNotFound catch-all, which must not
     // shadow any real route.

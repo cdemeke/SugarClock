@@ -42,7 +42,8 @@ final class FirmwareManager {
 
     // MARK: - LittleFS image building
 
-    /// Builds a LittleFS image containing the web UI and a config.json overlay.
+    /// Builds a LittleFS image containing only the one-time config.json overlay.
+    /// The web UI is gzip-compressed into firmware so OTA updates it atomically.
     ///
     /// - Parameters:
     ///   - config: Dictionary of configuration values to write as config.json.
@@ -56,21 +57,12 @@ final class FirmwareManager {
         guard let mklittlefs = mklittlefsPath else {
             throw FirmwareError.missingResource("mklittlefs")
         }
-        guard let webUI = webUIDir else {
-            throw FirmwareError.missingResource("WebUI/www")
-        }
-
         let fm = FileManager.default
         let tmpDir = NSTemporaryDirectory() + "sugarclock_littlefs_\(ProcessInfo.processInfo.processIdentifier)"
 
         // Clean up any previous temp dir
         try? fm.removeItem(atPath: tmpDir)
         try fm.createDirectory(atPath: tmpDir, withIntermediateDirectories: true)
-
-        // Create www/ subdirectory and copy web UI files
-        let wwwDest = tmpDir + "/www"
-        try fm.copyItem(atPath: webUI, toPath: wwwDest)
-        onOutput?("Copied web UI files to temp directory\n")
 
         // Write config.json
         let jsonData = try JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted, .sortedKeys])
@@ -79,11 +71,11 @@ final class FirmwareManager {
         onOutput?("Wrote config.json\n")
 
         // Run mklittlefs
-        // Partition size from partitions_custom.csv: 0x1F0000 = 2031616 bytes
+        // Partition size from partitions_custom.csv: 0x70000 = 458752 bytes
         let outputPath = NSTemporaryDirectory() + "sugarclock_littlefs.bin"
         let result = await ProcessRunner.run(
             command: mklittlefs,
-            arguments: ["-c", tmpDir, "-s", "2031616", "-b", "4096", "-p", "256", outputPath]
+            arguments: ["-c", tmpDir, "-s", "458752", "-b", "4096", "-p", "256", outputPath]
         ) { text in
             onOutput?(text)
         }
@@ -104,8 +96,8 @@ final class FirmwareManager {
     ///   0x1000  — bootloader.bin
     ///   0x8000  — partitions.bin
     ///   0xe000  — boot_app0.bin
-    ///   0x10000 — firmware.bin
-    ///   0x210000 — littlefs.bin
+    ///   0x10000 — firmware.bin (ota_0)
+    ///   0x390000 — littlefs.bin
     @MainActor
     static func flashDevice(
         port: String,
@@ -146,7 +138,7 @@ final class FirmwareManager {
                 "0x8000",   partitions,
                 "0xe000",   bootApp0,
                 "0x10000",  firmware,
-                "0x210000", littlefsPath,
+                "0x390000", littlefsPath,
             ]
         ) { text in
             onOutput?(text)

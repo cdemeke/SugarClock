@@ -9,6 +9,7 @@
 
 static AppConfig config;
 static Preferences prefs;
+static bool config_loaded = false;
 
 static void config_set_defaults() {
     memset(&config, 0, sizeof(AppConfig));
@@ -126,6 +127,9 @@ static void config_set_defaults() {
     // Auto-cycle
     config.auto_cycle_enabled = true;
     config.auto_cycle_sec = 10;
+
+    config.auto_update_enabled = true;
+    config.auto_update_hour = 3;
 
     config.magic = CONFIG_MAGIC;
 }
@@ -329,6 +333,14 @@ void config_init() {
         if (config.auto_cycle_sec < 3) config.auto_cycle_sec = 3;
         if (config.auto_cycle_sec > 300) config.auto_cycle_sec = 300;
 
+        // OTA settings were added without changing CONFIG_MAGIC, so an existing
+        // device receives secure defaults while all other NVS values survive.
+        config.auto_update_enabled = prefs.getBool("ota_auto", true);
+        config.auto_update_hour = prefs.getInt("ota_hour", 3);
+        if (config.auto_update_hour < 0 || config.auto_update_hour > 23) {
+            config.auto_update_hour = 3;
+        }
+
         config.magic = CONFIG_MAGIC;
 
         // Enforce minimum poll interval
@@ -339,6 +351,7 @@ void config_init() {
 
     // Check for config.json overlay from LittleFS (injected by setup app)
     config_check_littlefs_overlay();
+    config_loaded = true;
 
     Serial.printf("[CONFIG] Poll interval: %ds, Brightness: %d\n",
                   config.poll_interval_sec, config.brightness);
@@ -443,6 +456,8 @@ void config_save() {
     // Auto-cycle
     prefs.putBool("acyc_en", config.auto_cycle_enabled);
     prefs.putInt("acyc_sec", config.auto_cycle_sec);
+    prefs.putBool("ota_auto", config.auto_update_enabled);
+    prefs.putInt("ota_hour", config.auto_update_hour);
 
     Serial.println("[CONFIG] Saved to NVS");
 }
@@ -476,6 +491,10 @@ bool config_has_enterprise() {
     return config.wifi_security == 1;
 }
 
+bool config_is_loaded() {
+    return config_loaded;
+}
+
 // --- CA certificate storage (LittleFS) ---
 
 #define CA_PATH "/wifi_ca.pem"
@@ -484,7 +503,7 @@ bool config_has_enterprise() {
 // webserver_init() does not run until well after wifi_init(), so every CA
 // accessor mounts on demand and leaves the mount in place.
 static bool ca_mount() {
-    return LittleFS.begin(true);
+    return LittleFS.begin(false);
 }
 
 bool config_ca_exists() {

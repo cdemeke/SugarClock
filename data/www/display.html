@@ -138,6 +138,10 @@
             <div class="card card-compact">
                 <h2>Info</h2>
                 <div class="status-row">
+                    <span class="status-label">Firmware</span>
+                    <span class="status-value" id="firmware-version">--</span>
+                </div>
+                <div class="status-row">
                     <span class="status-label">Message</span>
                     <span class="status-value" id="message">--</span>
                 </div>
@@ -174,6 +178,7 @@
                 document.getElementById('wifi-ip').textContent=d.wifi_ip||'--';document.getElementById('wifi-rssi').textContent=d.wifi_rssi+' dBm';
                 document.getElementById('wifi-rssi-dbm').textContent=d.wifi_rssi+' dBm';document.getElementById('failure-count').textContent=d.failure_count;
                 document.getElementById('uptime').textContent=fmtUp(d.uptime_sec);document.getElementById('brightness').textContent=d.brightness;
+                document.getElementById('firmware-version').textContent=d.firmware_version?'v'+d.firmware_version:'--';
                 document.getElementById('message').textContent=d.message||'--';
                 if(d.thresholds)window._t=d.thresholds;
 

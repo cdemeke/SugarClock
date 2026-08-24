@@ -32,6 +32,7 @@ SugarClock is free, open-source firmware that turns the [Ulanzi TC001 Smart Pixe
 - **Auto brightness** — Built-in light sensor adjusts to your room
 - **Night mode** — Dims automatically during sleeping hours
 - **Web dashboard** — Configure everything from your phone or computer browser
+- **Secure WiFi updates** — Signed, power-loss-safe firmware updates with automatic rollback
 - **Clock, weather & more** — Also shows time, date, temperature, pomodoro timer, and push notifications
 
 ## What You Need
@@ -74,7 +75,7 @@ For detailed step-by-step instructions (with screenshots), see the **[Setup Guid
 If you'd rather build and flash manually (or you're on Windows/Linux):
 
 ```bash
-pip install platformio
+pip install -r requirements-build.txt
 git clone https://github.com/cdemeke/SugarClock.git
 cd SugarClock
 pio run && pio run --target buildfs      # build firmware + filesystem
@@ -87,6 +88,29 @@ Then set your WiFi credentials in `src/config_manager.cpp`, rebuild, and re-flas
 You may need the [CH340 USB driver](https://sparks.gogo.co.nz/ch340.html) on Windows.
 
 </details>
+
+## Firmware Updates
+
+Version 0.2.0 is the one-time OTA bootstrap release. Install it once over USB so the new
+two-slot partition table is present. After that, normal stable releases are checked nightly
+over WiFi and installed without the Mac app or USB cable. Existing WiFi, Dexcom, Nightscout,
+alert, and display settings remain in NVS during the migration and future updates.
+
+Open the device's **Device** page to check manually, install an available update, enable or
+disable automatic installs, or choose the local install hour. Automatic installation is
+deferred for low battery, urgent glucose/notifications, an active buzzer or timer, setup/AP
+mode, low heap, unavailable time, or lost WiFi. Manifest checks and firmware downloads use
+certificate-validated HTTPS, and every release manifest is verified with the public release
+key compiled into the firmware.
+
+The bootloader writes updates to the inactive application slot. The new firmware must pass a
+15-second local health check before it is marked valid; a crash, watchdog reset, or failed
+health check causes the bootloader to restore the previous slot. Internet and CGM availability
+are deliberately not part of that health check.
+
+USB flashing remains the recovery path. See [INSTALL.md](INSTALL.md) for the non-erasing
+bootstrap migration and recovery commands. Maintainers should follow
+[docs/OTA_SIGNING.md](docs/OTA_SIGNING.md) for release signing and key rotation.
 
 ## Troubleshooting
 

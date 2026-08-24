@@ -57,4 +57,8 @@ int http_get_history(GlucoseHistoryEntry* out, int max_count);
 // Force an immediate glucose fetch (for testing), returns true on success
 bool http_force_fetch();
 
+// Pause background glucose/Dexcom/custom HTTP traffic during OTA download.
+void http_set_paused(bool paused);
+bool http_is_paused();
+
 #endif // HTTP_CLIENT_H

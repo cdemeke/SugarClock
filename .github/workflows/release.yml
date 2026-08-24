@@ -1,0 +1,74 @@
+name: Signed firmware release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements-build.txt
+      - name: Verify tag and test
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(tr -d '\r\n' < VERSION)"
+          test "${GITHUB_REF_NAME}" = "v${version}"
+          python -m unittest discover -s tests -v
+      - name: Build reproducible release artifacts
+        run: |
+          pio run
+          pio run -t buildfs
+          python scripts/check_layout.py
+      - name: Generate and verify signed OTA manifest
+        env:
+          OTA_SIGNING_KEY_B64: ${{ secrets.OTA_SIGNING_KEY_B64 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${OTA_SIGNING_KEY_B64:?OTA_SIGNING_KEY_B64 secret is required}"
+          version="$(tr -d '\r\n' < VERSION)"
+          mkdir -p release
+          key_file="$(mktemp)"
+          cleanup() { rm -f "${key_file}"; }
+          trap cleanup EXIT
+          printf '%s' "${OTA_SIGNING_KEY_B64}" | base64 --decode > "${key_file}"
+          chmod 600 "${key_file}"
+          cp .pio/build/esp32dev/firmware.bin "release/sugarclock-v${version}.bin"
+          cp .pio/build/esp32dev/bootloader.bin release/bootloader.bin
+          cp .pio/build/esp32dev/partitions.bin release/partitions.bin
+          cp .pio/build/esp32dev/littlefs.bin release/littlefs.bin
+          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin release/boot_app0.bin
+          python scripts/ota_manifest.py generate \
+            --firmware "release/sugarclock-v${version}.bin" \
+            --firmware-url "https://github.com/cdemeke/SugarClock/releases/download/v${version}/sugarclock-v${version}.bin" \
+            --version-file VERSION \
+            --minimum-ota-version 0.2.0 \
+            --key-id release-2026-01 \
+            --private-key "${key_file}" \
+            --public-key keys/ota-release-2026-01-public.pem \
+            --output release/ota-manifest.json \
+            --signature-output release/ota-manifest.sig
+          python scripts/ota_manifest.py verify \
+            --manifest release/ota-manifest.json \
+            --public-key keys/ota-release-2026-01-public.pem
+          openssl rsa -pubin -in keys/ota-release-2026-01-public.pem -outform DER | openssl dgst -sha256
+      - name: Publish immutable release and stable latest manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "${GITHUB_REF_NAME}" release/* \
+            --verify-tag \
+            --generate-notes \
+            --title "SugarClock ${GITHUB_REF_NAME}"

@@ -52,7 +52,7 @@ Clone or download this project, then build:
 cd tc001
 
 # Install PlatformIO if needed
-pip install platformio
+pip install -r requirements-build.txt
 
 # Build firmware
 pio run
@@ -118,7 +118,7 @@ pio run --target uploadfs --upload-port /dev/cu.usbserial-1410
 ### Option B: esptool.py (Manual)
 
 ```bash
-# Erase flash first (clean start)
+# For a brand-new device only (this destroys all settings):
 esptool.py -p /dev/cu.usbserial-1410 erase_flash
 
 # Flash firmware
@@ -127,8 +127,29 @@ esptool.py -p /dev/cu.usbserial-1410 -b 460800 write_flash \
   0x8000  .pio/build/esp32dev/partitions.bin \
   0xe000  ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin \
   0x10000 .pio/build/esp32dev/firmware.bin \
-  0x210000 .pio/build/esp32dev/littlefs.bin
+  0x390000 .pio/build/esp32dev/littlefs.bin
 ```
+
+### One-time OTA migration (preserve existing settings)
+
+Release 0.2.0 changes the 4 MiB flash layout to two 1.75 MiB application slots and a
+448 KiB LittleFS partition. Existing firmware cannot install this partition table over the
+air, so this bootstrap release must be installed once with the Mac setup app or the command
+below. **Do not run `erase_flash` during migration**: NVS stays at `0x9000`, so saved WiFi,
+Dexcom, Nightscout, alert, and display settings survive.
+
+```bash
+esptool.py -p /dev/cu.usbserial-1410 -b 460800 write_flash \
+  0x1000  .pio/build/esp32dev/bootloader.bin \
+  0x8000  .pio/build/esp32dev/partitions.bin \
+  0xe000  ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin \
+  0x10000 .pio/build/esp32dev/firmware.bin \
+  0x390000 .pio/build/esp32dev/littlefs.bin
+```
+
+The old filesystem bytes that overlap `ota_1` are harmless; the first OTA write erases that
+inactive slot. Confirm the clock reconnects and still has its glucose-source settings. This
+is the last normally required USB firmware update.
 
 ---
 
@@ -143,7 +164,7 @@ pio device monitor
 You should see:
 ```
 ================================
-SugarClock v1.0.0
+SugarClock v0.2.0
 Reset reason: 1
 ================================
 [CONFIG] No valid config found, writing defaults
@@ -207,6 +228,8 @@ TCP 443: share2.dexcom.com
 TCP 443: shareous1.dexcom.com
 TCP 443: api.openweathermap.org
 TCP 443: the configured Nightscout host (when used)
+TCP 443: github.com
+TCP 443: release-assets.githubusercontent.com
 UDP 123: pool.ntp.org
 UDP 123: time.nist.gov
 UDP 123: time.google.com
@@ -237,6 +260,17 @@ Open that IP in a browser to access the web UI.
 | Config | `/` | WiFi, server URL, thresholds, display settings |
 | Debug | `/debug.html` | HTTP responses, heap usage, sensor data |
 | Device | `/device.html` | Firmware info, restart/reset buttons |
+
+The Device page also shows installed and available firmware versions, check status, download
+progress, the nightly schedule, and manual **Check now** / **Install now** controls.
+
+## USB recovery
+
+OTA never modifies the bootloader or partition table and never exposes a firmware-upload web
+route. If both application slots are damaged during development, enter flash mode (hold the
+middle button while connecting USB) and repeat the complete five-segment `write_flash`
+command above. Do not erase first when attempting to preserve NVS. A factory backup can be
+restored at address `0x0` if the original Ulanzi firmware is desired.
 
 ### Required Configuration
 
