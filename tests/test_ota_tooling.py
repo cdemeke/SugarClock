@@ -10,6 +10,15 @@ import unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
 import ota_manifest as ota
+import generate_web_assets as web_assets
+
+
+class WebAssetTests(unittest.TestCase):
+    def test_gzip_header_is_cross_platform_deterministic(self):
+        payload = b"SugarClock embedded web asset"
+        compressed = web_assets.deterministic_gzip(payload)
+        self.assertEqual(compressed[9], 255)
+        self.assertEqual(web_assets.gzip.decompress(compressed), payload)
 
 
 class OtaManifestTests(unittest.TestCase):

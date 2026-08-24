@@ -25,6 +25,14 @@ MIME_MAP = {
 def sanitize_ident(name):
     return re.sub(r'[^a-zA-Z0-9_]', '_', name)
 
+def deterministic_gzip(data):
+    compressed = bytearray(gzip.compress(data, compresslevel=9, mtime=0))
+    # Python 3.11 delegates mtime=0 compression to zlib, whose gzip OS byte
+    # varies by platform (3 on Linux, 255 on macOS). RFC 1952 allows 255 for
+    # an unknown OS, so normalize it to keep generated firmware byte-identical.
+    compressed[9] = 255
+    return bytes(compressed)
+
 def generate_web_assets():
     if not os.path.exists(DATA_WWW_DIR):
         print(f"Warning: {DATA_WWW_DIR} does not exist.")
@@ -46,7 +54,7 @@ def generate_web_assets():
             # mtime=0 makes identical source assets produce byte-identical
             # firmware. SHA-256 is also used for the cache tag so MD5 is not
             # present anywhere in the OTA implementation.
-            gz_data = gzip.compress(raw_data, compresslevel=9, mtime=0)
+            gz_data = deterministic_gzip(raw_data)
             etag = hashlib.sha256(gz_data).hexdigest()[:16]
             ident = "asset_" + sanitize_ident(rel_path.lstrip("/")) + "_gz"
 
