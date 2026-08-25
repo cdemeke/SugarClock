@@ -23,6 +23,7 @@ static char last_response_body[512] = "";
 static bool ever_received = false;
 static unsigned long last_poll_ms = 0;
 static unsigned long last_success_ms = 0;
+static volatile bool http_paused = false;
 
 // Delta tracking
 static int prev_glucose = 0;
@@ -454,6 +455,7 @@ void http_init() {
 }
 
 void http_loop() {
+    if (http_paused) return;
     AppConfig& cfg = config_get();
 
     // Demo mode needs no WiFi or configured data source — just synthesize data.
@@ -551,4 +553,12 @@ int http_get_history(GlucoseHistoryEntry* out, int max_count) {
         out[i] = history_buf[idx];
     }
     return count;
+}
+
+void http_set_paused(bool paused) {
+    http_paused = paused;
+}
+
+bool http_is_paused() {
+    return http_paused;
 }

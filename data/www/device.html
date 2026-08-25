@@ -30,7 +30,7 @@
         <div class="stat-grid">
             <div class="stat-card">
                 <div class="stat-label">Firmware</div>
-                <div class="stat-value" style="font-size:18px;" id="fw-version">v2.0.0</div>
+                <div class="stat-value" style="font-size:18px;" id="fw-version">--</div>
             </div>
             <div class="stat-card">
                 <div class="stat-label">Chip</div>
@@ -58,6 +58,34 @@
                 <div class="status-row"><span class="status-label">Free Heap</span><span class="status-value debug-value" id="free-heap">--</span></div>
                 <div class="status-row"><span class="status-label">FS Used</span><span class="status-value" id="fs-used">--</span></div>
                 <div class="status-row"><span class="status-label">FS Total</span><span class="status-value" id="fs-total">--</span></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Firmware Updates</h2>
+            <p style="font-size:13px;color:var(--text-secondary);margin:-8px 0 16px;">
+                Updates are signed, downloaded over secure HTTPS, and installed into a backup slot. The clock may restart briefly after verification.
+            </p>
+            <div class="status-row"><span class="status-label">Installed</span><span class="status-value" id="ota-current">--</span></div>
+            <div class="status-row"><span class="status-label">Available</span><span class="status-value" id="ota-available">--</span></div>
+            <div class="status-row"><span class="status-label">Status</span><span class="status-value" id="ota-state">--</span></div>
+            <div class="status-row"><span class="status-label">Last check</span><span class="status-value" id="ota-last-check">Never</span></div>
+            <div id="ota-error" style="display:none;color:var(--red);font-size:13px;margin:10px 0;"></div>
+            <div style="height:8px;background:var(--input-bg);border-radius:5px;overflow:hidden;margin:14px 0 18px;">
+                <div id="ota-progress" style="height:100%;width:0;background:var(--accent);transition:width .2s;"></div>
+            </div>
+            <div class="toggle-row">
+                <label for="ota-auto">Install stable updates automatically</label>
+                <input type="checkbox" id="ota-auto" checked>
+            </div>
+            <div class="form-group" style="max-width:220px;margin-top:12px;">
+                <label for="ota-hour">Nightly install hour</label>
+                <select id="ota-hour"></select>
+                <div class="hint">Local time; automatic installs are deferred when the clock is busy or unsafe.</div>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-outline" id="ota-check-btn">Check now</button>
+                <button class="btn btn-primary" id="ota-install-btn" style="display:none;">Install now</button>
             </div>
         </div>
 
@@ -98,6 +126,34 @@
         function showToast(m,t){const e=document.getElementById('toast');e.textContent=m;e.className='toast show '+(t==='error'?'toast-error':'toast-success');setTimeout(()=>e.className='toast',3000);}
         function fB(b){if(b>1048576)return(b/1048576).toFixed(1)+' MB';if(b>1024)return(b/1024).toFixed(1)+' KB';return b+' B';}
         function fU(s){const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60);let p=[];if(d)p.push(d+'d');if(h)p.push(h+'h');p.push(m+'m');return p.join(' ');}
+        function otaLabel(s){return String(s||'unknown').replaceAll('_',' ');}
+        const hourSelect=document.getElementById('ota-hour');
+        for(let h=0;h<24;h++){const o=document.createElement('option');o.value=h;o.textContent=(h===0?'12':h>12?h-12:h)+(h<12?' AM':' PM');hourSelect.appendChild(o);}
+
+        async function loadOta(){
+            try{
+                const r=await fetch('/api/ota/status'),o=await r.json();
+                document.getElementById('fw-version').textContent='v'+o.current_version;
+                document.getElementById('ota-current').textContent='v'+o.current_version;
+                document.getElementById('ota-available').textContent=o.available_version?'v'+o.available_version:'None';
+                document.getElementById('ota-state').textContent=otaLabel(o.state);
+                document.getElementById('ota-last-check').textContent=o.last_check?new Date(o.last_check*1000).toLocaleString():'Never';
+                document.getElementById('ota-progress').style.width=(o.progress||0)+'%';
+                const err=document.getElementById('ota-error'),message=o.safety_reason||o.last_error||'';
+                err.textContent=message?otaLabel(message):'';err.style.display=message?'block':'none';
+                document.getElementById('ota-auto').checked=!!o.auto_update_enabled;
+                hourSelect.value=String(o.auto_update_hour);
+                const busy=['checking','downloading','verifying','pending_reboot'].includes(o.state);
+                document.getElementById('ota-check-btn').disabled=busy;
+                const install=document.getElementById('ota-install-btn');
+                install.style.display=o.available_version?'inline-flex':'none';install.disabled=busy;
+            }catch(e){}
+        }
+
+        async function otaAction(path){
+            try{const r=await fetch(path,{method:'POST'}),body=await r.json();if(!r.ok)throw new Error(body.reason||body.error||'Request failed');showToast('Update request queued');loadOta();}
+            catch(e){showToast(otaLabel(e.message),'error');loadOta();}
+        }
 
         async function load(){
             try{const[sr,dr]=await Promise.all([fetch('/api/status'),fetch('/api/debug')]);const s=await sr.json(),d=await dr.json();
@@ -106,12 +162,19 @@
             document.getElementById('fs-used').textContent=d.fs_used?fB(d.fs_used):'--';document.getElementById('fs-total').textContent=d.fs_total?fB(d.fs_total):'--';
             document.getElementById('bat-v').textContent=d.battery_voltage.toFixed(2)+'V';document.getElementById('bat-pct').textContent=d.battery_percent+'%';
             document.getElementById('uptime').textContent=fU(d.uptime_sec);
+            if(s.firmware_version)document.getElementById('fw-version').textContent='v'+s.firmware_version;
             }catch(e){}
         }
 
+        document.getElementById('ota-check-btn').addEventListener('click',()=>otaAction('/api/ota/check'));
+        document.getElementById('ota-install-btn').addEventListener('click',()=>{if(confirm('Install the verified update now? The clock will restart briefly.'))otaAction('/api/ota/install');});
+        async function saveOtaSettings(){try{const r=await fetch('/api/ota/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({auto_update_enabled:document.getElementById('ota-auto').checked,auto_update_hour:Number(hourSelect.value)})});if(!r.ok)throw new Error();showToast('Update schedule saved');}catch(e){showToast('Failed to save update schedule','error');}}
+        document.getElementById('ota-auto').addEventListener('change',saveOtaSettings);
+        hourSelect.addEventListener('change',saveOtaSettings);
         document.getElementById('restart-btn').addEventListener('click',async()=>{if(!confirm('Restart?'))return;try{await fetch('/api/restart',{method:'POST'});showToast('Restarting...');}catch(e){showToast('Failed','error');}});
         document.getElementById('reset-btn').addEventListener('click',async()=>{if(!confirm('Factory reset? All settings erased.'))return;try{await fetch('/api/factory-reset',{method:'POST'});showToast('Resetting...');}catch(e){showToast('Failed','error');}});
         load();
+        loadOta();setInterval(loadOta,2000);
 
         function toggleTheme(){
             const d=document.documentElement;

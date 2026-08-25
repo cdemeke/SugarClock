@@ -269,6 +269,13 @@ static void check_alerts() {
     // Check if snoozed
     if (millis() < alert_snooze_until_ms) return;
 
+    // Do not sound alerts if glucose data is stale
+    unsigned long stale_ms = (unsigned long)cfg.stale_timeout_min * 60UL * 1000UL;
+    unsigned long age = http_time_since_last_reading();
+    int failures = http_get_failure_count();
+    bool is_stale = (cfg.data_source != 2) && (age >= stale_ms || failures >= FAILURE_STALE_COUNT);
+    if (is_stale) return;
+
     bool should_alert = (reading.glucose < cfg.alert_low || reading.glucose > cfg.alert_high);
     if (!should_alert) return;
 
@@ -372,7 +379,9 @@ static DisplayState evaluate_state() {
         // Check staleness using configurable timeout
         unsigned long age = http_time_since_last_reading();
         if (age >= stale_ms || failures >= FAILURE_STALE_COUNT) {
-            return STATE_STALE_WARNING;
+            if (user_mode == STATE_GLUCOSE_DISPLAY) {
+                return STATE_STALE_WARNING;
+            }
         }
     }
 
@@ -432,13 +441,20 @@ static void render_state(DisplayState state) {
                 break;
             }
 
-            uint16_t color = themed_glucose_color(reading.glucose, cfg);
-
-            // Check for stale warning (dim + yellow dot)
+            // Check for stale warning (dim + yellow dot) or stale (gray)
             unsigned long age = http_time_since_last_reading();
             unsigned long stale_warn_ms = STALE_WARNING_MS;
             unsigned long stale_ms = (unsigned long)cfg.stale_timeout_min * 60UL * 1000UL;
-            bool stale_warning = (age >= stale_warn_ms && age < stale_ms);
+            int failures = http_get_failure_count();
+            bool is_stale = (cfg.data_source != 2) && (age >= stale_ms || failures >= FAILURE_STALE_COUNT);
+            bool stale_warning = (cfg.data_source != 2) && (age >= stale_warn_ms && !is_stale);
+
+            uint16_t color;
+            if (is_stale) {
+                color = color_from_uint32(cfg.color_stale);
+            } else {
+                color = themed_glucose_color(reading.glucose, cfg);
+            }
 
             if (stale_warning) {
                 display_set_brightness(effective_brightness() / 3);
@@ -446,8 +462,8 @@ static void render_state(DisplayState state) {
                 display_set_brightness(effective_brightness());
             }
 
-            // Check if we should show delta flash
-            if (cfg.show_delta && reading.glucose != last_seen_glucose && last_seen_glucose > 0) {
+            // Check if we should show delta flash (only when data is fresh)
+            if (!is_stale && cfg.show_delta && reading.glucose != last_seen_glucose && last_seen_glucose > 0) {
                 delta_flash_start_ms = millis();
                 delta_flash_active = true;
                 last_seen_glucose = reading.glucose;
@@ -734,7 +750,12 @@ static void render_state(DisplayState state) {
             if (!reading.valid || reading.trend == TREND_UNKNOWN) {
                 display_draw_text("---", 7, 0, display_color(100, 100, 100));
             } else {
-                uint16_t tcolor = themed_glucose_color(reading.glucose, cfg);
+                unsigned long age = http_time_since_last_reading();
+                unsigned long stale_ms = (unsigned long)cfg.stale_timeout_min * 60UL * 1000UL;
+                int failures = http_get_failure_count();
+                bool is_stale = (cfg.data_source != 2) && (age >= stale_ms || failures >= FAILURE_STALE_COUNT);
+
+                uint16_t tcolor = is_stale ? color_from_uint32(cfg.color_stale) : themed_glucose_color(reading.glucose, cfg);
 
                 // Draw 5x7 trend arrow at x=1
                 display_draw_trend(reading.trend, 1, 0, tcolor);
@@ -794,8 +815,33 @@ static void render_state(DisplayState state) {
         }
 
         case STATE_STALE_WARNING: {
+            display_set_brightness(effective_brightness());
             display_clear();
-            display_draw_text("STALE", 4, 0, display_color(255, 255, 0));
+
+            const GlucoseReading& reading = http_get_reading();
+            if (!reading.valid) {
+                display_draw_text("---", 7, 0, color_from_uint32(cfg.color_stale));
+                display_show();
+                break;
+            }
+
+            uint16_t stale_color = color_from_uint32(cfg.color_stale);
+
+            // Draw last glucose reading in gray
+            display_draw_glucose(reading.glucose, stale_color);
+
+            // Draw trend arrow to the right of the number in gray
+            char buf[8];
+            snprintf(buf, sizeof(buf), "%d", reading.glucose);
+            int text_len = strlen(buf);
+            int total_width = text_len * 6 + 6;
+            int x_start = (MATRIX_WIDTH - total_width) / 2;
+            int arrow_x = x_start + text_len * 6 + 1;
+
+            if (reading.trend != TREND_UNKNOWN) {
+                display_draw_trend(reading.trend, arrow_x, 0, stale_color);
+            }
+
             display_show();
             break;
         }

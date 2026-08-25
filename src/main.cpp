@@ -18,8 +18,11 @@
 #include "countdown_engine.h"
 #include "improv_serial.h"
 #include "net_check.h"
+#include "ota_manager.h"
 
-#define FIRMWARE_VERSION "0.1.0"
+#ifndef SUGARCLOCK_VERSION
+#error "SUGARCLOCK_VERSION must be injected from the root VERSION file"
+#endif
 #define WDT_TIMEOUT_SEC  30
 
 // Performance tracking
@@ -43,7 +46,7 @@ void setup() {
     esp_reset_reason_t reason = esp_reset_reason();
     Serial.println();
     Serial.println("================================");
-    Serial.printf("SugarClock v%s\n", FIRMWARE_VERSION);
+    Serial.printf("SugarClock v%s\n", SUGARCLOCK_VERSION);
     Serial.printf("Reset reason: %d\n", reason);
     if (reason == ESP_RST_TASK_WDT || reason == ESP_RST_WDT) {
         Serial.println("WARNING: Previous watchdog reset!");
@@ -94,6 +97,10 @@ void setup() {
 
     // 14. Init glucose engine (state machine)
     engine_init();
+
+    // Secure OTA is initialized only after local configuration, display, web
+    // assets/routes, and the main engines are ready for first-boot validation.
+    ota_init();
 
     // 14. Enable watchdog timer
     esp_task_wdt_init(WDT_TIMEOUT_SEC, true);
@@ -189,6 +196,10 @@ void loop() {
 
     // 7. Engine state machine + rendering
     engine_loop();
+
+    // 8. Secure updater scheduling/rollback validation. Run after the normal
+    // renderer so an active update progress screen remains visible.
+    ota_loop();
 
     // Performance tracking
     unsigned long loop_time = millis() - loop_start;

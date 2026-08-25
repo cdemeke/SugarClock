@@ -7,6 +7,7 @@
 #include <Arduino.h>
 
 static WeatherReading current_weather;
+static volatile bool weather_paused = false;
 static unsigned long last_poll_ms = 0;
 static bool ever_received = false;
 static int last_http_code = 0;
@@ -175,6 +176,7 @@ void weather_init() {
 }
 
 void weather_loop() {
+    if (weather_paused) return;
     AppConfig& cfg = config_get();
 
     if (!cfg.weather_enabled) return;
@@ -189,6 +191,14 @@ void weather_loop() {
 
     last_poll_ms = millis();
     weather_do_fetch();
+}
+
+void weather_set_paused(bool paused) {
+    weather_paused = paused;
+}
+
+bool weather_is_paused() {
+    return weather_paused;
 }
 
 bool weather_force_fetch() {

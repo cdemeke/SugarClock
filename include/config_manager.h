@@ -66,6 +66,7 @@ struct AppConfig {
     uint32_t color_in_range;     // default 0x34A853 (green)
     uint32_t color_high;         // default 0xFBBC04 (orange/yellow)
     uint32_t color_urgent_high;  // default 0xEA4335 (red)
+    uint32_t color_stale;        // default 0x808080 (gray)
 
     // Clock & weather display colors
     uint32_t color_clock;        // default 0x00FFFF (cyan)
@@ -118,6 +119,10 @@ struct AppConfig {
     bool auto_cycle_enabled;   // default true
     int auto_cycle_sec;        // default 10, min 3, max 300
 
+    // Secure OTA (new Preferences keys; absent keys preserve old NVS configs)
+    bool auto_update_enabled;  // default true
+    int auto_update_hour;      // local hour, default 3
+
     // Countdown to event
     bool countdown_enabled;    // default false
     char countdown_name[16];   // event name, default ""
@@ -150,6 +155,9 @@ bool config_has_dexcom();
 
 // True when the saved network is configured as WPA2-Enterprise
 bool config_has_enterprise();
+
+// True after defaults or saved Preferences have been loaded successfully.
+bool config_is_loaded();
 
 // --- 802.1X CA certificate, stored on LittleFS at /wifi_ca.pem ---
 

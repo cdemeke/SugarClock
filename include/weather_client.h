@@ -39,4 +39,8 @@ void weather_set_mock(float temp, const char* desc, int condition_id);
 typedef void (*WeatherPreFetchCallback)();
 void weather_set_pre_fetch_callback(WeatherPreFetchCallback cb);
 
+// Pause background weather traffic during OTA download.
+void weather_set_paused(bool paused);
+bool weather_is_paused();
+
 #endif // WEATHER_CLIENT_H
