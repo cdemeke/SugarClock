@@ -28,3 +28,4 @@ fleet-dev.db*
 simulator-state.json
 __pycache__/
 *.pyc
+.venv/
