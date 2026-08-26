@@ -1,0 +1,20 @@
+{
+  "installation_id": "0d9189e2-117a-42b8-95c1-8fc88f23a8a4",
+  "firmware_version": "0.2.2",
+  "running_partition": "ota_0",
+  "boot_partition": "ota_0",
+  "previous_partition": "ota_1",
+  "previous_partition_available": true,
+  "channel": "stable",
+  "timezone": "EST5EDT,M3.2.0,M11.1.0",
+  "uptime_seconds": 86400,
+  "free_heap_bucket": "75k_plus",
+  "wifi_signal_bucket": "good",
+  "battery_percent": 83,
+  "charging": true,
+  "config_revision": "42",
+  "config_hash": "a2a4c1",
+  "maintenance_window": {"timezone": "EST5EDT,M3.2.0,M11.1.0", "days": [0, 1, 2, 3, 4], "start": "19:00", "end": "06:00", "automatic_install": true},
+  "health_codes": [],
+  "future_optional_field": {"ignored": true}
+}

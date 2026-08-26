@@ -1,0 +1,17 @@
+services:
+  sugarfleet:
+    build:
+      context: ..
+      dockerfile: fleet/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      FLEET_DATABASE: /data/sugarfleet.db
+      FLEET_OTA_PUBLIC_KEYS_DIR: /app/keys
+    volumes:
+      - sugarfleet-data:/data
+    ports:
+      - "127.0.0.1:8080:8080"
+
+volumes:
+  sugarfleet-data:

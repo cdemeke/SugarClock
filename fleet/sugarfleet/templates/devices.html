@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Devices · SugarClock Fleet{% endblock %}
+{% block content %}
+<div class="heading"><div><h1>Devices</h1><p>{{ devices|length }} registered installation{{ '' if devices|length == 1 else 's' }}</p></div></div>
+<div class="card table-wrap">
+  <table>
+    <thead><tr><th>Device</th><th>Status</th><th>Firmware</th><th>Channel</th><th>Last update</th><th>Last seen</th></tr></thead>
+    <tbody>
+    {% for device in devices %}
+      <tr>
+        <td><a href="{{ url_for('admin.device_detail_page', device_id=device.id) }}">{{ device.friendly_name or device.installation_id[:8] }}</a><small>{{ device.installation_id[:8] }}</small></td>
+        <td><span class="pill {{ device.connectivity }}">{{ device.connectivity }}</span></td>
+        <td>{{ device.firmware_version }}</td><td>{{ device.channel }}</td>
+        <td>{{ device.last_ota_result or '—' }}</td><td data-time="{{ device.last_seen }}">{{ device.last_seen }}</td>
+      </tr>
+    {% else %}<tr><td colspan="6" class="empty">No clocks have registered yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+{% block scripts %}<script>document.querySelectorAll('[data-time]').forEach(e => e.textContent = new Date(Number(e.dataset.time)*1000).toLocaleString());</script>{% endblock %}

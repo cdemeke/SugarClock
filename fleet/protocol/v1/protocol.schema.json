@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sugarclock.com/protocol/fleet/v1/schema.json",
+  "title": "SugarClock fleet protocol v1",
+  "$defs": {
+    "uuid": {"type": "string", "format": "uuid"},
+    "semver": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+    "channel": {"enum": ["stable", "preview"]},
+    "maintenance_window": {
+      "type": "object",
+      "required": ["timezone", "days", "start", "end", "automatic_install"],
+      "properties": {
+        "timezone": {"type": "string", "minLength": 1, "maxLength": 64},
+        "days": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "integer", "minimum": 0, "maximum": 6}},
+        "start": {"type": "string", "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"},
+        "end": {"type": "string", "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"},
+        "automatic_install": {"type": "boolean"}
+      },
+      "additionalProperties": true
+    },
+    "registration": {
+      "type": "object",
+      "required": ["installation_id", "hardware", "firmware_version", "timezone", "management_protocol"],
+      "properties": {
+        "installation_id": {"$ref": "#/$defs/uuid"},
+        "hardware": {"type": "string", "minLength": 1, "maxLength": 64},
+        "firmware_version": {"$ref": "#/$defs/semver"},
+        "timezone": {"type": "string", "minLength": 1, "maxLength": 64},
+        "management_protocol": {"const": 1}
+      },
+      "additionalProperties": true
+    },
+    "checkin": {
+      "type": "object",
+      "required": ["installation_id", "firmware_version", "channel", "uptime_seconds"],
+      "properties": {
+        "installation_id": {"$ref": "#/$defs/uuid"},
+        "firmware_version": {"$ref": "#/$defs/semver"},
+        "channel": {"$ref": "#/$defs/channel"},
+        "uptime_seconds": {"type": "integer", "minimum": 0},
+        "maintenance_window": {"$ref": "#/$defs/maintenance_window"},
+        "health_codes": {"type": "array", "maxItems": 16, "items": {"type": "string", "pattern": "^[a-z0-9_]{1,48}$"}}
+      },
+      "additionalProperties": true
+    },
+    "command": {
+      "type": "object",
+      "required": ["id", "type", "payload", "created_at", "expires_at"],
+      "properties": {
+        "id": {"$ref": "#/$defs/uuid"},
+        "type": {"enum": ["config_patch", "set_channel", "set_maintenance_window", "ota_check", "ota_install", "ota_pause", "ota_rollback_previous", "restart", "notify"]},
+        "payload": {"type": "object"},
+        "created_at": {"type": "integer"},
+        "expires_at": {"type": "integer"}
+      },
+      "additionalProperties": true
+    },
+    "command_result": {
+      "type": "object",
+      "required": ["installation_id", "status"],
+      "properties": {
+        "installation_id": {"$ref": "#/$defs/uuid"},
+        "status": {"enum": ["accepted", "deferred", "succeeded", "failed"]},
+        "reason": {"type": "string", "pattern": "^[a-z0-9_]{1,64}$"},
+        "config_revision": {"type": "string"},
+        "firmware_version": {"$ref": "#/$defs/semver"}
+      },
+      "additionalProperties": true
+    },
+    "error": {
+      "type": "object",
+      "required": ["error"],
+      "properties": {"error": {"type": "object", "required": ["code", "message"], "properties": {"code": {"type": "string", "pattern": "^[a-z0-9_]+$"}, "message": {"type": "string"}}, "additionalProperties": false}},
+      "additionalProperties": false
+    }
+  }
+}

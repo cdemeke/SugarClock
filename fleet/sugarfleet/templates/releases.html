@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Releases · SugarClock Fleet{% endblock %}
+{% block content %}
+<div class="heading"><div><h1>Signed releases</h1><p>Immutable manifests imported from GitHub Releases</p></div><button id="sync">Synchronize GitHub</button></div><p id="sync-result"></p>
+<div class="card table-wrap"><table><thead><tr><th>Version</th><th>Channel</th><th>Published</th><th>Known good</th><th>Manifest</th></tr></thead><tbody>{% for release in releases %}<tr><td>{{ release.version }}</td><td>{{ release.channel }}</td><td>{{ release.published_at }}</td><td>{{ 'yes' if release.known_good else 'no' }}</td><td><a href="{{ release.manifest_url }}" rel="noreferrer">manifest</a></td></tr>{% else %}<tr><td colspan="5" class="empty">No signed manifests imported.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}
+{% block scripts %}<script>document.querySelector('#sync').addEventListener('click',async()=>{const target=document.querySelector('#sync-result');target.textContent='Synchronizing…';try{const response=await fetch({{ url_for('admin.api_sync_releases')|tojson }},{method:'POST',headers:{'X-CSRF-Token':window.fleetCsrf}});const body=await response.json();if(!response.ok)throw new Error(body.error?.message||'Sync failed');target.textContent=`Imported ${body.imported}; unchanged ${body.unchanged}; errors ${body.errors.length}`;setTimeout(()=>location.reload(),800)}catch(error){target.textContent=error.message}});</script>{% endblock %}
