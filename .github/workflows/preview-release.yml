@@ -1,16 +1,8 @@
 name: Signed preview firmware release
 
 on:
-  workflow_dispatch:
-    inputs:
-      release_tag:
-        description: Immutable prerelease tag (must start with preview-v)
-        required: true
-        default: preview-v0.2.4-1
-      fleet_fallback_url:
-        description: Temporary LAN fleet fallback URL for the preview device
-        required: true
-        default: http://192.168.1.89:8080
+  push:
+    tags: ["preview-v*.*.*-*"]
 
 permissions:
   contents: write
@@ -28,8 +20,8 @@ jobs:
       - run: pip install -r requirements-build.txt
       - name: Verify preview inputs and test
         env:
-          PREVIEW_RELEASE_TAG: ${{ inputs.release_tag }}
-          PREVIEW_FLEET_FALLBACK_URL: ${{ inputs.fleet_fallback_url }}
+          PREVIEW_RELEASE_TAG: ${{ github.ref_name }}
+          PREVIEW_FLEET_FALLBACK_URL: http://192.168.1.89:8080
         shell: bash
         run: |
           set -euo pipefail
@@ -39,7 +31,7 @@ jobs:
           python -m unittest discover -s tests -v
       - name: Build preview firmware with LAN fallback
         env:
-          SUGARCLOCK_FLEET_FALLBACK_URL: ${{ inputs.fleet_fallback_url }}
+          SUGARCLOCK_FLEET_FALLBACK_URL: http://192.168.1.89:8080
           SUGARCLOCK_FLEET_ALLOW_INSECURE: "1"
         run: |
           pio run
@@ -48,7 +40,7 @@ jobs:
       - name: Generate and verify signed preview manifest
         env:
           OTA_SIGNING_KEY_B64: ${{ secrets.OTA_SIGNING_KEY_B64 }}
-          PREVIEW_RELEASE_TAG: ${{ inputs.release_tag }}
+          PREVIEW_RELEASE_TAG: ${{ github.ref_name }}
         shell: bash
         run: |
           set -euo pipefail
@@ -84,13 +76,11 @@ jobs:
       - name: Publish immutable prerelease
         env:
           GH_TOKEN: ${{ github.token }}
-          PREVIEW_RELEASE_TAG: ${{ inputs.release_tag }}
+          PREVIEW_RELEASE_TAG: ${{ github.ref_name }}
         shell: bash
         run: |
           set -euo pipefail
           tag="${PREVIEW_RELEASE_TAG}"
-          git tag "${tag}" "${GITHUB_SHA}"
-          git push origin "${tag}"
           gh release create "${tag}" release/* \
             --verify-tag \
             --prerelease \
