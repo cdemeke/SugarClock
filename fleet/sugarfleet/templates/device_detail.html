@@ -2,20 +2,29 @@
 {% block title %}{{ device.friendly_name or device.installation_id[:8] }} · SugarClock Fleet{% endblock %}
 {% block content %}
 <a class="back" href="{{ url_for('admin.device_list_page') }}">← Devices</a>
-<div class="heading"><div><h1>{{ device.friendly_name or device.installation_id[:8] }}</h1><p>{{ device.installation_id }} · {{ device.verification_state }}</p></div><span class="pill {{ device.connectivity }}">{{ device.connectivity }}</span></div>
+<div class="heading"><div><h1>{{ device.friendly_name or device.installation_id[:8] }}</h1><p>{% if device.location_label %}{{ device.location_label }} · {% endif %}{{ device.installation_id }} · {{ device.verification_state }}</p></div><span class="pill {{ device.connectivity }}">{{ device.connectivity }}</span></div>
 <section class="grid">
+  <div class="card"><h2>Device identity</h2>
+    <form id="identity-form">
+      <label>Nickname<input id="friendly-name" maxlength="80" value="{{ device.friendly_name }}" placeholder="e.g. Kitchen Clock"></label>
+      <label>Location / area<input id="location-label" maxlength="120" value="{{ device.location_label }}" placeholder="e.g. Boston – Main Office"></label>
+      <button>Save identity</button><span id="identity-result" class="form-result"></span>
+    </form>
+    <p class="hint">These labels are for administrators only. The installation ID remains the permanent deployment identifier.</p>
+  </div>
   <div class="card"><h2>Operational status</h2><dl><dt>Firmware</dt><dd>{{ device.firmware_version }}</dd><dt>Channel</dt><dd>{{ device.channel }}</dd><dt>Partitions</dt><dd>{{ device.running_partition or '—' }} / {{ device.boot_partition or '—' }}</dd><dt>Battery</dt><dd>{{ device.battery_percent if device.battery_percent is not none else '—' }}{% if device.battery_percent is not none %}%{% endif %}</dd><dt>Timezone</dt><dd>{{ device.timezone }}</dd><dt>Config revision</dt><dd>{{ device.config_revision or '—' }}</dd></dl></div>
-  <div class="card"><h2>Queue action</h2>
+</section>
+<div class="card action-card"><h2>Queue action</h2>
     <form id="command-form"><label>Action<select id="command-type"><option value="ota_check">Check for update</option><option value="set_channel">Set channel</option><option value="notify">Notification</option><option value="restart">Restart</option><option value="ota_pause">Pause OTA</option><option value="ota_rollback_previous">Rollback previous</option></select></label><label>Payload (JSON)<textarea id="command-payload" rows="6">{}</textarea></label><button>Queue command</button><span id="command-result"></span></form>
     <p class="hint">Restart and window overrides require explicit JSON fields and an audit reason. Device safety checks remain authoritative.</p>
-  </div>
-</section>
+</div>
 <div class="card table-wrap"><h2>Recent commands</h2><table><thead><tr><th>Type</th><th>Status</th><th>Attempts</th><th>Created</th><th>Result</th></tr></thead><tbody>{% for command in commands %}<tr><td>{{ command.type }}</td><td>{{ command.status }}</td><td>{{ command.attempt_count }}</td><td data-time="{{ command.created_at }}"></td><td>{{ command.result.reason if command.result else '—' }}</td></tr>{% else %}<tr><td colspan="5" class="empty">No commands queued.</td></tr>{% endfor %}</tbody></table></div>
 {% endblock %}
 {% block scripts %}<script>
 const examples={ota_check:{},set_channel:{channel:'preview'},notify:{message:'Office closes in 10 minutes',duration_seconds:30,allow_buzzer:false},restart:{override_window:false},ota_pause:{paused:true},ota_rollback_previous:{reason:'bad_preview'}};
 const type=document.querySelector('#command-type'), payload=document.querySelector('#command-payload');
 type.addEventListener('change',()=>payload.value=JSON.stringify(examples[type.value],null,2)); type.dispatchEvent(new Event('change'));
+document.querySelector('#identity-form').addEventListener('submit',async event=>{event.preventDefault();const result=document.querySelector('#identity-result');result.textContent='Saving…';try{const response=await fetch({{ url_for('admin.update_device',device_id=device.id)|tojson }},{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':window.fleetCsrf},body:JSON.stringify({friendly_name:document.querySelector('#friendly-name').value,location_label:document.querySelector('#location-label').value})});const body=await response.json();if(!response.ok)throw new Error(body.error?.message||'Request failed');result.textContent='Saved';setTimeout(()=>location.reload(),500)}catch(error){result.textContent=error.message}});
 document.querySelector('#command-form').addEventListener('submit',async event=>{event.preventDefault();const result=document.querySelector('#command-result');try{const response=await fetch({{ url_for('admin.queue_command',device_id=device.id)|tojson }},{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':window.fleetCsrf},body:JSON.stringify({type:type.value,payload:JSON.parse(payload.value)})});const body=await response.json();if(!response.ok)throw new Error(body.error?.message||'Request failed');result.textContent='Queued '+body.command.id.slice(0,8);setTimeout(()=>location.reload(),700)}catch(error){result.textContent=error.message}});
 document.querySelectorAll('[data-time]').forEach(e=>e.textContent=new Date(Number(e.dataset.time)*1000).toLocaleString());
 </script>{% endblock %}

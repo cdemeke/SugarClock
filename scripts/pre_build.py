@@ -44,9 +44,21 @@ from generate_web_assets import generate_web_assets
 generate_web_assets()
 
 if RUNNING_IN_PIO:
+    fleet_url = os.environ.get("SUGARCLOCK_FLEET_BASE_URL", "https://fleet.sugarclock.com").rstrip("/")
+    fleet_fallback_url = os.environ.get("SUGARCLOCK_FLEET_FALLBACK_URL", "").rstrip("/")
+    allow_insecure = os.environ.get("SUGARCLOCK_FLEET_ALLOW_INSECURE", "0") == "1"
+    if (fleet_url.startswith("http://") or fleet_fallback_url.startswith("http://")) and not allow_insecure:
+        raise RuntimeError("HTTP fleet URL requires SUGARCLOCK_FLEET_ALLOW_INSECURE=1")
+    if not fleet_url.startswith(("https://", "http://")):
+        raise ValueError("SUGARCLOCK_FLEET_BASE_URL must be an absolute HTTP(S) URL")
+    if fleet_fallback_url and not fleet_fallback_url.startswith(("https://", "http://")):
+        raise ValueError("SUGARCLOCK_FLEET_FALLBACK_URL must be empty or an absolute HTTP(S) URL")
     # Inject build flags
     env.Append(CPPDEFINES=[
         ("SUGARCLOCK_VERSION", f'\\"{version_str}\\"'),
         ("SUGARCLOCK_HARDWARE_ID", '\\"ulanzi-tc001-esp32-4mb\\"'),
-        ("SUGARCLOCK_CHANNEL", '\\"stable\\"')
+        ("SUGARCLOCK_CHANNEL", '\\"stable\\"'),
+        ("SUGARCLOCK_FLEET_BASE_URL", f'\\"{fleet_url}\\"'),
+        ("SUGARCLOCK_FLEET_FALLBACK_URL", f'\\"{fleet_fallback_url}\\"'),
+        ("SUGARCLOCK_FLEET_ALLOW_INSECURE", 1 if allow_insecure else 0),
     ])

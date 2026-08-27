@@ -102,7 +102,10 @@ class FleetServiceTests(unittest.TestCase):
         self.assertEqual(self.client.get("/healthz").json, {"status": "ok"})
         with self.app.app_context():
             versions = get_db().execute("SELECT version FROM schema_migrations").fetchall()
-            self.assertEqual([row[0] for row in versions], ["0001_initial.sql"])
+            self.assertEqual(
+                [row[0] for row in versions],
+                ["0001_initial.sql", "0002_device_location.sql"],
+            )
 
     def test_registration_is_idempotent_and_hashes_credential(self):
         first = self.register()
@@ -207,6 +210,50 @@ class FleetServiceTests(unittest.TestCase):
         self.admin_headers()
         self.assertIn(b"Devices", self.client.get("/admin/devices").data)
         self.assertIn(INSTALLATION_ID.encode(), self.client.get("/admin/devices/1").data)
+
+    def test_admin_can_label_device_by_nickname_and_location(self):
+        self.register()
+        headers = self.admin_headers()
+        response = self.client.patch(
+            "/admin/api/devices/1",
+            json={"friendly_name": "Kitchen Clock", "location_label": "Boston – Main Office"},
+            headers=headers,
+        )
+        self.assertEqual(response.status_code, 200, response.json)
+        self.assertEqual(response.json["device"]["friendly_name"], "Kitchen Clock")
+        self.assertEqual(response.json["device"]["location_label"], "Boston – Main Office")
+
+        api_device = self.client.get("/admin/api/devices/1").json["device"]
+        self.assertEqual(api_device["friendly_name"], "Kitchen Clock")
+        self.assertEqual(api_device["location_label"], "Boston – Main Office")
+        self.assertIn(b"Kitchen Clock", self.client.get("/admin/devices").data)
+        self.assertIn("Boston – Main Office", self.client.get("/admin/devices/1").text)
+
+        with self.app.app_context():
+            audit = get_db().execute(
+                "SELECT action, summary_json FROM audit_events ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+            self.assertEqual(audit["action"], "update_device_identity")
+            self.assertEqual(
+                json.loads(audit["summary_json"])["changes"]["friendly_name"]["after"],
+                "Kitchen Clock",
+            )
+
+    def test_device_identity_patch_rejects_unknown_and_invalid_fields(self):
+        self.register()
+        headers = self.admin_headers()
+        unknown = self.client.patch(
+            "/admin/api/devices/1", json={"city": "Boston"}, headers=headers
+        )
+        self.assertEqual(unknown.status_code, 400)
+        too_long = self.client.patch(
+            "/admin/api/devices/1", json={"location_label": "x" * 121}, headers=headers
+        )
+        self.assertEqual(too_long.status_code, 400)
+        wrong_type = self.client.patch(
+            "/admin/api/devices/1", json={"friendly_name": 123}, headers=headers
+        )
+        self.assertEqual(wrong_type.status_code, 400)
 
     @mock.patch("fleet.sugarfleet.auth._github_json")
     def test_oauth_allows_only_allowlisted_login(self, github_json):

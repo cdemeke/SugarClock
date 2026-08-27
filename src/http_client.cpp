@@ -138,7 +138,7 @@ static bool dexcom_login() {
     String authBody;
     serializeJson(authDoc, authBody);
 
-    Serial.printf("[DEXCOM] Auth as '%s' (%s)...\n", cfg.dexcom_username, cfg.dexcom_us ? "US" : "OUS");
+    Serial.printf("[DEXCOM] Authenticating (%s)...\n", cfg.dexcom_us ? "US" : "OUS");
 
     char auth_url[256];
     snprintf(auth_url, sizeof(auth_url), "%s%s", base, DEXCOM_AUTH_PATH);
@@ -148,7 +148,7 @@ static bool dexcom_login() {
     strncpy(last_response_body, authResp.c_str(), sizeof(last_response_body) - 1);
     last_response_code = authCode;
 
-    Serial.printf("[DEXCOM] Auth step 1: HTTP %d, body: %.60s\n", authCode, authResp.c_str());
+    Serial.printf("[DEXCOM] Auth step 1: HTTP %d\n", authCode);
 
     if (authCode != HTTP_CODE_OK) {
         Serial.printf("[DEXCOM] Auth failed: HTTP %d\n", authCode);
@@ -176,7 +176,7 @@ static bool dexcom_login() {
     strncpy(last_response_body, loginResp.c_str(), sizeof(last_response_body) - 1);
     last_response_code = loginCode;
 
-    Serial.printf("[DEXCOM] Auth step 2: HTTP %d, body: %.60s\n", loginCode, loginResp.c_str());
+    Serial.printf("[DEXCOM] Auth step 2: HTTP %d\n", loginCode);
 
     if (loginCode == HTTP_CODE_OK) {
         loginResp.trim();
@@ -192,7 +192,7 @@ static bool dexcom_login() {
 
         strncpy(dexcom_session_id, loginResp.c_str(), sizeof(dexcom_session_id) - 1);
         dexcom_session_time_ms = millis();
-        Serial.printf("[DEXCOM] Login OK, session: %.8s...\n", dexcom_session_id);
+        Serial.println("[DEXCOM] Login OK");
         return true;
     }
 

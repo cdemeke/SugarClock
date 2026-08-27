@@ -30,4 +30,8 @@ Errors use an HTTP status plus `{"error":{"code":"sanitized_identifier","message
 
 ## Phase boundary
 
-The Phase 1 server deliberately rejects secret and connectivity-related `config_patch` fields, including SSID, enterprise identity, source URL, and credentials. Those fields remain disabled until Phase 4 adds encryption at rest, write-only UI behavior, device-side transactional Wi-Fi application, and recovery tests. The existing signed OTA implementation remains unchanged until the Phase 3 firmware integration.
+The server deliberately rejects secret and connectivity-related `config_patch` fields, including SSID, enterprise identity, source URL, and credentials. Those fields remain disabled until a later phase adds encryption at rest, write-only UI behavior, device-side transactional Wi-Fi application, and recovery tests. The firmware integration below extends the entry point to the existing OTA executor without weakening its trust or safety policy.
+
+## Firmware integration status
+
+Firmware v0.2.3 implements persistent device identity, registration, periodic check-in, command results, maintenance windows, production/fallback endpoint selection, and managed signed OTA installation. Managed OTA commands reuse the existing A/B executor and cannot bypass local battery, glucose, alarm/timer, setup-mode, trusted-manifest, hash, or boot-validation safeguards. Network clients are serialized so a fleet TLS handshake cannot overlap glucose or weather TLS work on the ESP32.

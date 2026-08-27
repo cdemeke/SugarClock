@@ -30,9 +30,17 @@ bool ota_manifest_verify_signature(const OtaManifest& manifest,
                                    char* error, size_t error_size);
 bool ota_manifest_validate_identity_and_formats(const OtaManifest& manifest,
                                                 char* error, size_t error_size);
+bool ota_manifest_validate_identity_and_formats_for_channel(const OtaManifest& manifest,
+                                                            const char* expected_channel,
+                                                            char* error, size_t error_size);
 bool ota_manifest_validate_offer(const OtaManifest& manifest,
                                  const char* current_version,
                                  size_t inactive_partition_size,
                                  char* error, size_t error_size);
+bool ota_manifest_validate_offer_for_channel(const OtaManifest& manifest,
+                                             const char* expected_channel,
+                                             const char* current_version,
+                                             size_t inactive_partition_size,
+                                             char* error, size_t error_size);
 
 #endif

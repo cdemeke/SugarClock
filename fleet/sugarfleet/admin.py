@@ -25,6 +25,7 @@ def _device_json(row, *, detail=False):
         "id": row["id"],
         "installation_id": row["installation_id"],
         "friendly_name": row["friendly_name"],
+        "location_label": row["location_label"],
         "verification_state": row["verification_state"],
         "connectivity": connectivity_state(row["last_seen"], row["retired_at"]),
         "hardware": row["hardware"],
@@ -142,29 +143,51 @@ def api_device(device_id):
 @csrf_required
 def update_device(device_id):
     value = json_body()
-    if set(value) != {"friendly_name"}:
-        raise ApiError("invalid_device_patch", "only friendly_name may be updated directly")
-    name = value["friendly_name"]
-    if not isinstance(name, str) or len(name.strip()) > 80:
-        raise ApiError("invalid_friendly_name", "friendly_name must be at most 80 characters")
+    allowed = {"friendly_name", "location_label"}
+    if not value or not set(value).issubset(allowed):
+        raise ApiError(
+            "invalid_device_patch",
+            "only friendly_name and location_label may be updated directly",
+        )
+
+    normalized = {}
+    limits = {"friendly_name": 80, "location_label": 120}
+    for field, raw in value.items():
+        if not isinstance(raw, str) or len(raw.strip()) > limits[field]:
+            raise ApiError(
+                "invalid_" + field,
+                f"{field} must be a string of at most {limits[field]} characters",
+            )
+        normalized[field] = raw.strip()
+
     connection = get_db()
     device = connection.execute("SELECT * FROM devices WHERE id=?", (device_id,)).fetchone()
     if not device:
         raise ApiError("device_not_found", "device not found", 404)
     now = now_epoch()
-    connection.execute("UPDATE devices SET friendly_name=? WHERE id=?", (name.strip(), device_id))
+    assignments = ", ".join(f"{field}=?" for field in normalized)
+    connection.execute(
+        f"UPDATE devices SET {assignments} WHERE id=?",
+        (*normalized.values(), device_id),
+    )
+    changes = {
+        field: {"before": device[field], "after": new_value}
+        for field, new_value in normalized.items()
+        if device[field] != new_value
+    }
     connection.execute(
         "INSERT INTO audit_events (administrator, action, target_device_id, summary_json, created_at, result) "
-        "VALUES (?, 'rename_device', ?, ?, ?, 'succeeded')",
+        "VALUES (?, 'update_device_identity', ?, ?, ?, 'succeeded')",
         (
             session["github_login"],
             device_id,
-            json_text({"before": device["friendly_name"], "after": name.strip()}),
+            json_text({"changes": changes}),
             now,
         ),
     )
     connection.commit()
-    return {"status": "updated"}
+    updated = connection.execute("SELECT * FROM devices WHERE id=?", (device_id,)).fetchone()
+    return {"status": "updated", "device": _device_json(updated, detail=True)}
 
 
 @bp.post("/api/devices/<int:device_id>/commands")
