@@ -1,4 +1,5 @@
 #include "ota_policy.h"
+#include "fleet_policy.h"
 #include "semver.h"
 
 #include <assert.h>
@@ -41,5 +42,13 @@ int main() {
     assert(ota_retry_delay_ms(1) == 15UL * 60UL * 1000UL);
     assert(ota_retry_delay_ms(2) == 30UL * 60UL * 1000UL);
     assert(ota_retry_delay_ms(99) == 6UL * 60UL * 60UL * 1000UL);
+
+    assert(fleet_retry_delay_ms(0) == 0);
+    assert(fleet_retry_delay_ms(1) == 60UL * 1000UL);
+    assert(fleet_retry_delay_ms(2) == 5UL * 60UL * 1000UL);
+    assert(fleet_retry_delay_ms(3) == 60UL * 60UL * 1000UL);
+    assert(fleet_retry_delay_ms(99) == 60UL * 60UL * 1000UL);
+    assert(!fleet_circuit_is_open(2));
+    assert(fleet_circuit_is_open(3));
     return 0;
 }

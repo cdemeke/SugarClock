@@ -142,7 +142,8 @@ class HostCppLogicTests(unittest.TestCase):
                 compiler, "-std=c++11", "-I", os.path.join(ROOT, "include"),
                 os.path.join(ROOT, "tests", "test_host_logic.cpp"),
                 os.path.join(ROOT, "src", "semver.cpp"),
-                os.path.join(ROOT, "src", "ota_policy.cpp"), "-o", binary,
+                os.path.join(ROOT, "src", "ota_policy.cpp"),
+                os.path.join(ROOT, "src", "fleet_policy.cpp"), "-o", binary,
             ], check=True)
             subprocess.run([binary], check=True)
 

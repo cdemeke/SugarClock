@@ -33,15 +33,20 @@ issue, task, workflow file, shell history argument, or release description.
 ## Publishing
 
 1. Set `VERSION` to strict `major.minor.patch` and merge the release commit.
-2. Tag that exact commit as `v<version>` and push the tag.
-3. The signed-release workflow installs the pinned PlatformIO version, runs host tests, builds
-   firmware/filesystem/installer binaries, enforces the 1.75 MiB slot, signs the canonical
-   manifest, verifies it with the committed public key, and creates the GitHub Release.
-4. The immutable firmware URL uses the version tag. GitHub's `releases/latest/download` URL
+2. Tag that exact commit as `preview-v<version>-1`. The candidate workflow builds with the
+   production fleet endpoint and no fallback, signs it, and publishes an immutable prerelease.
+3. Deploy that candidate to the canary and complete the health/remote-command checks. If code
+   changes, increment the candidate suffix and repeat; never reuse a candidate tag.
+4. Run **Promote tested firmware candidate** and provide the exact tested candidate tag. The
+   workflow verifies its signed manifest and firmware hash, then publishes the same binaries
+   as stable without rebuilding them.
+5. The immutable firmware URL uses the version tag. GitHub's `releases/latest/download` URL
    exposes the stable `ota-manifest.json` to devices.
 
 The workflow fails if the signing secret is absent or if its private key does not match the
 public key compiled into firmware. Temporary private-key files are removed by a shell trap.
+The USB installer has its own version and SHA-256 metadata in `docs/installer-artifacts.json`;
+update those committed binaries from the promoted release as a separate, reviewed step.
 
 ## Rotation
 

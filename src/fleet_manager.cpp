@@ -1,6 +1,7 @@
 #include "fleet_manager.h"
 
 #include "config_manager.h"
+#include "fleet_policy.h"
 #include "http_client.h"
 #include "notify_engine.h"
 #include "ota_manager.h"
@@ -29,9 +30,6 @@
 #ifndef SUGARCLOCK_FLEET_BASE_URL
 #define SUGARCLOCK_FLEET_BASE_URL "https://fleet.sugarclock.com"
 #endif
-#ifndef SUGARCLOCK_FLEET_FALLBACK_URL
-#define SUGARCLOCK_FLEET_FALLBACK_URL ""
-#endif
 #ifndef SUGARCLOCK_FLEET_ALLOW_INSECURE
 #define SUGARCLOCK_FLEET_ALLOW_INSECURE 0
 #endif
@@ -40,7 +38,6 @@ static const char* FLEET_NAMESPACE = "sugarfleet";
 static const uint32_t INITIAL_DELAY_MS = 30000;
 static const uint32_t MIN_CHECKIN_SECONDS = 90;
 static const uint32_t MAX_CHECKIN_SECONDS = 150;
-static const uint32_t MAX_RETRY_MS = 15UL * 60UL * 1000UL;
 
 static char installation_id[37];
 static char credential[44];
@@ -139,7 +136,7 @@ static bool begin_request(HTTPClient& http, WiFiClientSecure& secure, WiFiClient
                           const String& url) {
     if (url.startsWith("https://")) {
         secure.setCACert(OTA_TRUSTED_ROOTS_PEM);
-        secure.setHandshakeTimeout(15);
+        secure.setHandshakeTimeout(5);
         return http.begin(secure, url);
     }
 #if SUGARCLOCK_FLEET_ALLOW_INSECURE
@@ -155,8 +152,8 @@ static int post_json_to_base(const char* base_url, const char* path,
     WiFiClient plain;
     HTTPClient http;
     if (!begin_request(http, secure, plain, url)) return -1;
-    http.setConnectTimeout(10000);
-    http.setTimeout(15000);
+    http.setConnectTimeout(5000);
+    http.setTimeout(5000);
     http.setUserAgent(String("SugarClock/") + SUGARCLOCK_VERSION);
     http.addHeader("Content-Type", "application/json");
     http.addHeader("Authorization", String("Bearer ") + credential);
@@ -168,13 +165,7 @@ static int post_json_to_base(const char* base_url, const char* path,
 }
 
 static int post_json(const char* path, const String& payload, String& response) {
-    int code = post_json_to_base(SUGARCLOCK_FLEET_BASE_URL, path, payload, response);
-    bool endpoint_unavailable = code <= 0 || (code >= 300 && code < 400) ||
-                                code == 404 || code == 405 || code >= 500;
-    if (!endpoint_unavailable || !SUGARCLOCK_FLEET_FALLBACK_URL[0]) return code;
-    Serial.printf("[FLEET] Primary endpoint unavailable (HTTP %d); using provisioning fallback\n", code);
-    response = "";
-    return post_json_to_base(SUGARCLOCK_FLEET_FALLBACK_URL, path, payload, response);
+    return post_json_to_base(SUGARCLOCK_FLEET_BASE_URL, path, payload, response);
 }
 
 static bool post_result(const char* command_id, const char* status,
@@ -444,8 +435,6 @@ static bool check_in(uint32_t& next_seconds) {
     doc["boot_partition"] = ota.boot_partition;
     doc["channel"] = channel;
     doc["timezone"] = config_get().timezone;
-    doc["device_nickname"] = config_get().device_nickname;
-    doc["device_location"] = config_get().device_location;
     doc["uptime_seconds"] = time_get_uptime_sec();
     doc["free_heap_bucket"] = heap_bucket();
     doc["wifi_signal_bucket"] = signal_bucket();
@@ -488,12 +477,6 @@ static bool check_in(uint32_t& next_seconds) {
     return true;
 }
 
-static uint32_t retry_delay() {
-    unsigned shift = failure_count > 5 ? 5 : failure_count;
-    uint32_t delay = 5000UL << shift;
-    return delay > MAX_RETRY_MS ? MAX_RETRY_MS : delay;
-}
-
 static void fleet_worker(void*) {
     uint32_t next_seconds = 120;
     bool ok = report_pending_ota();
@@ -506,8 +489,15 @@ static void fleet_worker(void*) {
         next_attempt_ms = millis() + (next_seconds + jitter) * 1000UL;
     } else {
         ++failure_count;
-        next_attempt_ms = millis() + retry_delay();
-        Serial.printf("[FLEET] Check-in failed; retry %u\n", failure_count);
+        uint32_t delay_ms = fleet_retry_delay_ms(failure_count);
+        next_attempt_ms = millis() + delay_ms;
+        if (fleet_circuit_is_open(failure_count)) {
+            Serial.printf("[FLEET] Endpoint circuit open; probing again in %lu minutes\n",
+                          static_cast<unsigned long>(delay_ms / 60000UL));
+        } else {
+            Serial.printf("[FLEET] Check-in failed; retry %u in %lu seconds\n", failure_count,
+                          static_cast<unsigned long>(delay_ms / 1000UL));
+        }
     }
     worker_running = false;
     if (!ota_is_busy()) {
@@ -535,10 +525,9 @@ void fleet_loop() {
     if (worker_running || ota_is_busy() || !wifi_is_connected() || wifi_is_ap_mode() ||
         !time_is_available() || static_cast<int32_t>(millis() - next_attempt_ms) < 0) return;
     worker_running = true;
-    // The ESP32 cannot reliably hold simultaneous TLS handshakes for Dexcom,
-    // weather, and fleet traffic. This runs after http_loop()/weather_loop() in
-    // the main loop, so pausing here serializes subsequent requests without
-    // interrupting one that is already in progress.
+    // The ESP32 cannot reliably hold simultaneous TLS handshakes. This bounded
+    // attempt runs after core traffic and pauses only future requests. Failed
+    // attempts open the circuit, so core traffic is not repeatedly suspended.
     http_set_paused(true);
     weather_set_paused(true);
     if (xTaskCreate(fleet_worker, "fleet", 14336, nullptr, 1, nullptr) != pdPASS) {

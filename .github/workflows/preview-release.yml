@@ -23,7 +23,6 @@ jobs:
       - name: Verify preview inputs and test
         env:
           PREVIEW_RELEASE_TAG: ${{ github.ref_name }}
-          PREVIEW_FLEET_FALLBACK_URL: http://192.168.1.89:8080
         shell: bash
         run: |
           set -euo pipefail
@@ -32,12 +31,8 @@ jobs:
           test "${PREVIEW_RELEASE_TAG#"${prefix}"}" != "${PREVIEW_RELEASE_TAG}"
           suffix="${PREVIEW_RELEASE_TAG#"${prefix}"}"
           [[ "${suffix}" =~ ^[1-9][0-9]*$ ]]
-          case "${PREVIEW_FLEET_FALLBACK_URL}" in http://*|https://*) ;; *) exit 1 ;; esac
           python -m unittest discover -s tests -v
-      - name: Build preview firmware with LAN fallback
-        env:
-          SUGARCLOCK_FLEET_FALLBACK_URL: http://192.168.1.89:8080
-          SUGARCLOCK_FLEET_ALLOW_INSECURE: "1"
+      - name: Build production-configured release candidate
         run: |
           pio run
           pio run -t buildfs

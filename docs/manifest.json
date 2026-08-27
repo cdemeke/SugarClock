@@ -1,6 +1,6 @@
 {
   "name": "SugarClock",
-  "version": "0.2.5",
+  "version": "0.2.2",
   "new_install_prompt_erase": true,
   "builds": [
     {
