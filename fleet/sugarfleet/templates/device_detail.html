@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}{{ device.friendly_name or device.reported_nickname or device.installation_id[:8] }} · SugarClock Fleet{% endblock %}
+{% block title %}{{ device.friendly_name or device.installation_id[:8] }} · SugarClock Fleet{% endblock %}
 {% block content %}
 <a class="back" href="{{ url_for('admin.device_list_page') }}">← Devices</a>
-<div class="heading"><div><h1>{{ device.friendly_name or device.reported_nickname or device.installation_id[:8] }}</h1><p>{% if device.location_label %}{{ device.location_label }} · {% elif device.reported_location %}{{ device.reported_location }} · {% elif device.detected_location %}≈ {{ device.detected_location.label }} · {% endif %}{{ device.installation_id }} · {{ device.verification_state }}</p></div><span class="pill {{ device.connectivity }}">{{ device.connectivity }}</span></div>
+<div class="heading"><div><h1>{{ device.friendly_name or device.installation_id[:8] }}</h1><p>{% if device.location_label %}{{ device.location_label }} · {% elif device.detected_location %}≈ {{ device.detected_location.label }} · {% endif %}{{ device.installation_id }} · {{ device.verification_state }}</p></div><div>{% if device.verification_state != 'verified' %}<button id="approve-device">Approve device</button>{% endif %} <span class="pill {{ device.connectivity }}">{{ device.connectivity }}</span></div></div>
 <section class="grid">
   <div class="card"><h2>Device identity</h2>
     <form id="identity-form">
@@ -10,9 +10,8 @@
       <label>Location / area<input id="location-label" maxlength="120" value="{{ device.location_label }}" placeholder="e.g. Boston – Main Office"></label>
       <button>Save identity</button><span id="identity-result" class="form-result"></span>
     </form>
-    <p class="detected-location"><strong>Reported by clock:</strong> Nickname: {{ device.reported_nickname or 'Not set' }} · Location: {{ device.reported_location or 'Not set' }}</p>
     <p class="detected-location"><strong>Approximate IP location:</strong> {% if device.detected_location %}{{ device.detected_location.label }}{% else %}Not available yet{% endif %}</p>
-    <p class="hint">Administrator labels above take precedence over values reported by the clock. The installation ID remains the permanent deployment identifier.</p>
+    <p class="hint">Administrator labels identify the deployment. The installation ID remains the permanent device identifier.</p>
   </div>
   <div class="card"><h2>Operational status</h2><dl><dt>Firmware</dt><dd>{{ device.firmware_version }}</dd><dt>Channel</dt><dd>{{ device.channel }}</dd><dt>Partitions</dt><dd>{{ device.running_partition or '—' }} / {{ device.boot_partition or '—' }}</dd><dt>Battery</dt><dd>{{ device.battery_percent if device.battery_percent is not none else '—' }}{% if device.battery_percent is not none %}%{% endif %}</dd><dt>Timezone</dt><dd>{{ device.timezone }}</dd><dt>Config revision</dt><dd>{{ device.config_revision or '—' }}</dd></dl></div>
 </section>
@@ -27,6 +26,7 @@ const examples={ota_check:{},set_channel:{channel:'preview'},notify:{message:'Of
 const type=document.querySelector('#command-type'), payload=document.querySelector('#command-payload');
 type.addEventListener('change',()=>payload.value=JSON.stringify(examples[type.value],null,2)); type.dispatchEvent(new Event('change'));
 document.querySelector('#identity-form').addEventListener('submit',async event=>{event.preventDefault();const result=document.querySelector('#identity-result');result.textContent='Saving…';try{const response=await fetch({{ url_for('admin.update_device',device_id=device.id)|tojson }},{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':window.fleetCsrf},body:JSON.stringify({friendly_name:document.querySelector('#friendly-name').value,location_label:document.querySelector('#location-label').value})});const body=await response.json();if(!response.ok)throw new Error(body.error?.message||'Request failed');result.textContent='Saved';setTimeout(()=>location.reload(),500)}catch(error){result.textContent=error.message}});
+{% if device.verification_state != 'verified' %}document.querySelector('#approve-device').addEventListener('click',async()=>{const response=await fetch({{ url_for('admin.approve_device',device_id=device.id)|tojson }},{method:'POST',headers:{'X-CSRF-Token':window.fleetCsrf}});const body=await response.json();if(!response.ok){alert(body.error?.message||'Request failed');return}location.reload()});{% endif %}
 document.querySelector('#command-form').addEventListener('submit',async event=>{event.preventDefault();const result=document.querySelector('#command-result');try{const response=await fetch({{ url_for('admin.queue_command',device_id=device.id)|tojson }},{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':window.fleetCsrf},body:JSON.stringify({type:type.value,payload:JSON.parse(payload.value)})});const body=await response.json();if(!response.ok)throw new Error(body.error?.message||'Request failed');result.textContent='Queued '+body.command.id.slice(0,8);setTimeout(()=>location.reload(),700)}catch(error){result.textContent=error.message}});
 document.querySelectorAll('[data-time]').forEach(e=>e.textContent=new Date(Number(e.dataset.time)*1000).toLocaleString());
 </script>{% endblock %}

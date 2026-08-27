@@ -40,4 +40,36 @@ jobs:
       - name: Confirm generated sources are reproducible
         run: |
           python scripts/pre_build.py
-          git diff --exit-code -- docs/manifest.json include/web_assets.h src/web_assets.cpp
+          git diff --exit-code -- include/web_assets.h src/web_assets.cpp
+
+  fleet-container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build fleet service image
+        run: docker build --tag sugarfleet-ci --file fleet/Dockerfile .
+      - name: Smoke test non-root service and health check
+        shell: bash
+        run: |
+          set -euo pipefail
+          cleanup() { docker rm --force sugarfleet-ci >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+          docker run --detach --name sugarfleet-ci \
+            --env FLEET_SECRET_KEY=ci-secret-key-with-at-least-32-characters \
+            --env FLEET_DEVICE_CREDENTIAL_PEPPER=ci-device-pepper-with-at-least-32-characters \
+            --env FLEET_INSECURE_COOKIES=1 \
+            sugarfleet-ci
+          test "$(docker inspect --format '{{.Config.User}}' sugarfleet-ci)" = "10001:10001"
+          for attempt in $(seq 1 30); do
+            status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{end}}' sugarfleet-ci)"
+            if [ "${status}" = healthy ]; then
+              exit 0
+            fi
+            if [ "${status}" = unhealthy ] || [ "$(docker inspect --format '{{.State.Running}}' sugarfleet-ci)" != true ]; then
+              docker logs sugarfleet-ci
+              exit 1
+            fi
+            sleep 1
+          done
+          docker logs sugarfleet-ci
+          exit 1

@@ -12,6 +12,7 @@ from fleet.sugarfleet import auth
 from fleet.sugarfleet.db import get_db
 from fleet.sugarfleet.geolocation import location_label, public_ip
 from fleet.sugarfleet.releases import canonical_payload
+from fleet.sugarfleet.security import hash_device_credential, verify_device_credential
 from fleet.sugarfleet.util import connectivity_state
 from fleet.sugarfleet.validation import (
     COMMAND_TYPES,
@@ -34,6 +35,18 @@ def fixture(name):
 
 
 class FleetProtocolFixtureTests(unittest.TestCase):
+    def test_missing_production_secret_fails_closed(self):
+        with mock.patch.dict(os.environ, {"FLEET_SECRET_KEY": "", "FLEET_INSECURE_COOKIES": ""}):
+            with self.assertRaisesRegex(RuntimeError, "FLEET_SECRET_KEY is required"):
+                create_app({"TESTING": False})
+
+    def test_random_device_credentials_use_fast_keyed_digest(self):
+        pepper = "test-device-pepper-with-at-least-32-bytes"
+        encoded = hash_device_credential(CREDENTIAL, pepper)
+        self.assertTrue(encoded.startswith("hmac-sha256$"))
+        self.assertTrue(verify_device_credential(CREDENTIAL, encoded, pepper))
+        self.assertFalse(verify_device_credential("A" * 43, encoded, pepper))
+
     def test_registration_checkin_results_and_unknown_fields(self):
         validate_register(fixture("register-request.json"))
         validate_checkin(fixture("check-in-request.json"))
@@ -72,11 +85,14 @@ class FleetServiceTests(unittest.TestCase):
             {
                 "TESTING": True,
                 "DATABASE": os.path.join(self.temp.name, "fleet.db"),
-                "SECRET_KEY": "test-secret",
+                "SECRET_KEY": "test-secret-key-with-at-least-32-bytes",
+                "DEVICE_CREDENTIAL_PEPPER": "test-device-pepper-with-at-least-32-bytes",
                 "GITHUB_ALLOWLIST": ["admin"],
                 "SESSION_COOKIE_SECURE": False,
                 "DEVICE_CHECKIN_SECONDS": 120,
                 "OTA_PUBLIC_KEYS_DIR": self.temp.name,
+                "ENROLLMENT_REQUIRED": False,
+                "IP_GEOLOCATION_SYNCHRONOUS": True,
             }
         )
         self.client = self.app.test_client()
@@ -93,12 +109,18 @@ class FleetServiceTests(unittest.TestCase):
             session["csrf_token"] = "csrf-test"
         return {"X-CSRF-Token": "csrf-test"}
 
-    def register(self):
-        return self.client.post(
+    def register(self, *, approve=True):
+        response = self.client.post(
             "/device/v1/register",
             json=fixture("register-request.json"),
             headers=self.auth_headers(),
         )
+        if approve and response.status_code in (200, 201):
+            with self.app.app_context():
+                connection = get_db()
+                connection.execute("UPDATE devices SET verification_state='verified'")
+                connection.commit()
+        return response
 
     def checkin(self):
         return self.client.post(
@@ -118,6 +140,7 @@ class FleetServiceTests(unittest.TestCase):
                     "0002_device_location.sql",
                     "0003_detected_location.sql",
                     "0004_reported_identity.sql",
+                    "0005_enrollment_and_identity_cleanup.sql",
                 ],
             )
 
@@ -131,7 +154,7 @@ class FleetServiceTests(unittest.TestCase):
         self.assertEqual(second.json["status"], "already_registered")
         with self.app.app_context():
             stored = get_db().execute("SELECT credential_hash FROM devices").fetchone()[0]
-            self.assertTrue(stored.startswith("pbkdf2-sha256$"))
+            self.assertTrue(stored.startswith("hmac-sha256$"))
             self.assertNotIn(CREDENTIAL, stored)
 
     def test_duplicate_installation_with_wrong_credential_is_rejected(self):
@@ -147,7 +170,7 @@ class FleetServiceTests(unittest.TestCase):
         self.assertEqual(self.client.post("/device/v1/check-in", json=fixture("check-in-request.json")).status_code, 401)
         self.assertEqual(self.client.get("/admin/api/devices").status_code, 401)
 
-    def test_checkin_updates_current_snapshot_without_secret_fields(self):
+    def test_checkin_updates_current_snapshot_without_secret_or_identity_fields(self):
         self.register()
         self.assertEqual(self.checkin().status_code, 200)
         headers = self.admin_headers()
@@ -156,8 +179,8 @@ class FleetServiceTests(unittest.TestCase):
         device = response.json["device"]
         self.assertEqual(device["connectivity"], "online")
         self.assertEqual(device["battery_percent"], 83)
-        self.assertEqual(device["reported_nickname"], "Kitchen Clock")
-        self.assertEqual(device["reported_location"], "Boston – Main Office")
+        self.assertNotIn("reported_nickname", device)
+        self.assertNotIn("reported_location", device)
         self.assertNotIn("credential_hash", device)
         self.assertNotIn("wifi_ssid", device)
         self.assertNotIn("glucose", json.dumps(device).lower())
@@ -271,39 +294,27 @@ class FleetServiceTests(unittest.TestCase):
         )
         self.assertEqual(wrong_type.status_code, 400)
 
-    def test_admin_identity_overrides_device_reported_identity(self):
-        self.register()
-        self.checkin()
+    def test_enrollment_window_and_device_approval_gate_checkins(self):
+        self.app.config["ENROLLMENT_REQUIRED"] = True
+        closed = self.register(approve=False)
+        self.assertEqual(closed.status_code, 403)
+        self.assertEqual(closed.json["error"]["code"], "enrollment_closed")
+
         headers = self.admin_headers()
-        page = self.client.get("/admin/devices").text
-        self.assertIn("Kitchen Clock", page)
-        self.assertIn("Boston – Main Office", page)
-        response = self.client.patch(
-            "/admin/api/devices/1",
-            json={"friendly_name": "Admin Name", "location_label": "Admin Location"},
-            headers=headers,
+        opened = self.client.post(
+            "/admin/api/enrollment", json={"duration_minutes": 15}, headers=headers
         )
-        self.assertEqual(response.status_code, 200)
-        page = self.client.get("/admin/devices").text
-        self.assertIn("Admin Name", page)
-        self.assertIn("Admin Location", page)
+        self.assertEqual(opened.status_code, 200)
+        enrolled = self.register(approve=False)
+        self.assertEqual(enrolled.status_code, 201)
+        self.assertEqual(enrolled.json["verification_state"], "unverified")
+        self.assertEqual(self.checkin().status_code, 403)
 
-    def test_device_can_clear_reported_identity(self):
-        self.register()
-        self.checkin()
-        payload = fixture("check-in-request.json")
-        payload["device_nickname"] = ""
-        payload["device_location"] = ""
-        response = self.client.post(
-            "/device/v1/check-in", json=payload, headers=self.auth_headers()
-        )
-        self.assertEqual(response.status_code, 200)
-        self.admin_headers()
-        device = self.client.get("/admin/api/devices/1").json["device"]
-        self.assertEqual(device["reported_nickname"], "")
-        self.assertEqual(device["reported_location"], "")
+        approved = self.client.post("/admin/api/devices/1/approve", headers=headers)
+        self.assertEqual(approved.json["status"], "verified")
+        self.assertEqual(self.checkin().status_code, 200)
 
-    @mock.patch("fleet.sugarfleet.device.lookup_approximate_location")
+    @mock.patch("fleet.sugarfleet.location_worker.lookup_approximate_location")
     def test_public_ip_populates_approximate_location_without_storing_ip(self, lookup):
         lookup.return_value = {
             "city": "Boston",
@@ -328,7 +339,7 @@ class FleetServiceTests(unittest.TestCase):
             columns = [row[1] for row in get_db().execute("PRAGMA table_info(devices)")]
             self.assertFalse(any("ip" in column.lower() for column in columns))
 
-    @mock.patch("fleet.sugarfleet.device.lookup_approximate_location")
+    @mock.patch("fleet.sugarfleet.location_worker.lookup_approximate_location")
     def test_private_ip_and_untrusted_forwarding_header_are_not_geolocated(self, lookup):
         self.app.config["IP_GEOLOCATION_ENABLED"] = True
         response = self.client.post(
@@ -342,19 +353,22 @@ class FleetServiceTests(unittest.TestCase):
         self.admin_headers()
         self.assertIsNone(self.client.get("/admin/api/devices/1").json["device"]["detected_location"])
 
-    @mock.patch("fleet.sugarfleet.device.lookup_approximate_location")
+    @mock.patch("fleet.sugarfleet.location_worker.lookup_approximate_location")
     def test_configured_proxy_hop_uses_forwarded_public_ip(self, lookup):
         lookup.return_value = {"city": "Boston", "region": "Massachusetts", "country_code": "US"}
         app = create_app(
             {
                 "TESTING": True,
                 "DATABASE": os.path.join(self.temp.name, "proxy-fleet.db"),
-                "SECRET_KEY": "test-secret",
+                "SECRET_KEY": "test-secret-key-with-at-least-32-bytes",
+                "DEVICE_CREDENTIAL_PEPPER": "test-device-pepper-with-at-least-32-bytes",
                 "GITHUB_ALLOWLIST": ["admin"],
                 "SESSION_COOKIE_SECURE": False,
                 "OTA_PUBLIC_KEYS_DIR": self.temp.name,
                 "IP_GEOLOCATION_ENABLED": True,
                 "TRUSTED_PROXY_HOPS": 1,
+                "ENROLLMENT_REQUIRED": False,
+                "IP_GEOLOCATION_SYNCHRONOUS": True,
             }
         )
         client = app.test_client()

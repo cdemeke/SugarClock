@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 {% block title %}Devices · SugarClock Fleet{% endblock %}
 {% block content %}
-<div class="heading"><div><h1>Devices</h1><p>{{ devices|length }} registered installation{{ '' if devices|length == 1 else 's' }}</p></div></div>
+<div class="heading"><div><h1>Devices</h1><p>{{ devices|length }} registered installation{{ '' if devices|length == 1 else 's' }}</p></div><div class="enrollment"><span id="enrollment-state" class="pill {{ 'online' if enrollment_open else 'offline' }}">Enrollment {{ 'open' if enrollment_open else 'closed' }}</span><button id="enrollment-toggle" data-open="{{ '1' if enrollment_open else '0' }}">{{ 'Close enrollment' if enrollment_open else 'Open for 15 minutes' }}</button></div></div>
 <div class="card table-wrap">
   <table>
     <thead><tr><th>Device</th><th>Location / area</th><th>Status</th><th>Firmware</th><th>Channel</th><th>Last update</th><th>Last seen</th></tr></thead>
     <tbody>
     {% for device in devices %}
       <tr>
-        <td><a href="{{ url_for('admin.device_detail_page', device_id=device.id) }}">{{ device.friendly_name or device.reported_nickname or device.installation_id[:8] }}</a><small>{{ device.installation_id[:8] }}{% if not device.friendly_name and device.reported_nickname %} · Reported by clock{% endif %}</small></td>
-        <td>{% if device.location_label %}{{ device.location_label }}{% elif device.reported_location %}{{ device.reported_location }}<small>Reported by clock</small>{% elif device.detected_location %}{{ device.detected_location.label }}<small>Approximate from IP</small>{% else %}—{% endif %}</td>
-        <td><span class="pill {{ device.connectivity }}">{{ device.connectivity }}</span></td>
+        <td><a href="{{ url_for('admin.device_detail_page', device_id=device.id) }}">{{ device.friendly_name or device.installation_id[:8] }}</a><small>{{ device.installation_id[:8] }}</small></td>
+        <td>{% if device.location_label %}{{ device.location_label }}{% elif device.detected_location %}{{ device.detected_location.label }}<small>Approximate from IP</small>{% else %}—{% endif %}</td>
+        <td><span class="pill {{ device.connectivity }}">{{ device.connectivity }}</span>{% if device.verification_state != 'verified' %}<small>Pending approval</small>{% endif %}</td>
         <td>{{ device.firmware_version }}</td><td>{{ device.channel }}</td>
         <td>{{ device.last_ota_result or '—' }}</td><td data-time="{{ device.last_seen }}">{{ device.last_seen }}</td>
       </tr>
@@ -19,4 +19,7 @@
   </table>
 </div>
 {% endblock %}
-{% block scripts %}<script>document.querySelectorAll('[data-time]').forEach(e => e.textContent = new Date(Number(e.dataset.time)*1000).toLocaleString());</script>{% endblock %}
+{% block scripts %}<script>
+document.querySelectorAll('[data-time]').forEach(e => e.textContent = new Date(Number(e.dataset.time)*1000).toLocaleString());
+document.querySelector('#enrollment-toggle').addEventListener('click',async event=>{const button=event.currentTarget;button.disabled=true;try{const response=await fetch({{ url_for('admin.update_enrollment')|tojson }},{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':window.fleetCsrf},body:JSON.stringify({duration_minutes:button.dataset.open==='1'?0:15})});const body=await response.json();if(!response.ok)throw new Error(body.error?.message||'Request failed');location.reload()}catch(error){alert(error.message);button.disabled=false}});
+</script>{% endblock %}

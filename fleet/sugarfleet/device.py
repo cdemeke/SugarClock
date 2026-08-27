@@ -5,8 +5,14 @@ import json
 from flask import Blueprint, current_app, request
 
 from .db import get_db
-from .geolocation import lookup_approximate_location, public_ip
-from .security import hash_device_credential, valid_device_credential, verify_device_credential
+from .enrollment import enrollment_is_open, registration_rate_allowed
+from .geolocation import public_ip
+from .security import (
+    credential_hash_needs_upgrade,
+    hash_device_credential,
+    valid_device_credential,
+    verify_device_credential,
+)
 from .util import ApiError, error_response, json_body, json_text, now_epoch
 from .validation import validate_checkin, validate_register, validate_result
 
@@ -15,7 +21,7 @@ bp = Blueprint("device", __name__, url_prefix="/device/v1")
 
 
 def _refresh_detected_location(connection, device, now):
-    """Best-effort coarse geolocation without retaining the source IP."""
+    """Queue best-effort coarse geolocation without retaining the source IP."""
     if not current_app.config["IP_GEOLOCATION_ENABLED"]:
         return
     address = public_ip(request.remote_addr)
@@ -25,26 +31,7 @@ def _refresh_detected_location(connection, device, now):
     refresh_seconds = current_app.config["IP_GEOLOCATION_REFRESH_SECONDS"]
     if checked_at and now - checked_at < refresh_seconds:
         return
-    location = lookup_approximate_location(address)
-    if location:
-        connection.execute(
-            "UPDATE devices SET detected_city=?, detected_region=?, detected_country_code=?, "
-            "detected_location_checked_at=? WHERE id=?",
-            (
-                location["city"],
-                location["region"],
-                location["country_code"],
-                now,
-                device["id"],
-            ),
-        )
-    else:
-        # Record a public-IP lookup attempt so a provider outage cannot cause a
-        # request on every device check-in. Existing detected data is retained.
-        connection.execute(
-            "UPDATE devices SET detected_location_checked_at=? WHERE id=?",
-            (now, device["id"]),
-        )
+    current_app.extensions["location_worker"].submit(device["id"], address, now)
 
 
 def _credential():
@@ -62,10 +49,21 @@ def _authenticated_device(installation_id):
     device = get_db().execute(
         "SELECT * FROM devices WHERE installation_id = ?", (installation_id,)
     ).fetchone()
-    if device is None or not verify_device_credential(credential, device["credential_hash"]):
+    if device is None or not verify_device_credential(
+        credential, device["credential_hash"], current_app.config["DEVICE_CREDENTIAL_PEPPER"]
+    ):
         raise ApiError("invalid_device_credential", "device credential is invalid", 401)
+    if credential_hash_needs_upgrade(device["credential_hash"]):
+        connection = get_db()
+        connection.execute(
+            "UPDATE devices SET credential_hash=? WHERE id=?",
+            (hash_device_credential(credential, current_app.config["DEVICE_CREDENTIAL_PEPPER"]), device["id"]),
+        )
+        connection.commit()
     if device["retired_at"] is not None:
         raise ApiError("device_retired", "device enrollment is retired", 403)
+    if device["verification_state"] != "verified":
+        raise ApiError("device_pending_approval", "device enrollment is awaiting administrator approval", 403)
     return device
 
 
@@ -85,26 +83,42 @@ def register():
     ).fetchone()
     now = now_epoch()
     if existing:
-        if not verify_device_credential(credential, existing["credential_hash"]):
+        if not verify_device_credential(
+            credential, existing["credential_hash"], current_app.config["DEVICE_CREDENTIAL_PEPPER"]
+        ):
             raise ApiError("installation_already_registered", "installation ID is already registered", 409)
         if existing["retired_at"] is not None:
             raise ApiError("device_retired", "device enrollment is retired", 403)
+        credential_hash = existing["credential_hash"]
+        if credential_hash_needs_upgrade(credential_hash):
+            credential_hash = hash_device_credential(
+                credential, current_app.config["DEVICE_CREDENTIAL_PEPPER"]
+            )
         connection.execute(
-            "UPDATE devices SET last_seen=?, hardware=?, firmware_version=?, timezone=?, management_protocol=? "
+            "UPDATE devices SET last_seen=?, hardware=?, firmware_version=?, timezone=?, management_protocol=?, "
+            "credential_hash=? "
             "WHERE id=?",
-            (now, value["hardware"], value["firmware_version"], value["timezone"], value["management_protocol"], existing["id"]),
+            (now, value["hardware"], value["firmware_version"], value["timezone"],
+             value["management_protocol"], credential_hash, existing["id"]),
         )
         connection.commit()
         status = "already_registered"
         response_status = 200
     else:
+        if not registration_rate_allowed(request.remote_addr, now):
+            raise ApiError("registration_rate_limited", "too many enrollment attempts", 429)
+        if not enrollment_is_open(connection, now):
+            raise ApiError("enrollment_closed", "device enrollment is currently closed", 403)
+        device_count = connection.execute("SELECT COUNT(*) FROM devices").fetchone()[0]
+        if device_count >= current_app.config["ENROLLMENT_MAX_DEVICES"]:
+            raise ApiError("device_capacity_reached", "device enrollment capacity has been reached", 503)
         connection.execute(
             "INSERT INTO devices "
             "(installation_id, credential_hash, hardware, management_protocol, first_seen, last_seen, "
             "firmware_version, channel, timezone) VALUES (?, ?, ?, ?, ?, ?, ?, 'stable', ?)",
             (
                 value["installation_id"],
-                hash_device_credential(credential),
+                hash_device_credential(credential, current_app.config["DEVICE_CREDENTIAL_PEPPER"]),
                 value["hardware"],
                 value["management_protocol"],
                 now,
@@ -120,10 +134,9 @@ def register():
         "SELECT * FROM devices WHERE installation_id = ?", (value["installation_id"],)
     ).fetchone()
     _refresh_detected_location(connection, device, now)
-    connection.commit()
     return {
         "status": status,
-        "verification_state": "unverified",
+        "verification_state": device["verification_state"],
         "next_checkin_seconds": current_app.config["DEVICE_CHECKIN_SECONDS"],
         "server_time": now,
     }, response_status
@@ -140,7 +153,6 @@ def check_in():
     connection.execute(
         "UPDATE devices SET last_seen=?, firmware_version=?, running_partition=?, boot_partition=?, "
         "previous_partition=?, previous_partition_available=?, channel=?, timezone=COALESCE(?, timezone), "
-        "reported_nickname=?, reported_location=?, "
         "maintenance_window_json=?, config_revision=?, config_hash=?, last_ota_result=?, "
         "last_rollback_result=?, uptime_seconds=?, free_heap_bucket=?, wifi_signal_bucket=?, "
         "battery_percent=?, charging=?, health_json=? WHERE id=?",
@@ -153,8 +165,6 @@ def check_in():
             int(bool(value.get("previous_partition_available", False))),
             value["channel"],
             value.get("timezone"),
-            value.get("device_nickname", device["reported_nickname"]).strip(),
-            value.get("device_location", device["reported_location"]).strip(),
             json_text(value.get("maintenance_window")) if value.get("maintenance_window") else None,
             value.get("config_revision"),
             value.get("config_hash"),

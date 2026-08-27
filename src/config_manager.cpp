@@ -14,9 +14,6 @@ static bool config_loaded = false;
 static void config_set_defaults() {
     memset(&config, 0, sizeof(AppConfig));
 
-    config.device_nickname[0] = '\0';
-    config.device_location[0] = '\0';
-
     // WiFi (empty by default — triggers AP mode on fresh flash)
     config.wifi_ssid[0] = '\0';
     config.wifi_password[0] = '\0';
@@ -205,15 +202,6 @@ static void config_check_littlefs_overlay() {
     if (doc["brightness"].is<int>())             config.brightness = doc["brightness"];
     if (doc["alert_low"].is<int>())              config.alert_low = doc["alert_low"];
     if (doc["alert_high"].is<int>())             config.alert_high = doc["alert_high"];
-    if (doc["device_nickname"].is<const char*>()) {
-        strncpy(config.device_nickname, doc["device_nickname"], sizeof(config.device_nickname) - 1);
-        config.device_nickname[sizeof(config.device_nickname) - 1] = '\0';
-    }
-    if (doc["device_location"].is<const char*>()) {
-        strncpy(config.device_location, doc["device_location"], sizeof(config.device_location) - 1);
-        config.device_location[sizeof(config.device_location) - 1] = '\0';
-    }
-
     config_save();
     Serial.println("[CONFIG] Applied config.json overlay from LittleFS");
 
@@ -234,9 +222,6 @@ void config_init() {
         config_save();
     } else {
         Serial.println("[CONFIG] Loading saved config");
-
-        prefs.getString("dev_name", config.device_nickname, sizeof(config.device_nickname));
-        prefs.getString("dev_loc", config.device_location, sizeof(config.device_location));
 
         prefs.getString("wifi_ssid", config.wifi_ssid, sizeof(config.wifi_ssid));
         prefs.getString("wifi_pass", config.wifi_password, sizeof(config.wifi_password));
@@ -373,8 +358,6 @@ void config_init() {
 
 void config_save() {
     prefs.putUInt("magic", CONFIG_MAGIC);
-    prefs.putString("dev_name", config.device_nickname);
-    prefs.putString("dev_loc", config.device_location);
     prefs.putString("wifi_ssid", config.wifi_ssid);
     prefs.putString("wifi_pass", config.wifi_password);
     prefs.putInt("wifi_sec", config.wifi_security);

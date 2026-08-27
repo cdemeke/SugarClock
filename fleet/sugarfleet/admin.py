@@ -7,6 +7,7 @@ from flask import Blueprint, current_app, redirect, render_template, request, se
 
 from .auth import admin_required, csrf_required
 from .db import get_db
+from .enrollment import enrollment_is_open, enrollment_until, set_enrollment_until
 from .geolocation import location_label as format_detected_location
 from .releases import import_manifest, synchronize
 from .util import ApiError, connectivity_state, error_response, json_body, json_text, now_epoch
@@ -30,8 +31,6 @@ def _device_json(row, *, detail=False):
         "installation_id": row["installation_id"],
         "friendly_name": row["friendly_name"],
         "location_label": row["location_label"],
-        "reported_nickname": row["reported_nickname"],
-        "reported_location": row["reported_location"],
         "detected_location": (
             {
                 "label": detected_label,
@@ -101,8 +100,12 @@ def index():
 @bp.get("/devices")
 @admin_required
 def device_list_page():
-    devices = [_device_json(row) for row in get_db().execute("SELECT * FROM devices ORDER BY last_seen DESC")]
-    return render_template("devices.html", devices=devices)
+    connection = get_db()
+    devices = [_device_json(row) for row in connection.execute("SELECT * FROM devices ORDER BY last_seen DESC")]
+    until = enrollment_until(connection)
+    return render_template(
+        "devices.html", devices=devices, enrollment_open=enrollment_is_open(connection), enrollment_until=until
+    )
 
 
 @bp.get("/devices/<int:device_id>")
@@ -207,6 +210,46 @@ def update_device(device_id):
     return {"status": "updated", "device": _device_json(updated, detail=True)}
 
 
+@bp.post("/api/enrollment")
+@admin_required
+@csrf_required
+def update_enrollment():
+    value = json_body()
+    duration = value.get("duration_minutes")
+    if type(duration) is not int or (duration != 0 and not 5 <= duration <= 60):
+        raise ApiError("invalid_enrollment_duration", "duration_minutes must be 0 or 5-60")
+    now = now_epoch()
+    until = now + duration * 60 if duration else 0
+    connection = get_db()
+    set_enrollment_until(until, connection)
+    connection.execute(
+        "INSERT INTO audit_events (administrator, action, target_device_id, summary_json, created_at, result) "
+        "VALUES (?, 'set_enrollment_window', NULL, ?, ?, 'succeeded')",
+        (session["github_login"], json_text({"duration_minutes": duration, "until": until}), now),
+    )
+    connection.commit()
+    return {"status": "open" if duration else "closed", "enrollment_until": until}
+
+
+@bp.post("/api/devices/<int:device_id>/approve")
+@admin_required
+@csrf_required
+def approve_device(device_id):
+    connection = get_db()
+    device = connection.execute("SELECT * FROM devices WHERE id=?", (device_id,)).fetchone()
+    if not device or device["retired_at"] is not None:
+        raise ApiError("device_not_found", "active device not found", 404)
+    now = now_epoch()
+    connection.execute("UPDATE devices SET verification_state='verified' WHERE id=?", (device_id,))
+    connection.execute(
+        "INSERT INTO audit_events (administrator, action, target_device_id, summary_json, created_at, result) "
+        "VALUES (?, 'approve_device', ?, '{}', ?, 'succeeded')",
+        (session["github_login"], device_id, now),
+    )
+    connection.commit()
+    return {"status": "verified"}
+
+
 @bp.post("/api/devices/<int:device_id>/commands")
 @admin_required
 @csrf_required
@@ -219,7 +262,7 @@ def queue_command(device_id):
     expires_at = validate_expiration(value.get("expires_at"), now)
     connection = get_db()
     device = connection.execute("SELECT * FROM devices WHERE id=?", (device_id,)).fetchone()
-    if not device or device["retired_at"] is not None:
+    if not device or device["retired_at"] is not None or device["verification_state"] != "verified":
         raise ApiError("device_not_found", "active device not found", 404)
     command_id = str(uuid.uuid4())
     summary = {"command_id": command_id, "type": command_type, "override_window": bool(payload.get("override_window"))}

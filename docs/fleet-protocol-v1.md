@@ -4,7 +4,7 @@ This document freezes the Phase 0 wire contract between a clock and the local fl
 
 ## Transport and identity
 
-Production devices use certificate-verified HTTPS. On first managed boot the clock creates a canonical random UUID installation ID and a 32-byte random credential, both in the dedicated `sugarfleet` NVS namespace. It sends the credential as `Authorization: Bearer <base64url credential>` on registration and every later request. The server stores only a salted, iterated PBKDF2-SHA256 representation of the credential.
+Production devices use certificate-verified HTTPS. On first managed boot the clock creates a canonical random UUID installation ID and a 32-byte random credential, both in the dedicated `sugarfleet` NVS namespace. It sends the credential as `Authorization: Bearer <base64url credential>` on registration and every later request. The server stores only a server-keyed HMAC-SHA256 digest of the credential.
 
 Automatic registration classifies an installation as `unverified`; it does not prove official hardware ownership. A reused installation ID with a different credential is rejected. Registration never returns commands.
 
@@ -14,7 +14,7 @@ Automatic registration classifies an installation as `unverified`; it does not p
 
 ## Check-in
 
-`POST /device/v1/check-in` overwrites the device's current operational snapshot and returns up to 16 pending commands. Optional `device_nickname` and `device_location` strings report the labels saved on the clock; they do not overwrite administrator-owned labels. It must never include glucose readings, CGM or Wi-Fi credentials, SSID, MAC address, raw logs, source URLs, or raw failure text. Health and result values are sanitized identifiers.
+`POST /device/v1/check-in` overwrites the device's current operational snapshot and returns up to 16 pending commands. Device names and deployment locations are administrator-owned fleet metadata and are not accepted from the clock. A check-in must never include glucose readings, CGM or Wi-Fi credentials, SSID, MAC address, raw logs, source URLs, or raw failure text. Health and result values are sanitized identifiers.
 
 The service can redeliver an unacknowledged command. Devices therefore retain at least 32 recently completed command UUIDs in NVS and return the prior result without reapplying a replayed command. Core clock operation does not depend on check-in success. Firmware retries failures with exponential backoff capped at 15 minutes.
 
@@ -34,4 +34,4 @@ The server deliberately rejects secret and connectivity-related `config_patch` f
 
 ## Firmware integration status
 
-Firmware v0.2.3 implements persistent device identity, registration, periodic check-in, command results, maintenance windows, production/fallback endpoint selection, and managed signed OTA installation. Managed OTA commands reuse the existing A/B executor and cannot bypass local battery, glucose, alarm/timer, setup-mode, trusted-manifest, hash, or boot-validation safeguards. Network clients are serialized so a fleet TLS handshake cannot overlap glucose or weather TLS work on the ESP32.
+Firmware implements persistent device identity, registration, periodic check-in, command results, maintenance windows, a single build-time management endpoint, and managed signed OTA installation. Managed OTA commands reuse the existing A/B executor and cannot bypass local battery, glucose, alarm/timer, setup-mode, trusted-manifest, hash, or boot-validation safeguards. Network clients are serialized so a fleet TLS handshake cannot overlap glucose or weather TLS work on the ESP32; bounded timeouts and a circuit breaker prevent an unavailable fleet endpoint from repeatedly suspending core traffic.
