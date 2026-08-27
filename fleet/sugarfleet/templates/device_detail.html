@@ -2,7 +2,7 @@
 {% block title %}{{ device.friendly_name or device.installation_id[:8] }} · SugarClock Fleet{% endblock %}
 {% block content %}
 <a class="back" href="{{ url_for('admin.device_list_page') }}">← Devices</a>
-<div class="heading"><div><h1>{{ device.friendly_name or device.installation_id[:8] }}</h1><p>{% if device.location_label %}{{ device.location_label }} · {% endif %}{{ device.installation_id }} · {{ device.verification_state }}</p></div><span class="pill {{ device.connectivity }}">{{ device.connectivity }}</span></div>
+<div class="heading"><div><h1>{{ device.friendly_name or device.installation_id[:8] }}</h1><p>{% if device.location_label %}{{ device.location_label }} · {% elif device.detected_location %}≈ {{ device.detected_location.label }} · {% endif %}{{ device.installation_id }} · {{ device.verification_state }}</p></div><span class="pill {{ device.connectivity }}">{{ device.connectivity }}</span></div>
 <section class="grid">
   <div class="card"><h2>Device identity</h2>
     <form id="identity-form">
@@ -10,6 +10,7 @@
       <label>Location / area<input id="location-label" maxlength="120" value="{{ device.location_label }}" placeholder="e.g. Boston – Main Office"></label>
       <button>Save identity</button><span id="identity-result" class="form-result"></span>
     </form>
+    <p class="detected-location"><strong>Approximate IP location:</strong> {% if device.detected_location %}{{ device.detected_location.label }}{% else %}Not available yet{% endif %}</p>
     <p class="hint">These labels are for administrators only. The installation ID remains the permanent deployment identifier.</p>
   </div>
   <div class="card"><h2>Operational status</h2><dl><dt>Firmware</dt><dd>{{ device.firmware_version }}</dd><dt>Channel</dt><dd>{{ device.channel }}</dd><dt>Partitions</dt><dd>{{ device.running_partition or '—' }} / {{ device.boot_partition or '—' }}</dd><dt>Battery</dt><dd>{{ device.battery_percent if device.battery_percent is not none else '—' }}{% if device.battery_percent is not none %}%{% endif %}</dd><dt>Timezone</dt><dd>{{ device.timezone }}</dd><dt>Config revision</dt><dd>{{ device.config_revision or '—' }}</dd></dl></div>

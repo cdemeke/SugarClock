@@ -10,6 +10,7 @@ from unittest import mock
 from fleet import create_app
 from fleet.sugarfleet import auth
 from fleet.sugarfleet.db import get_db
+from fleet.sugarfleet.geolocation import location_label, public_ip
 from fleet.sugarfleet.releases import canonical_payload
 from fleet.sugarfleet.util import connectivity_state
 from fleet.sugarfleet.validation import (
@@ -54,6 +55,14 @@ class FleetProtocolFixtureTests(unittest.TestCase):
         self.assertEqual(connectivity_state(now - 1800, now=now), "offline")
         self.assertEqual(connectivity_state(now - 30 * 86400, now=now), "dormant")
         self.assertEqual(connectivity_state(now, retired_at=now, now=now), "retired")
+
+    def test_geolocation_accepts_only_public_ips_and_formats_coarse_labels(self):
+        self.assertEqual(public_ip("8.8.8.8"), "8.8.8.8")
+        self.assertIsNone(public_ip("192.168.1.55"))
+        self.assertIsNone(public_ip("127.0.0.1"))
+        self.assertIsNone(public_ip("not-an-ip"))
+        self.assertEqual(location_label("Boston", "Massachusetts", "US"), "Boston, Massachusetts, US")
+        self.assertEqual(location_label("Singapore", "Singapore", "SG"), "Singapore, SG")
 
 
 class FleetServiceTests(unittest.TestCase):
@@ -104,7 +113,11 @@ class FleetServiceTests(unittest.TestCase):
             versions = get_db().execute("SELECT version FROM schema_migrations").fetchall()
             self.assertEqual(
                 [row[0] for row in versions],
-                ["0001_initial.sql", "0002_device_location.sql"],
+                [
+                    "0001_initial.sql",
+                    "0002_device_location.sql",
+                    "0003_detected_location.sql",
+                ],
             )
 
     def test_registration_is_idempotent_and_hashes_credential(self):
@@ -254,6 +267,70 @@ class FleetServiceTests(unittest.TestCase):
             "/admin/api/devices/1", json={"friendly_name": 123}, headers=headers
         )
         self.assertEqual(wrong_type.status_code, 400)
+
+    @mock.patch("fleet.sugarfleet.device.lookup_approximate_location")
+    def test_public_ip_populates_approximate_location_without_storing_ip(self, lookup):
+        lookup.return_value = {
+            "city": "Boston",
+            "region": "Massachusetts",
+            "country_code": "US",
+        }
+        self.app.config["IP_GEOLOCATION_ENABLED"] = True
+        response = self.client.post(
+            "/device/v1/register",
+            json=fixture("register-request.json"),
+            headers=self.auth_headers(),
+            environ_overrides={"REMOTE_ADDR": "8.8.8.8"},
+        )
+        self.assertEqual(response.status_code, 201)
+        lookup.assert_called_once_with("8.8.8.8")
+
+        self.admin_headers()
+        device = self.client.get("/admin/api/devices/1").json["device"]
+        self.assertEqual(device["detected_location"]["label"], "Boston, Massachusetts, US")
+        self.assertNotIn("8.8.8.8", json.dumps(device))
+        with self.app.app_context():
+            columns = [row[1] for row in get_db().execute("PRAGMA table_info(devices)")]
+            self.assertFalse(any("ip" in column.lower() for column in columns))
+
+    @mock.patch("fleet.sugarfleet.device.lookup_approximate_location")
+    def test_private_ip_and_untrusted_forwarding_header_are_not_geolocated(self, lookup):
+        self.app.config["IP_GEOLOCATION_ENABLED"] = True
+        response = self.client.post(
+            "/device/v1/register",
+            json=fixture("register-request.json"),
+            headers={**self.auth_headers(), "X-Forwarded-For": "8.8.8.8"},
+            environ_overrides={"REMOTE_ADDR": "192.168.1.55"},
+        )
+        self.assertEqual(response.status_code, 201)
+        lookup.assert_not_called()
+        self.admin_headers()
+        self.assertIsNone(self.client.get("/admin/api/devices/1").json["device"]["detected_location"])
+
+    @mock.patch("fleet.sugarfleet.device.lookup_approximate_location")
+    def test_configured_proxy_hop_uses_forwarded_public_ip(self, lookup):
+        lookup.return_value = {"city": "Boston", "region": "Massachusetts", "country_code": "US"}
+        app = create_app(
+            {
+                "TESTING": True,
+                "DATABASE": os.path.join(self.temp.name, "proxy-fleet.db"),
+                "SECRET_KEY": "test-secret",
+                "GITHUB_ALLOWLIST": ["admin"],
+                "SESSION_COOKIE_SECURE": False,
+                "OTA_PUBLIC_KEYS_DIR": self.temp.name,
+                "IP_GEOLOCATION_ENABLED": True,
+                "TRUSTED_PROXY_HOPS": 1,
+            }
+        )
+        client = app.test_client()
+        response = client.post(
+            "/device/v1/register",
+            json=fixture("register-request.json"),
+            headers={**self.auth_headers(), "X-Forwarded-For": "8.8.8.8"},
+            environ_overrides={"REMOTE_ADDR": "127.0.0.1"},
+        )
+        self.assertEqual(response.status_code, 201)
+        lookup.assert_called_once_with("8.8.8.8")
 
     @mock.patch("fleet.sugarfleet.auth._github_json")
     def test_oauth_allows_only_allowlisted_login(self, github_json):

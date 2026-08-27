@@ -7,6 +7,7 @@ from flask import Blueprint, current_app, redirect, render_template, request, se
 
 from .auth import admin_required, csrf_required
 from .db import get_db
+from .geolocation import location_label as format_detected_location
 from .releases import import_manifest, synchronize
 from .util import ApiError, connectivity_state, error_response, json_body, json_text, now_epoch
 from .validation import validate_command, validate_expiration
@@ -21,11 +22,25 @@ def handle_api_error(error):
 
 
 def _device_json(row, *, detail=False):
+    detected_label = format_detected_location(
+        row["detected_city"], row["detected_region"], row["detected_country_code"]
+    )
     value = {
         "id": row["id"],
         "installation_id": row["installation_id"],
         "friendly_name": row["friendly_name"],
         "location_label": row["location_label"],
+        "detected_location": (
+            {
+                "label": detected_label,
+                "city": row["detected_city"],
+                "region": row["detected_region"],
+                "country_code": row["detected_country_code"],
+                "checked_at": row["detected_location_checked_at"],
+            }
+            if detected_label
+            else None
+        ),
         "verification_state": row["verification_state"],
         "connectivity": connectivity_state(row["last_seen"], row["retired_at"]),
         "hardware": row["hardware"],

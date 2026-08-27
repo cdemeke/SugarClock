@@ -53,12 +53,18 @@ docker compose -f fleet/compose.yaml up --build
 
 The service binds only to loopback. Terminate TLS and expose it through the stable HTTPS tunnel named by `FLEET_PUBLIC_BASE_URL`. Back up the named SQLite volume before upgrades. The service uses one Gunicorn process because SQLite writes are serialized; threads comfortably cover the plan's maximum 250 devices.
 
+### Optional approximate city detection
+
+Set `FLEET_IP_GEOLOCATION_ENABLED=1` to resolve a remotely connecting clock's public source IP to an approximate city, region, and country code. Results refresh at most weekly and are labeled approximate in the UI. A manually entered location label always takes precedence. Private/local addresses cannot be geolocated.
+
+The lookup uses the HTTPS `ipwho.is` endpoint. Only city, region, and country code are retained; the source IP, coordinates, and postal code are not stored. Enabling this feature discloses the source IP transiently to the lookup provider. For a tunnel or reverse proxy, set `FLEET_TRUSTED_PROXY_HOPS` to the exact number of trusted proxy hops (normally `1`). Leave it at `0` when clients connect directly, because trusting forwarding headers from untrusted clients permits location spoofing.
+
 ## Security boundaries
 
 - The database stores salted PBKDF2-SHA256 device credential hashes, never raw credentials.
 - GitHub OAuth accepts only names in `FLEET_GITHUB_ALLOWLIST`; mutations also require CSRF tokens.
 - Release sync downloads and verifies signed manifest metadata only. Firmware remains on immutable GitHub Release URLs.
 - Secret and connectivity-related configuration fields are rejected in Phase 1, so credentials, SSIDs, enterprise identities, and source URLs are never queued in plaintext. Phase 4 must add external-key encryption and transactional Wi-Fi recovery before enabling those fields.
-- Device payloads are capped at 32 KiB. Telemetry is a current snapshot; there is no heartbeat-history table and no source IP persistence.
+- Device payloads are capped at 32 KiB. Telemetry is a current snapshot; there is no heartbeat-history table and no source IP persistence. Optional coarse geolocation stores only a periodically refreshed city, region, and country code.
 
 Run all host tests with `python -m unittest discover -s tests -v` after installing `fleet/requirements.txt`.

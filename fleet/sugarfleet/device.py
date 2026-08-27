@@ -5,12 +5,46 @@ import json
 from flask import Blueprint, current_app, request
 
 from .db import get_db
+from .geolocation import lookup_approximate_location, public_ip
 from .security import hash_device_credential, valid_device_credential, verify_device_credential
 from .util import ApiError, error_response, json_body, json_text, now_epoch
 from .validation import validate_checkin, validate_register, validate_result
 
 
 bp = Blueprint("device", __name__, url_prefix="/device/v1")
+
+
+def _refresh_detected_location(connection, device, now):
+    """Best-effort coarse geolocation without retaining the source IP."""
+    if not current_app.config["IP_GEOLOCATION_ENABLED"]:
+        return
+    address = public_ip(request.remote_addr)
+    if not address:
+        return
+    checked_at = device["detected_location_checked_at"] or 0
+    refresh_seconds = current_app.config["IP_GEOLOCATION_REFRESH_SECONDS"]
+    if checked_at and now - checked_at < refresh_seconds:
+        return
+    location = lookup_approximate_location(address)
+    if location:
+        connection.execute(
+            "UPDATE devices SET detected_city=?, detected_region=?, detected_country_code=?, "
+            "detected_location_checked_at=? WHERE id=?",
+            (
+                location["city"],
+                location["region"],
+                location["country_code"],
+                now,
+                device["id"],
+            ),
+        )
+    else:
+        # Record a public-IP lookup attempt so a provider outage cannot cause a
+        # request on every device check-in. Existing detected data is retained.
+        connection.execute(
+            "UPDATE devices SET detected_location_checked_at=? WHERE id=?",
+            (now, device["id"]),
+        )
 
 
 def _credential():
@@ -82,6 +116,11 @@ def register():
         connection.commit()
         status = "registered"
         response_status = 201
+    device = connection.execute(
+        "SELECT * FROM devices WHERE installation_id = ?", (value["installation_id"],)
+    ).fetchone()
+    _refresh_detected_location(connection, device, now)
+    connection.commit()
     return {
         "status": status,
         "verification_state": "unverified",
@@ -97,6 +136,7 @@ def check_in():
     device = _authenticated_device(value["installation_id"])
     now = now_epoch()
     connection = get_db()
+    _refresh_detected_location(connection, device, now)
     connection.execute(
         "UPDATE devices SET last_seen=?, firmware_version=?, running_partition=?, boot_partition=?, "
         "previous_partition=?, previous_partition_available=?, channel=?, timezone=COALESCE(?, timezone), "
