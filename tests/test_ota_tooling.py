@@ -76,7 +76,10 @@ class OtaManifestTests(unittest.TestCase):
 
     def test_invalid_signature(self):
         manifest = self.manifest()
-        manifest["signature"] = "A" + manifest["signature"][1:]
+        # Always alter the encoded signature. A randomly generated RSA
+        # signature can already begin with "A", which made this test flaky.
+        replacement = "A" if manifest["signature"][0] != "A" else "B"
+        manifest["signature"] = replacement + manifest["signature"][1:]
         self.assert_error("invalid_signature", manifest, public_key=self.public)
 
     def test_wrong_key(self):
