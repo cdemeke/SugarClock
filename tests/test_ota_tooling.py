@@ -74,6 +74,13 @@ class OtaManifestTests(unittest.TestCase):
         manifest = self.manifest()
         self.assertTrue(ota.validate_manifest(manifest, current_version="0.2.0", public_key=self.public))
 
+    def test_preview_manifest_requires_explicit_preview_channel(self):
+        manifest = self.manifest()
+        manifest["channel"] = "preview"
+        manifest["signature"] = ota.sign_payload(ota.canonical_payload(manifest), self.private)
+        self.assertTrue(ota.validate_manifest(manifest, expected_channel="preview", public_key=self.public))
+        self.assert_error("wrong_channel", manifest)
+
     def test_invalid_signature(self):
         manifest = self.manifest()
         # Always alter the encoded signature. A randomly generated RSA

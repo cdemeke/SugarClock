@@ -6,6 +6,11 @@
 
 // Application configuration stored in NVS
 struct AppConfig {
+    // Human-readable identity reported to fleet management. Administrator
+    // overrides live on the server and are intentionally stored separately.
+    char device_nickname[81];
+    char device_location[121];
+
     // WiFi
     char wifi_ssid[64];
     char wifi_password[64];

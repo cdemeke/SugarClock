@@ -8,8 +8,8 @@
     <tbody>
     {% for device in devices %}
       <tr>
-        <td><a href="{{ url_for('admin.device_detail_page', device_id=device.id) }}">{{ device.friendly_name or device.installation_id[:8] }}</a><small>{{ device.installation_id[:8] }}</small></td>
-        <td>{% if device.location_label %}{{ device.location_label }}{% elif device.detected_location %}{{ device.detected_location.label }}<small>Approximate from IP</small>{% else %}—{% endif %}</td>
+        <td><a href="{{ url_for('admin.device_detail_page', device_id=device.id) }}">{{ device.friendly_name or device.reported_nickname or device.installation_id[:8] }}</a><small>{{ device.installation_id[:8] }}{% if not device.friendly_name and device.reported_nickname %} · Reported by clock{% endif %}</small></td>
+        <td>{% if device.location_label %}{{ device.location_label }}{% elif device.reported_location %}{{ device.reported_location }}<small>Reported by clock</small>{% elif device.detected_location %}{{ device.detected_location.label }}<small>Approximate from IP</small>{% else %}—{% endif %}</td>
         <td><span class="pill {{ device.connectivity }}">{{ device.connectivity }}</span></td>
         <td>{{ device.firmware_version }}</td><td>{{ device.channel }}</td>
         <td>{{ device.last_ota_result or '—' }}</td><td data-time="{{ device.last_seen }}">{{ device.last_seen }}</td>

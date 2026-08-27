@@ -30,6 +30,8 @@ def _device_json(row, *, detail=False):
         "installation_id": row["installation_id"],
         "friendly_name": row["friendly_name"],
         "location_label": row["location_label"],
+        "reported_nickname": row["reported_nickname"],
+        "reported_location": row["reported_location"],
         "detected_location": (
             {
                 "label": detected_label,

@@ -117,6 +117,7 @@ class FleetServiceTests(unittest.TestCase):
                     "0001_initial.sql",
                     "0002_device_location.sql",
                     "0003_detected_location.sql",
+                    "0004_reported_identity.sql",
                 ],
             )
 
@@ -155,6 +156,8 @@ class FleetServiceTests(unittest.TestCase):
         device = response.json["device"]
         self.assertEqual(device["connectivity"], "online")
         self.assertEqual(device["battery_percent"], 83)
+        self.assertEqual(device["reported_nickname"], "Kitchen Clock")
+        self.assertEqual(device["reported_location"], "Boston – Main Office")
         self.assertNotIn("credential_hash", device)
         self.assertNotIn("wifi_ssid", device)
         self.assertNotIn("glucose", json.dumps(device).lower())
@@ -267,6 +270,38 @@ class FleetServiceTests(unittest.TestCase):
             "/admin/api/devices/1", json={"friendly_name": 123}, headers=headers
         )
         self.assertEqual(wrong_type.status_code, 400)
+
+    def test_admin_identity_overrides_device_reported_identity(self):
+        self.register()
+        self.checkin()
+        headers = self.admin_headers()
+        page = self.client.get("/admin/devices").text
+        self.assertIn("Kitchen Clock", page)
+        self.assertIn("Boston – Main Office", page)
+        response = self.client.patch(
+            "/admin/api/devices/1",
+            json={"friendly_name": "Admin Name", "location_label": "Admin Location"},
+            headers=headers,
+        )
+        self.assertEqual(response.status_code, 200)
+        page = self.client.get("/admin/devices").text
+        self.assertIn("Admin Name", page)
+        self.assertIn("Admin Location", page)
+
+    def test_device_can_clear_reported_identity(self):
+        self.register()
+        self.checkin()
+        payload = fixture("check-in-request.json")
+        payload["device_nickname"] = ""
+        payload["device_location"] = ""
+        response = self.client.post(
+            "/device/v1/check-in", json=payload, headers=self.auth_headers()
+        )
+        self.assertEqual(response.status_code, 200)
+        self.admin_headers()
+        device = self.client.get("/admin/api/devices/1").json["device"]
+        self.assertEqual(device["reported_nickname"], "")
+        self.assertEqual(device["reported_location"], "")
 
     @mock.patch("fleet.sugarfleet.device.lookup_approximate_location")
     def test_public_ip_populates_approximate_location_without_storing_ip(self, lookup):

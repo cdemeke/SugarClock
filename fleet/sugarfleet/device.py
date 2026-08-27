@@ -140,6 +140,7 @@ def check_in():
     connection.execute(
         "UPDATE devices SET last_seen=?, firmware_version=?, running_partition=?, boot_partition=?, "
         "previous_partition=?, previous_partition_available=?, channel=?, timezone=COALESCE(?, timezone), "
+        "reported_nickname=?, reported_location=?, "
         "maintenance_window_json=?, config_revision=?, config_hash=?, last_ota_result=?, "
         "last_rollback_result=?, uptime_seconds=?, free_heap_bucket=?, wifi_signal_bucket=?, "
         "battery_percent=?, charging=?, health_json=? WHERE id=?",
@@ -152,6 +153,8 @@ def check_in():
             int(bool(value.get("previous_partition_available", False))),
             value["channel"],
             value.get("timezone"),
+            value.get("device_nickname", device["reported_nickname"]).strip(),
+            value.get("device_location", device["reported_location"]).strip(),
             json_text(value.get("maintenance_window")) if value.get("maintenance_window") else None,
             value.get("config_revision"),
             value.get("config_hash"),

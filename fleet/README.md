@@ -1,6 +1,6 @@
 # SugarClock fleet service
 
-This directory contains the remote-management service: device registration and polling, editable administrator-owned device nicknames and location labels, an idempotent command queue, signed GitHub manifest import, a GitHub-allowlisted administrator UI/API, SQLite migrations, and a fake-clock simulator. Firmware v0.2.3 adds the device-side fleet client and a managed entry point into the existing signed A/B OTA executor; the service never proxies or replaces firmware bytes.
+This directory contains the remote-management service: device registration and polling, editable administrator-owned device nicknames and location labels, device-reported identity labels, an idempotent command queue, signed GitHub manifest import, a GitHub-allowlisted administrator UI/API, SQLite migrations, and a fake-clock simulator. Firmware v0.2.3 adds the device-side fleet client and a managed entry point into the existing signed A/B OTA executor; firmware v0.2.4 adds nickname and location fields to the clock's Device page. The service never proxies or replaces firmware bytes.
 
 ## Local development
 
@@ -55,7 +55,7 @@ The service binds only to loopback. Terminate TLS and expose it through the stab
 
 ### Optional approximate city detection
 
-Set `FLEET_IP_GEOLOCATION_ENABLED=1` to resolve a remotely connecting clock's public source IP to an approximate city, region, and country code. Results refresh at most weekly and are labeled approximate in the UI. A manually entered location label always takes precedence. Private/local addresses cannot be geolocated.
+Set `FLEET_IP_GEOLOCATION_ENABLED=1` to resolve a remotely connecting clock's public source IP to an approximate city, region, and country code. Results refresh at most weekly and are labeled approximate in the UI. Location precedence is administrator label, clock-reported location, then approximate IP location. Nickname precedence is administrator label, clock-reported nickname, then the installation ID prefix. Private/local addresses cannot be geolocated.
 
 The lookup uses the HTTPS `ipwho.is` endpoint. Only city, region, and country code are retained; the source IP, coordinates, and postal code are not stored. Enabling this feature discloses the source IP transiently to the lookup provider. For a tunnel or reverse proxy, set `FLEET_TRUSTED_PROXY_HOPS` to the exact number of trusted proxy hops (normally `1`). Leave it at `0` when clients connect directly, because trusting forwarding headers from untrusted clients permits location spoofing.
 

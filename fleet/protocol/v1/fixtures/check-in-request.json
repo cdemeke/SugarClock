@@ -7,6 +7,8 @@
   "previous_partition_available": true,
   "channel": "stable",
   "timezone": "EST5EDT,M3.2.0,M11.1.0",
+  "device_nickname": "Kitchen Clock",
+  "device_location": "Boston – Main Office",
   "uptime_seconds": 86400,
   "free_heap_bucket": "75k_plus",
   "wifi_signal_bucket": "good",

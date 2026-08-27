@@ -154,6 +154,14 @@ def validate_checkin(value):
         raise ApiError("invalid_channel", "channel must be stable or preview")
     if type(value["uptime_seconds"]) is not int or value["uptime_seconds"] < 0:
         raise ApiError("invalid_uptime", "uptime_seconds must be a non-negative integer")
+    for field, limit in (("device_nickname", 80), ("device_location", 120)):
+        if field in value and (
+            not isinstance(value[field], str) or len(value[field].strip()) > limit
+        ):
+            raise ApiError(
+                "invalid_" + field,
+                f"{field} must be a string of at most {limit} characters",
+            )
     if "maintenance_window" in value:
         validate_maintenance_window(value["maintenance_window"])
     if "battery_percent" in value and (

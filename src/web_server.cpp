@@ -146,6 +146,8 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     // including from an open setup AP, so the UI is told only whether a value is
     // set. POST treats an empty string as "leave unchanged", which is what makes
     // a round-trip through the form safe.
+    doc["device_nickname"] = cfg.device_nickname;
+    doc["device_location"] = cfg.device_location;
     doc["wifi_ssid"] = cfg.wifi_ssid;
     doc["has_wifi_password"] = strlen(cfg.wifi_password) > 0;
     doc["wifi_security"] = cfg.wifi_security;
@@ -270,6 +272,15 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     }
 
     AppConfig& cfg = config_get();
+
+    if (doc["device_nickname"].is<const char*>()) {
+        strncpy(cfg.device_nickname, doc["device_nickname"] | "", sizeof(cfg.device_nickname) - 1);
+        cfg.device_nickname[sizeof(cfg.device_nickname) - 1] = '\0';
+    }
+    if (doc["device_location"].is<const char*>()) {
+        strncpy(cfg.device_location, doc["device_location"] | "", sizeof(cfg.device_location) - 1);
+        cfg.device_location[sizeof(cfg.device_location) - 1] = '\0';
+    }
 
     if (doc["wifi_ssid"].is<const char*>()) {
         strncpy(cfg.wifi_ssid, doc["wifi_ssid"] | "", sizeof(cfg.wifi_ssid) - 1);

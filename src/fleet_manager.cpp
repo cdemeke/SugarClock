@@ -444,6 +444,8 @@ static bool check_in(uint32_t& next_seconds) {
     doc["boot_partition"] = ota.boot_partition;
     doc["channel"] = channel;
     doc["timezone"] = config_get().timezone;
+    doc["device_nickname"] = config_get().device_nickname;
+    doc["device_location"] = config_get().device_location;
     doc["uptime_seconds"] = time_get_uptime_sec();
     doc["free_heap_bucket"] = heap_bucket();
     doc["wifi_signal_bucket"] = signal_bucket();

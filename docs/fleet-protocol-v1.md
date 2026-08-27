@@ -14,7 +14,7 @@ Automatic registration classifies an installation as `unverified`; it does not p
 
 ## Check-in
 
-`POST /device/v1/check-in` overwrites the device's current operational snapshot and returns up to 16 pending commands. It must never include glucose readings, CGM or Wi-Fi credentials, SSID, MAC address, raw logs, source URLs, or raw failure text. Health and result values are sanitized identifiers.
+`POST /device/v1/check-in` overwrites the device's current operational snapshot and returns up to 16 pending commands. Optional `device_nickname` and `device_location` strings report the labels saved on the clock; they do not overwrite administrator-owned labels. It must never include glucose readings, CGM or Wi-Fi credentials, SSID, MAC address, raw logs, source URLs, or raw failure text. Health and result values are sanitized identifiers.
 
 The service can redeliver an unacknowledged command. Devices therefore retain at least 32 recently completed command UUIDs in NVS and return the prior result without reapplying a replayed command. Core clock operation does not depend on check-in success. Firmware retries failures with exponential backoff capped at 15 minutes.
 
