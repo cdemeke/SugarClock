@@ -19,6 +19,7 @@
 #include "improv_serial.h"
 #include "net_check.h"
 #include "ota_manager.h"
+#include "fleet_manager.h"
 
 #ifndef SUGARCLOCK_VERSION
 #error "SUGARCLOCK_VERSION must be injected from the root VERSION file"
@@ -101,6 +102,10 @@ void setup() {
     // Secure OTA is initialized only after local configuration, display, web
     // assets/routes, and the main engines are ready for first-boot validation.
     ota_init();
+
+    // Fleet registration/check-ins run independently of the clock's core
+    // display and glucose paths. A fleet outage never blocks normal operation.
+    fleet_init();
 
     // 14. Enable watchdog timer
     esp_task_wdt_init(WDT_TIMEOUT_SEC, true);
@@ -200,6 +205,9 @@ void loop() {
     // 8. Secure updater scheduling/rollback validation. Run after the normal
     // renderer so an active update progress screen remains visible.
     ota_loop();
+
+    // Poll the management service only when Wi-Fi and trusted time are ready.
+    fleet_loop();
 
     // Performance tracking
     unsigned long loop_time = millis() - loop_start;

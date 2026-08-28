@@ -74,9 +74,19 @@ class OtaManifestTests(unittest.TestCase):
         manifest = self.manifest()
         self.assertTrue(ota.validate_manifest(manifest, current_version="0.2.0", public_key=self.public))
 
+    def test_preview_manifest_requires_explicit_preview_channel(self):
+        manifest = self.manifest()
+        manifest["channel"] = "preview"
+        manifest["signature"] = ota.sign_payload(ota.canonical_payload(manifest), self.private)
+        self.assertTrue(ota.validate_manifest(manifest, expected_channel="preview", public_key=self.public))
+        self.assert_error("wrong_channel", manifest)
+
     def test_invalid_signature(self):
         manifest = self.manifest()
-        manifest["signature"] = "A" + manifest["signature"][1:]
+        # Always alter the encoded signature. A randomly generated RSA
+        # signature can already begin with "A", which made this test flaky.
+        replacement = "A" if manifest["signature"][0] != "A" else "B"
+        manifest["signature"] = replacement + manifest["signature"][1:]
         self.assert_error("invalid_signature", manifest, public_key=self.public)
 
     def test_wrong_key(self):
@@ -132,7 +142,8 @@ class HostCppLogicTests(unittest.TestCase):
                 compiler, "-std=c++11", "-I", os.path.join(ROOT, "include"),
                 os.path.join(ROOT, "tests", "test_host_logic.cpp"),
                 os.path.join(ROOT, "src", "semver.cpp"),
-                os.path.join(ROOT, "src", "ota_policy.cpp"), "-o", binary,
+                os.path.join(ROOT, "src", "ota_policy.cpp"),
+                os.path.join(ROOT, "src", "fleet_policy.cpp"), "-o", binary,
             ], check=True)
             subprocess.run([binary], check=True)
 

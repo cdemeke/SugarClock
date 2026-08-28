@@ -202,7 +202,6 @@ static void config_check_littlefs_overlay() {
     if (doc["brightness"].is<int>())             config.brightness = doc["brightness"];
     if (doc["alert_low"].is<int>())              config.alert_low = doc["alert_low"];
     if (doc["alert_high"].is<int>())             config.alert_high = doc["alert_high"];
-
     config_save();
     Serial.println("[CONFIG] Applied config.json overlay from LittleFS");
 

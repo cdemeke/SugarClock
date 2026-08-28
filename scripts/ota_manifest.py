@@ -15,6 +15,7 @@ MAX_MANIFEST_BYTES = 8192
 PRODUCT = "sugarclock"
 HARDWARE = "ulanzi-tc001-esp32-4mb"
 CHANNEL = "stable"
+CHANNELS = ("stable", "preview")
 SEMVER_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 KEY_ID_RE = re.compile(r"^[a-z0-9-]+$")
@@ -42,7 +43,7 @@ def canonical_payload(manifest):
 
 
 def validate_manifest(manifest, current_version=None, slot_size=0x1C0000,
-                      expected_sha256=None, public_key=None):
+                      expected_sha256=None, public_key=None, expected_channel=CHANNEL):
     required = {"schema", "signature", "published_at", *SIGNED_FIELDS}
     if not isinstance(manifest, dict) or not required.issubset(manifest):
         raise ManifestError("missing_field")
@@ -52,7 +53,7 @@ def validate_manifest(manifest, current_version=None, slot_size=0x1C0000,
         raise ManifestError("wrong_product")
     if manifest["hardware"] != HARDWARE:
         raise ManifestError("wrong_hardware")
-    if manifest["channel"] != CHANNEL:
+    if expected_channel not in CHANNELS or manifest["channel"] != expected_channel:
         raise ManifestError("wrong_channel")
     offered = parse_semver(manifest["version"])
     minimum = parse_semver(manifest["minimum_ota_version"])
@@ -140,7 +141,7 @@ def generate(args):
         "schema": 1,
         "product": PRODUCT,
         "hardware": HARDWARE,
-        "channel": CHANNEL,
+        "channel": args.channel,
         "version": version,
         "minimum_ota_version": args.minimum_ota_version,
         "size": len(firmware),
@@ -150,7 +151,7 @@ def generate(args):
         "signature": "",
         "published_at": published,
     }
-    validate_manifest({**manifest, "signature": "pending"})
+    validate_manifest({**manifest, "signature": "pending"}, expected_channel=args.channel)
     manifest["signature"] = sign_payload(canonical_payload(manifest), args.private_key)
     public_key = args.public_key
     if public_key:
@@ -168,7 +169,8 @@ def generate(args):
 def verify(args):
     manifest = load_manifest(args.manifest)
     validate_manifest(manifest, current_version=args.current_version,
-                      slot_size=args.slot_size, public_key=args.public_key)
+                      slot_size=args.slot_size, public_key=args.public_key,
+                      expected_channel=args.channel)
     print(f"valid signed OTA manifest for v{manifest['version']}")
 
 
@@ -180,6 +182,7 @@ def main():
     gen.add_argument("--firmware-url", required=True)
     gen.add_argument("--version-file", default="VERSION")
     gen.add_argument("--minimum-ota-version", default="0.2.0")
+    gen.add_argument("--channel", choices=CHANNELS, default=CHANNEL)
     gen.add_argument("--key-id", default="release-2026-01")
     gen.add_argument("--private-key", required=True)
     gen.add_argument("--public-key")
@@ -192,6 +195,7 @@ def main():
     check.add_argument("--public-key", required=True)
     check.add_argument("--current-version")
     check.add_argument("--slot-size", type=lambda v: int(v, 0), default=0x1C0000)
+    check.add_argument("--channel", choices=CHANNELS, default=CHANNEL)
     check.set_defaults(func=verify)
     args = parser.parse_args()
     try:

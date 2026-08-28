@@ -1,0 +1,88 @@
+name: Signed preview firmware release
+
+on:
+  push:
+    tags: ["preview-v*.*.*-*"]
+
+permissions:
+  contents: write
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            requirements-build.txt
+            fleet/requirements.txt
+      - run: pip install -r requirements-build.txt -r fleet/requirements.txt
+      - name: Verify preview inputs and test
+        env:
+          PREVIEW_RELEASE_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(tr -d '\r\n' < VERSION)"
+          prefix="preview-v${version}-"
+          test "${PREVIEW_RELEASE_TAG#"${prefix}"}" != "${PREVIEW_RELEASE_TAG}"
+          suffix="${PREVIEW_RELEASE_TAG#"${prefix}"}"
+          [[ "${suffix}" =~ ^[1-9][0-9]*$ ]]
+          python -m unittest discover -s tests -v
+      - name: Build production-configured release candidate
+        run: |
+          pio run
+          pio run -t buildfs
+          python scripts/check_layout.py
+      - name: Generate and verify signed preview manifest
+        env:
+          OTA_SIGNING_KEY_B64: ${{ secrets.OTA_SIGNING_KEY_B64 }}
+          PREVIEW_RELEASE_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${OTA_SIGNING_KEY_B64:?OTA_SIGNING_KEY_B64 secret is required}"
+          version="$(tr -d '\r\n' < VERSION)"
+          tag="${PREVIEW_RELEASE_TAG}"
+          mkdir -p release
+          key_file="$(mktemp)"
+          cleanup() { rm -f "${key_file}"; }
+          trap cleanup EXIT
+          printf '%s' "${OTA_SIGNING_KEY_B64}" | base64 --decode > "${key_file}"
+          chmod 600 "${key_file}"
+          cp .pio/build/esp32dev/firmware.bin "release/sugarclock-v${version}.bin"
+          cp .pio/build/esp32dev/bootloader.bin release/bootloader.bin
+          cp .pio/build/esp32dev/partitions.bin release/partitions.bin
+          cp .pio/build/esp32dev/littlefs.bin release/littlefs.bin
+          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin release/boot_app0.bin
+          python scripts/ota_manifest.py generate \
+            --firmware "release/sugarclock-v${version}.bin" \
+            --firmware-url "https://github.com/cdemeke/SugarClock/releases/download/${tag}/sugarclock-v${version}.bin" \
+            --version-file VERSION \
+            --minimum-ota-version 0.2.0 \
+            --channel preview \
+            --key-id release-2026-01 \
+            --private-key "${key_file}" \
+            --public-key keys/ota-release-2026-01-public.pem \
+            --output release/ota-manifest.json \
+            --signature-output release/ota-manifest.sig
+          python scripts/ota_manifest.py verify \
+            --manifest release/ota-manifest.json \
+            --channel preview \
+            --public-key keys/ota-release-2026-01-public.pem
+      - name: Publish immutable prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIEW_RELEASE_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${PREVIEW_RELEASE_TAG}"
+          gh release create "${tag}" release/* \
+            --verify-tag \
+            --prerelease \
+            --generate-notes \
+            --title "SugarClock ${tag}"

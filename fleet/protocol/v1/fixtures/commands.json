@@ -1,0 +1,11 @@
+[
+  {"type": "config_patch", "payload": {"changes": {"brightness": 45, "show_delta": true}}},
+  {"type": "set_channel", "payload": {"channel": "preview"}},
+  {"type": "set_maintenance_window", "payload": {"timezone": "EST5EDT,M3.2.0,M11.1.0", "days": [0, 1, 2, 3, 4], "start": "19:00", "end": "06:00", "automatic_install": true}},
+  {"type": "ota_check", "payload": {}},
+  {"type": "ota_install", "payload": {"manifest_url": "https://github.com/cdemeke/SugarClock/releases/download/v0.3.0/ota-manifest-preview.json", "version": "0.3.0", "channel": "preview", "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "override_window": false}},
+  {"type": "ota_pause", "payload": {"paused": true}},
+  {"type": "ota_rollback_previous", "payload": {"reason": "bad_preview"}},
+  {"type": "restart", "payload": {"override_window": false}},
+  {"type": "notify", "payload": {"message": "School closes in 10 minutes", "duration_seconds": 30, "allow_buzzer": false}}
+]

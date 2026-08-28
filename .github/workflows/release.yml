@@ -1,8 +1,12 @@
-name: Signed firmware release
+name: Promote tested firmware candidate
 
 on:
-  push:
-    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      candidate_tag:
+        description: Immutable preview tag tested on the canary (for example preview-v0.2.6-1)
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -12,25 +16,58 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.candidate_tag }}
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
           cache-dependency-path: requirements-build.txt
       - run: pip install -r requirements-build.txt
-      - name: Verify tag and test
+      - name: Verify candidate identity and tests
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_TAG: ${{ inputs.candidate_tag }}
         shell: bash
         run: |
           set -euo pipefail
           version="$(tr -d '\r\n' < VERSION)"
-          test "${GITHUB_REF_NAME}" = "v${version}"
+          [[ "${CANDIDATE_TAG}" =~ ^preview-v${version}-[1-9][0-9]*$ ]]
+          candidate_commit="$(git rev-list -n 1 "${CANDIDATE_TAG}")"
+          test "${candidate_commit}" = "$(git rev-parse HEAD)"
+          test "$(gh release view "${CANDIDATE_TAG}" --json isPrerelease --jq .isPrerelease)" = true
+          ! gh release view "v${version}" >/dev/null 2>&1
           python -m unittest discover -s tests -v
-      - name: Build reproducible release artifacts
+      - name: Download and verify the tested candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_TAG: ${{ inputs.candidate_tag }}
+        shell: bash
         run: |
-          pio run
-          pio run -t buildfs
-          python scripts/check_layout.py
-      - name: Generate and verify signed OTA manifest
+          set -euo pipefail
+          version="$(tr -d '\r\n' < VERSION)"
+          mkdir -p candidate release
+          gh release download "${CANDIDATE_TAG}" --dir candidate
+          python scripts/ota_manifest.py verify \
+            --manifest candidate/ota-manifest.json \
+            --channel preview \
+            --public-key keys/ota-release-2026-01-public.pem
+          test -s "candidate/sugarclock-v${version}.bin"
+          test -s candidate/bootloader.bin
+          test -s candidate/partitions.bin
+          test -s candidate/boot_app0.bin
+          test -s candidate/littlefs.bin
+          python - "candidate/ota-manifest.json" "candidate/sugarclock-v${version}.bin" <<'PY'
+          import hashlib, json, pathlib, sys
+          manifest = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          actual = hashlib.sha256(pathlib.Path(sys.argv[2]).read_bytes()).hexdigest()
+          if manifest.get("sha256") != actual:
+              raise SystemExit("candidate firmware hash does not match its signed manifest")
+          PY
+          cp "candidate/sugarclock-v${version}.bin" candidate/bootloader.bin \
+            candidate/partitions.bin candidate/boot_app0.bin candidate/littlefs.bin release/
+      - name: Generate and verify stable manifest for the same binary
         env:
           OTA_SIGNING_KEY_B64: ${{ secrets.OTA_SIGNING_KEY_B64 }}
         shell: bash
@@ -38,17 +75,11 @@ jobs:
           set -euo pipefail
           : "${OTA_SIGNING_KEY_B64:?OTA_SIGNING_KEY_B64 secret is required}"
           version="$(tr -d '\r\n' < VERSION)"
-          mkdir -p release
           key_file="$(mktemp)"
           cleanup() { rm -f "${key_file}"; }
           trap cleanup EXIT
           printf '%s' "${OTA_SIGNING_KEY_B64}" | base64 --decode > "${key_file}"
           chmod 600 "${key_file}"
-          cp .pio/build/esp32dev/firmware.bin "release/sugarclock-v${version}.bin"
-          cp .pio/build/esp32dev/bootloader.bin release/bootloader.bin
-          cp .pio/build/esp32dev/partitions.bin release/partitions.bin
-          cp .pio/build/esp32dev/littlefs.bin release/littlefs.bin
-          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin release/boot_app0.bin
           python scripts/ota_manifest.py generate \
             --firmware "release/sugarclock-v${version}.bin" \
             --firmware-url "https://github.com/cdemeke/SugarClock/releases/download/v${version}/sugarclock-v${version}.bin" \
@@ -62,14 +93,16 @@ jobs:
           python scripts/ota_manifest.py verify \
             --manifest release/ota-manifest.json \
             --public-key keys/ota-release-2026-01-public.pem
-          openssl rsa -pubin -in keys/ota-release-2026-01-public.pem -outform DER | openssl dgst -sha256
-      - name: Publish immutable release and stable latest manifest
+      - name: Publish stable release without rebuilding
         env:
           GH_TOKEN: ${{ github.token }}
+          CANDIDATE_TAG: ${{ inputs.candidate_tag }}
         shell: bash
         run: |
           set -euo pipefail
-          gh release create "${GITHUB_REF_NAME}" release/* \
-            --verify-tag \
+          version="$(tr -d '\r\n' < VERSION)"
+          candidate_commit="$(git rev-list -n 1 "${CANDIDATE_TAG}")"
+          gh release create "v${version}" release/* \
+            --target "${candidate_commit}" \
             --generate-notes \
-            --title "SugarClock ${GITHUB_REF_NAME}"
+            --title "SugarClock v${version}"

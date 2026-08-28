@@ -1,0 +1,1 @@
+ALTER TABLE devices ADD COLUMN location_label TEXT NOT NULL DEFAULT '';

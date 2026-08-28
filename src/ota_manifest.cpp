@@ -174,7 +174,17 @@ bool ota_manifest_validate_offer(const OtaManifest& m,
                                  const char* current_version,
                                  size_t inactive_partition_size,
                                  char* error, size_t error_size) {
-    if (!ota_manifest_validate_identity_and_formats(m, error, error_size)) return false;
+    return ota_manifest_validate_offer_for_channel(
+        m, SUGARCLOCK_CHANNEL, current_version, inactive_partition_size, error, error_size);
+}
+
+bool ota_manifest_validate_offer_for_channel(const OtaManifest& m,
+                                             const char* expected_channel,
+                                             const char* current_version,
+                                             size_t inactive_partition_size,
+                                             char* error, size_t error_size) {
+    if (!ota_manifest_validate_identity_and_formats_for_channel(
+            m, expected_channel, error, error_size)) return false;
 
     SemVer offered = SemVer::parse(m.version);
     SemVer current = SemVer::parse(current_version);
@@ -190,10 +200,21 @@ bool ota_manifest_validate_offer(const OtaManifest& m,
 
 bool ota_manifest_validate_identity_and_formats(const OtaManifest& m,
                                                 char* error, size_t error_size) {
+    return ota_manifest_validate_identity_and_formats_for_channel(
+        m, SUGARCLOCK_CHANNEL, error, error_size);
+}
+
+bool ota_manifest_validate_identity_and_formats_for_channel(const OtaManifest& m,
+                                                            const char* expected_channel,
+                                                            char* error, size_t error_size) {
     if (m.schema != 1) return fail(error, error_size, "wrong_schema");
     if (strcmp(m.product, "sugarclock") != 0) return fail(error, error_size, "wrong_product");
     if (strcmp(m.hardware, SUGARCLOCK_HARDWARE_ID) != 0) return fail(error, error_size, "wrong_hardware");
-    if (strcmp(m.channel, SUGARCLOCK_CHANNEL) != 0) return fail(error, error_size, "wrong_channel");
+    if (!expected_channel ||
+        (strcmp(expected_channel, "stable") != 0 && strcmp(expected_channel, "preview") != 0) ||
+        strcmp(m.channel, expected_channel) != 0) {
+        return fail(error, error_size, "wrong_channel");
+    }
 
     SemVer offered = SemVer::parse(m.version);
     SemVer minimum = SemVer::parse(m.minimum_ota_version);

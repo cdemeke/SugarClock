@@ -1,0 +1,15 @@
+{
+  "server_time": 1787697600,
+  "next_checkin_seconds": 120,
+  "commands": [
+    {
+      "id": "3ae46f8e-83b2-40ab-bbdf-156d32481e0e",
+      "type": "notify",
+      "payload": {"message": "School closes in 10 minutes", "duration_seconds": 30, "allow_buzzer": false},
+      "created_at": 1787697500,
+      "expires_at": 1787698400,
+      "future_optional_field": true
+    }
+  ],
+  "future_optional_field": true
+}

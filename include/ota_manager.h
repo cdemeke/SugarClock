@@ -41,6 +41,10 @@ void ota_init();
 void ota_loop();
 OtaRequestResult ota_request_check();
 OtaRequestResult ota_request_install(bool manual = true);
+OtaRequestResult ota_request_managed_install(const char* manifest_url,
+                                             const char* expected_version,
+                                             const char* expected_channel,
+                                             const char* expected_sha256);
 bool ota_is_busy();
 bool ota_automatic_install_is_safe();
 const char* ota_state_name(OtaState state);

@@ -1,0 +1,6 @@
+[
+  {"installation_id": "0d9189e2-117a-42b8-95c1-8fc88f23a8a4", "status": "accepted"},
+  {"installation_id": "0d9189e2-117a-42b8-95c1-8fc88f23a8a4", "status": "deferred", "reason": "outside_maintenance_window"},
+  {"installation_id": "0d9189e2-117a-42b8-95c1-8fc88f23a8a4", "status": "succeeded", "config_revision": "43"},
+  {"installation_id": "0d9189e2-117a-42b8-95c1-8fc88f23a8a4", "status": "failed", "reason": "battery_low", "future_optional_field": true}
+]

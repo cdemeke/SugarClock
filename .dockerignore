@@ -1,0 +1,9 @@
+.git
+.pio
+.venv
+__pycache__/
+*.pyc
+*.db
+*.db-*
+fleet/.env
+simulator-state.json

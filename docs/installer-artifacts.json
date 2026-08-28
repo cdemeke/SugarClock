@@ -1,0 +1,10 @@
+{
+  "version": "0.2.2",
+  "sha256": {
+    "firmware/bootloader.bin": "3d234a7471f67b013686dabd4dee7c1fa915c9928463616a94bc9297acf1abf8",
+    "firmware/partitions.bin": "b5540cf5a23ab0bf2bd6e514439695312c89838e93ea023208f21045e2226b8d",
+    "firmware/boot_app0.bin": "f94c5d786a7a8fab06ac5d10e33bf37711a6697636dc037559ea19cc410a17f0",
+    "firmware/firmware.bin": "0c194a550e2e0cec671fafbb42536271114d508dcc1ddfabd4b4d89201a7b8db",
+    "firmware/littlefs.bin": "435109d9f6f8f90fd593e3871f5cc8399559d61ffb1b5a53d0570e329c9d464e"
+  }
+}

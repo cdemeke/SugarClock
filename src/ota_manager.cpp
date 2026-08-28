@@ -54,6 +54,14 @@ static unsigned retry_failures = 0;
 static uint32_t next_retry_ms = 0;
 static uint32_t last_render_ms = 0;
 
+struct ManagedInstallRequest {
+    char manifest_url[513];
+    char expected_version[24];
+    char expected_channel[16];
+    char expected_sha256[65];
+};
+static ManagedInstallRequest managed_request;
+
 class CappedManifestStream : public Stream {
 public:
     CappedManifestStream(char* buffer, size_t capacity)
@@ -198,12 +206,13 @@ static int open_https_with_redirects(HTTPClient& http, WiFiClientSecure& client,
     return -1;
 }
 
-static bool download_manifest(OtaManifest& manifest, char* error, size_t error_size) {
+static bool download_manifest_from_url(const char* manifest_url, OtaManifest& manifest,
+                                       char* error, size_t error_size) {
     WiFiClientSecure client;
     client.setCACert(OTA_TRUSTED_ROOTS_PEM);
     client.setHandshakeTimeout(15);
     HTTPClient http;
-    String url = SUGARCLOCK_OTA_MANIFEST_URL;
+    String url = manifest_url ? manifest_url : "";
     int code = open_https_with_redirects(http, client, url, error, error_size);
     if (code != HTTP_CODE_OK) {
         if (code >= 0) snprintf(error, error_size, "manifest_http_%d", code);
@@ -236,6 +245,10 @@ static bool download_manifest(OtaManifest& manifest, char* error, size_t error_s
     bool parsed = ota_manifest_parse(body, sink.length(), manifest, error, error_size);
     free(body);
     return parsed;
+}
+
+static bool download_manifest(OtaManifest& manifest, char* error, size_t error_size) {
+    return download_manifest_from_url(SUGARCLOCK_OTA_MANIFEST_URL, manifest, error, error_size);
 }
 
 static bool constant_time_equal(const uint8_t* a, const uint8_t* b, size_t length) {
@@ -432,23 +445,38 @@ static void record_failure(const char* error) {
 }
 
 static void ota_worker(void* parameter) {
-    bool install = reinterpret_cast<uintptr_t>(parameter) != 0;
+    unsigned mode = static_cast<unsigned>(reinterpret_cast<uintptr_t>(parameter));
+    bool managed = mode == 2;
+    bool owns_network_pause = mode == 0 || managed;
     char error[64] = "";
+
+    if (owns_network_pause) {
+        http_set_paused(true);
+        weather_set_paused(true);
+    }
 
     if (!wifi_is_connected()) {
         record_failure("wifi_unavailable");
+        if (owns_network_pause) {
+            http_set_paused(false);
+            weather_set_paused(false);
+        }
         worker_running = false;
         vTaskDelete(nullptr);
         return;
     }
     if (!time_is_available()) {
         record_failure("time_unavailable");
+        if (owns_network_pause) {
+            http_set_paused(false);
+            weather_set_paused(false);
+        }
         worker_running = false;
         vTaskDelete(nullptr);
         return;
     }
 
-    if (!install) {
+    if (mode == 0) {
         OtaManifest candidate = {};
         const esp_partition_t* target = esp_ota_get_next_update_partition(nullptr);
         if (!target) copy_text(error, sizeof(error), "no_inactive_partition");
@@ -464,6 +492,8 @@ static void ota_worker(void* parameter) {
                 portEXIT_CRITICAL(&status_mux);
                 record_check_success();
                 set_state(OTA_IDLE);
+                http_set_paused(false);
+                weather_set_paused(false);
                 Serial.println("[OTA] Firmware is current");
                 worker_running = false;
                 vTaskDelete(nullptr);
@@ -477,12 +507,71 @@ static void ota_worker(void* parameter) {
             portEXIT_CRITICAL(&status_mux);
             record_check_success();
             set_state(OTA_UPDATE_AVAILABLE);
+            http_set_paused(false);
+            weather_set_paused(false);
             Serial.printf("[OTA] Update v%s is available\n", candidate.version);
             worker_running = false;
             vTaskDelete(nullptr);
             return;
         }
         record_failure(error[0] ? error : "manifest_check_failed");
+        http_set_paused(false);
+        weather_set_paused(false);
+    } else if (mode == 2) {
+        OtaManifest candidate = {};
+        const esp_partition_t* target = esp_ota_get_next_update_partition(nullptr);
+        if (!target) copy_text(error, sizeof(error), "no_inactive_partition");
+        else if (!download_manifest_from_url(managed_request.manifest_url, candidate,
+                                             error, sizeof(error))) {}
+        else if (!ota_manifest_validate_identity_and_formats_for_channel(
+                     candidate, managed_request.expected_channel, error, sizeof(error))) {}
+        else if (!ota_manifest_verify_signature(candidate, error, sizeof(error))) {}
+        else if (strcmp(candidate.version, managed_request.expected_version) != 0)
+            copy_text(error, sizeof(error), "managed_version_mismatch");
+        else if (strcmp(candidate.sha256, managed_request.expected_sha256) != 0)
+            copy_text(error, sizeof(error), "managed_sha256_mismatch");
+        else if (!ota_manifest_validate_offer_for_channel(
+                     candidate, managed_request.expected_channel, SUGARCLOCK_VERSION,
+                     target->size, error, sizeof(error))) {}
+        else {
+            available_manifest = candidate;
+            manifest_available = true;
+            portENTER_CRITICAL(&status_mux);
+            copy_text(status_snapshot.available_version,
+                      sizeof(status_snapshot.available_version), candidate.version);
+            portEXIT_CRITICAL(&status_mux);
+
+            const char* safety = ota_safety_failure(collect_safety_inputs());
+            if (safety) {
+                set_state(OTA_DEFERRED, nullptr, safety);
+                http_set_paused(false);
+                weather_set_paused(false);
+                worker_running = false;
+                vTaskDelete(nullptr);
+                return;
+            }
+            http_set_paused(true);
+            weather_set_paused(true);
+            set_state(OTA_DOWNLOADING);
+            set_progress(0);
+            if (install_firmware(available_manifest, error, sizeof(error))) {
+                set_progress(100);
+                set_state(OTA_PENDING_REBOOT);
+                Serial.println("[OTA] Managed update complete; rebooting");
+                delay(1000);
+                ESP.restart();
+            } else {
+                http_set_paused(false);
+                weather_set_paused(false);
+                record_failure(error[0] ? error : "install_failed");
+            }
+            worker_running = false;
+            vTaskDelete(nullptr);
+            return;
+        }
+        record_failure(error[0] ? error : "managed_manifest_failed");
+        http_set_paused(false);
+        weather_set_paused(false);
     } else {
         const char* safety = ota_safety_failure(collect_safety_inputs());
         if (safety) {
@@ -512,11 +601,11 @@ static void ota_worker(void* parameter) {
     vTaskDelete(nullptr);
 }
 
-static OtaRequestResult start_worker(bool install) {
+static OtaRequestResult start_worker(unsigned mode) {
     if (worker_running) return OTA_REQUEST_BUSY;
     worker_running = true;
-    BaseType_t result = xTaskCreate(ota_worker, install ? "ota_install" : "ota_check",
-                                   12288, reinterpret_cast<void*>(install ? 1U : 0U),
+    BaseType_t result = xTaskCreate(ota_worker, mode ? "ota_install" : "ota_check",
+                                   12288, reinterpret_cast<void*>(static_cast<uintptr_t>(mode)),
                                    1, nullptr);
     if (result != pdPASS) {
         worker_running = false;
@@ -530,7 +619,7 @@ OtaRequestResult ota_request_check() {
     if (ota_is_busy()) return OTA_REQUEST_BUSY;
     set_state(OTA_CHECKING);
     set_progress(0);
-    return start_worker(false);
+    return start_worker(0);
 }
 
 OtaRequestResult ota_request_install(bool manual) {
@@ -545,7 +634,29 @@ OtaRequestResult ota_request_install(bool manual) {
         set_state(OTA_DEFERRED, nullptr, safety);
         return OTA_REQUEST_UNSAFE;
     }
-    return start_worker(true);
+    return start_worker(1);
+}
+
+OtaRequestResult ota_request_managed_install(const char* manifest_url,
+                                             const char* expected_version,
+                                             const char* expected_channel,
+                                             const char* expected_sha256) {
+    if (ota_is_busy()) return OTA_REQUEST_BUSY;
+    if (!manifest_url || strncmp(manifest_url, "https://", 8) != 0 ||
+        strlen(manifest_url) >= sizeof(managed_request.manifest_url) ||
+        !expected_version || strlen(expected_version) >= sizeof(managed_request.expected_version) ||
+        !expected_channel ||
+        (strcmp(expected_channel, "stable") != 0 && strcmp(expected_channel, "preview") != 0) ||
+        !expected_sha256 || strlen(expected_sha256) != 64) {
+        return OTA_REQUEST_INTERNAL_ERROR;
+    }
+    copy_text(managed_request.manifest_url, sizeof(managed_request.manifest_url), manifest_url);
+    copy_text(managed_request.expected_version, sizeof(managed_request.expected_version), expected_version);
+    copy_text(managed_request.expected_channel, sizeof(managed_request.expected_channel), expected_channel);
+    copy_text(managed_request.expected_sha256, sizeof(managed_request.expected_sha256), expected_sha256);
+    set_state(OTA_CHECKING);
+    set_progress(0);
+    return start_worker(2);
 }
 
 static void inspect_boot_state() {
