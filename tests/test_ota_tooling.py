@@ -2,6 +2,7 @@ import copy
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -11,6 +12,37 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
 import ota_manifest as ota
 import generate_web_assets as web_assets
+
+
+class TrustedRootTests(unittest.TestCase):
+    def test_embedded_bundle_contains_cloudflare_google_roots(self):
+        header = os.path.join(ROOT, "include", "ota_trusted_roots.h")
+        with open(header, encoding="utf-8") as stream:
+            bundle = stream.read()
+        certificates = re.findall(
+            r"-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----",
+            bundle,
+            flags=re.DOTALL,
+        )
+        self.assertGreaterEqual(len(certificates), 5)
+
+        subjects = []
+        with tempfile.TemporaryDirectory() as temp:
+            for index, certificate in enumerate(certificates):
+                path = os.path.join(temp, f"root-{index}.pem")
+                with open(path, "w", encoding="ascii") as stream:
+                    stream.write(certificate + "\n")
+                result = subprocess.run(
+                    ["openssl", "x509", "-in", path, "-noout", "-subject"],
+                    check=True,
+                    text=True,
+                    capture_output=True,
+                )
+                subjects.append(result.stdout)
+
+        joined = "".join(subjects)
+        self.assertIn("GTS Root R1", joined)
+        self.assertIn("GTS Root R4", joined)
 
 
 class WebAssetTests(unittest.TestCase):
