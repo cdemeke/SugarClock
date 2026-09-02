@@ -2,6 +2,7 @@
 
 #include "config_manager.h"
 #include "display.h"
+#include "http_client.h"
 #include "time_engine.h"
 #include "weather_client.h"
 
@@ -11,6 +12,7 @@ namespace {
 
 constexpr unsigned long FISH_FRAME_MS = 100; // restrained 10 FPS
 constexpr unsigned long INTERACTION_MS = 1800;
+constexpr int GLUCOSE_FAILURE_STALE_COUNT = 5;
 
 enum FishPose {
     FISH_SWIMMING,
@@ -26,6 +28,16 @@ enum WaterWeather {
     WATER_CURRENT
 };
 
+enum GlucoseEffect {
+    GLUCOSE_EFFECT_NONE,
+    GLUCOSE_EFFECT_MISSING,
+    GLUCOSE_EFFECT_IN_RANGE,
+    GLUCOSE_EFFECT_LOW,
+    GLUCOSE_EFFECT_HIGH,
+    GLUCOSE_EFFECT_URGENT_LOW,
+    GLUCOSE_EFFECT_URGENT_HIGH
+};
+
 static bool interaction_active = false;
 static unsigned long interaction_started_ms = 0;
 
@@ -36,6 +48,10 @@ static uint16_t water()     { return display_color(48, 154, 198); }
 static uint16_t cool()      { return display_color(151, 218, 242); }
 static uint16_t purple()    { return display_color(148, 75, 205); }
 static uint16_t red()       { return display_color(232, 60, 54); }
+
+static uint16_t packed_color(uint32_t color) {
+    return display_color((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF);
+}
 
 static void hline(int x1, int x2, int y, uint16_t color) {
     for (int x = x1; x <= x2; ++x) display_draw_pixel(x, y, color);
@@ -67,8 +83,8 @@ static FishPose choose_pose() {
         interaction_active = false;
     }
 
-    // Without a trustworthy clock the fish simply swims. There is no error
-    // pose, and its behavior never depends on glucose or connectivity state.
+    // Without a trustworthy clock the time-based pose simply stays awake;
+    // connectivity and missing-data warnings are handled by the display engine.
     if (!time_is_available()) return FISH_SWIMMING;
 
     int start_hour;
@@ -118,6 +134,29 @@ static WaterWeather choose_water_weather() {
     return WATER_QUIET;
 }
 
+static GlucoseEffect choose_glucose_effect() {
+    const GlucoseReading& reading = http_get_reading();
+    const AppConfig& cfg = config_get();
+    if (!reading.valid) return GLUCOSE_EFFECT_MISSING;
+
+    // Usually the engine replaces Ambient Fish with its NO DATA or STALE
+    // screen first. This local guard also keeps forced/debug rendering quiet.
+    if (cfg.data_source != 2) {
+        unsigned long stale_ms = (unsigned long)cfg.stale_timeout_min * 60UL * 1000UL;
+        if (!http_has_ever_received() ||
+            http_time_since_last_reading() >= stale_ms ||
+            http_get_failure_count() >= GLUCOSE_FAILURE_STALE_COUNT) {
+            return GLUCOSE_EFFECT_NONE;
+        }
+    }
+
+    if (reading.glucose < cfg.thresh_urgent_low) return GLUCOSE_EFFECT_URGENT_LOW;
+    if (reading.glucose < cfg.thresh_low) return GLUCOSE_EFFECT_LOW;
+    if (reading.glucose <= cfg.thresh_high) return GLUCOSE_EFFECT_IN_RANGE;
+    if (reading.glucose <= cfg.thresh_urgent_high) return GLUCOSE_EFFECT_HIGH;
+    return GLUCOSE_EFFECT_URGENT_HIGH;
+}
+
 static void draw_water_weather(WaterWeather weather_state, unsigned long frame) {
     // Keep these effects sparse: the fish remains the dominant silhouette.
     switch (weather_state) {
@@ -154,6 +193,58 @@ static void draw_water_weather(WaterWeather weather_state, unsigned long frame) 
         default:
             break;
     }
+}
+
+static void draw_glucose_current(GlucoseEffect effect, unsigned long frame) {
+    const AppConfig& cfg = config_get();
+
+    if (effect == GLUCOSE_EFFECT_IN_RANGE) {
+        // A sparse green sparkle and extra bubble make in-range feel playful.
+        uint16_t color = packed_color(cfg.color_in_range);
+        int bubble_y = 4 - (int)((frame / 10) % 3);
+        display_draw_pixel(5, bubble_y, color);
+        if ((frame / 8) % 10 < 6) {
+            display_draw_pixel(2, 0, color);
+            display_draw_pixel(1, 1, color);
+            display_draw_pixel(3, 1, color);
+            display_draw_pixel(2, 2, color);
+        }
+        return;
+    }
+
+    if (effect != GLUCOSE_EFFECT_LOW && effect != GLUCOSE_EFFECT_HIGH) return;
+
+    uint16_t color = packed_color(effect == GLUCOSE_EFFECT_LOW
+        ? cfg.color_low
+        : cfg.color_high);
+    int phase = (int)((frame / 3) % 8);
+    bool downward = effect == GLUCOSE_EFFECT_LOW;
+
+    // Diagonal streams stay at the edges so the fish remains calm and legible.
+    for (int i = 0; i < 3; ++i) {
+        int left_y = downward ? (phase + i) % 8 : (7 - phase - i + 16) % 8;
+        int right_y = downward ? (phase + i + 4) % 8 : (11 - phase - i + 16) % 8;
+        display_draw_pixel(i, left_y, color);
+        display_draw_pixel(29 + i, right_y, color);
+    }
+}
+
+static void draw_urgent_number(GlucoseEffect effect) {
+    const GlucoseReading& reading = http_get_reading();
+    const AppConfig& cfg = config_get();
+    uint32_t packed = effect == GLUCOSE_EFFECT_URGENT_LOW
+        ? cfg.color_urgent_low
+        : cfg.color_urgent_high;
+
+    char number[8];
+    snprintf(number, sizeof(number), "%d", reading.glucose);
+    int width = display_text_width(number) - 1; // omit the final glyph spacing
+    int x = (32 - width) / 2;
+    display_draw_text(number, x, 0, packed_color(packed));
+}
+
+static void draw_missing_glucose() {
+    display_draw_text("---", 7, 0, packed_color(config_get().color_stale));
 }
 
 static void draw_fish(unsigned long frame, bool resting, bool playful) {
@@ -224,9 +315,11 @@ static void draw_bubbles(unsigned long frame, bool playful) {
     display_draw_pixel(2, 2 - (drift / 2), water());
 }
 
-static void draw_swimming_fish(unsigned long frame, bool playful) {
-    draw_fish(frame, false, playful);
-    draw_bubbles(frame, playful);
+static void draw_swimming_fish(unsigned long frame, bool interacting, bool in_range) {
+    // In-range liveliness comes in short bursts; direct interaction is immediate.
+    bool lively_burst = in_range && (frame % 80 < 16);
+    draw_fish(frame, false, interacting || lively_burst);
+    draw_bubbles(frame, interacting);
 
 }
 
@@ -271,14 +364,32 @@ void ambient_fish_init() {
 void ambient_fish_render() {
     unsigned long frame = millis() / FISH_FRAME_MS;
     FishPose pose = choose_pose();
+    GlucoseEffect glucose_effect = choose_glucose_effect();
 
     display_clear();
+
+    if (glucose_effect == GLUCOSE_EFFECT_MISSING) {
+        draw_missing_glucose();
+        return;
+    }
+
+    // Urgent readings get the entire display: no fish, current, weather, trend,
+    // or seasonal decoration competes with the number.
+    if (glucose_effect == GLUCOSE_EFFECT_URGENT_LOW ||
+        glucose_effect == GLUCOSE_EFFECT_URGENT_HIGH) {
+        draw_urgent_number(glucose_effect);
+        return;
+    }
+
     draw_water_weather(choose_water_weather(), frame);
+    draw_glucose_current(glucose_effect, frame);
 
     if (pose == FISH_RESTING) {
         draw_resting_fish(frame);
     } else {
-        draw_swimming_fish(frame, pose == FISH_PLAYING);
+        draw_swimming_fish(frame,
+                           pose == FISH_PLAYING,
+                           glucose_effect == GLUCOSE_EFFECT_IN_RANGE);
     }
 
     draw_seasonal_surprise(frame);
