@@ -164,7 +164,7 @@
                                 <option value="0">Glucose</option>
                                 <option value="1">Time</option>
                                 <option value="2">Weather</option>
-                                <option value="3" id="default-mode-ambient" hidden disabled>Ambient Cat</option>
+                                <option value="3" id="default-mode-ambient" hidden disabled>Ambient Fish</option>
                             </select>
                         </div>
                     </div>
@@ -252,22 +252,22 @@
                 <div class="card ambient-card">
                     <div class="card-header-toggle ambient-card-header">
                         <div>
-                            <h2>Ambient Cat</h2>
-                            <p class="ambient-kicker">A tiny companion for your clock</p>
+                            <h2>Ambient Fish</h2>
+                            <p class="ambient-kicker">A tiny swimmer for your clock</p>
                         </div>
-                        <input type="checkbox" id="ambient_enabled" aria-label="Enable Ambient Cat">
+                        <input type="checkbox" id="ambient_enabled" aria-label="Enable Ambient Fish">
                     </div>
                     <div class="card-details collapsed" id="ambient-details">
                         <p class="ambient-description">
-                            This warm little loaf wakes, naps, dresses for available weather, and reacts to the time of day. It stays quiet and never changes its mood based on glucose readings.
+                            This warm little fish swims, naps, and reacts to the time of day. Fresh weather data adds quiet effects to its water. It stays silent and never changes its mood based on glucose readings.
                         </p>
                         <div class="ambient-preview-shell">
                             <div class="ambient-preview-meta">
                                 <span>On-device preview</span>
                                 <span>32 &times; 8 pixels</span>
                             </div>
-                            <div class="ambient-matrix" aria-label="A warm orange pixel-art loaf cat with a curled tail">
-                                <canvas id="ambient-cat-preview" width="32" height="8" role="img" aria-label="Warm orange pixel-art loaf cat preview"></canvas>
+                            <div class="ambient-matrix" aria-label="A warm orange pixel-art fish with a yellow tail and cyan bubbles">
+                                <canvas id="ambient-fish-preview" width="32" height="8" role="img" aria-label="Warm orange pixel-art fish preview"></canvas>
                             </div>
                         </div>
                         <div class="toggle-row ambient-seasonal-row">
@@ -278,7 +278,7 @@
                             <input type="checkbox" id="ambient_seasonal" checked>
                         </div>
                         <div class="ambient-note">
-                            Ambient Cat becomes its own display view and uses the existing Auto-Cycle interval. If weather is unavailable, it simply carries on without an outfit.
+                            Ambient Fish becomes its own display view and uses the existing Auto-Cycle interval. If weather is unavailable or stale, it simply keeps swimming without weather effects.
                         </div>
                     </div>
                 </div>
@@ -888,26 +888,25 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             if (!enabled && defaultMode.value === '3') defaultMode.value = '0';
         }
 
-        function drawAmbientCatPreview() {
-            const canvas = document.getElementById('ambient-cat-preview');
+        function drawAmbientFishPreview() {
+            const canvas = document.getElementById('ambient-fish-preview');
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
             const sprite = [
-                '........D.D..D.D................',
-                '........DAD..DAD................',
-                '.......DAADDDDAADDDDDD..........',
-                '......DACAAAAAAAAAAAADD...DD....',
-                '......DAEAAAAAAAAAAAAD...DAD....',
-                '......DAAAAAAAAAAAAAADDDDAD.....',
-                '.......DCCCCCCCAAAAAAAAAD.......',
-                '........DDDDDDDDDDDDDDD.........'
+                '....C...................Y.......',
+                '..........OOOOOOOOO....Y........',
+                '..C.....OOOOOOOOOOOOOOY.........',
+                '.......O.OOOOOOOOOOOOOOO........',
+                '........OOOOOOOOOOOOOOY.........',
+                '..........OOOOOOOOO....Y........',
+                '............CCCCC.......Y.......',
+                '................................'
             ];
             const palette = {
                 '.': '#07090d',
-                D: '#6d301d',
-                A: '#e87832',
-                C: '#ffd08a',
-                E: '#1a0f0b'
+                O: '#f07832',
+                Y: '#ffd166',
+                C: '#55d9e8'
             };
             ctx.imageSmoothingEnabled = false;
             sprite.forEach((row, y) => {
@@ -1611,7 +1610,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
         document.getElementById('ambient_enabled')
             .addEventListener('change', updateAmbientDisplaySetting);
         updateAmbientDisplaySetting();
-        drawAmbientCatPreview();
+        drawAmbientFishPreview();
 
         loadConfig();
         loadWifiScan();

@@ -1030,7 +1030,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     display: none;
 }
 
-/* ---- Ambient Cat ---- */
+/* ---- Ambient Fish ---- */
 .ambient-card {
     overflow: hidden;
     border-color: color-mix(in srgb, var(--orange) 28%, var(--border));
@@ -1096,7 +1096,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     padding: 3px;
 }
 
-#ambient-cat-preview {
+#ambient-fish-preview {
     aspect-ratio: 4 / 1;
     display: block;
     height: auto;

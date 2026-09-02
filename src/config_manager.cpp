@@ -58,7 +58,7 @@ static void config_set_defaults() {
     // Default mode
     config.default_mode = 0; // glucose
 
-    // Ambient cat
+    // Ambient fish
     config.ambient_enabled = false;
     config.ambient_seasonal = true;
 
@@ -257,10 +257,12 @@ void config_init() {
         config.time_display_enabled = prefs.getBool("time_en", true);
         config.default_mode = prefs.getInt("def_mode", 0);
 
-        // Ambient cat was added without changing CONFIG_MAGIC, so absent keys
-        // preserve an opt-in display with seasonal surprises ready when enabled.
-        config.ambient_enabled = prefs.getBool("cat_en", false);
-        config.ambient_seasonal = prefs.getBool("cat_season", true);
+        // The first preview build used mascot-specific keys. Keep those values
+        // as one-way fallbacks so test devices retain their saved preferences.
+        bool previous_ambient_enabled = prefs.getBool("cat_en", false);
+        bool previous_ambient_seasonal = prefs.getBool("cat_season", true);
+        config.ambient_enabled = prefs.getBool("fish_en", previous_ambient_enabled);
+        config.ambient_seasonal = prefs.getBool("fish_season", previous_ambient_seasonal);
 
         // Alerts
         config.alert_enabled = prefs.getBool("alert_en", false);
@@ -394,8 +396,8 @@ void config_save() {
     prefs.putBool("use_24h", config.use_24h);
     prefs.putBool("time_en", config.time_display_enabled);
     prefs.putInt("def_mode", config.default_mode);
-    prefs.putBool("cat_en", config.ambient_enabled);
-    prefs.putBool("cat_season", config.ambient_seasonal);
+    prefs.putBool("fish_en", config.ambient_enabled);
+    prefs.putBool("fish_season", config.ambient_seasonal);
 
     // Alerts
     prefs.putBool("alert_en", config.alert_enabled);

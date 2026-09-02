@@ -35,7 +35,7 @@ def fixture(name):
 
 
 class FleetProtocolFixtureTests(unittest.TestCase):
-    def test_ambient_cat_config_patch_is_validated(self):
+    def test_ambient_fish_config_patch_is_validated(self):
         validate_command(
             "config_patch",
             {"changes": {"ambient_enabled": True, "ambient_seasonal": False, "default_mode": 3}},

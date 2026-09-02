@@ -52,10 +52,10 @@ struct AppConfig {
     bool time_display_enabled; // include the time screen in navigation/auto-cycle
 
     // Display mode
-    int default_mode;          // 0=glucose, 1=time, 2=weather, 3=ambient cat
+    int default_mode;          // 0=glucose, 1=time, 2=weather, 3=ambient fish
 
-    // Ambient cat display
-    bool ambient_enabled;      // include the ambient cat in navigation/auto-cycle, default false
+    // Ambient fish display
+    bool ambient_enabled;      // include the ambient fish in navigation/auto-cycle, default false
     bool ambient_seasonal;     // Halloween/New Year surprises, default true
 
     // Alerts (buzzer on PIN 15)
