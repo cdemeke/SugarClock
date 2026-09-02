@@ -2,6 +2,7 @@
 
 #include "config_manager.h"
 #include "fleet_policy.h"
+#include "glucose_engine.h"
 #include "http_client.h"
 #include "notify_engine.h"
 #include "ota_manager.h"
@@ -327,6 +328,9 @@ static bool apply_config_patch(JsonObjectConst changes) {
             (strcmp(name, "show_delta") == 0 && value.is<bool>()) ||
             (strcmp(name, "use_mmol") == 0 && value.is<bool>()) ||
             (strcmp(name, "time_display_enabled") == 0 && value.is<bool>()) ||
+            (strcmp(name, "default_mode") == 0 && value.is<int>() && value.as<int>() >= 0 && value.as<int>() <= 3) ||
+            (strcmp(name, "ambient_enabled") == 0 && value.is<bool>()) ||
+            (strcmp(name, "ambient_seasonal") == 0 && value.is<bool>()) ||
             (strcmp(name, "notify_enabled") == 0 && value.is<bool>()) ||
             (strcmp(name, "auto_cycle_enabled") == 0 && value.is<bool>()) ||
             (strcmp(name, "auto_cycle_sec") == 0 && value.is<int>() && value.as<int>() >= 3 && value.as<int>() <= 300);
@@ -341,11 +345,17 @@ static bool apply_config_patch(JsonObjectConst changes) {
         else if (strcmp(name, "show_delta") == 0 && value.is<bool>()) cfg.show_delta = value.as<bool>();
         else if (strcmp(name, "use_mmol") == 0 && value.is<bool>()) cfg.use_mmol = value.as<bool>();
         else if (strcmp(name, "time_display_enabled") == 0 && value.is<bool>()) cfg.time_display_enabled = value.as<bool>();
+        else if (strcmp(name, "default_mode") == 0) cfg.default_mode = value.as<int>();
+        else if (strcmp(name, "ambient_enabled") == 0 && value.is<bool>()) cfg.ambient_enabled = value.as<bool>();
+        else if (strcmp(name, "ambient_seasonal") == 0 && value.is<bool>()) cfg.ambient_seasonal = value.as<bool>();
         else if (strcmp(name, "notify_enabled") == 0 && value.is<bool>()) cfg.notify_enabled = value.as<bool>();
         else if (strcmp(name, "auto_cycle_enabled") == 0 && value.is<bool>()) cfg.auto_cycle_enabled = value.as<bool>();
         else if (strcmp(name, "auto_cycle_sec") == 0) cfg.auto_cycle_sec = value.as<int>();
     }
+    if (!cfg.time_display_enabled && cfg.default_mode == 1) cfg.default_mode = 0;
+    if (!cfg.ambient_enabled && cfg.default_mode == 3) cfg.default_mode = 0;
     config_save();
+    engine_rebuild_toggle_order();
     return true;
 }
 

@@ -174,6 +174,8 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     doc["use_24h"] = cfg.use_24h;
     doc["time_display_enabled"] = cfg.time_display_enabled;
     doc["default_mode"] = cfg.default_mode;
+    doc["ambient_enabled"] = cfg.ambient_enabled;
+    doc["ambient_seasonal"] = cfg.ambient_seasonal;
 
     // Alerts
     doc["alert_enabled"] = cfg.alert_enabled;
@@ -359,9 +361,18 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
         cfg.time_display_enabled = doc["time_display_enabled"].as<bool>();
     }
     if (doc["default_mode"].is<int>()) {
-        cfg.default_mode = doc["default_mode"].as<int>();
+        cfg.default_mode = constrain(doc["default_mode"].as<int>(), 0, 3);
+    }
+    if (doc["ambient_enabled"].is<bool>()) {
+        cfg.ambient_enabled = doc["ambient_enabled"].as<bool>();
+    }
+    if (doc["ambient_seasonal"].is<bool>()) {
+        cfg.ambient_seasonal = doc["ambient_seasonal"].as<bool>();
     }
     if (!cfg.time_display_enabled && cfg.default_mode == 1) {
+        cfg.default_mode = 0;
+    }
+    if (!cfg.ambient_enabled && cfg.default_mode == 3) {
         cfg.default_mode = 0;
     }
 
