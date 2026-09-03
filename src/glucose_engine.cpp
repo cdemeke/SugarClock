@@ -27,6 +27,9 @@ static bool state_forced = false;
 static DisplayState default_mode = STATE_GLUCOSE_DISPLAY;
 static DisplayState user_mode = STATE_GLUCOSE_DISPLAY;
 static char message_buf[128] = "";
+static char connection_info_buf[96] = "";
+static bool connection_info_visible = false;
+static unsigned long connection_info_expires_ms = 0;
 static unsigned long last_render_ms = 0;
 static unsigned long boot_start_ms = 0;
 
@@ -35,6 +38,7 @@ static int last_seen_glucose = 0;
 static unsigned long delta_flash_start_ms = 0;
 static bool delta_flash_active = false;
 #define DELTA_FLASH_DURATION_MS 3000
+#define CONNECTION_INFO_TIMEOUT_MS 30000
 
 // Buzzer alert state (now using shared buzzer module)
 static unsigned long alert_snooze_until_ms = 0;
@@ -286,6 +290,23 @@ static void check_alerts() {
     }
 }
 
+static bool urgent_glucose_is_active() {
+    AppConfig& cfg = config_get();
+    const GlucoseReading& reading = http_get_reading();
+    if (!reading.valid) return false;
+
+    if (cfg.data_source != 2) {
+        unsigned long stale_ms = (unsigned long)cfg.stale_timeout_min * 60UL * 1000UL;
+        if (http_time_since_last_reading() >= stale_ms ||
+            http_get_failure_count() >= FAILURE_STALE_COUNT) {
+            return false;
+        }
+    }
+
+    return reading.glucose < cfg.thresh_urgent_low ||
+           reading.glucose > cfg.thresh_urgent_high;
+}
+
 // Snooze alerts (called from button handler)
 void engine_snooze_alerts() {
     AppConfig& cfg = config_get();
@@ -329,6 +350,19 @@ static DisplayState evaluate_state() {
     // Boot screen: scroll "SugarClock" across the display
     if (millis() - boot_start_ms < 3000) {
         return STATE_BOOT;
+    }
+
+    // Connection information is a user-requested overlay. Active
+    // notifications and fresh urgent glucose readings still take priority.
+    if (connection_info_visible &&
+        (int32_t)(millis() - connection_info_expires_ms) >= 0) {
+        connection_info_visible = false;
+        last_cycle_ms = millis();
+    }
+    if (connection_info_visible) {
+        if (cfg.notify_enabled && notify_has_active()) return STATE_NOTIFY_DISPLAY;
+        if (urgent_glucose_is_active()) return STATE_GLUCOSE_DISPLAY;
+        return STATE_CONNECTION_INFO_DISPLAY;
     }
 
     // Demo mode synthesizes its own readings, so skip all the connectivity and
@@ -814,6 +848,21 @@ static void render_state(DisplayState state) {
             break;
         }
 
+        case STATE_CONNECTION_INFO_DISPLAY: {
+            display_clear();
+            const char* text = connection_info_buf[0]
+                ? connection_info_buf
+                : "SugarClock connection information unavailable";
+            bool complete = display_scroll_text(
+                text, 0, display_color(0, 200, 200), 55);
+            display_show();
+            if (complete) {
+                connection_info_visible = false;
+                last_cycle_ms = millis();
+            }
+            break;
+        }
+
         case STATE_STALE_WARNING: {
             display_set_brightness(effective_brightness());
             display_clear();
@@ -963,7 +1012,7 @@ void engine_loop() {
 
     // Auto-cycle display modes
     AppConfig& cfg = config_get();
-    if (cfg.auto_cycle_enabled && toggle_count > 1) {
+    if (!connection_info_visible && cfg.auto_cycle_enabled && toggle_count > 1) {
         unsigned long cycle_interval_ms = (unsigned long)cfg.auto_cycle_sec * 1000UL;
         if (last_cycle_ms == 0) last_cycle_ms = millis();
         if (millis() - last_cycle_ms >= cycle_interval_ms) {
@@ -1064,6 +1113,7 @@ const char* engine_state_name(DisplayState state) {
         case STATE_SETUP_AP:          return "SETUP_AP";
         case STATE_NET_LIMITED:       return "NET_LIMITED";
         case STATE_DATE_DISPLAY:      return "DATE";
+        case STATE_CONNECTION_INFO_DISPLAY: return "CONNECTION_INFO";
         default:                      return "UNKNOWN";
     }
 }
@@ -1105,6 +1155,31 @@ void engine_toggle_mode_prev() {
 }
 
 void engine_reset_auto_cycle() {
+    last_cycle_ms = millis();
+}
+
+void engine_show_connection_info() {
+    if (wifi_is_connected() && strcmp(wifi_get_ip(), "0.0.0.0") != 0) {
+        snprintf(connection_info_buf, sizeof(connection_info_buf),
+                 "To connect to SugarClock, visit %s", wifi_get_ip());
+    } else if (wifi_is_ap_mode()) {
+        snprintf(connection_info_buf, sizeof(connection_info_buf),
+                 "To set up SugarClock, visit %s", wifi_get_ap_ip());
+    } else {
+        snprintf(connection_info_buf, sizeof(connection_info_buf),
+                 "SugarClock is not connected to WiFi");
+    }
+
+    connection_info_visible = true;
+    connection_info_expires_ms = millis() + CONNECTION_INFO_TIMEOUT_MS;
+    display_scroll_reset();
+    last_cycle_ms = millis();
+}
+
+void engine_dismiss_connection_info() {
+    connection_info_visible = false;
+    connection_info_expires_ms = 0;
+    display_scroll_reset();
     last_cycle_ms = millis();
 }
 

@@ -22,7 +22,8 @@ enum DisplayState {
     STATE_NO_CFG,
     STATE_SETUP_AP,      // setup portal is up: shows AP name and portal IP
     STATE_NET_LIMITED,   // associated, but DNS / data source / NTP is blocked
-    STATE_DATE_DISPLAY   // internal date page of the time display (kept last for API compatibility)
+    STATE_DATE_DISPLAY,  // internal date page of the time display
+    STATE_CONNECTION_INFO_DISPLAY // transient local address screen; appended for API compatibility
 };
 
 // Glucose thresholds for color coding
@@ -75,6 +76,10 @@ void engine_rebuild_toggle_order();
 
 // Reset the auto-cycle timer (call on manual button press to restart countdown)
 void engine_reset_auto_cycle();
+
+// Show/dismiss the transient local web-management address screen.
+void engine_show_connection_info();
+void engine_dismiss_connection_info();
 
 // Context-sensitive right button action
 void engine_right_button_action();
