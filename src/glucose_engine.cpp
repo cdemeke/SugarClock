@@ -8,6 +8,8 @@
 #include "time_engine.h"
 #include "trend_arrows.h"
 #include "weather_client.h"
+#include "ambient_fish.h"
+#include "ambient_ghost.h"
 #include "buzzer.h"
 #include "timer_engine.h"
 #include "notify_engine.h"
@@ -187,6 +189,7 @@ void engine_rebuild_toggle_order() {
     toggle_order[toggle_count++] = STATE_TREND_DISPLAY;
     if (cfg.time_display_enabled) toggle_order[toggle_count++] = STATE_TIME_DISPLAY;
     if (cfg.weather_enabled) toggle_order[toggle_count++] = STATE_WEATHER_DISPLAY;
+    if (cfg.ambient_enabled) toggle_order[toggle_count++] = STATE_AMBIENT_CREATURE_DISPLAY;
     if (cfg.timer_enabled) toggle_order[toggle_count++] = STATE_TIMER_DISPLAY;
     if (cfg.stopwatch_enabled) toggle_order[toggle_count++] = STATE_STOPWATCH_DISPLAY;
     if (cfg.sysmon_enabled && sysmon_has_data()) toggle_order[toggle_count++] = STATE_SYSMON_DISPLAY;
@@ -319,7 +322,9 @@ void engine_init() {
     boot_start_ms = millis();
 
     AppConfig& cfg = config_get();
-    if (cfg.default_mode == 2) {
+    if (cfg.default_mode == 3 && cfg.ambient_enabled) {
+        default_mode = STATE_AMBIENT_CREATURE_DISPLAY;
+    } else if (cfg.default_mode == 2 && cfg.weather_enabled) {
         default_mode = STATE_WEATHER_DISPLAY;
     } else if (cfg.default_mode == 1 && cfg.time_display_enabled) {
         default_mode = STATE_TIME_DISPLAY;
@@ -331,6 +336,9 @@ void engine_init() {
     transition_target = STATE_BOOT;
     transition_level = 255;
     transition_start_level = 255;
+
+    ambient_fish_init();
+    ambient_ghost_init();
 
     engine_rebuild_toggle_order();
 
@@ -413,7 +421,8 @@ static DisplayState evaluate_state() {
         // Check staleness using configurable timeout
         unsigned long age = http_time_since_last_reading();
         if (age >= stale_ms || failures >= FAILURE_STALE_COUNT) {
-            if (user_mode == STATE_GLUCOSE_DISPLAY) {
+            if (user_mode == STATE_GLUCOSE_DISPLAY ||
+                user_mode == STATE_AMBIENT_CREATURE_DISPLAY) {
                 return STATE_STALE_WARNING;
             }
         }
@@ -641,6 +650,17 @@ static void render_state(DisplayState state) {
                 display_draw_text(tbuf, tx, 0, color_from_uint32(cfg.color_weather));
             }
 
+            display_show();
+            break;
+        }
+
+        case STATE_AMBIENT_CREATURE_DISPLAY: {
+            display_set_brightness(effective_brightness());
+            if (cfg.ambient_creature == 1) {
+                ambient_ghost_render();
+            } else {
+                ambient_fish_render();
+            }
             display_show();
             break;
         }
@@ -1114,6 +1134,7 @@ const char* engine_state_name(DisplayState state) {
         case STATE_NET_LIMITED:       return "NET_LIMITED";
         case STATE_DATE_DISPLAY:      return "DATE";
         case STATE_CONNECTION_INFO_DISPLAY: return "CONNECTION_INFO";
+        case STATE_AMBIENT_CREATURE_DISPLAY: return "AMBIENT_CREATURE";
         default:                      return "UNKNOWN";
     }
 }
@@ -1134,6 +1155,12 @@ void engine_set_message(const char* msg) {
 
 void engine_set_default_mode(DisplayState mode) {
     if (mode == STATE_TIME_DISPLAY && !config_get().time_display_enabled) {
+        mode = STATE_GLUCOSE_DISPLAY;
+    }
+    if (mode == STATE_WEATHER_DISPLAY && !config_get().weather_enabled) {
+        mode = STATE_GLUCOSE_DISPLAY;
+    }
+    if (mode == STATE_AMBIENT_CREATURE_DISPLAY && !config_get().ambient_enabled) {
         mode = STATE_GLUCOSE_DISPLAY;
     }
     default_mode = mode;
@@ -1190,6 +1217,14 @@ void engine_right_button_action() {
             break;
         case STATE_STOPWATCH_DISPLAY:
             stopwatch_toggle_start_pause();
+            break;
+        case STATE_AMBIENT_CREATURE_DISPLAY:
+            if (config_get().ambient_creature == 1) {
+                ambient_ghost_interact();
+            } else {
+                ambient_fish_interact();
+            }
+            engine_reset_auto_cycle();
             break;
         default:
             // Navigate backwards through screens

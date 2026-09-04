@@ -23,7 +23,8 @@ enum DisplayState {
     STATE_SETUP_AP,      // setup portal is up: shows AP name and portal IP
     STATE_NET_LIMITED,   // associated, but DNS / data source / NTP is blocked
     STATE_DATE_DISPLAY,  // internal date page of the time display
-    STATE_CONNECTION_INFO_DISPLAY // transient local address screen; appended for API compatibility
+    STATE_CONNECTION_INFO_DISPLAY, // retain the numeric value shipped in v0.2.6
+    STATE_AMBIENT_CREATURE_DISPLAY  // append new modes to preserve force_mode API values
 };
 
 // Glucose thresholds for color coding

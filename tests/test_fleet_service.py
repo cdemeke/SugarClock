@@ -13,7 +13,7 @@ from fleet.sugarfleet.db import get_db
 from fleet.sugarfleet.geolocation import location_label, public_ip
 from fleet.sugarfleet.releases import canonical_payload
 from fleet.sugarfleet.security import hash_device_credential, verify_device_credential
-from fleet.sugarfleet.util import connectivity_state
+from fleet.sugarfleet.util import ApiError, connectivity_state
 from fleet.sugarfleet.validation import (
     COMMAND_TYPES,
     validate_checkin,
@@ -35,6 +35,21 @@ def fixture(name):
 
 
 class FleetProtocolFixtureTests(unittest.TestCase):
+    def test_ambient_creature_config_patch_is_validated(self):
+        validate_command(
+            "config_patch",
+            {"changes": {
+                "ambient_enabled": True,
+                "ambient_creature": 1,
+                "ambient_seasonal": False,
+                "default_mode": 3,
+            }},
+        )
+        with self.assertRaisesRegex(ApiError, "ambient_creature is out of range"):
+            validate_command("config_patch", {"changes": {"ambient_creature": 2}})
+        with self.assertRaisesRegex(ApiError, "default_mode is out of range"):
+            validate_command("config_patch", {"changes": {"default_mode": 4}})
+
     def test_missing_production_secret_fails_closed(self):
         with mock.patch.dict(os.environ, {"FLEET_SECRET_KEY": "", "FLEET_INSECURE_COOKIES": ""}):
             with self.assertRaisesRegex(RuntimeError, "FLEET_SECRET_KEY is required"):

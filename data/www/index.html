@@ -164,6 +164,7 @@
                                 <option value="0">Glucose</option>
                                 <option value="1">Time</option>
                                 <option value="2">Weather</option>
+                                <option value="3" id="default-mode-ambient" hidden disabled>Ambient Creature</option>
                             </select>
                         </div>
                     </div>
@@ -244,6 +245,48 @@
                             <label>Cycle Interval (seconds)</label>
                             <input type="number" id="auto_cycle_sec" min="3" max="300" value="10">
                             <div class="hint">Time on each screen before advancing (3-300s)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card ambient-card">
+                    <div class="card-header-toggle ambient-card-header">
+                        <div>
+                            <h2>Ambient Creature</h2>
+                            <p class="ambient-kicker" id="ambient-kicker">A tiny swimmer for your clock</p>
+                        </div>
+                        <input type="checkbox" id="ambient_enabled" aria-label="Enable Ambient Creature">
+                    </div>
+                    <div class="card-details collapsed" id="ambient-details">
+                        <div class="form-group" style="margin-bottom:16px;">
+                            <label for="ambient_creature">Creature</label>
+                            <select id="ambient_creature">
+                                <option value="0">Fish</option>
+                                <option value="1">Ghost</option>
+                            </select>
+                            <div class="hint">Choose the companion shown in the ambient display view.</div>
+                        </div>
+                        <p class="ambient-description" id="ambient-description">
+                            This warm little fish swims, naps, and reacts to the time of day. Fresh weather data adds quiet effects to its water, and it always stays silent.
+                        </p>
+                        <div class="ambient-preview-shell">
+                            <div class="ambient-preview-meta">
+                                <span>On-device preview</span>
+                                <span>32 &times; 8 pixels</span>
+                            </div>
+                            <div class="ambient-matrix" id="ambient-matrix" aria-label="A warm orange pixel-art fish with a yellow tail and cyan bubbles">
+                                <canvas id="ambient-creature-preview" width="32" height="8" role="img" aria-label="Warm orange pixel-art fish preview"></canvas>
+                            </div>
+                        </div>
+                        <div class="toggle-row ambient-seasonal-row">
+                            <div>
+                                <label for="ambient_seasonal">Seasonal surprises</label>
+                                <div class="hint">Occasional small celebrations for Halloween and New Year&rsquo;s.</div>
+                            </div>
+                            <input type="checkbox" id="ambient_seasonal" checked>
+                        </div>
+                        <div class="ambient-note">
+                            Your ambient creature is its own display view and uses the existing Auto-Cycle interval. In-range readings add playful motion, non-urgent low and high readings add gentle directional motion, and urgent readings show only the glucose number. Stale or missing data keeps the existing warning screen.
                         </div>
                     </div>
                 </div>
@@ -842,10 +885,75 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             if (!enabled && defaultMode.value === '1') defaultMode.value = '0';
         }
 
+        function updateAmbientDisplaySetting() {
+            const enabled = document.getElementById('ambient_enabled').checked;
+            const defaultMode = document.getElementById('default_mode');
+            const ambientOption = document.getElementById('default-mode-ambient');
+            const ambientDetails = document.getElementById('ambient-details');
+            ambientOption.disabled = !enabled;
+            ambientOption.hidden = !enabled;
+            ambientDetails.classList.toggle('collapsed', !enabled);
+            if (!enabled && defaultMode.value === '3') defaultMode.value = '0';
+        }
+
+        function drawAmbientCreaturePreview() {
+            const canvas = document.getElementById('ambient-creature-preview');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const creatures = {
+                0: {
+                    sprite: [
+                        '....C...................Y.......',
+                        '..........OOOOOOOOO....Y........',
+                        '..C.....OOOOOOOOOOOOOOY.........',
+                        '.......O.OOOOOOOOOOOOOOO........',
+                        '........OOOOOOOOOOOOOOY.........',
+                        '..........OOOOOOOOO....Y........',
+                        '............CCCCC.......Y.......',
+                        '................................'
+                    ],
+                    palette: {O: '#f07832', Y: '#ffd166', C: '#55d9e8'},
+                    kicker: 'A tiny swimmer for your clock',
+                    description: 'This warm little fish swims, naps, and reacts to the time of day. Fresh weather data adds quiet effects to its water, and it always stays silent.',
+                    label: 'A warm orange pixel-art fish with a yellow tail and cyan bubbles'
+                },
+                1: {
+                    sprite: [
+                        '............LLLLLLLL............',
+                        '..........LLLLLLLLLLLL..........',
+                        '.........LLLLLLLLLLLLLL.........',
+                        '........LLLL.LLLLLL.LLLL........',
+                        '.....LLLLLLLLLLLLLLLLLLLLLL.....',
+                        '........LLLLLLL..LLLLLLL........',
+                        '........LLLLLLLLLLLLLLLL........',
+                        '........LLL.LLL.LLL.LLLL........'
+                    ],
+                    palette: {L: '#b48cff'},
+                    kicker: 'A gentle visitor for your clock',
+                    description: 'This soft lavender ghost floats, naps, and reacts to the time of day. Fresh weather data adds tiny accessories and effects, and it always stays silent.',
+                    label: 'A soft lavender pixel-art ghost with simple eyes and a scalloped base'
+                }
+            };
+            const selected = creatures[document.getElementById('ambient_creature').value] || creatures[0];
+            const palette = {'.': '#07090d', ...selected.palette};
+            ctx.imageSmoothingEnabled = false;
+            selected.sprite.forEach((row, y) => {
+                [...row].forEach((pixel, x) => {
+                    ctx.fillStyle = palette[pixel];
+                    ctx.fillRect(x, y, 1, 1);
+                });
+            });
+            document.getElementById('ambient-kicker').textContent = selected.kicker;
+            document.getElementById('ambient-description').textContent = selected.description;
+            document.getElementById('ambient-matrix').setAttribute('aria-label', selected.label);
+            canvas.setAttribute('aria-label', selected.label);
+        }
+
         function setupToggleCards() {
             [
                 ['night_mode_enabled', 'night-details'],
                 ['auto_cycle_enabled', 'autocycle-details'],
+                ['ambient_enabled', 'ambient-details'],
                 ['alert_enabled', 'alert-details'],
                 ['timer_enabled', 'timer-details'],
                 ['stopwatch_enabled', 'stopwatch-details'],
@@ -1168,6 +1276,11 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 document.getElementById('night_brightness').value = c.night_brightness || 10;
                 document.getElementById('auto_cycle_enabled').checked = c.auto_cycle_enabled !== false;
                 document.getElementById('auto_cycle_sec').value = c.auto_cycle_sec || 10;
+                document.getElementById('ambient_enabled').checked = c.ambient_enabled || false;
+                document.getElementById('ambient_creature').value = String(c.ambient_creature || 0);
+                document.getElementById('ambient_seasonal').checked = c.ambient_seasonal !== false;
+                updateAmbientDisplaySetting();
+                drawAmbientCreaturePreview();
 
                 // Glucose
                 document.getElementById('thresh_urgent_low').value = c.thresh_urgent_low;
@@ -1289,6 +1402,9 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 night_brightness: parseInt(document.getElementById('night_brightness').value),
                 auto_cycle_enabled: document.getElementById('auto_cycle_enabled').checked,
                 auto_cycle_sec: parseInt(document.getElementById('auto_cycle_sec').value),
+                ambient_enabled: document.getElementById('ambient_enabled').checked,
+                ambient_creature: parseInt(document.getElementById('ambient_creature').value),
+                ambient_seasonal: document.getElementById('ambient_seasonal').checked,
                 thresh_urgent_low: parseInt(document.getElementById('thresh_urgent_low').value),
                 thresh_low: parseInt(document.getElementById('thresh_low').value),
                 thresh_high: parseInt(document.getElementById('thresh_high').value),
@@ -1525,6 +1641,13 @@ curl -X POST http://DEVICE_IP/api/sysmon \
         document.getElementById('time_display_enabled')
             .addEventListener('change', updateTimeDisplaySetting);
         updateTimeDisplaySetting();
+
+        document.getElementById('ambient_enabled')
+            .addEventListener('change', updateAmbientDisplaySetting);
+        document.getElementById('ambient_creature')
+            .addEventListener('change', drawAmbientCreaturePreview);
+        updateAmbientDisplaySetting();
+        drawAmbientCreaturePreview();
 
         loadConfig();
         loadWifiScan();
