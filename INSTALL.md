@@ -298,11 +298,11 @@ Supported trend values: `RisingFast`, `Rising`, `Flat`, `Falling`, `FallingFast`
 
 ## Button Controls
 
-| Button | Short Press (<1s) | Long Press (>1s) |
-|--------|-------------------|------------------|
-| Left | Toggle glucose / time display | Reset display overrides |
-| Middle | Cycle brightness (10→40→100→200) | Reset display overrides |
-| Right | — | Reset display overrides |
+| Button | Short Press (<1s) | Double Press | Long Press (>1s) |
+|--------|-------------------|--------------|------------------|
+| Left | Toggle display mode | — | Reset display overrides |
+| Middle | Cycle brightness (10→40→100→200) | Show the clock's browser address | Snooze alerts |
+| Right | Previous display / context action | — | Reset display / context action |
 
 ---
 

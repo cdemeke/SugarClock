@@ -149,7 +149,12 @@ void loop() {
     buttons_loop();
     ButtonEvent evt = buttons_get_event();
     if (evt != BTN_NONE) {
-        switch (evt) {
+        // While the connection address is visible, any completed button
+        // gesture dismisses it without also changing another setting.
+        if (engine_get_state() == STATE_CONNECTION_INFO_DISPLAY) {
+            engine_dismiss_connection_info();
+            Serial.println("[BTN] Connection info dismissed");
+        } else switch (evt) {
             case BTN_LEFT_SHORT:
                 engine_toggle_mode();
                 break;
@@ -166,6 +171,10 @@ void loop() {
                 Serial.printf("[BTN] Brightness: %d\n", cfg.brightness);
                 break;
             }
+            case BTN_MIDDLE_DOUBLE:
+                engine_show_connection_info();
+                Serial.println("[BTN] Showing connection info");
+                break;
             case BTN_MIDDLE_LONG:
                 // Snooze buzzer alerts
                 engine_snooze_alerts();
