@@ -65,6 +65,16 @@ static uint16_t color_from_uint32(uint32_t c) {
     return display_color((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF);
 }
 
+// Format a mg/dL glucose value as mmol/L with one decimal (e.g. 100 -> "5.6").
+static void format_mmol(int mg_dl, char* buf, size_t len) {
+    snprintf(buf, len, "%.1f", mg_dl / 18.0);
+}
+
+// Format a mg/dL delta as a signed mmol/L value with one decimal (e.g. 5 -> "+0.3").
+static void format_mmol_delta(int delta_mg_dl, char* buf, size_t len) {
+    snprintf(buf, len, "%+.1f", delta_mg_dl / 18.0);
+}
+
 // --- Weather particle animation system ---
 struct WeatherParticle {
     int16_t x10;   // fixed-point x * 10
@@ -510,7 +520,9 @@ static void render_state(DisplayState state) {
                 display_clear();
                 int delta = http_get_delta();
                 char dbuf[8];
-                if (delta >= 0) {
+                if (cfg.use_mmol) {
+                    format_mmol_delta(delta, dbuf, sizeof(dbuf));
+                } else if (delta >= 0) {
                     snprintf(dbuf, sizeof(dbuf), "+%d", delta);
                 } else {
                     snprintf(dbuf, sizeof(dbuf), "%d", delta);
@@ -524,15 +536,30 @@ static void render_state(DisplayState state) {
             delta_flash_active = false;
 
             // Normal glucose display
-            display_draw_glucose(reading.glucose, color);
-
-            // Draw trend arrow to the right of the number
             char buf[8];
-            snprintf(buf, sizeof(buf), "%d", reading.glucose);
+            if (cfg.use_mmol) {
+                format_mmol(reading.glucose, buf, sizeof(buf));
+            } else {
+                snprintf(buf, sizeof(buf), "%d", reading.glucose);
+            }
             int text_len = strlen(buf);
-            int total_width = text_len * 6 + 6;
+            int total_width = text_len * 6 + 6; // reserve 6px for the arrow
             int x_start = (MATRIX_WIDTH - total_width) / 2;
+            // A 4-char mmol value ("25.6") + arrow is exactly 30px and fits, but
+            // guard against any overflow by pinning to the left edge rather than
+            // clipping the arrow off the right of the 32px matrix.
+            if (x_start < 0) x_start = 0;
             int arrow_x = x_start + text_len * 6 + 1;
+
+            if (cfg.use_mmol) {
+                // mg/dL path uses display_draw_glucose (which clears + centers
+                // internally); for mmol format the string here and draw it with
+                // the same centering math so the arrow lines up.
+                display_clear();
+                display_draw_text(buf, x_start, 0, color);
+            } else {
+                display_draw_glucose(reading.glucose, color);
+            }
 
             if (reading.trend != TREND_UNKNOWN) {
                 display_draw_trend(reading.trend, arrow_x, 0, color);
@@ -797,7 +824,9 @@ static void render_state(DisplayState state) {
                 // Draw delta number at x=8
                 int delta = http_get_delta();
                 char dbuf[8];
-                if (delta >= 0) {
+                if (cfg.use_mmol) {
+                    format_mmol_delta(delta, dbuf, sizeof(dbuf));
+                } else if (delta >= 0) {
                     snprintf(dbuf, sizeof(dbuf), "+%d", delta);
                 } else {
                     snprintf(dbuf, sizeof(dbuf), "%d", delta);
