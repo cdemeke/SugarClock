@@ -34,7 +34,7 @@ SugarClock is free, open-source firmware that turns the [Ulanzi TC001 Smart Pixe
 - **Web dashboard** — Configure everything from your phone or computer browser
 - **Secure WiFi updates** — Signed, power-loss-safe firmware updates with automatic rollback
 - **Clock, weather & more** — Also shows time, date, temperature, pomodoro timer, and push notifications
-- **Ambient Fish** — An optional pixel companion that swims, rests, and reflects non-urgent glucose ranges through playful motion and gentle currents
+- **Ambient Creatures** — Choose an optional fish or ghost companion that rests, responds to weather, and reflects non-urgent glucose ranges through gentle motion
 
 ## What You Need
 

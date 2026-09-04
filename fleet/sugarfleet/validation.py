@@ -63,6 +63,7 @@ CONFIG_FIELDS = {
     "time_display_enabled": (bool, None, None),
     "default_mode": (int, 0, 3),
     "ambient_enabled": (bool, None, None),
+    "ambient_creature": (int, 0, 1),
     "ambient_seasonal": (bool, None, None),
     "alert_enabled": (bool, None, None),
     "alert_low": (int, 20, 400),

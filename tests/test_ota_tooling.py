@@ -52,6 +52,25 @@ class WebAssetTests(unittest.TestCase):
         self.assertEqual(compressed[9], 255)
         self.assertEqual(web_assets.gzip.decompress(compressed), payload)
 
+    def test_ambient_creature_selector_is_in_both_settings_pages(self):
+        web_paths = (
+            os.path.join(ROOT, "data", "www", "index.html"),
+            os.path.join(
+                ROOT, "onboarding", "TC001Setup", "TC001Setup",
+                "Resources", "WebUI", "www", "index.html",
+            ),
+        )
+        pages = []
+        for path in web_paths:
+            with open(path, encoding="utf-8") as stream:
+                pages.append(stream.read())
+
+        self.assertEqual(pages[0], pages[1])
+        self.assertIn('<select id="ambient_creature">', pages[0])
+        self.assertIn('<option value="0">Fish</option>', pages[0])
+        self.assertIn('<option value="1">Ghost</option>', pages[0])
+        self.assertIn("ambient_creature: parseInt", pages[0])
+
 
 class OtaManifestTests(unittest.TestCase):
     @classmethod
