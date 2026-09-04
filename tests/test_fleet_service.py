@@ -35,11 +35,18 @@ def fixture(name):
 
 
 class FleetProtocolFixtureTests(unittest.TestCase):
-    def test_ambient_fish_config_patch_is_validated(self):
+    def test_ambient_creature_config_patch_is_validated(self):
         validate_command(
             "config_patch",
-            {"changes": {"ambient_enabled": True, "ambient_seasonal": False, "default_mode": 3}},
+            {"changes": {
+                "ambient_enabled": True,
+                "ambient_creature": 1,
+                "ambient_seasonal": False,
+                "default_mode": 3,
+            }},
         )
+        with self.assertRaisesRegex(ApiError, "ambient_creature is out of range"):
+            validate_command("config_patch", {"changes": {"ambient_creature": 2}})
         with self.assertRaisesRegex(ApiError, "default_mode is out of range"):
             validate_command("config_patch", {"changes": {"default_mode": 4}})
 
