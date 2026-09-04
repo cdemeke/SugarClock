@@ -20,7 +20,7 @@ struct AppConfig {
     char wifi_anon_identity[128];  // optional outer identity
     bool wifi_validate_ca;         // default false; only meaningful with /wifi_ca.pem present
 
-    // Data source: 0=custom URL, 1=Dexcom Share, 2=Demo (synthetic data)
+    // Data source: 0=custom URL, 1=Dexcom Share, 2=Demo (synthetic data), 3=Nightscout
     int data_source;
 
     // Custom server

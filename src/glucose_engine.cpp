@@ -160,7 +160,7 @@ static void on_weather_pre_fetch() {
     // Only force-render a clean frame if currently showing weather
     if (current_state == STATE_WEATHER_DISPLAY && weather_has_data()) {
         AppConfig& cfg = config_get();
-        const WeatherReading& wx = weather_get_reading();
+        WeatherReading wx = weather_get_reading();
 
         display_clear();
         char tbuf[8];
@@ -270,7 +270,7 @@ static void check_alerts() {
     AppConfig& cfg = config_get();
     if (!cfg.alert_enabled) return;
 
-    const GlucoseReading& reading = http_get_reading();
+    GlucoseReading reading = http_get_reading();
     if (!reading.valid) return;
 
     // Check if snoozed
@@ -434,7 +434,7 @@ static DisplayState evaluate_state() {
     }
 
     // Check for server-pushed force_mode
-    const GlucoseReading& reading = http_get_reading();
+    GlucoseReading reading = http_get_reading();
     if (reading.valid && reading.force_mode >= 0) {
         return (DisplayState)reading.force_mode;
     }
@@ -476,7 +476,7 @@ static void render_state(DisplayState state) {
         }
 
         case STATE_GLUCOSE_DISPLAY: {
-            const GlucoseReading& reading = http_get_reading();
+            GlucoseReading reading = http_get_reading();
             if (!reading.valid) {
                 display_clear();
                 display_draw_text("---", 7, 0, display_color(100, 100, 100));
@@ -617,7 +617,7 @@ static void render_state(DisplayState state) {
             if (!weather_has_data()) {
                 display_draw_text("WX...", 4, 0, color_from_uint32(cfg.color_weather));
             } else {
-                const WeatherReading& wx = weather_get_reading();
+                WeatherReading wx = weather_get_reading();
                 int anim = weather_anim_type(wx.condition_id);
 
                 // Spawn and draw weather particles behind text
@@ -800,7 +800,7 @@ static void render_state(DisplayState state) {
             display_set_brightness(effective_brightness());
             display_clear();
 
-            const GlucoseReading& reading = http_get_reading();
+            GlucoseReading reading = http_get_reading();
             if (!reading.valid || reading.trend == TREND_UNKNOWN) {
                 display_draw_text("---", 7, 0, display_color(100, 100, 100));
             } else {
@@ -887,7 +887,7 @@ static void render_state(DisplayState state) {
             display_set_brightness(effective_brightness());
             display_clear();
 
-            const GlucoseReading& reading = http_get_reading();
+            GlucoseReading reading = http_get_reading();
             if (!reading.valid) {
                 display_draw_text("---", 7, 0, color_from_uint32(cfg.color_stale));
                 display_show();

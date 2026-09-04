@@ -314,6 +314,7 @@
                             <option value="0">Custom URL</option>
                             <option value="1">Dexcom Share</option>
                             <option value="2">Demo Mode (no real data)</option>
+                            <option value="3">Nightscout</option>
                         </select>
                     </div>
 
@@ -331,6 +332,21 @@
                             <div class="pw-wrap">
                                 <input type="password" id="auth_token" maxlength="255">
                                 <button type="button" class="pw-toggle" onclick="togglePw('auth_token')">&#128065;</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="nightscout-fields" style="display:none;">
+                        <div class="hint">Enter your Nightscout site URL (e.g. <code>https://mysite.herokuapp.com</code>) and an optional access token.</div>
+                        <div class="form-group">
+                            <label>Nightscout URL</label>
+                            <input type="url" id="nightscout_url" placeholder="https://mysite.herokuapp.com" maxlength="255">
+                        </div>
+                        <div class="form-group">
+                            <label>Access Token</label>
+                            <div class="pw-wrap">
+                                <input type="password" id="nightscout_token" maxlength="255">
+                                <button type="button" class="pw-toggle" onclick="togglePw('nightscout_token')">&#128065;</button>
                             </div>
                         </div>
                     </div>
@@ -863,6 +879,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             document.getElementById('custom-fields').style.display = src === '0' ? 'block' : 'none';
             document.getElementById('dexcom-fields').style.display = src === '1' ? 'block' : 'none';
             document.getElementById('demo-fields').style.display = src === '2' ? 'block' : 'none';
+            document.getElementById('nightscout-fields').style.display = src === '3' ? 'block' : 'none';
         }
 
         function showToast(msg, type) {
@@ -1257,6 +1274,8 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 document.getElementById('data_source').value = c.data_source || 0;
                 document.getElementById('server_url').value = c.server_url || '';
                 document.getElementById('auth_token').value = c.auth_token || '';
+                document.getElementById('nightscout_url').value = c.data_source === 3 ? (c.server_url || '') : '';
+                document.getElementById('nightscout_token').value = '';
                 document.getElementById('dexcom_username').value = c.dexcom_username || '';
                 document.getElementById('dexcom_password').value = c.dexcom_password || '';
                 document.getElementById('dexcom_us').value = c.dexcom_us ? '1' : '0';
@@ -1384,8 +1403,12 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
             const data = {
                 data_source: parseInt(document.getElementById('data_source').value),
-                server_url: document.getElementById('server_url').value,
-                auth_token: document.getElementById('auth_token').value,
+                server_url: document.getElementById('data_source').value === '3'
+                    ? document.getElementById('nightscout_url').value
+                    : document.getElementById('server_url').value,
+                auth_token: document.getElementById('data_source').value === '3'
+                    ? document.getElementById('nightscout_token').value
+                    : document.getElementById('auth_token').value,
                 dexcom_username: document.getElementById('dexcom_username').value,
                 dexcom_password: document.getElementById('dexcom_password').value,
                 dexcom_us: document.getElementById('dexcom_us').value === '1',
