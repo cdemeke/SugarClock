@@ -246,6 +246,13 @@
                             <input type="number" id="auto_cycle_sec" min="3" max="300" value="10">
                             <div class="hint">Time on each screen before advancing (3-300s)</div>
                         </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="night_disable_auto_cycle">
+                                Pause cycling during night mode
+                            </label>
+                            <div class="hint">Keep the current screen on during night mode hours</div>
+                        </div>
                     </div>
                 </div>
 
@@ -1300,6 +1307,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 document.getElementById('ambient_seasonal').checked = c.ambient_seasonal !== false;
                 updateAmbientDisplaySetting();
                 drawAmbientCreaturePreview();
+                document.getElementById('night_disable_auto_cycle').checked = c.night_disable_auto_cycle === true;
 
                 // Glucose
                 document.getElementById('thresh_urgent_low').value = c.thresh_urgent_low;
@@ -1428,6 +1436,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 ambient_enabled: document.getElementById('ambient_enabled').checked,
                 ambient_creature: parseInt(document.getElementById('ambient_creature').value),
                 ambient_seasonal: document.getElementById('ambient_seasonal').checked,
+                night_disable_auto_cycle: document.getElementById('night_disable_auto_cycle').checked,
                 thresh_urgent_low: parseInt(document.getElementById('thresh_urgent_low').value),
                 thresh_low: parseInt(document.getElementById('thresh_low').value),
                 thresh_high: parseInt(document.getElementById('thresh_high').value),

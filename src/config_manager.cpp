@@ -132,6 +132,8 @@ static void config_set_defaults() {
     // Auto-cycle
     config.auto_cycle_enabled = true;
     config.auto_cycle_sec = 10;
+    config.night_disable_auto_cycle = false;
+    config.night_disable_auto_cycle = false;
 
     config.auto_update_enabled = true;
     config.auto_update_hour = 3;
@@ -347,6 +349,7 @@ void config_init() {
         // Auto-cycle
         config.auto_cycle_enabled = prefs.getBool("acyc_en", true);
         config.auto_cycle_sec = prefs.getInt("acyc_sec", 10);
+        config.night_disable_auto_cycle = prefs.getBool("acyc_noff", false);
         if (config.auto_cycle_sec < 3) config.auto_cycle_sec = 3;
         if (config.auto_cycle_sec > 300) config.auto_cycle_sec = 300;
 
@@ -476,6 +479,8 @@ void config_save() {
     // Auto-cycle
     prefs.putBool("acyc_en", config.auto_cycle_enabled);
     prefs.putInt("acyc_sec", config.auto_cycle_sec);
+    prefs.putBool("acyc_noff", config.night_disable_auto_cycle);
+    prefs.putBool("acyc_noff", config.night_disable_auto_cycle);
     prefs.putBool("ota_auto", config.auto_update_enabled);
     prefs.putInt("ota_hour", config.auto_update_hour);
 

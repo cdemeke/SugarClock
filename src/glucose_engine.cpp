@@ -1034,7 +1034,11 @@ void engine_loop() {
 
     // Auto-cycle display modes
     AppConfig& cfg = config_get();
-    if (!connection_info_visible && cfg.auto_cycle_enabled && toggle_count > 1) {
+    bool cycling_active = cfg.auto_cycle_enabled && toggle_count > 1 && !connection_info_visible;
+    if (cycling_active && is_night_mode() && cfg.night_disable_auto_cycle) {
+        cycling_active = false;
+    }
+    if (cycling_active) {
         unsigned long cycle_interval_ms = (unsigned long)cfg.auto_cycle_sec * 1000UL;
         if (last_cycle_ms == 0) last_cycle_ms = millis();
         if (millis() - last_cycle_ms >= cycle_interval_ms) {

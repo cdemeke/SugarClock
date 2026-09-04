@@ -247,6 +247,7 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     // Auto-cycle
     doc["auto_cycle_enabled"] = cfg.auto_cycle_enabled;
     doc["auto_cycle_sec"] = cfg.auto_cycle_sec;
+    doc["night_disable_auto_cycle"] = cfg.night_disable_auto_cycle;
 
     String output;
     serializeJson(doc, output);
@@ -540,6 +541,9 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     }
     if (doc["auto_cycle_sec"].is<int>()) {
         cfg.auto_cycle_sec = constrain(doc["auto_cycle_sec"].as<int>(), 3, 300);
+    }
+    if (doc["night_disable_auto_cycle"].is<bool>()) {
+        cfg.night_disable_auto_cycle = doc["night_disable_auto_cycle"].as<bool>();
     }
 
     config_save();
