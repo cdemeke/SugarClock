@@ -787,7 +787,11 @@ static void render_state(DisplayState state) {
 
                 uint16_t tcolor = is_stale ? color_from_uint32(cfg.color_stale) : themed_glucose_color(reading.glucose, cfg);
 
-                display_draw_glucose_delta(http_get_delta(), reading.trend, tcolor, cfg.use_mmol);
+                if (cfg.show_delta) {
+                    display_draw_glucose_delta(http_get_delta(), reading.trend, tcolor, cfg.use_mmol);
+                } else {
+                    display_draw_trend(reading.trend, 1, 0, tcolor);
+                }
             }
 
             display_show();
