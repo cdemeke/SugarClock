@@ -815,14 +815,16 @@ static void render_state(DisplayState state) {
                 display_draw_trend(reading.trend, 1, 0, tcolor);
 
                 // Draw delta number at x=8
-                int delta = http_get_delta();
-                char dbuf[8];
-                if (delta >= 0) {
-                    snprintf(dbuf, sizeof(dbuf), "+%d", delta);
-                } else {
-                    snprintf(dbuf, sizeof(dbuf), "%d", delta);
+                if (cfg.show_delta) {
+                    int delta = http_get_delta();
+                    char dbuf[8];
+                    if (delta >= 0) {
+                        snprintf(dbuf, sizeof(dbuf), "+%d", delta);
+                    } else {
+                        snprintf(dbuf, sizeof(dbuf), "%d", delta);
+                    }
+                    display_draw_text(dbuf, 8, 0, tcolor);
                 }
-                display_draw_text(dbuf, 8, 0, tcolor);
             }
 
             display_show();
