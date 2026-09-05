@@ -1,4 +1,5 @@
 #include "ambient_fish.h"
+#include "companion.h"
 
 #include "config_manager.h"
 #include "display.h"
@@ -195,40 +196,6 @@ static void draw_water_weather(WaterWeather weather_state, unsigned long frame) 
     }
 }
 
-static void draw_glucose_current(GlucoseEffect effect, unsigned long frame) {
-    const AppConfig& cfg = config_get();
-
-    if (effect == GLUCOSE_EFFECT_IN_RANGE) {
-        // A sparse green sparkle and extra bubble make in-range feel playful.
-        uint16_t color = packed_color(cfg.color_in_range);
-        int bubble_y = 4 - (int)((frame / 10) % 3);
-        display_draw_pixel(5, bubble_y, color);
-        if ((frame / 8) % 10 < 6) {
-            display_draw_pixel(2, 0, color);
-            display_draw_pixel(1, 1, color);
-            display_draw_pixel(3, 1, color);
-            display_draw_pixel(2, 2, color);
-        }
-        return;
-    }
-
-    if (effect != GLUCOSE_EFFECT_LOW && effect != GLUCOSE_EFFECT_HIGH) return;
-
-    uint16_t color = packed_color(effect == GLUCOSE_EFFECT_LOW
-        ? cfg.color_low
-        : cfg.color_high);
-    int phase = (int)((frame / 3) % 8);
-    bool downward = effect == GLUCOSE_EFFECT_LOW;
-
-    // Diagonal streams stay at the edges so the fish remains calm and legible.
-    for (int i = 0; i < 3; ++i) {
-        int left_y = downward ? (phase + i) % 8 : (7 - phase - i + 16) % 8;
-        int right_y = downward ? (phase + i + 4) % 8 : (11 - phase - i + 16) % 8;
-        display_draw_pixel(i, left_y, color);
-        display_draw_pixel(29 + i, right_y, color);
-    }
-}
-
 static void draw_urgent_number(GlucoseEffect effect) {
     const GlucoseReading& reading = http_get_reading();
     const AppConfig& cfg = config_get();
@@ -237,7 +204,8 @@ static void draw_urgent_number(GlucoseEffect effect) {
         : cfg.color_urgent_high;
 
     char number[8];
-    snprintf(number, sizeof(number), "%d", reading.glucose);
+    if (cfg.use_mmol) snprintf(number, sizeof(number), "%.1f", reading.glucose / 18.018f);
+    else snprintf(number, sizeof(number), "%d", reading.glucose);
     int width = display_text_width(number) - 1; // omit the final glyph spacing
     int x = (32 - width) / 2;
     display_draw_text(number, x, 0, packed_color(packed));
@@ -247,88 +215,19 @@ static void draw_missing_glucose() {
     display_draw_text("---", 7, 0, packed_color(config_get().color_stale));
 }
 
-static void draw_fish(unsigned long frame, bool resting, bool playful) {
-    // This exact idle frame is shared with the settings preview. Its broad
-    // silhouette uses nearly the full width so it remains legible at a glance.
-    static const char* const sprite[8] = {
-        "....C...................Y.......",
-        "..........OOOOOOOOO....Y........",
-        "..C.....OOOOOOOOOOOOOOY.........",
-        ".......O.OOOOOOOOOOOOOOO........",
-        "........OOOOOOOOOOOOOOY.........",
-        "..........OOOOOOOOO....Y........",
-        "............CCCCC.......Y.......",
-        "................................"
-    };
-
-    bool tail_flick = playful ? ((frame / 2) & 1) : ((frame / 12) & 1);
-    for (int y = 0; y < 8; ++y) {
-        for (int x = 0; x < 32; ++x) {
-            char pixel = sprite[y][x];
-
-            // The two cyan pixels ahead of the mouth are animated separately.
-            if (pixel == 'C' && x < 8) continue;
-            // Every other tail pose substitutes a slightly wider fan below.
-            if (pixel == 'Y' && tail_flick) continue;
-
-            uint16_t color;
-            switch (pixel) {
-                case 'O': color = orange(); break;
-                case 'Y': color = gold(); break;
-                case 'C': color = cool(); break;
-                default: continue;
-            }
-            display_draw_pixel(x, y, color);
-        }
+static void draw_companion(unsigned long frame, bool resting, bool interacting, GlucoseEffect effect) {
+    char pixels[8][32];
+    bool happy = interacting || (!resting && effect == GLUCOSE_EFFECT_IN_RANGE && frame % 80 < 16);
+    int range = effect == GLUCOSE_EFFECT_LOW ? COMPANION_LOW
+              : effect == GLUCOSE_EFFECT_HIGH ? COMPANION_HIGH : COMPANION_IN_RANGE;
+    uint32_t animation_ms = interacting
+        ? millis() - interaction_started_ms
+        : frame * FISH_FRAME_MS;
+    companion_frame(config_get().ambient_character, animation_ms, resting, happy, pixels,
+                    config_get().ambient_style, range);
+    for (int y = 0; y < 8; ++y) for (int x = 0; x < 32; ++x) {
+        if (pixels[y][x] != '.') display_draw_pixel(x, y, packed_color(companion_color(pixels[y][x])));
     }
-
-    if (tail_flick) {
-        display_draw_pixel(24, 1, gold());
-        display_draw_pixel(23, 2, gold());
-        display_draw_pixel(22, 3, gold());
-        display_draw_pixel(23, 4, gold());
-        display_draw_pixel(24, 5, gold());
-        display_draw_pixel(25, 6, gold());
-    }
-
-    if (resting) {
-        // Filling the open eye and adding a two-pixel dark line reads as closed.
-        display_draw_pixel(8, 3, orange());
-        display_draw_pixel(8, 4, 0);
-        display_draw_pixel(9, 4, 0);
-    }
-}
-
-static void draw_bubbles(unsigned long frame, bool playful) {
-    if (playful) {
-        // The button response sends three bubbles forward from the mouth.
-        unsigned long response_frame = (millis() - interaction_started_ms) / FISH_FRAME_MS;
-        display_draw_pixel(6 - (int)((response_frame / 3) % 4), 3, cool());
-        display_draw_pixel(4 - (int)((response_frame / 5) % 3), 1, water());
-        display_draw_pixel(1, 3 - (int)((response_frame / 6) % 3), cool());
-        return;
-    }
-
-    // Two slow bubbles match the preview and move only occasionally.
-    int drift = (int)((frame / 12) % 3);
-    display_draw_pixel(4, (3 - drift) % 3, cool());
-    display_draw_pixel(2, 2 - (drift / 2), water());
-}
-
-static void draw_swimming_fish(unsigned long frame, bool interacting, bool in_range) {
-    // In-range liveliness comes in short bursts; direct interaction is immediate.
-    bool lively_burst = in_range && (frame % 80 < 16);
-    draw_fish(frame, false, interacting || lively_burst);
-    draw_bubbles(frame, interacting);
-
-}
-
-static void draw_resting_fish(unsigned long frame) {
-    draw_fish(frame / 2, true, false);
-    hline(5, 25, 7, deep_water());
-
-    // A single slow bubble replaces a busy sleep symbol.
-    display_draw_pixel(4, 3 - (int)((frame / 16) % 3), water());
 }
 
 static void draw_seasonal_surprise(unsigned long frame) {
@@ -368,7 +267,7 @@ void ambient_fish_render() {
 
     display_clear();
 
-    if (glucose_effect == GLUCOSE_EFFECT_MISSING) {
+    if (glucose_effect == GLUCOSE_EFFECT_MISSING || glucose_effect == GLUCOSE_EFFECT_NONE) {
         draw_missing_glucose();
         return;
     }
@@ -381,18 +280,16 @@ void ambient_fish_render() {
         return;
     }
 
-    draw_water_weather(choose_water_weather(), frame);
-    draw_glucose_current(glucose_effect, frame);
+    // Labels and range icons own the spare screen space. Optional scene extras
+    // are limited to the standalone pet, and never obscure an out-of-range pose.
+    bool scene_extras = companion_style_or_default(config_get().ambient_style) == COMPANION_ONLY &&
+                        glucose_effect == GLUCOSE_EFFECT_IN_RANGE;
+    if (scene_extras) draw_water_weather(choose_water_weather(), frame);
 
-    if (pose == FISH_RESTING) {
-        draw_resting_fish(frame);
-    } else {
-        draw_swimming_fish(frame,
-                           pose == FISH_PLAYING,
-                           glucose_effect == GLUCOSE_EFFECT_IN_RANGE);
-    }
+    draw_companion(frame, pose == FISH_RESTING, pose == FISH_PLAYING,
+                   glucose_effect);
 
-    draw_seasonal_surprise(frame);
+    if (scene_extras) draw_seasonal_surprise(frame);
 }
 
 void ambient_fish_interact() {
