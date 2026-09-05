@@ -1,5 +1,6 @@
 #include "web_server.h"
 #include "config_manager.h"
+#include "companion.h"
 #include "wifi_manager.h"
 #include "http_client.h"
 #include "glucose_engine.h"
@@ -175,7 +176,9 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     doc["time_display_enabled"] = cfg.time_display_enabled;
     doc["default_mode"] = cfg.default_mode;
     doc["ambient_enabled"] = cfg.ambient_enabled;
-    doc["ambient_creature"] = cfg.ambient_creature;
+    doc["ambient_creature"] = cfg.ambient_character == COMPANION_GHOST ? 1 : 0;
+    doc["ambient_character"] = cfg.ambient_character;
+    doc["ambient_style"] = cfg.ambient_style;
     doc["ambient_seasonal"] = cfg.ambient_seasonal;
 
     // Alerts
@@ -269,6 +272,18 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     DeserializationError err = deserializeJson(doc, config_body, total);
     if (err) {
         request->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
+        return;
+    }
+
+    if (doc.as<JsonObjectConst>().containsKey("ambient_character") &&
+        (!doc["ambient_character"].is<int>() || !companion_valid(doc["ambient_character"].as<int>()))) {
+        request->send(400, "application/json", "{\"error\":\"Invalid companion selection\"}");
+        return;
+    }
+
+    if (doc.as<JsonObjectConst>().containsKey("ambient_style") &&
+        (!doc["ambient_style"].is<int>() || !companion_style_valid(doc["ambient_style"].as<int>()))) {
+        request->send(400, "application/json", "{\"error\":\"Invalid companion display style\"}");
         return;
     }
 
@@ -367,8 +382,14 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     if (doc["ambient_enabled"].is<bool>()) {
         cfg.ambient_enabled = doc["ambient_enabled"].as<bool>();
     }
-    if (doc["ambient_creature"].is<int>()) {
-        cfg.ambient_creature = constrain(doc["ambient_creature"].as<int>(), 0, 1);
+    if (doc["ambient_style"].is<int>()) {
+        cfg.ambient_style = doc["ambient_style"].as<int>();
+    }
+    if (doc["ambient_creature"].is<int>() && !doc.as<JsonObjectConst>().containsKey("ambient_character")) {
+        cfg.ambient_character = constrain(doc["ambient_creature"].as<int>(), 0, 1);
+    }
+    if (doc["ambient_character"].is<int>()) {
+        cfg.ambient_character = doc["ambient_character"].as<int>();
     }
     if (doc["ambient_seasonal"].is<bool>()) {
         cfg.ambient_seasonal = doc["ambient_seasonal"].as<bool>();

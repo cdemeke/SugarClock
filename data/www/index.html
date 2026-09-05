@@ -164,7 +164,7 @@
                                 <option value="0">Glucose</option>
                                 <option value="1">Time</option>
                                 <option value="2">Weather</option>
-                                <option value="3" id="default-mode-ambient" hidden disabled>Ambient Creature</option>
+                                <option value="3" id="default-mode-ambient" hidden disabled>Pixel Companion</option>
                             </select>
                         </div>
                     </div>
@@ -252,41 +252,70 @@
                 <div class="card ambient-card">
                     <div class="card-header-toggle ambient-card-header">
                         <div>
-                            <h2>Ambient Creature</h2>
-                            <p class="ambient-kicker" id="ambient-kicker">A tiny swimmer for your clock</p>
+                            <h2>Pixel Companion</h2>
+                            <p class="ambient-kicker">A little friend with a big personality</p>
                         </div>
-                        <input type="checkbox" id="ambient_enabled" aria-label="Enable Ambient Creature">
+                        <input type="checkbox" id="ambient_enabled" aria-label="Enable Pixel Companion">
                     </div>
                     <div class="card-details collapsed" id="ambient-details">
-                        <div class="form-group" style="margin-bottom:16px;">
-                            <label for="ambient_creature">Creature</label>
-                            <select id="ambient_creature">
-                                <option value="0">Fish</option>
-                                <option value="1">Ghost</option>
-                            </select>
-                            <div class="hint">Choose the companion shown in the ambient display view.</div>
-                        </div>
-                        <p class="ambient-description" id="ambient-description">
-                            This warm little fish swims, naps, and reacts to the time of day. Fresh weather data adds quiet effects to its water, and it always stays silent.
+                        <p class="ambient-description">
+                            Choose a friend that wiggles, naps, and reacts to the time of day. Press the clock's right button while your companion is showing for a little hello. Every companion stays silent.
                         </p>
+                        <div class="form-group">
+                            <label for="ambient_character">Choose your companion</label>
+                            <select id="ambient_character">
+                                <option value="0">Pip &mdash; Goldfish</option>
+                                <option value="1">Boo &mdash; Ghost</option>
+                                <option value="2">Mochi &mdash; Axolotl</option>
+                                <option value="3">Sprout &mdash; Dinosaur</option>
+                            </select>
+                            <div class="hint">Your choice is remembered when the clock restarts.</div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="ambient_style">Companion display style</label>
+                                <select id="ambient_style">
+                                    <option value="0">Companion + text (LOW / OK / HIGH)</option>
+                                    <option value="1">Companion + range icon</option>
+                                    <option value="2">Companion only (centered)</option>
+                                </select>
+                                <div class="hint" id="ambient-style-hint">Orange LOW, green OK, red HIGH.</div>
+                            </div>
+                            <div class="form-group">
+                                <label for="companion-preview-range">Preview glucose range</label>
+                                <select id="companion-preview-range">
+                                    <option value="1">Low</option>
+                                    <option value="0" selected>In range</option>
+                                    <option value="2">High</option>
+                                </select>
+                                <div class="hint">Preview only; uses your saved glucose thresholds on the clock.</div>
+                            </div>
+                        </div>
                         <div class="ambient-preview-shell">
                             <div class="ambient-preview-meta">
-                                <span>On-device preview</span>
+                                <span id="ambient-preview-name">Pip the goldfish</span>
                                 <span>32 &times; 8 pixels</span>
                             </div>
-                            <div class="ambient-matrix" id="ambient-matrix" aria-label="A warm orange pixel-art fish with a yellow tail and cyan bubbles">
-                                <canvas id="ambient-creature-preview" width="32" height="8" role="img" aria-label="Warm orange pixel-art fish preview"></canvas>
+                            <div class="ambient-matrix" aria-label="Selected pixel companion preview">
+                                <canvas id="ambient-companion-preview" width="32" height="8" role="img" aria-label="Pip the goldfish preview"></canvas>
                             </div>
                         </div>
+                        <div class="ambient-preview-controls" role="group" aria-label="Preview companion poses">
+                            <button type="button" class="btn btn-outline" data-companion-mood="awake" aria-pressed="true">Awake</button>
+                            <button type="button" class="btn btn-outline" data-companion-mood="sleepy" aria-pressed="false">Sleepy</button>
+                            <button type="button" class="btn btn-outline" data-companion-mood="happy" aria-pressed="false">Say hello</button>
+                            <button type="button" class="btn btn-outline" id="ambient-preview-pause" aria-pressed="false">Pause preview</button>
+                        </div>
+                        <div class="hint ambient-preview-caption">Preview only. Save settings to apply your companion to the clock.</div>
                         <div class="toggle-row ambient-seasonal-row">
                             <div>
                                 <label for="ambient_seasonal">Seasonal surprises</label>
-                                <div class="hint">Occasional small celebrations for Halloween and New Year&rsquo;s.</div>
+                                <div class="hint">Occasional small celebrations for Halloween and New Year&rsquo;s in Companion only style.</div>
                             </div>
                             <input type="checkbox" id="ambient_seasonal" checked>
                         </div>
                         <div class="ambient-note">
-                            Your ambient creature is its own display view and uses the existing Auto-Cycle interval. In-range readings add playful motion, non-urgent low and high readings add gentle directional motion, and urgent readings show only the glucose number. Stale or missing data keeps the existing warning screen.
+                            Your companion uses your glucose thresholds to choose its pose and range label or icon: orange for low, green for in range, and red for high. Low and high poses stay awake during rest hours. Urgent-low and urgent-high readings replace the entire companion screen with the glucose number, in every display style. Stale or missing data keeps the warning screen.
                         </div>
                     </div>
                 </div>
@@ -843,6 +872,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
     <div class="toast" id="toast"></div>
 
+    <script src="companions.js"></script>
     <script>
         function switchTab(id) {
             document.querySelectorAll('.tab-btn').forEach(b => {
@@ -896,57 +926,31 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             if (!enabled && defaultMode.value === '3') defaultMode.value = '0';
         }
 
-        function drawAmbientCreaturePreview() {
-            const canvas = document.getElementById('ambient-creature-preview');
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-            const creatures = {
-                0: {
-                    sprite: [
-                        '....C...................Y.......',
-                        '..........OOOOOOOOO....Y........',
-                        '..C.....OOOOOOOOOOOOOOY.........',
-                        '.......O.OOOOOOOOOOOOOOO........',
-                        '........OOOOOOOOOOOOOOY.........',
-                        '..........OOOOOOOOO....Y........',
-                        '............CCCCC.......Y.......',
-                        '................................'
-                    ],
-                    palette: {O: '#f07832', Y: '#ffd166', C: '#55d9e8'},
-                    kicker: 'A tiny swimmer for your clock',
-                    description: 'This warm little fish swims, naps, and reacts to the time of day. Fresh weather data adds quiet effects to its water, and it always stays silent.',
-                    label: 'A warm orange pixel-art fish with a yellow tail and cyan bubbles'
-                },
-                1: {
-                    sprite: [
-                        '............LLLLLLLL............',
-                        '..........LLLLLLLLLLLL..........',
-                        '.........LLLLLLLLLLLLLL.........',
-                        '........LLLL.LLLLLL.LLLL........',
-                        '.....LLLLLLLLLLLLLLLLLLLLLL.....',
-                        '........LLLLLLL..LLLLLLL........',
-                        '........LLLLLLLLLLLLLLLL........',
-                        '........LLL.LLL.LLL.LLLL........'
-                    ],
-                    palette: {L: '#b48cff'},
-                    kicker: 'A gentle visitor for your clock',
-                    description: 'This soft lavender ghost floats, naps, and reacts to the time of day. Fresh weather data adds tiny accessories and effects, and it always stays silent.',
-                    label: 'A soft lavender pixel-art ghost with simple eyes and a scalloped base'
-                }
-            };
-            const selected = creatures[document.getElementById('ambient_creature').value] || creatures[0];
-            const palette = {'.': '#07090d', ...selected.palette};
-            ctx.imageSmoothingEnabled = false;
-            selected.sprite.forEach((row, y) => {
-                [...row].forEach((pixel, x) => {
-                    ctx.fillStyle = palette[pixel];
-                    ctx.fillRect(x, y, 1, 1);
-                });
+        let companionPreviewMood = 'awake';
+        let companionPreviewMs = 0;
+        const companionReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+        let companionPreviewPlaying = !companionReducedMotion.matches;
+
+        function drawCompanionPreview() {
+            const canvas = document.getElementById('ambient-companion-preview');
+            const id = Number(document.getElementById('ambient_character').value);
+            const name = PixelCompanions.names[id] || PixelCompanions.names[0];
+            const style = Number(document.getElementById('ambient_style').value);
+            const range = Number(document.getElementById('companion-preview-range').value);
+            canvas.setAttribute('aria-label', name + ' preview: ' + ['in range', 'low', 'high'][range]);
+            document.getElementById('ambient-style-hint').textContent = [
+                'Orange LOW, green OK, red HIGH.',
+                'Lit marker: bottom = low (orange), middle = in range (green), top = high (red).',
+                'Your pet stays centered, with no range text or icon.'
+            ][style];
+            document.getElementById('ambient-preview-name').textContent = name;
+            PixelCompanions.draw(canvas, id, companionPreviewMs, companionPreviewMood, style, range);
+            document.querySelectorAll('[data-companion-mood]').forEach(button => {
+                button.setAttribute('aria-pressed', String(button.dataset.companionMood === companionPreviewMood));
             });
-            document.getElementById('ambient-kicker').textContent = selected.kicker;
-            document.getElementById('ambient-description').textContent = selected.description;
-            document.getElementById('ambient-matrix').setAttribute('aria-label', selected.label);
-            canvas.setAttribute('aria-label', selected.label);
+            const pause = document.getElementById('ambient-preview-pause');
+            pause.textContent = companionPreviewPlaying ? 'Pause preview' : 'Play preview';
+            pause.setAttribute('aria-pressed', String(!companionPreviewPlaying));
         }
 
         function setupToggleCards() {
@@ -1277,10 +1281,11 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 document.getElementById('auto_cycle_enabled').checked = c.auto_cycle_enabled !== false;
                 document.getElementById('auto_cycle_sec').value = c.auto_cycle_sec || 10;
                 document.getElementById('ambient_enabled').checked = c.ambient_enabled || false;
-                document.getElementById('ambient_creature').value = String(c.ambient_creature || 0);
                 document.getElementById('ambient_seasonal').checked = c.ambient_seasonal !== false;
+                document.getElementById('ambient_character').value = PixelCompanions.valid(c.ambient_character) ? c.ambient_character : 0;
+                document.getElementById('ambient_style').value = PixelCompanions.validStyle(c.ambient_style) ? c.ambient_style : 0;
+                drawCompanionPreview();
                 updateAmbientDisplaySetting();
-                drawAmbientCreaturePreview();
 
                 // Glucose
                 document.getElementById('thresh_urgent_low').value = c.thresh_urgent_low;
@@ -1403,8 +1408,9 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 auto_cycle_enabled: document.getElementById('auto_cycle_enabled').checked,
                 auto_cycle_sec: parseInt(document.getElementById('auto_cycle_sec').value),
                 ambient_enabled: document.getElementById('ambient_enabled').checked,
-                ambient_creature: parseInt(document.getElementById('ambient_creature').value),
                 ambient_seasonal: document.getElementById('ambient_seasonal').checked,
+                ambient_character: Number(document.getElementById('ambient_character').value),
+                ambient_style: Number(document.getElementById('ambient_style').value),
                 thresh_urgent_low: parseInt(document.getElementById('thresh_urgent_low').value),
                 thresh_low: parseInt(document.getElementById('thresh_low').value),
                 thresh_high: parseInt(document.getElementById('thresh_high').value),
@@ -1541,7 +1547,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             try {
                 const r = await fetch('/api/display/' + direction, { method: 'POST' });
                 const d = await r.json();
-                document.getElementById('current-mode').textContent = d.mode || '--';
+                document.getElementById('current-mode').textContent = ['AMBIENT_FISH', 'AMBIENT_CREATURE'].includes(d.mode) ? 'Pixel Companion' : (d.mode || '--');
             } catch (e) { showToast('Network error', 'error'); }
         }
         document.getElementById('display-prev-btn').addEventListener('click', () => displayControl('prev'));
@@ -1552,7 +1558,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             try {
                 const r = await fetch('/api/status');
                 const d = await r.json();
-                document.getElementById('current-mode').textContent = d.state || '--';
+                document.getElementById('current-mode').textContent = ['AMBIENT_FISH', 'AMBIENT_CREATURE'].includes(d.state) ? 'Pixel Companion' : (d.state || '--');
             } catch (e) {}
         }
         setInterval(updateCurrentMode, 3000);
@@ -1644,10 +1650,34 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
         document.getElementById('ambient_enabled')
             .addEventListener('change', updateAmbientDisplaySetting);
-        document.getElementById('ambient_creature')
-            .addEventListener('change', drawAmbientCreaturePreview);
         updateAmbientDisplaySetting();
-        drawAmbientCreaturePreview();
+        ['ambient_character', 'ambient_style', 'companion-preview-range'].forEach(id => {
+            document.getElementById(id).addEventListener('change', () => {
+                companionPreviewMs = 0;
+                drawCompanionPreview();
+            });
+        });
+        document.querySelectorAll('[data-companion-mood]').forEach(button => {
+            button.addEventListener('click', () => {
+                companionPreviewMood = button.dataset.companionMood;
+                companionPreviewMs = 0;
+                drawCompanionPreview();
+            });
+        });
+        document.getElementById('ambient-preview-pause').addEventListener('click', () => {
+            companionPreviewPlaying = !companionPreviewPlaying;
+            drawCompanionPreview();
+        });
+        companionReducedMotion.addEventListener('change', event => {
+            if (event.matches) { companionPreviewPlaying = false; drawCompanionPreview(); }
+        });
+        drawCompanionPreview();
+        setInterval(() => {
+            if (!companionPreviewPlaying || document.hidden ||
+                !document.getElementById('ambient-companion-preview').getClientRects().length) return;
+            companionPreviewMs += 100;
+            drawCompanionPreview();
+        }, 100);
 
         loadConfig();
         loadWifiScan();

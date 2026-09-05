@@ -50,6 +50,20 @@ class FleetProtocolFixtureTests(unittest.TestCase):
         with self.assertRaisesRegex(ApiError, "default_mode is out of range"):
             validate_command("config_patch", {"changes": {"default_mode": 4}})
 
+    def test_companion_selection_is_validated(self):
+        for character in range(4):
+            validate_command("config_patch", {"changes": {"ambient_character": character}})
+        for character in (-1, 4, True, "1", 1.5, None):
+            with self.assertRaises(ApiError):
+                validate_command("config_patch", {"changes": {"ambient_character": character}})
+
+    def test_companion_style_is_validated(self):
+        for style in range(3):
+            validate_command("config_patch", {"changes": {"ambient_style": style}})
+        for style in (-1, 3, True, "1", 1.5, None):
+            with self.assertRaises(ApiError):
+                validate_command("config_patch", {"changes": {"ambient_style": style}})
+
     def test_missing_production_secret_fails_closed(self):
         with mock.patch.dict(os.environ, {"FLEET_SECRET_KEY": "", "FLEET_INSECURE_COOKIES": ""}):
             with self.assertRaisesRegex(RuntimeError, "FLEET_SECRET_KEY is required"):

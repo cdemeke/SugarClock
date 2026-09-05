@@ -1,4 +1,5 @@
 #include "config_manager.h"
+#include "companion.h"
 #include <Preferences.h>
 #include <Arduino.h>
 #include <LittleFS.h>
@@ -58,9 +59,10 @@ static void config_set_defaults() {
     // Default mode
     config.default_mode = 0; // glucose
 
-    // Ambient creature
+    // Pixel companion
     config.ambient_enabled = false;
-    config.ambient_creature = 0;
+    config.ambient_character = COMPANION_FISH;
+    config.ambient_style = COMPANION_TEXT;
     config.ambient_seasonal = true;
 
     // Alerts
@@ -258,18 +260,14 @@ void config_init() {
         config.time_display_enabled = prefs.getBool("time_en", true);
         config.default_mode = prefs.getInt("def_mode", 0);
 
-        // Earlier preview builds used mascot-specific keys. Keep those values
+        // The first preview build used mascot-specific keys. Keep those values
         // as one-way fallbacks so test devices retain their saved preferences.
         bool previous_ambient_enabled = prefs.getBool("cat_en", false);
-        bool previous_fish_enabled = prefs.getBool("fish_en", previous_ambient_enabled);
         bool previous_ambient_seasonal = prefs.getBool("cat_season", true);
-        bool previous_fish_seasonal = prefs.getBool("fish_season", previous_ambient_seasonal);
-        config.ambient_enabled = prefs.getBool("amb_en", previous_fish_enabled);
-        config.ambient_creature = prefs.getInt("amb_kind", 0);
-        if (config.ambient_creature < 0 || config.ambient_creature > 1) {
-            config.ambient_creature = 0;
-        }
-        config.ambient_seasonal = prefs.getBool("amb_season", previous_fish_seasonal);
+        config.ambient_enabled = prefs.getBool("amb_en", prefs.getBool("fish_en", previous_ambient_enabled));
+        config.ambient_seasonal = prefs.getBool("amb_season", prefs.getBool("fish_season", previous_ambient_seasonal));
+        config.ambient_character = companion_or_default(prefs.getInt("pal_type", prefs.getInt("amb_kind", COMPANION_FISH)));
+        config.ambient_style = companion_style_or_default(prefs.getInt("pal_style", COMPANION_TEXT));
 
         // Alerts
         config.alert_enabled = prefs.getBool("alert_en", false);
@@ -404,7 +402,10 @@ void config_save() {
     prefs.putBool("time_en", config.time_display_enabled);
     prefs.putInt("def_mode", config.default_mode);
     prefs.putBool("amb_en", config.ambient_enabled);
-    prefs.putInt("amb_kind", config.ambient_creature);
+    config.ambient_character = companion_or_default(config.ambient_character);
+    prefs.putInt("pal_type", config.ambient_character);
+    config.ambient_style = companion_style_or_default(config.ambient_style);
+    prefs.putInt("pal_style", config.ambient_style);
     prefs.putBool("amb_season", config.ambient_seasonal);
 
     // Alerts
