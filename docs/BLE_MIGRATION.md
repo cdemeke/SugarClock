@@ -23,7 +23,7 @@ their last published release until a separately authorized promotion.
 
 ## A. Stock or new clock
 
-Build or obtain an explicitly approved release's USB artifacts. In the Mac installer, turn **off** “Upgrade existing SugarClock — preserve saved settings and certificates” for a stock/new device. Defer Wi-Fi configuration if using the iOS app. Install by USB, then launch SugarClock on the iPhone, allow Bluetooth, select the nearby clock, and enter its displayed passkey in the system prompt. If the initial two-minute pairing window expired, hold left and right together for three seconds and release.
+Build or obtain an explicitly approved release's USB artifacts. In the Mac installer, turn **off** “Upgrade existing SugarClock — preserve saved settings and certificates” for a stock/new device. Defer Wi-Fi configuration if using the iOS app. Install by USB, then launch SugarClock on the iPhone, allow Bluetooth, select the nearby clock, and enter its displayed passkey in the system prompt. If the initial two-minute pairing window expired, hold only the middle button for three seconds and release.
 
 In the app, connect Wi-Fi using the clock's scan or enter a hidden SSID. Select Dexcom Share or a URL/Nightscout JSON endpoint, configure credentials, units and alerts, and confirm the separate network, persistence and provider/data results. Demo source is explicitly synthetic and is not a provider-success check.
 

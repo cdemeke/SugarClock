@@ -20,6 +20,7 @@ struct ButtonState {
 static ButtonState buttons[3];
 static ButtonEvent pending_event = BTN_NONE;
 static DoubleClickDetector middle_click(DOUBLE_CLICK_MS);
+static bool middle_exclusive = false;
 
 static void publish_middle_click(DoubleClickResult result) {
     if (result == DOUBLE_CLICK_SINGLE) {
@@ -34,6 +35,7 @@ static void publish_middle_click(DoubleClickResult result) {
 void buttons_init() {
     pending_event = BTN_NONE;
     middle_click.cancel();
+    middle_exclusive = false;
     buttons[0] = { PIN_BUTTON_LEFT,   true, true, false, 0, 0, false };
     buttons[1] = { PIN_BUTTON_MIDDLE, true, true, false, 0, 0, false };
     buttons[2] = { PIN_BUTTON_RIGHT,  true, true, false, 0, 0, false };
@@ -45,20 +47,10 @@ void buttons_init() {
 
 void buttons_loop() {
     unsigned long now = millis();
-    // Two-button chord consumes individual events until both are released.
-    // Release after 3 seconds admits a phone; hold 10 seconds resets bonds.
-    static bool chord=false,reset=false;
-    static unsigned long chordStart=0;
-    bool left=!digitalRead(PIN_BUTTON_LEFT),right=!digitalRead(PIN_BUTTON_RIGHT);
-    if(left && right && !chord) {chord=true;reset=false;chordStart=now;middle_click.cancel();pending_event=BTN_NONE;}
-    if(chord) {
-        if(left && right && !reset && now-chordStart>=10000) {pending_event=BTN_BOND_RESET;reset=true;}
-        if(!left && !right) {
-            if(!reset && now-chordStart>=3000) pending_event=BTN_PAIRING;
-            chord=false;
-            for(auto& b:buttons) {b.pressed=false;b.long_fired=false;b.last_raw=true;b.debounce_time=now;}
-        }
-        return;
+    // The outer-button chord is the TC001 hardware power shortcut. Pairing
+    // uses only the middle button, with its action selected on release.
+    if (!digitalRead(PIN_BUTTON_LEFT) || !digitalRead(PIN_BUTTON_RIGHT)) {
+        middle_exclusive = false;
     }
     for (int i = 0; i < 3; i++) {
         bool raw = digitalRead(buttons[i].pin); // LOW = pressed (active LOW)
@@ -80,7 +72,10 @@ void buttons_loop() {
             buttons[i].pressed = true;
             buttons[i].press_start = now;
             buttons[i].long_fired = false;
-            if (i == 1) publish_middle_click(middle_click.on_press(now));
+            if (i == 1) {
+                middle_exclusive = digitalRead(PIN_BUTTON_LEFT) && digitalRead(PIN_BUTTON_RIGHT);
+                publish_middle_click(middle_click.on_press(now));
+            }
         }
 
         if (is_pressed && buttons[i].pressed && !buttons[i].long_fired) {
@@ -91,7 +86,9 @@ void buttons_loop() {
                 // Fire long press event
                 switch (i) {
                     case 0: pending_event = BTN_LEFT_LONG; break;
-                    case 1: pending_event = BTN_MIDDLE_LONG; break;
+                    // Wait for release to distinguish snooze, pairing and
+                    // bond reset without suppressing alerts during pairing.
+                    case 1: break;
                     case 2: pending_event = BTN_RIGHT_LONG; break;
                 }
                 Serial.printf("[BTN] Button %d LONG press\n", i);
@@ -99,7 +96,12 @@ void buttons_loop() {
         }
 
         if (!is_pressed && buttons[i].pressed) {
-            // Button just released
+            // Button just released. No middle action fires while held.
+            if (i == 1 && buttons[i].long_fired && middle_exclusive) {
+                unsigned long held = now - buttons[i].press_start;
+                pending_event = held >= 10000 ? BTN_BOND_RESET :
+                                held >= 3000 ? BTN_PAIRING : BTN_MIDDLE_LONG;
+            }
             if (!buttons[i].long_fired) {
                 if (i == 1) {
                     // Delay the middle-button single press just long enough to

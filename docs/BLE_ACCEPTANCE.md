@@ -4,7 +4,8 @@ The initial implementation did not flash a clock. A subsequent user-authorized U
 
 - [ ] Stock/new USB install: unconfigured clock advertises a distinct name, fresh six-digit code fits the display, initial window expires after two minutes, first setup works through the clock's radio.
 - [ ] Verify with actual ESP32 + iPhone that pairing negotiates **authenticated LE Secure Connections**, 128-bit encryption and bonding; confirm no Just Works/legacy downgrade. Wrong code/canceled prompt cannot read settings, write settings, access status, or receive private values. Test with an unbonded BLE client outside admission.
-- [ ] Configured clock: no new-phone admission without left+right gesture; existing glucose display/alerts continue. Admission expiry, repeated attempts and rate-limited/bounded connection timeouts recover.
+- [ ] Button regression: middle short/double taps retain brightness/address actions; release after 1–3s snoozes, 3–10s opens pairing, and 10s resets only bonds. Pairing never snoozes alerts. Check the gesture while the address screen is open and verify the outer-button power shortcut is no longer used.
+- [ ] Configured clock: no new-phone admission without middle-button hold-and-release gesture; existing glucose display/alerts continue. Admission expiry, repeated attempts and rate-limited/bounded connection timeouts recover.
 - [ ] Signed OTA upgrade from a configured prior release: no Wi-Fi/glucose/password/display/alert loss; physical pairing loads current values without credential re-entry.
 - [ ] Legacy single-slot USB migration: verify recovery backup, NVS preservation, CA bytes, unknown files, old overlay quarantine, reboot and original enterprise association. Interrupt bootstrap only on a recoverable lab device with an approved recovery plan.
 - [ ] Two clocks in range: choose and pair each, assign nicknames, reconnect to the matching authenticated full identity, including suffix-collision handling by passkey confirmation.

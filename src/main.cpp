@@ -154,14 +154,18 @@ void loop() {
     buttons_loop();
     ButtonEvent evt = buttons_get_event();
     if (evt != BTN_NONE) {
-        // While the connection address is visible, any completed button
-        // gesture dismisses it without also changing another setting.
-        if (engine_get_state() == STATE_CONNECTION_INFO_DISPLAY) {
+        // Pairing/recovery must also work from the connection-address screen.
+        // Other gestures dismiss that screen without changing settings.
+        if (evt == BTN_PAIRING) {
+            engine_dismiss_connection_info();
+            ble_pairing_window();
+        } else if (evt == BTN_BOND_RESET) {
+            engine_dismiss_connection_info();
+            ble_reset_bonds();
+        } else if (engine_get_state() == STATE_CONNECTION_INFO_DISPLAY) {
             engine_dismiss_connection_info();
             Serial.println("[BTN] Connection info dismissed");
         } else switch (evt) {
-            case BTN_PAIRING: ble_pairing_window(); break;
-            case BTN_BOND_RESET: ble_reset_bonds(); break;
             case BTN_LEFT_SHORT:
                 engine_toggle_mode();
                 break;

@@ -51,7 +51,7 @@ struct DiscoveryView:View {
                 Image(systemName:"dot.radiowaves.left.and.right").font(.title2).foregroundStyle(SugarTheme.accent).accessibilityHidden(true)
                 VStack(alignment:.leading,spacing:6) {
                     Text("Make your clock discoverable").font(.subheadline.weight(.semibold))
-                    Text("Hold left + right for 3 seconds, then release. Choose your clock and enter its six-digit code in the iOS prompt.")
+                    Text("Hold the middle button for 3 seconds, then release. Choose your clock and enter its six-digit code in the iOS prompt.")
                         .font(.subheadline).foregroundStyle(SugarTheme.secondary)
                 }
             }
@@ -89,8 +89,8 @@ struct SavedClockRow:View {
 struct TroubleshootingView:View {
     private let topics:[(String,String)]=[
         ("Clock not found","Bluetooth-capable firmware must be installed first. Older firmware cannot be discovered here. Use the Mac USB installer or the clock’s existing signed Wi-Fi updater."),
-        ("Pair a new phone","Hold left and right together for 3 seconds and release. Enter the fresh code on the clock. Urgent alerts take priority; retry when the clock can show its code."),
-        ("Replace a phone or reset pairing","Hold left and right for 10 seconds to remove Bluetooth bonds. Wi-Fi, glucose, alerts, display settings and certificates remain. Also forget SugarClock in iOS Bluetooth Settings before pairing again."),
+        ("Pair a new phone","Hold the middle button for 3 seconds, then release. Enter the fresh code on the clock. Urgent alerts take priority; retry when the clock can show its code."),
+        ("Replace a phone or reset pairing","Hold the middle button for 10 seconds, then release to remove Bluetooth bonds. Wi-Fi, glucose, alerts, display settings and certificates remain. Also forget SugarClock in iOS Bluetooth Settings before pairing again."),
         ("Reconnect to your clock","Move within a few metres and allow Bluetooth access in iPhone Settings. Keep this app in the foreground. Tap a saved clock after leaving the app or rebooting."),
         ("Wi-Fi or glucose data isn’t working","Use a 2.4 GHz network. A failed trial keeps the previous saved network. Getting an IP address does not confirm internet or provider access—check each status separately."),
         ("Recover older firmware","If an older clock has broken Wi-Fi, use its setup portal or a USB upgrade. Firmware transfer over Bluetooth is not supported.")

@@ -141,7 +141,7 @@ backup, and rebuilds the existing filesystem before any write. It stops if prese
 fails. Do not use a fresh empty filesystem image for this migration.
 
 After installing Bluetooth-capable firmware, pair using the [iOS companion](ios/README.md).
-A configured clock requires holding left and right together for three seconds, then
+A configured clock requires holding only the middle button for three seconds, then
 releasing. Existing configuration is read from the clock without re-entering secrets.
 
 
@@ -295,10 +295,12 @@ Supported trend values: `RisingFast`, `Rising`, `Flat`, `Falling`, `FallingFast`
 | Button | Short Press (<1s) | Double Press | Long Press (>1s) |
 |--------|-------------------|--------------|------------------|
 | Left | Toggle display mode | — | Reset display overrides |
-| Middle | Cycle brightness (10→40→100→200) | Show the clock's browser address | Snooze alerts |
+| Middle | Cycle brightness (10→40→100→200) | Show the clock's browser address | Release after 1–3s: snooze; 3–10s: Bluetooth pairing; 10s or longer: reset Bluetooth bonds |
 | Right | Previous display / context action | — | Reset display / context action |
 
 ---
+
+The middle-button hold actions happen on release. Hold only the middle button for Bluetooth controls. The outer-button combination is a TC001 power shortcut and must not be used for pairing. Bluetooth bond reset preserves Wi-Fi and application settings.
 
 ## Display States
 
