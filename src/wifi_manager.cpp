@@ -1,4 +1,5 @@
 #include "wifi_manager.h"
+#include "wifi_trial_policy.h"
 #include "config_manager.h"
 #include "captive_portal.h"
 #include <WiFi.h>
@@ -219,7 +220,8 @@ static void params_from_config(WifiTrialParams& p) {
     p.validate_ca = cfg.wifi_validate_ca;
 }
 
-static void persist_trial(const WifiTrialParams& p) {
+static bool persist_trial(const WifiTrialParams& p) {
+    ConfigGuard guard;
     AppConfig& cfg = config_get();
     strncpy(cfg.wifi_ssid, p.ssid, sizeof(cfg.wifi_ssid) - 1);
     cfg.wifi_ssid[sizeof(cfg.wifi_ssid) - 1] = '\0';
@@ -237,8 +239,7 @@ static void persist_trial(const WifiTrialParams& p) {
         cfg.wifi_eap_password[0] = '\0';
         cfg.wifi_anon_identity[0] = '\0';
     }
-    config_save();
-    Serial.printf("[WIFI] Credentials for '%s' committed to NVS\n", cfg.wifi_ssid);
+    return config_save();
 }
 
 // ---------------------------------------------------------------------------
@@ -313,6 +314,7 @@ void wifi_init() {
 // Trial handling
 
 bool wifi_trial_start(const WifiTrialParams& params) {
+    ConfigGuard guard;
     if (params.ssid[0] == '\0') return false;
     if (trial_requested || trial_active) return false;
     pending_params = params;
@@ -327,9 +329,11 @@ static void trial_begin() {
         WiFi.scanDelete();
         scan_running = false;
     }
+    { ConfigGuard guard;
     trial_params = pending_params;
-    trial_requested = false;
+    memset(&pending_params,0,sizeof(pending_params));
     trial_active = true;
+    trial_requested = false; }
     trial_start_ms = millis();
     trial_state = WIFI_TRIAL_ASSOCIATING;
     trial_detail[0] = '\0';
@@ -363,28 +367,22 @@ static void trial_finish_failure(WifiTrialState st, int reason) {
     // Fall back to whatever was saved so the device is not left idle
     WifiTrialParams p;
     params_from_config(p);
-    if (p.ssid[0]) {
-        if (portal_up) {
-            // Give the phone a stable chance to read the failure. The ordinary
-            // retry loop resumes the saved network after it disconnects.
-            WiFi.disconnect(false);
-            state = WIFI_ST_RETRY_WAIT;
-            retry_wait_start_ms = millis();
-            status_str = "SETUP AP";
-        } else {
-            start_attempt(p);
-        }
-    } else {
-        WiFi.disconnect(false);
-        state = WIFI_ST_IDLE;
-        status_str = "SETUP AP";
+    switch(wifi_trial_recovery(p.ssid[0]!=0,portal_up)) {
+        case WifiTrialRecovery::RetrySavedInPortal:
+            WiFi.disconnect(false);state=WIFI_ST_RETRY_WAIT;
+            retry_wait_start_ms=millis();status_str="SETUP AP";break;
+        case WifiTrialRecovery::ReconnectSaved:
+            start_attempt(p);break;
+        case WifiTrialRecovery::StayInPortal:
+            WiFi.disconnect(false);state=WIFI_ST_IDLE;status_str="SETUP AP";break;
     }
+
 }
 
 static void trial_loop() {
     unsigned long elapsed = millis() - trial_start_ms;
 
-    if (WiFi.status() == WL_CONNECTED && WiFi.localIP() != IPAddress((uint32_t)0)) {
+    if (wifi_trial_has_address(WiFi.status()==WL_CONNECTED,WiFi.localIP()!=IPAddress((uint32_t)0))) {
         set_ip_from_sta();
         trial_state = WIFI_TRIAL_CONNECTED;
         trial_active = false;
@@ -395,7 +393,8 @@ static void trial_loop() {
         Serial.printf("[WIFI] Trial succeeded, IP %s\n", ip_buf);
 
         // Only now do the credentials touch NVS
-        persist_trial(trial_params);
+        if(!persist_trial(trial_params)) { trial_state=WIFI_TRIAL_FAILED_SAVE;
+            snprintf(trial_detail,sizeof(trial_detail),"persistence_failed"); }
 
         // Leave the AP up briefly so the phone can see the success before the
         // radio follows the STA channel and drops it.
@@ -696,6 +695,7 @@ WifiTrialState wifi_trial_get_state() {
 
 const char* wifi_trial_status_str() {
     switch (trial_state) {
+        case WIFI_TRIAL_FAILED_SAVE: return "failed_save";
         case WIFI_TRIAL_ASSOCIATING:    return "associating";
         case WIFI_TRIAL_AUTHENTICATING: return "authenticating";
         case WIFI_TRIAL_CONNECTED:      return "connected";

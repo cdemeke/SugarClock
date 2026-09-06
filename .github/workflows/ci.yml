@@ -35,6 +35,8 @@ jobs:
             echo "PlatformIO registry failed; retrying build (attempt $((attempt + 1))/3)"
             sleep $((attempt * 15))
           done
+      - name: BLE protocol and configuration tests with resolved dependencies
+        run: python -m unittest discover -s tests -p "test_ble*.py" -v
       - name: Verify partitions, versions, rollback, and size limits
         run: python scripts/check_layout.py
       - name: Confirm generated sources are reproducible
@@ -73,3 +75,10 @@ jobs:
           done
           docker logs sugarfleet-ci
           exit 1
+
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift test --package-path ios
+      - run: xcodebuild -project ios/SugarClock.xcodeproj -scheme SugarClock -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build

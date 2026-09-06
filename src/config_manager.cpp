@@ -1,8 +1,11 @@
 #include "config_manager.h"
+#include "config_transaction.h"
 #include <Preferences.h>
 #include <Arduino.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 
 #define CONFIG_NAMESPACE "tc001cfg"
 #define CONFIG_MAGIC     0x474C5543  // "GLUC"
@@ -10,6 +13,14 @@
 static AppConfig config;
 static Preferences prefs;
 static bool config_loaded = false;
+static AppConfig committed;
+static bool durable=false;
+bool config_is_durable() {return durable;}
+static StaticSemaphore_t mutex_storage;
+static SemaphoreHandle_t config_mutex = nullptr;
+void config_lock() { if(config_mutex) xSemaphoreTakeRecursive(config_mutex,portMAX_DELAY); }
+void config_unlock() { if(config_mutex) xSemaphoreGiveRecursive(config_mutex); }
+
 
 static void config_set_defaults() {
     memset(&config, 0, sizeof(AppConfig));
@@ -216,6 +227,7 @@ static void config_check_littlefs_overlay() {
 }
 
 void config_init() {
+    config_mutex=xSemaphoreCreateRecursiveMutexStatic(&mutex_storage);
     prefs.begin(CONFIG_NAMESPACE, false);
 
     // Check if config exists
@@ -366,6 +378,15 @@ void config_init() {
         }
     }
 
+    // Single NVS blob is the redo journal. It survives interruption while mirroring
+    // legacy keys. Unknown keys are never removed. Old firmware ignores this key.
+    if(prefs.getBytesLength("pending_v1")==sizeof(AppConfig)) {
+        AppConfig recovered;
+        if(prefs.getBytes("pending_v1", &recovered,sizeof(recovered))==sizeof(recovered) && recovered.magic==CONFIG_MAGIC) config=recovered;
+        config_save();
+    }
+    committed=config;
+    durable=durable || (magic==CONFIG_MAGIC && !prefs.isKey("pending_v1"));
     // Check for config.json overlay from LittleFS (injected by setup app)
     config_check_littlefs_overlay();
     config_loaded = true;
@@ -374,120 +395,156 @@ void config_init() {
                   config.poll_interval_sec, config.brightness);
 }
 
-void config_save() {
-    prefs.putUInt("magic", CONFIG_MAGIC);
-    prefs.putString("wifi_ssid", config.wifi_ssid);
-    prefs.putString("wifi_pass", config.wifi_password);
-    prefs.putInt("wifi_sec", config.wifi_security);
-    prefs.putInt("wifi_eap", config.wifi_eap_method);
-    prefs.putString("wifi_ident", config.wifi_identity);
-    prefs.putString("wifi_epass", config.wifi_eap_password);
-    prefs.putString("wifi_anon", config.wifi_anon_identity);
-    prefs.putBool("wifi_ca_val", config.wifi_validate_ca);
-    prefs.putInt("data_src", config.data_source);
-    prefs.putString("server_url", config.server_url);
-    prefs.putString("auth_token", config.auth_token);
-    prefs.putString("dex_user", config.dexcom_username);
-    prefs.putString("dex_pass", config.dexcom_password);
-    prefs.putBool("dex_us", config.dexcom_us);
-    prefs.putInt("poll_int", config.poll_interval_sec);
-    prefs.putUChar("brightness", config.brightness);
-    prefs.putBool("auto_brt", config.auto_brightness);
-    prefs.putBool("show_delta", config.show_delta);
-    prefs.putBool("use_mmol", config.use_mmol);
-    prefs.putInt("t_ulow", config.thresh_urgent_low);
-    prefs.putInt("t_low", config.thresh_low);
-    prefs.putInt("t_high", config.thresh_high);
-    prefs.putInt("t_uhigh", config.thresh_urgent_high);
-    prefs.putString("timezone", config.timezone);
-    prefs.putBool("use_24h", config.use_24h);
-    prefs.putBool("time_en", config.time_display_enabled);
-    prefs.putInt("def_mode", config.default_mode);
-    prefs.putBool("amb_en", config.ambient_enabled);
-    prefs.putInt("amb_kind", config.ambient_creature);
-    prefs.putBool("amb_season", config.ambient_seasonal);
+bool config_save() {
+    ConfigGuard guard;
+    auto result=config_transaction(
+      [] {return prefs.putBytes("pending_v1",&config,sizeof(config))==sizeof(config);},
+      [] {
+    bool ok=true;
+    ok = (prefs.putUInt("magic", CONFIG_MAGIC) > 0) && ok;
+    ok = (prefs.putString("wifi_ssid", config.wifi_ssid) == strlen(config.wifi_ssid)) && ok;
+    ok = (prefs.getString("wifi_ssid", "__missing__") == config.wifi_ssid) && ok;
+    ok = (prefs.putString("wifi_pass", config.wifi_password) == strlen(config.wifi_password)) && ok;
+    ok = (prefs.getString("wifi_pass", "__missing__") == config.wifi_password) && ok;
+    ok = (prefs.putInt("wifi_sec", config.wifi_security) > 0) && ok;
+    ok = (prefs.putInt("wifi_eap", config.wifi_eap_method) > 0) && ok;
+    ok = (prefs.putString("wifi_ident", config.wifi_identity) == strlen(config.wifi_identity)) && ok;
+    ok = (prefs.getString("wifi_ident", "__missing__") == config.wifi_identity) && ok;
+    ok = (prefs.putString("wifi_epass", config.wifi_eap_password) == strlen(config.wifi_eap_password)) && ok;
+    ok = (prefs.getString("wifi_epass", "__missing__") == config.wifi_eap_password) && ok;
+    ok = (prefs.putString("wifi_anon", config.wifi_anon_identity) == strlen(config.wifi_anon_identity)) && ok;
+    ok = (prefs.getString("wifi_anon", "__missing__") == config.wifi_anon_identity) && ok;
+    ok = (prefs.putBool("wifi_ca_val", config.wifi_validate_ca) > 0) && ok;
+    ok = (prefs.putInt("data_src", config.data_source) > 0) && ok;
+    ok = (prefs.putString("server_url", config.server_url) == strlen(config.server_url)) && ok;
+    ok = (prefs.getString("server_url", "__missing__") == config.server_url) && ok;
+    ok = (prefs.putString("auth_token", config.auth_token) == strlen(config.auth_token)) && ok;
+    ok = (prefs.getString("auth_token", "__missing__") == config.auth_token) && ok;
+    ok = (prefs.putString("dex_user", config.dexcom_username) == strlen(config.dexcom_username)) && ok;
+    ok = (prefs.getString("dex_user", "__missing__") == config.dexcom_username) && ok;
+    ok = (prefs.putString("dex_pass", config.dexcom_password) == strlen(config.dexcom_password)) && ok;
+    ok = (prefs.getString("dex_pass", "__missing__") == config.dexcom_password) && ok;
+    ok = (prefs.putBool("dex_us", config.dexcom_us) > 0) && ok;
+    ok = (prefs.putInt("poll_int", config.poll_interval_sec) > 0) && ok;
+    ok = (prefs.putUChar("brightness", config.brightness) > 0) && ok;
+    ok = (prefs.putBool("auto_brt", config.auto_brightness) > 0) && ok;
+    ok = (prefs.putBool("show_delta", config.show_delta) > 0) && ok;
+    ok = (prefs.putBool("use_mmol", config.use_mmol) > 0) && ok;
+    ok = (prefs.putInt("t_ulow", config.thresh_urgent_low) > 0) && ok;
+    ok = (prefs.putInt("t_low", config.thresh_low) > 0) && ok;
+    ok = (prefs.putInt("t_high", config.thresh_high) > 0) && ok;
+    ok = (prefs.putInt("t_uhigh", config.thresh_urgent_high) > 0) && ok;
+    ok = (prefs.putString("timezone", config.timezone) == strlen(config.timezone)) && ok;
+    ok = (prefs.getString("timezone", "__missing__") == config.timezone) && ok;
+    ok = (prefs.putBool("use_24h", config.use_24h) > 0) && ok;
+    ok = (prefs.putBool("time_en", config.time_display_enabled) > 0) && ok;
+    ok = (prefs.putInt("def_mode", config.default_mode) > 0) && ok;
+    ok = (prefs.putBool("amb_en", config.ambient_enabled) > 0) && ok;
+    ok = (prefs.putInt("amb_kind", config.ambient_creature) > 0) && ok;
+    ok = (prefs.putBool("amb_season", config.ambient_seasonal) > 0) && ok;
 
     // Alerts
-    prefs.putBool("alert_en", config.alert_enabled);
-    prefs.putInt("alert_low", config.alert_low);
-    prefs.putInt("alert_high", config.alert_high);
-    prefs.putInt("alert_snz", config.alert_snooze_min);
+    ok = (prefs.putBool("alert_en", config.alert_enabled) > 0) && ok;
+    ok = (prefs.putInt("alert_low", config.alert_low) > 0) && ok;
+    ok = (prefs.putInt("alert_high", config.alert_high) > 0) && ok;
+    ok = (prefs.putInt("alert_snz", config.alert_snooze_min) > 0) && ok;
 
     // Theme colors
-    prefs.putUInt("c_ulow", config.color_urgent_low);
-    prefs.putUInt("c_low", config.color_low);
-    prefs.putUInt("c_inrange", config.color_in_range);
-    prefs.putUInt("c_high", config.color_high);
-    prefs.putUInt("c_uhigh", config.color_urgent_high);
-    prefs.putUInt("c_stale", config.color_stale);
+    ok = (prefs.putUInt("c_ulow", config.color_urgent_low) > 0) && ok;
+    ok = (prefs.putUInt("c_low", config.color_low) > 0) && ok;
+    ok = (prefs.putUInt("c_inrange", config.color_in_range) > 0) && ok;
+    ok = (prefs.putUInt("c_high", config.color_high) > 0) && ok;
+    ok = (prefs.putUInt("c_uhigh", config.color_urgent_high) > 0) && ok;
+    ok = (prefs.putUInt("c_stale", config.color_stale) > 0) && ok;
 
     // Clock & weather colors
-    prefs.putUInt("c_clock", config.color_clock);
-    prefs.putUInt("c_weather", config.color_weather);
+    ok = (prefs.putUInt("c_clock", config.color_clock) > 0) && ok;
+    ok = (prefs.putUInt("c_weather", config.color_weather) > 0) && ok;
 
     // Night mode
-    prefs.putBool("night_en", config.night_mode_enabled);
-    prefs.putInt("night_start", config.night_start_hour);
-    prefs.putInt("night_end", config.night_end_hour);
-    prefs.putUChar("night_brt", config.night_brightness);
+    ok = (prefs.putBool("night_en", config.night_mode_enabled) > 0) && ok;
+    ok = (prefs.putInt("night_start", config.night_start_hour) > 0) && ok;
+    ok = (prefs.putInt("night_end", config.night_end_hour) > 0) && ok;
+    ok = (prefs.putUChar("night_brt", config.night_brightness) > 0) && ok;
 
     // Stale timeout
-    prefs.putInt("stale_min", config.stale_timeout_min);
+    ok = (prefs.putInt("stale_min", config.stale_timeout_min) > 0) && ok;
 
     // Weather
-    prefs.putBool("wx_en", config.weather_enabled);
-    prefs.putString("wx_apikey", config.weather_api_key);
-    prefs.putString("wx_city", config.weather_city);
-    prefs.putBool("wx_use_f", config.weather_use_f);
-    prefs.putInt("wx_poll", config.weather_poll_min);
+    ok = (prefs.putBool("wx_en", config.weather_enabled) > 0) && ok;
+    ok = (prefs.putString("wx_apikey", config.weather_api_key) == strlen(config.weather_api_key)) && ok;
+    ok = (prefs.getString("wx_apikey", "__missing__") == config.weather_api_key) && ok;
+    ok = (prefs.putString("wx_city", config.weather_city) == strlen(config.weather_city)) && ok;
+    ok = (prefs.getString("wx_city", "__missing__") == config.weather_city) && ok;
+    ok = (prefs.putBool("wx_use_f", config.weather_use_f) > 0) && ok;
+    ok = (prefs.putInt("wx_poll", config.weather_poll_min) > 0) && ok;
 
     // Date display
-    prefs.putBool("date_en", config.date_on_time_screen);
-    prefs.putInt("date_fmt", config.date_format);
+    ok = (prefs.putBool("date_en", config.date_on_time_screen) > 0) && ok;
+    ok = (prefs.putInt("date_fmt", config.date_format) > 0) && ok;
 
     // Timer
-    prefs.putBool("tmr_en", config.timer_enabled);
-    prefs.putInt("tmr_work", config.timer_work_min);
-    prefs.putInt("tmr_brk", config.timer_break_min);
-    prefs.putInt("tmr_lbrk", config.timer_long_break_min);
-    prefs.putInt("tmr_sess", config.timer_sessions);
-    prefs.putBool("tmr_buzz", config.timer_buzzer);
+    ok = (prefs.putBool("tmr_en", config.timer_enabled) > 0) && ok;
+    ok = (prefs.putInt("tmr_work", config.timer_work_min) > 0) && ok;
+    ok = (prefs.putInt("tmr_brk", config.timer_break_min) > 0) && ok;
+    ok = (prefs.putInt("tmr_lbrk", config.timer_long_break_min) > 0) && ok;
+    ok = (prefs.putInt("tmr_sess", config.timer_sessions) > 0) && ok;
+    ok = (prefs.putBool("tmr_buzz", config.timer_buzzer) > 0) && ok;
 
     // Stopwatch
-    prefs.putBool("sw_en", config.stopwatch_enabled);
+    ok = (prefs.putBool("sw_en", config.stopwatch_enabled) > 0) && ok;
 
     // Notifications
-    prefs.putBool("ntfy_en", config.notify_enabled);
-    prefs.putInt("ntfy_dur", config.notify_default_duration);
-    prefs.putBool("ntfy_buzz", config.notify_allow_buzzer);
+    ok = (prefs.putBool("ntfy_en", config.notify_enabled) > 0) && ok;
+    ok = (prefs.putInt("ntfy_dur", config.notify_default_duration) > 0) && ok;
+    ok = (prefs.putBool("ntfy_buzz", config.notify_allow_buzzer) > 0) && ok;
 
     // System monitor
-    prefs.putBool("smon_en", config.sysmon_enabled);
-    prefs.putString("smon_lbl", config.sysmon_label);
-    prefs.putInt("smon_dmode", config.sysmon_display_mode);
-    prefs.putInt("smon_warn", config.sysmon_warn_pct);
-    prefs.putInt("smon_crit", config.sysmon_crit_pct);
+    ok = (prefs.putBool("smon_en", config.sysmon_enabled) > 0) && ok;
+    ok = (prefs.putString("smon_lbl", config.sysmon_label) == strlen(config.sysmon_label)) && ok;
+    ok = (prefs.getString("smon_lbl", "__missing__") == config.sysmon_label) && ok;
+    ok = (prefs.putInt("smon_dmode", config.sysmon_display_mode) > 0) && ok;
+    ok = (prefs.putInt("smon_warn", config.sysmon_warn_pct) > 0) && ok;
+    ok = (prefs.putInt("smon_crit", config.sysmon_crit_pct) > 0) && ok;
 
     // Countdown
-    prefs.putBool("cd_en", config.countdown_enabled);
-    prefs.putString("cd_name", config.countdown_name);
-    prefs.putULong("cd_target", config.countdown_target);
+    ok = (prefs.putBool("cd_en", config.countdown_enabled) > 0) && ok;
+    ok = (prefs.putString("cd_name", config.countdown_name) == strlen(config.countdown_name)) && ok;
+    ok = (prefs.getString("cd_name", "__missing__") == config.countdown_name) && ok;
+    ok = (prefs.putULong("cd_target", config.countdown_target) > 0) && ok;
 
     // Auto-cycle
-    prefs.putBool("acyc_en", config.auto_cycle_enabled);
-    prefs.putInt("acyc_sec", config.auto_cycle_sec);
-    prefs.putBool("ota_auto", config.auto_update_enabled);
-    prefs.putInt("ota_hour", config.auto_update_hour);
+    ok = (prefs.putBool("acyc_en", config.auto_cycle_enabled) > 0) && ok;
+    ok = (prefs.putInt("acyc_sec", config.auto_cycle_sec) > 0) && ok;
+    ok = (prefs.putBool("ota_auto", config.auto_update_enabled) > 0) && ok;
+    ok = (prefs.putInt("ota_hour", config.auto_update_hour) > 0) && ok;
 
+    // Journal is retained on failure for recovery; do not report a saved value.
+    return ok;
+      }, [] {return prefs.remove("pending_v1");});
+    durable=result==ConfigCommit::Saved;
+    if(!durable) {
+        if(result==ConfigCommit::Rejected && committed.magic==CONFIG_MAGIC) config=committed;
+        return false;
+    }
+    committed=config;
     Serial.println("[CONFIG] Saved to NVS");
+    return true;
 }
 
+bool config_bond_reset_pending() {ConfigGuard guard;return prefs.getBool("ble_reset",false);}
+void config_bond_reset_finished() {ConfigGuard guard;prefs.remove("ble_reset");}
+
 void config_reset() {
+    ConfigGuard guard;
     Serial.println("[CONFIG] Factory reset");
     prefs.clear();
+    prefs.putBool("ble_reset",true); // Consumed by BLE on the post-reset boot.
     config_set_defaults();
     config_save();
 }
+
+AppConfig config_snapshot() {ConfigGuard guard;return config;}
 
 AppConfig& config_get() {
     return config;
@@ -553,6 +610,7 @@ size_t config_ca_read(char* out, size_t out_size) {
 }
 
 bool config_ca_write(const char* pem, size_t len) {
+    ConfigGuard guard;
     if (!pem || len == 0) return false;
     if (!ca_mount()) return false;
     File f = LittleFS.open(CA_PATH, "w");
@@ -563,6 +621,7 @@ bool config_ca_write(const char* pem, size_t len) {
 }
 
 bool config_ca_delete() {
+    ConfigGuard guard;
     if (!ca_mount()) return false;
     if (!LittleFS.exists(CA_PATH)) return true;
     return LittleFS.remove(CA_PATH);

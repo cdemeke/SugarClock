@@ -67,6 +67,7 @@ jobs:
           if manifest.get("sha256") != actual:
               raise SystemExit("candidate firmware hash does not match its signed manifest")
           PY
+          cp candidate/mobile-protocol.json candidate/SUGARCLOCK_BLE_V1.md candidate/BLE_MIGRATION.md release/
           cp "candidate/sugarclock-v${version}.bin" candidate/bootloader.bin \
             candidate/partitions.bin candidate/boot_app0.bin candidate/littlefs.bin release/
       - name: Generate and verify stable manifest for the same binary
