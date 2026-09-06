@@ -32,6 +32,7 @@ for config in ('Debug','Release'):
  INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "SugarClock uses Bluetooth to securely pair with and configure your nearby clocks.";
  INFOPLIST_KEY_UILaunchScreen_Generation = YES; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
  INFOPLIST_KEY_CFBundleDisplayName = SugarClock; MARKETING_VERSION = 1.0.0; CURRENT_PROJECT_VERSION = 1;
+ SWIFT_ACTIVE_COMPILATION_CONDITIONS = "'''+('DEBUG' if config=='Debug' else '')+'''";
  CODE_SIGN_STYLE = Automatic; ENABLE_USER_SCRIPT_SANDBOXING = YES; SWIFT_OPTIMIZATION_LEVEL = "'''+('-Onone' if config=='Debug' else '-O')+'''";
  };'''.replace('','')))
 cl=obj('configs',f'isa = XCConfigurationList; buildConfigurations = ({",".join(configs)},); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;')

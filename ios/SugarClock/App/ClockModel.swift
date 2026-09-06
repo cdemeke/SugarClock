@@ -7,7 +7,7 @@ struct SavedClock: Codable, Identifiable {
     var nickname: String
 }
 @MainActor final class ClockModel: ObservableObject {
-    let bluetooth=BluetoothTransport()
+    let bluetooth:BluetoothTransport
     @Published var clocks:[SavedClock]=[]
     @Published var selected:SavedClock?
     @Published var settings:[String:Any]=[:]
@@ -20,8 +20,9 @@ struct SavedClock: Codable, Identifiable {
     private var client:ClockClient?
     private var updateMonitor:Task<Void,Never>?
     @Published var updateMessage=""
-    init() {
-        if let data=UserDefaults.standard.data(forKey:"clocks.v1"),let saved=try? JSONDecoder().decode([SavedClock].self,from:data) {clocks=saved}
+    init(enableBluetooth:Bool=true,loadSaved:Bool=true) {
+        bluetooth=BluetoothTransport(enableRadio:enableBluetooth)
+        if loadSaved,let data=UserDefaults.standard.data(forKey:"clocks.v1"),let saved=try? JSONDecoder().decode([SavedClock].self,from:data) {clocks=saved}
     }
     func remember() { if let data=try? JSONEncoder().encode(clocks) {UserDefaults.standard.set(data,forKey:"clocks.v1")} }
     func connect(_ id:UUID) async {

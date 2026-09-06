@@ -78,3 +78,7 @@ New enterprise CA upload remains in the existing web interface. BLE advertises p
 Completed settings saves preserve prior-firmware NVS keys. An older firmware cannot replay the new journal after an interrupted multi-key save; complete recovery on 0.3.0 before downgrading. USB bootstrap itself is not atomic. See [migration instructions](BLE_MIGRATION.md) for all four installation paths, backups, certificate/overlay handling and recovery constraints.
 
 An Apple development/distribution team, owner-controlled app identifier, working Xcode runtime components and a signed iPhone install/archive are still required. No team ID, signing credentials, release signature, upload or physical flash is invented or implied by these results.
+
+## Screenshot follow-up
+
+The installed CoreSimulator binary was subsequently invoked directly, bypassing the Xcode wrapper's attempted component repair. The existing **iOS 26.4 / iPhone 17 Pro simulator** successfully ran an unsigned Debug simulator build. Eight [screenshots](screenshots/README.md) capture the actual SwiftUI views with explicit sample state and a visible preview label; Core Bluetooth and settings interaction are disabled in this Debug-only mode. The original logo PNGs were copied into the local simulator bundle because normal asset-catalog compilation remains blocked. This establishes simulator rendering, not physical BLE reliability or a full distribution build. The 10 Swift tests and iPhone Release source build were rerun after adding screenshot support.

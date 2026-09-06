@@ -18,10 +18,11 @@ import Combine
     private var reading:CheckedContinuation<Data,Error>?
     private var operationTimer:Task<Void,Never>?
     private var connectionTimer:Task<Void,Never>?
-    public override init() {super.init();central=CBCentralManager(delegate:self,queue:.main)}
+    public override convenience init() {self.init(enableRadio:true)}
+    public init(enableRadio:Bool) {super.init();if enableRadio {central=CBCentralManager(delegate:self,queue:.main)} else {state="Screenshot preview · Bluetooth disabled"}}
     public var packetLimit:Int {min(180,peripheral?.maximumWriteValueLength(for:.withResponse) ?? 20)}
     public func scan() {
-        guard central.state == .poweredOn else { return }
+        guard central?.state == .poweredOn else { return }
         state="Looking for nearby clocks"
         central.scanForPeripherals(withServices:[Self.service],options:[CBCentralManagerScanOptionAllowDuplicatesKey:false])
     }
@@ -38,7 +39,7 @@ import Combine
         if !devices.contains(where:{$0.identifier==peripheral.identifier}) {devices.append(peripheral)}
     }
     public func connect(id:UUID) async throws {
-        guard central.state == .poweredOn else {throw ClockError.unavailable(state)}
+        guard central?.state == .poweredOn else {throw ClockError.unavailable(state)}
         guard connecting==nil else {throw ClockError.busy}
         close()
         guard let p=devices.first(where:{$0.identifier==id}) ?? central.retrievePeripherals(withIdentifiers:[id]).first else {throw ClockError.unavailable("Clock not found. Move closer and search again.")}

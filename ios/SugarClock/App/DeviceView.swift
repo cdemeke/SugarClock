@@ -66,7 +66,7 @@ struct StatusSection: View {
         Section("Connection and data confirmation") {
             LabeledContent("Wi-Fi / DHCP",value:model.status["wifi"] as? String ?? "Unknown")
             LabeledContent("Wi-Fi trial",value:model.status["trial"] as? String ?? "Unknown")
-            Text(model.status["trial_detail"] as? String ?? "")
+            if let detail=model.status["trial_detail"] as? String,!detail.isEmpty {Text(detail)}
             LabeledContent("Configuration persisted",value:(model.status["configuration_saved"] as? Bool ?? false) ? "Yes":"Unconfirmed — retry or restart")
             LabeledContent("Network saved",value:(model.status["network_saved"] as? Bool ?? false) ? "Yes":"No")
             LabeledContent("Internet DNS",value:probe(model.status["internet_dns"]))
@@ -211,12 +211,13 @@ struct FirmwareView: View {
     var body: some View {
         Form {
             Section("Signed Wi-Fi update") {
-                Text(model.updateMessage)
+                if !model.updateMessage.isEmpty {Text(model.updateMessage)}
                 LabeledContent("Current version",value:ota["current_version"] as? String ?? "Unknown")
                 LabeledContent("Available version",value:ota["available_version"] as? String ?? "Check for updates")
                 LabeledContent("State",value:ota["state"] as? String ?? "Unknown")
                 ProgressView(value:Double(ota["progress"] as? Int ?? 0),total:100).accessibilityLabel("Firmware update progress")
-                Text(ota["deferral"] as? String ?? "");Text(ota["error"] as? String ?? "")
+                if let reason=ota["deferral"] as? String,!reason.isEmpty {Text(reason)}
+                if let error=ota["error"] as? String,!error.isEmpty {Text(error)}
                 Button("Check for update") {Task {await model.command("ota.check")}}
                 Button("Install signed update") {Task {await model.command("ota.install")}}
                 Button("Refresh update status") {Task {await model.perform {try await model.refresh()}}}

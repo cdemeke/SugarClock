@@ -5,7 +5,7 @@ struct MyClocksView: View {
     var body: some View {
         NavigationStack {
             List {
-                Image("AppLogo").resizable().scaledToFit().frame(height:64).frame(maxWidth:.infinity).accessibilityHidden(true)
+                logo.resizable().scaledToFit().frame(height:64).frame(maxWidth:.infinity).accessibilityHidden(true)
                 Section("My Clocks") {
                     ForEach(model.clocks) {clock in
                         SavedClockRow(clock:clock,bluetooth:model.bluetooth)
@@ -17,6 +17,16 @@ struct MyClocksView: View {
                 Section {NavigationLink("Clock not found or pairing failed?") {TroubleshootingView()}}
             }.navigationTitle("SugarClock").disabled(model.busy)
         }
+    }
+    private var logo:Image {
+        #if DEBUG
+        // The screenshot build can bundle the original PNG when this host's
+        // mismatched Xcode components prevent asset-catalog compilation.
+        if ProcessInfo.processInfo.environment["SUGARCLOCK_SCREENSHOT"] != nil,
+           let path=Bundle.main.path(forResource:"AppLogo",ofType:"png"),
+           let image=UIImage(contentsOfFile:path) {return Image(uiImage:image)}
+        #endif
+        return Image("AppLogo")
     }
 }
 struct DiscoveryView: View {

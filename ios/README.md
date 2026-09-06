@@ -47,3 +47,7 @@ Enterprise PEAP/TTLS settings and an existing CA are preserved/supported. This p
 6. Only after explicit authorization, upload to App Store Connect, finish any required beta review, and add the intended testers. This task does not archive for distribution, upload, publish a firmware release, or flash clocks.
 
 See [verification results](../docs/BLE_VERIFICATION.md) for exact local builds/tests and remaining environment requirements.
+
+## Screenshots
+
+See the [screenshot gallery](../docs/screenshots/README.md) for real simulator captures of the production views with clearly labeled sample data. `capture_screenshots.py` and Debug-only `ScreenshotPreview.swift` provide reproducible captures with Bluetooth and interaction disabled. Screenshot mode requires the explicit `SUGARCLOCK_SCREENSHOT` environment variable; it is absent from Release and never substitutes for a failed connection.
