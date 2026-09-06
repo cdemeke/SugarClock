@@ -63,11 +63,13 @@ struct SavedClock: Codable, Identifiable {
         guard !busy else {return};busy=true;defer{busy=false}
         do {try await action()} catch {message=error.localizedDescription}
     }
-    func save(_ patch:[String:Any]) async {
+    @discardableResult func save(_ patch:[String:Any]) async -> Bool {
+        var confirmed=false
         await perform {
             guard let client=self.client else {throw ClockError.disconnected}
-            try await client.save(patch);try await self.refresh();self.message="Saved on the clock and read back."
+            try await client.save(patch);try await self.refresh();self.message="Saved on the clock and read back.";confirmed=true
         }
+        return confirmed
     }
     func command(_ op:String,fields:[String:Any]=[:]) async {
         await perform {

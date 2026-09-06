@@ -2,6 +2,7 @@
 """Capture production SwiftUI screens using explicit, labeled simulator fixtures."""
 import argparse
 import os
+import json
 from pathlib import Path
 import plistlib
 import shutil
@@ -27,9 +28,13 @@ def sim(*parts, check=True, env=None):
 
 # Keep original branding available in the local simulator bundle when actool is
 # blocked. Normal project builds still use the checked-in asset catalog.
-assets = Path(__file__).resolve().parent / 'SugarClock/Assets.xcassets/AppLogo.imageset'
-for source, dest in [('logo.png', 'AppLogo.png'), ('logo@2x.png', 'AppLogo@2x.png')]:
-    shutil.copy2(assets / source, app / dest)
+assets = Path(__file__).resolve().parent / 'SugarClock/Assets.xcassets'
+for imageset in assets.glob('*.imageset'):
+    for image in json.loads((imageset / 'Contents.json').read_text())['images']:
+        if 'filename' in image:
+            scale = image.get('scale', '1x')
+            suffix = '' if scale == '1x' else '@' + scale
+            shutil.copy2(imageset / image['filename'], app / (imageset.stem + suffix + '.png'))
 sim('install', args.device, str(app))
 sim('status_bar', args.device, 'override', '--time', '9:41', '--dataNetwork', 'wifi',
     '--wifiMode', 'active', '--wifiBars', '3', '--batteryState', 'charged', '--batteryLevel', '100')
@@ -37,7 +42,9 @@ args.output.mkdir(parents=True, exist_ok=True)
 screens = [('01-my-clocks', 'clocks'), ('02-device-settings', 'device'), ('03-wifi', 'wifi'),
            ('04-brightness', 'brightness'), ('05-configured-secret', 'secret'),
            ('06-firmware', 'firmware'), ('07-troubleshooting', 'troubleshooting'),
-           ('08-firmware-dark', 'firmware')]
+           ('08-firmware-dark', 'firmware'), ('09-display', 'display'),
+           ('10-blood-sugar-dark', 'glucose'), ('11-display-dark', 'display'),
+           ('12-blood-sugar', 'glucose'), ('13-large-text', 'display-accessibility')]
 for filename, screen in screens:
     sim('terminate', args.device, identifier, check=False)
     sim('ui', args.device, 'appearance', 'dark' if filename.endswith('dark') else 'light')
