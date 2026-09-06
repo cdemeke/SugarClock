@@ -4,23 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SugarClock - Device</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=nav-flat-2">
     <script>if(localStorage.getItem('theme')==='dark')document.documentElement.setAttribute('data-theme','dark');</script>
 </head>
-<body>
-    <nav class="topnav">
-        <div class="topnav-inner">
-            <a href="/" class="brand"><div class="brand-icon">G</div><span>SugarClock</span></a>
-            <ul class="topnav-links">
-                <li><a href="/display.html">Dashboard</a></li>
-                <li><a href="/">Config</a></li>
-                <li><a href="/debug.html">Debug</a></li>
-                <li><a href="/device.html" class="active">Device</a></li>
-            </ul>
-            <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">&#9790;</button>
-        </div>
-    </nav>
+<body class="app-shell-page">
+    <button class="mobile-nav-toggle" type="button" onclick="setNavOpen(true)" aria-label="Open navigation"><svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14"/></svg> Menu</button>
+    <button class="sidebar-scrim" type="button" onclick="setNavOpen(false)" aria-label="Close navigation"></button>
+    <aside class="sidebar" aria-label="Main navigation">
+        <div class="sidebar-header"><a href="/" class="brand"><img class="brand-logo" src="/logo.png" alt="SugarClock logo"><span class="brand-copy"><span class="brand-name">SugarClock</span><span class="brand-device">Device control</span></span></a><button class="sidebar-close" type="button" onclick="setNavOpen(false)" aria-label="Close navigation">&times;</button></div>
+        <nav class="sidebar-nav">
+            <a class="sidebar-link" href="/display.html"><img class="nav-image-icon" src="/dashboard-icon.png" alt="">Dashboard</a>
+            <details class="sidebar-config"><summary><img class="nav-image-icon" src="/configuration-icon.png" alt="">Configuration<svg class="nav-icon chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg></summary><div class="side-subnav"><a class="subnav-link" href="/#glucose">Blood Sugar</a><a class="subnav-link" href="/#display">Display</a><a class="subnav-link" href="/#time">Time &amp; timers</a><a class="subnav-link" href="/#weather">Weather</a><a class="subnav-link" href="/#connection">Wi-Fi</a><a class="subnav-link" href="/#integrations">Integrations</a><a class="subnav-link" href="/#danger">Reset device</a></div></details>
+            <a class="sidebar-link" href="/debug.html"><img class="nav-image-icon" src="/diagnostics-icon.png" alt="">Diagnostics</a>
+            <a class="sidebar-link active" href="/device.html"><svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><rect x="5" y="5" width="10" height="10" rx="2"/><path d="M8 2v3M12 2v3M8 15v3M12 15v3M2 8h3M15 8h3M2 12h3M15 12h3"/></svg>Device</a>
+        </nav>
+        <div class="sidebar-footer"><button class="theme-toggle" type="button" onclick="toggleTheme()" title="Toggle color mode"><span class="theme-icon" aria-hidden="true">&#9790;</span><span class="theme-label">Switch to dark mode</span></button><div class="sidebar-footer-note">Connected to <a href="https://sugarclock.com" target="_blank" rel="noopener">SugarClock</a></div></div>
+    </aside>
 
+    <main class="app-main">
     <div class="page">
         <div class="page-header">
             <h1>Device Info</h1>
@@ -120,6 +121,7 @@
             </div>
         </div>
     </div>
+    </main>
 
     <div class="toast" id="toast"></div>
 
@@ -182,9 +184,11 @@
             const dark=d.getAttribute('data-theme')==='dark';
             if(dark){d.removeAttribute('data-theme');localStorage.removeItem('theme');}
             else{d.setAttribute('data-theme','dark');localStorage.setItem('theme','dark');}
-            document.querySelector('.theme-toggle').innerHTML=dark?'&#9790;':'&#9728;';
+            syncThemeButton();
         }
-        if(localStorage.getItem('theme')==='dark')document.querySelector('.theme-toggle').innerHTML='&#9728;';
+        function syncThemeButton(){const dark=document.documentElement.getAttribute('data-theme')==='dark';document.querySelector('.theme-icon').innerHTML=dark?'&#9728;':'&#9790;';document.querySelector('.theme-label').textContent=dark?'Switch to light mode':'Switch to dark mode';}
+        syncThemeButton();
+        function setNavOpen(open){document.body.classList.toggle('nav-open',open);}
     </script>
 </body>
 </html>

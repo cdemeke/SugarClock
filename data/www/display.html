@@ -4,28 +4,45 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SugarClock - Dashboard</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=nav-flat-2">
     <script>if(localStorage.getItem('theme')==='dark')document.documentElement.setAttribute('data-theme','dark');</script>
 </head>
-<body>
-    <nav class="topnav">
-        <div class="topnav-inner">
-            <a href="/" class="brand">
-                <div class="brand-icon">G</div>
-                <span>SugarClock</span>
-            </a>
-            <ul class="topnav-links">
-                <li><a href="/display.html" class="active">Dashboard</a></li>
-                <li><a href="/">Config</a></li>
-                <li><a href="/debug.html">Debug</a></li>
-                <li><a href="/device.html">Device</a></li>
-            </ul>
-            <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">&#9790;</button>
+<body class="app-shell-page">
+    <button class="mobile-nav-toggle" type="button" onclick="setNavOpen(true)" aria-label="Open navigation">
+        <svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14"/></svg> Menu
+    </button>
+    <button class="sidebar-scrim" type="button" onclick="setNavOpen(false)" aria-label="Close navigation"></button>
+    <aside class="sidebar" aria-label="Main navigation">
+        <div class="sidebar-header">
+            <a href="/" class="brand"><img class="brand-logo" src="/logo.png" alt="SugarClock logo"><span class="brand-copy"><span class="brand-name">SugarClock</span><span class="brand-device">Device control</span></span></a>
+            <button class="sidebar-close" type="button" onclick="setNavOpen(false)" aria-label="Close navigation">&times;</button>
         </div>
-    </nav>
+        <nav class="sidebar-nav">
+            <a class="sidebar-link active" href="/display.html"><img class="nav-image-icon" src="/dashboard-icon.png" alt="">Dashboard</a>
+            <details class="sidebar-config">
+                <summary><img class="nav-image-icon" src="/configuration-icon.png" alt="">Configuration<svg class="nav-icon chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg></summary>
+                <div class="side-subnav"><a class="subnav-link" href="/#glucose">Blood Sugar</a><a class="subnav-link" href="/#display">Display</a><a class="subnav-link" href="/#time">Time &amp; timers</a><a class="subnav-link" href="/#weather">Weather</a><a class="subnav-link" href="/#connection">Wi-Fi</a><a class="subnav-link" href="/#integrations">Integrations</a><a class="subnav-link" href="/#danger">Reset device</a></div>
+            </details>
+            <a class="sidebar-link" href="/debug.html"><img class="nav-image-icon" src="/diagnostics-icon.png" alt="">Diagnostics</a>
+            <a class="sidebar-link" href="/device.html"><svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><rect x="5" y="5" width="10" height="10" rx="2"/><path d="M8 2v3M12 2v3M8 15v3M12 15v3M2 8h3M15 8h3M2 12h3M15 12h3"/></svg>Device</a>
+        </nav>
+        <div class="sidebar-footer"><button class="theme-toggle" type="button" onclick="toggleTheme()" title="Toggle color mode"><span class="theme-icon" aria-hidden="true">&#9790;</span><span class="theme-label">Switch to dark mode</span></button><div class="sidebar-footer-note">Connected to <a href="https://sugarclock.com" target="_blank" rel="noopener">SugarClock</a></div></div>
+    </aside>
 
+    <main class="app-main">
     <div class="page">
-        <div class="card">
+        <div class="page-header dashboard-page-header">
+            <img class="dashboard-header-icon" src="/dashboard-icon.png" alt="">
+            <div>
+                <h1>Dashboard</h1>
+                <p>See your clock at a glance and move between enabled displays.</p>
+            </div>
+        </div>
+
+        <div class="card display-hero-card">
+            <div class="clock-display-heading">
+                <span class="clock-display-kicker">Live view</span>
+            </div>
             <div class="glucose-hero">
                 <div class="reading">
                     <span class="value" id="glucose-value">---</span>
@@ -35,13 +52,21 @@
                 <div class="delta" id="delta-display"></div>
                 <div class="meta" id="data-age">--</div>
             </div>
+            <div class="display-controls">
+                <strong class="display-current-mode" id="display-state">--</strong>
+                <div class="display-nav-actions" aria-label="Change SugarClock display">
+                    <button type="button" class="display-nav-btn" onclick="changeDisplay('prev')" aria-label="Show previous clock display">
+                        <span aria-hidden="true">&larr;</span> Previous
+                    </button>
+                    <button type="button" class="display-nav-btn display-nav-next" onclick="changeDisplay('next')" aria-label="Show next clock display">
+                        Next <span aria-hidden="true">&rarr;</span>
+                    </button>
+                </div>
+                <div class="display-control-status" id="display-control-status" role="status" aria-live="polite"></div>
+            </div>
         </div>
 
-        <div class="stat-grid">
-            <div class="stat-card">
-                <div class="stat-label">Status</div>
-                <div class="stat-value" id="display-state" style="font-size:16px;">--</div>
-            </div>
+        <div class="stat-grid dashboard-stat-grid">
             <div class="stat-card">
                 <div class="stat-label">WiFi</div>
                 <div class="stat-value" id="wifi-status" style="font-size:14px;">--</div>
@@ -57,112 +82,37 @@
             </div>
         </div>
 
-        <!-- Feature status cards -->
-        <div class="card-grid" id="feature-cards">
-            <div class="card card-compact" id="timer-card" style="display:none;">
-                <h2>Pomodoro Timer <a href="/#time" class="gear-link" title="Configure">&#9881;</a></h2>
-                <div class="status-row">
-                    <span class="status-label">State</span>
-                    <span class="status-value"><span class="badge badge-blue" id="timer-state">--</span></span>
+        <section class="capability-section" id="capability-section" hidden>
+            <div class="capability-heading">
+                <div>
+                    <h2>Enabled features</h2>
+                    <p>Only features turned on for this SugarClock appear here.</p>
                 </div>
-                <div class="status-row">
-                    <span class="status-label">Remaining</span>
-                    <span class="status-value" id="timer-remaining">--</span>
-                </div>
-                <div class="status-row">
-                    <span class="status-label">Session</span>
-                    <span class="status-value" id="timer-session">--</span>
-                </div>
+                <a href="/" class="capability-manage-link">Manage features</a>
             </div>
-
-            <div class="card card-compact" id="stopwatch-card" style="display:none;">
-                <h2>Stopwatch <a href="/#time" class="gear-link" title="Configure">&#9881;</a></h2>
-                <div class="status-row">
-                    <span class="status-label">State</span>
-                    <span class="status-value"><span class="badge badge-green" id="sw-state">--</span></span>
-                </div>
-                <div class="status-row">
-                    <span class="status-label">Elapsed</span>
-                    <span class="status-value" id="sw-elapsed">00:00</span>
-                </div>
+            <div class="capability-grid" id="capability-grid">
+                <a class="capability-link" data-capability="time_display_enabled" href="/#time" hidden><span class="capability-dot"></span><span><strong>Clock &amp; date</strong><small>Edit time settings</small></span><span aria-hidden="true">&rarr;</span></a>
+                <a class="capability-link" data-capability="weather_enabled" href="/#weather" hidden><span class="capability-dot"></span><span><strong>Weather</strong><small>Edit weather settings</small></span><span aria-hidden="true">&rarr;</span></a>
+                <a class="capability-link" data-capability="ambient_enabled" href="/#display" hidden><span class="capability-dot"></span><span><strong>Ambient Creature</strong><small>Edit display settings</small></span><span aria-hidden="true">&rarr;</span></a>
+                <a class="capability-link" data-capability="timer_enabled" href="/#time" hidden><span class="capability-dot"></span><span><strong>Pomodoro Timer</strong><small>Edit timer settings</small></span><span aria-hidden="true">&rarr;</span></a>
+                <a class="capability-link" data-capability="stopwatch_enabled" href="/#time" hidden><span class="capability-dot"></span><span><strong>Stopwatch</strong><small>Edit stopwatch settings</small></span><span aria-hidden="true">&rarr;</span></a>
+                <a class="capability-link" data-capability="countdown_enabled" href="/#time" hidden><span class="capability-dot"></span><span><strong>Countdown</strong><small>Edit countdown settings</small></span><span aria-hidden="true">&rarr;</span></a>
+                <a class="capability-link" data-capability="notify_enabled" href="/#integrations" hidden><span class="capability-dot"></span><span><strong>Notifications</strong><small>Edit notification settings</small></span><span aria-hidden="true">&rarr;</span></a>
+                <a class="capability-link" data-capability="sysmon_enabled" href="/#integrations" hidden><span class="capability-dot"></span><span><strong>System Monitor</strong><small>Edit integration settings</small></span><span aria-hidden="true">&rarr;</span></a>
+                <a class="capability-link" data-capability="auto_cycle_enabled" href="/#display" hidden><span class="capability-dot"></span><span><strong>Auto-cycle</strong><small>Edit display rotation</small></span><span aria-hidden="true">&rarr;</span></a>
             </div>
-
-            <div class="card card-compact" id="weather-card" style="display:none;">
-                <h2>Weather <a href="/#weather" class="gear-link" title="Configure">&#9881;</a></h2>
-                <div class="status-row">
-                    <span class="status-label">Temperature</span>
-                    <span class="status-value" id="weather-temp">--</span>
-                </div>
-                <div class="status-row">
-                    <span class="status-label">Condition</span>
-                    <span class="status-value" id="weather-desc">--</span>
-                </div>
-            </div>
-
-            <div class="card card-compact" id="sysmon-card" style="display:none;">
-                <h2>System Monitor <a href="/#integrations" class="gear-link" title="Configure">&#9881;</a></h2>
-                <div class="status-row">
-                    <span class="status-label" id="sysmon-label-text">CPU</span>
-                    <span class="status-value" id="sysmon-value">--</span>
-                </div>
-                <div class="sysmon-bar-container" style="margin-top:8px;">
-                    <div class="sysmon-bar" id="sysmon-bar" style="width:0%;"></div>
-                </div>
-            </div>
-
-            <div class="card card-compact" id="countdown-card" style="display:none;">
-                <h2 id="countdown-title">Countdown <a href="/#time" class="gear-link" title="Configure">&#9881;</a></h2>
-                <div class="status-row">
-                    <span class="status-label">Remaining</span>
-                    <span class="status-value" id="countdown-remaining">--</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="card-grid">
-            <div class="card card-compact">
-                <h2>Connection <a href="/#connection" class="gear-link" title="Configure">&#9881;</a></h2>
-                <div class="status-row">
-                    <span class="status-label">IP Address</span>
-                    <span class="status-value" id="wifi-ip">--</span>
-                </div>
-                <div class="status-row">
-                    <span class="status-label">Signal</span>
-                    <span class="status-value" id="wifi-rssi-dbm">--</span>
-                </div>
-                <div class="status-row">
-                    <span class="status-label">Brightness</span>
-                    <span class="status-value" id="brightness">--</span>
-                </div>
-            </div>
-            <div class="card card-compact">
-                <h2>Info</h2>
-                <div class="status-row">
-                    <span class="status-label">Firmware</span>
-                    <span class="status-value" id="firmware-version">--</span>
-                </div>
-                <div class="status-row">
-                    <span class="status-label">Message</span>
-                    <span class="status-value" id="message">--</span>
-                </div>
-                <div class="status-row">
-                    <span class="status-label">State</span>
-                    <span class="status-value"><span class="badge badge-blue" id="state-badge">--</span></span>
-                </div>
-            </div>
-        </div>
+        </section>
     </div>
+    </main>
 
     <script>
         const trendMap = {'RisingFast':'\u2191\u2191','Rising':'\u2191','Flat':'\u2192','Falling':'\u2193','FallingFast':'\u2193\u2193','Unknown':'?'};
         const colorMap = {'red':'color-red','orange':'color-orange','green':'color-green','gray':'color-gray'};
-        const timerNames = ['Idle','Running','Paused','Break','Long Break','Done'];
-        const swNames = ['Idle','Running','Paused'];
+        const modeNames = {GLUCOSE:'Blood Sugar',TREND:'Trend',TIME:'Clock',WEATHER:'Weather',AMBIENT_FISH:'Ambient Creature',TIMER:'Pomodoro Timer',STOPWATCH:'Stopwatch',SYSMON:'System Monitor',COUNTDOWN:'Countdown',NOTIFY:'Notification',MESSAGE:'Message',STALE:'Stale reading',NO_DATA:'No data',NO_WIFI:'No Wi-Fi',NO_CFG:'Setup needed',NET_LIMITED:'Limited network',SETUP_AP:'Setup mode',BOOT:'Starting up'};
 
         function fmtUp(s){const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60);if(d>0)return d+'d '+h+'h';if(h>0)return h+'h '+m+'m';return m+'m';}
         function fmtAge(s){if(s<0)return'No data';if(s<60)return s+'s ago';if(s<3600)return Math.floor(s/60)+'m '+s%60+'s ago';return Math.floor(s/3600)+'h ago';}
-        function fmtSec(s){const m=Math.floor(s/60),ss=s%60;return m+':'+(ss<10?'0':'')+ss;}
-        function fmtCountdown(s){if(s<=0)return'NOW!';if(s<3600)return Math.floor(s/60)+'m';if(s<86400){const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h+'h '+m+'m';}return Math.floor(s/86400)+'d';}
+        function friendlyMode(mode){return modeNames[mode]||String(mode||'--').replaceAll('_',' ');}
 
         async function refresh(){
             try{
@@ -173,72 +123,59 @@
                 const cc=colorMap[d.color]||'';gv.className='value '+cc;ta.className='trend '+cc;
                 if(d.delta!==undefined&&d.delta!==null&&d.delta!==0){dd.textContent=(d.delta>0?'+':'')+d.delta+' mg/dL';dd.className='delta '+(d.delta>0?'delta-positive':d.delta<0?'delta-negative':'delta-neutral');}else{dd.textContent='';dd.className='delta';}
                 document.getElementById('data-age').textContent=fmtAge(d.data_age_sec);
-                document.getElementById('display-state').textContent=d.state;document.getElementById('state-badge').textContent=d.state;
+                document.getElementById('display-state').textContent=friendlyMode(d.state);
                 const we=document.getElementById('wifi-status');we.textContent=d.wifi_connected?'Connected':'Disconnected';we.style.color=d.wifi_connected?'var(--green)':'var(--red)';
-                document.getElementById('wifi-ip').textContent=d.wifi_ip||'--';document.getElementById('wifi-rssi').textContent=d.wifi_rssi+' dBm';
-                document.getElementById('wifi-rssi-dbm').textContent=d.wifi_rssi+' dBm';document.getElementById('failure-count').textContent=d.failure_count;
-                document.getElementById('uptime').textContent=fmtUp(d.uptime_sec);document.getElementById('brightness').textContent=d.brightness;
-                document.getElementById('firmware-version').textContent=d.firmware_version?'v'+d.firmware_version:'--';
-                document.getElementById('message').textContent=d.message||'--';
+                document.getElementById('wifi-rssi').textContent=d.wifi_rssi+' dBm';
+                document.getElementById('failure-count').textContent=d.failure_count;
+                document.getElementById('uptime').textContent=fmtUp(d.uptime_sec);
                 if(d.thresholds)window._t=d.thresholds;
-
-                // Timer card
-                const tc=document.getElementById('timer-card');
-                if(d.timer_state!==undefined&&d.timer_state>0){
-                    tc.style.display='';
-                    document.getElementById('timer-state').textContent=timerNames[d.timer_state]||'--';
-                    document.getElementById('timer-remaining').textContent=fmtSec(d.timer_remaining);
-                    document.getElementById('timer-session').textContent=d.timer_session||'--';
-                }else{tc.style.display=d.timer_state===0?'':'none';}
-                if(d.timer_state===0){tc.style.display='';document.getElementById('timer-state').textContent='Idle';document.getElementById('timer-remaining').textContent=fmtSec(d.timer_remaining);document.getElementById('timer-session').textContent='-';}
-
-                // Stopwatch card
-                const sc=document.getElementById('stopwatch-card');
-                if(d.stopwatch_state!==undefined){
-                    sc.style.display='';
-                    document.getElementById('sw-state').textContent=swNames[d.stopwatch_state]||'--';
-                    document.getElementById('sw-elapsed').textContent=fmtSec(d.stopwatch_elapsed);
-                }
-
-                // Weather card
-                const wc=document.getElementById('weather-card');
-                if(d.weather_temp!==undefined){
-                    wc.style.display='';
-                    document.getElementById('weather-temp').textContent=Math.round(d.weather_temp)+'°';
-                    document.getElementById('weather-desc').textContent=d.weather_desc||'--';
-                }
-
-                // Sysmon card
-                const smc=document.getElementById('sysmon-card');
-                if(d.sysmon_value!==undefined){
-                    smc.style.display='';
-                    document.getElementById('sysmon-label-text').textContent=d.sysmon_label||'CPU';
-                    document.getElementById('sysmon-value').textContent=d.sysmon_value+'/'+d.sysmon_max;
-                    const pct=d.sysmon_max>0?Math.round(d.sysmon_value*100/d.sysmon_max):0;
-                    const bar=document.getElementById('sysmon-bar');
-                    bar.style.width=pct+'%';
-                    bar.style.background=pct>=80?'var(--red)':pct>=50?'var(--orange)':'var(--green)';
-                }
-
-                // Countdown card
-                const cdc=document.getElementById('countdown-card');
-                if(d.countdown_remaining!==undefined){
-                    cdc.style.display='';
-                    document.getElementById('countdown-title').textContent=d.countdown_name||'Countdown';
-                    document.getElementById('countdown-remaining').textContent=fmtCountdown(d.countdown_remaining);
-                }
             }catch(e){document.getElementById('glucose-value').textContent='ERR';}
         }
-        refresh();setInterval(refresh,5000);
+
+        async function loadCapabilities(){
+            try{
+                const response=await fetch('/api/config');
+                if(!response.ok)throw new Error('Config unavailable');
+                const config=await response.json();
+                let visible=0;
+                document.querySelectorAll('[data-capability]').forEach(card=>{
+                    const enabled=!!config[card.dataset.capability];
+                    card.hidden=!enabled;
+                    if(enabled)visible++;
+                });
+                document.getElementById('capability-section').hidden=visible===0;
+                document.getElementById('unit-label').textContent=config.use_mmol?'mmol/L':'mg/dL';
+            }catch(e){document.getElementById('capability-section').hidden=true;}
+        }
+
+        async function changeDisplay(direction){
+            const status=document.getElementById('display-control-status');
+            const buttons=document.querySelectorAll('.display-nav-btn');
+            buttons.forEach(button=>button.disabled=true);
+            status.textContent='Changing display…';
+            try{
+                const response=await fetch('/api/display/'+direction,{method:'POST'});
+                const result=await response.json();
+                if(!response.ok)throw new Error(result.error||'Unable to change display');
+                if(result.mode)document.getElementById('display-state').textContent=friendlyMode(result.mode);
+                status.textContent=result.message||'Clock display changed';
+                setTimeout(refresh,700);
+            }catch(e){status.textContent=e.message||'Unable to change display';}
+            finally{buttons.forEach(button=>button.disabled=false);}
+        }
+
+        refresh();setInterval(refresh,5000);loadCapabilities();
 
         function toggleTheme(){
             const d=document.documentElement;
             const dark=d.getAttribute('data-theme')==='dark';
             if(dark){d.removeAttribute('data-theme');localStorage.removeItem('theme');}
             else{d.setAttribute('data-theme','dark');localStorage.setItem('theme','dark');}
-            document.querySelector('.theme-toggle').innerHTML=dark?'&#9790;':'&#9728;';
+            syncThemeButton();
         }
-        if(localStorage.getItem('theme')==='dark')document.querySelector('.theme-toggle').innerHTML='&#9728;';
+        function syncThemeButton(){const dark=document.documentElement.getAttribute('data-theme')==='dark';document.querySelector('.theme-icon').innerHTML=dark?'&#9728;':'&#9790;';document.querySelector('.theme-label').textContent=dark?'Switch to light mode':'Switch to dark mode';}
+        syncThemeButton();
+        function setNavOpen(open){document.body.classList.toggle('nav-open',open);}
     </script>
 </body>
 </html>

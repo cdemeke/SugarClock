@@ -4,35 +4,69 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SugarClock - Configuration</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=nav-flat-2">
     <script>if(localStorage.getItem('theme')==='dark')document.documentElement.setAttribute('data-theme','dark');</script>
 </head>
-<body>
-    <nav class="topnav">
-        <div class="topnav-inner">
+<body class="app-shell-page">
+    <button class="mobile-nav-toggle" type="button" onclick="setNavOpen(true)" aria-label="Open navigation">
+        <svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14"/></svg>
+        Menu
+    </button>
+    <button class="sidebar-scrim" type="button" onclick="setNavOpen(false)" aria-label="Close navigation"></button>
+    <aside class="sidebar" aria-label="Main navigation">
+        <div class="sidebar-header">
             <a href="/" class="brand">
-                <div class="brand-icon">G</div>
-                <span>SugarClock</span>
+                <img class="brand-logo" src="/logo.png" alt="SugarClock logo">
+                <span class="brand-copy"><span class="brand-name">SugarClock</span><span class="brand-device">Device control</span></span>
             </a>
-            <ul class="topnav-links">
-                <li><a href="/display.html">Dashboard</a></li>
-                <li><a href="/" class="active">Config</a></li>
-                <li><a href="/debug.html">Debug</a></li>
-                <li><a href="/device.html">Device</a></li>
-            </ul>
-            <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">&#9790;</button>
+            <button class="sidebar-close" type="button" onclick="setNavOpen(false)" aria-label="Close navigation">&times;</button>
         </div>
-    </nav>
+        <nav class="sidebar-nav">
+            <a class="sidebar-link" href="/display.html">
+                <img class="nav-image-icon" src="/dashboard-icon.png" alt="">
+                Dashboard
+            </a>
+            <details class="sidebar-config current" open>
+                <summary>
+                    <img class="nav-image-icon" src="/configuration-icon.png" alt="">
+                    Configuration
+                    <svg class="nav-icon chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg>
+                </summary>
+                <div class="side-subnav" aria-label="Configuration sections">
+                    <button type="button" class="tab-btn active" data-tab="glucose" onclick="switchTab('glucose')">Blood Sugar</button>
+                    <button type="button" class="tab-btn" data-tab="display" onclick="switchTab('display')">Display</button>
+                    <button type="button" class="tab-btn" data-tab="time" onclick="switchTab('time')">Time &amp; timers</button>
+                    <button type="button" class="tab-btn" data-tab="weather" onclick="switchTab('weather')">Weather</button>
+                    <button type="button" class="tab-btn" data-tab="connection" onclick="switchTab('connection')">Wi-Fi</button>
+                    <button type="button" class="tab-btn" data-tab="integrations" onclick="switchTab('integrations')">Integrations</button>
+                    <button type="button" class="tab-btn" data-tab="danger" onclick="switchTab('danger')">Reset device</button>
+                </div>
+            </details>
+            <a class="sidebar-link" href="/debug.html">
+                <img class="nav-image-icon" src="/diagnostics-icon.png" alt="">
+                Diagnostics
+            </a>
+            <a class="sidebar-link" href="/device.html">
+                <svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><rect x="5" y="5" width="10" height="10" rx="2"/><path d="M8 2v3M12 2v3M8 15v3M12 15v3M2 8h3M15 8h3M2 12h3M15 12h3"/></svg>
+                Device
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <button class="theme-toggle" type="button" onclick="toggleTheme()" title="Toggle color mode"><span class="theme-icon" aria-hidden="true">&#9790;</span><span class="theme-label">Switch to dark mode</span></button>
+            <div class="sidebar-footer-note">Connected to <a href="https://sugarclock.com" target="_blank" rel="noopener">SugarClock</a></div>
+        </div>
+    </aside>
 
+    <main class="app-main">
     <div class="page">
-        <div class="tabs tabs-sticky">
-            <button class="tab-btn active" data-tab="glucose" onclick="switchTab('glucose')">Blood Sugar</button>
-            <button class="tab-btn" data-tab="display" onclick="switchTab('display')">Display</button>
-            <button class="tab-btn" data-tab="time" onclick="switchTab('time')">Time</button>
-            <button class="tab-btn" data-tab="weather" onclick="switchTab('weather')">Weather</button>
-            <button class="tab-btn" data-tab="connection" onclick="switchTab('connection')">WiFi</button>
-            <button class="tab-btn" data-tab="integrations" onclick="switchTab('integrations')">Integrations</button>
-            <button class="tab-btn" data-tab="danger" onclick="switchTab('danger')">Reset</button>
+        <div class="page-header config-page-header">
+            <div class="page-title-with-icon">
+                <img class="page-header-icon" src="/configuration-icon.png" alt="">
+                <div>
+                    <h1 id="config-page-title">Blood Sugar Configuration</h1>
+                    <p>Tune what your SugarClock shows, sounds, and connects to.</p>
+                </div>
+            </div>
         </div>
 
         <form id="config-form">
@@ -840,6 +874,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             </button>
         </form>
     </div>
+    </main>
 
     <div class="toast" id="toast"></div>
 
@@ -851,6 +886,20 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
             document.getElementById('tab-' + id).classList.add('active');
             document.getElementById('save-btn').style.display = (id === 'danger') ? 'none' : '';
+            const labels = {
+                glucose: 'Blood Sugar', display: 'Display', time: 'Time & Timers',
+                weather: 'Weather', connection: 'Wi-Fi', integrations: 'Integrations',
+                danger: 'Reset Device'
+            };
+            const sectionName = labels[id];
+            document.getElementById('config-page-title').textContent = sectionName ? sectionName + ' Configuration' : 'Configuration';
+            history.replaceState(null, '', id === 'glucose' ? location.pathname : '#' + id);
+            setNavOpen(false);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function setNavOpen(open) {
+            document.body.classList.toggle('nav-open', open);
         }
 
         function togglePw(id) {
@@ -1659,9 +1708,14 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             const dark=d.getAttribute('data-theme')==='dark';
             if(dark){d.removeAttribute('data-theme');localStorage.removeItem('theme');}
             else{d.setAttribute('data-theme','dark');localStorage.setItem('theme','dark');}
-            document.querySelector('.theme-toggle').innerHTML=dark?'&#9790;':'&#9728;';
+            syncThemeButton();
         }
-        if(localStorage.getItem('theme')==='dark')document.querySelector('.theme-toggle').innerHTML='&#9728;';
+        function syncThemeButton(){
+            const dark=document.documentElement.getAttribute('data-theme')==='dark';
+            document.querySelector('.theme-icon').innerHTML=dark?'&#9728;':'&#9790;';
+            document.querySelector('.theme-label').textContent=dark?'Switch to light mode':'Switch to dark mode';
+        }
+        syncThemeButton();
     </script>
 </body>
 </html>
