@@ -1,6 +1,6 @@
-# Physical acceptance — all checks pending
+# Physical acceptance — device smoke test completed; full acceptance pending
 
-No clock was flashed and no real ESP32/iPhone radio session was tested during implementation. Host/simulator-SDK compilation and mocks do not establish BLE security, power-loss resilience or reliability. Record date, TC001 hardware, firmware hash/version, iPhone model/iOS version, test steps and observed results for each check. Do not export passwords, provider URLs, bond keys, passkeys or raw flash backups as diagnostics.
+The initial implementation did not flash a clock. A subsequent user-authorized USB smoke test flashed a configured TC001; see BLE_DEVICE_SMOKE_TEST.md for the measured results and TLS-memory correction. No real ESP32/iPhone pairing session has yet been verified by the agent. Host/simulator-SDK compilation and mocks do not establish BLE security, power-loss resilience or reliability. Record date, TC001 hardware, firmware hash/version, iPhone model/iOS version, test steps and observed results for each check. Do not export passwords, provider URLs, bond keys, passkeys or raw flash backups as diagnostics.
 
 - [ ] Stock/new USB install: unconfigured clock advertises a distinct name, fresh six-digit code fits the display, initial window expires after two minutes, first setup works through the clock's radio.
 - [ ] Verify with actual ESP32 + iPhone that pairing negotiates **authenticated LE Secure Connections**, 128-bit encryption and bonding; confirm no Just Works/legacy downgrade. Wrong code/canceled prompt cannot read settings, write settings, access status, or receive private values. Test with an unbonded BLE client outside admission.

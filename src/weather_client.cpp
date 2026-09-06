@@ -1,3 +1,4 @@
+#include "ble_manager.h"
 #include "weather_client.h"
 #include "config_manager.h"
 #include "wifi_manager.h"
@@ -189,8 +190,10 @@ void weather_loop() {
         return;
     }
 
+    if(!ble_acquire_network()) return;
     last_poll_ms = millis();
     weather_do_fetch();
+    ble_release_network();
 }
 
 void weather_set_paused(bool paused) {

@@ -53,3 +53,5 @@ See [verification results](../docs/BLE_VERIFICATION.md) for exact local builds/t
 See the [screenshot gallery](../docs/screenshots/README.md) for real simulator captures of the production views with clearly labeled sample data. `capture_screenshots.py` and Debug-only `ScreenshotPreview.swift` provide reproducible captures with Bluetooth and interaction disabled. Screenshot mode requires the explicit `SUGARCLOCK_SCREENSHOT` environment variable; it is absent from Release and never substitutes for a failed connection.
 
 The native [design system and asset provenance](DESIGN.md) follow web UI PR #30, with grouped settings cards, inline controls, and matching system light/dark appearance.
+
+On the no-PSRAM TC001, firmware can briefly suspend Bluetooth to free memory for glucose or other scheduled TLS requests. The current app automatically attempts bounded foreground reconnection, verifies device identity and refreshes settings. It retains unsaved drafts and never replays a settings mutation automatically. Rebuild/run the current app source to include this behavior; older development app builds may require tapping the saved clock again.

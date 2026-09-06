@@ -755,7 +755,7 @@ static void render_update_status() {
 }
 
 void ota_loop() {
-    if(queued_worker_mode>=0 && !http_is_fetching() && millis()-queued_worker_at>=1500) {
+    if(queued_worker_mode>=0 && !http_is_fetching() && !ble_network_is_busy() && millis()-queued_worker_at>=1500) {
         int mode=queued_worker_mode;queued_worker_mode=-1;
         ble_suspend_for_ota();
         if(xTaskCreate(ota_worker,mode ? "ota_install":"ota_check",12288,

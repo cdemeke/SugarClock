@@ -1,5 +1,6 @@
 import SwiftUI
 import CoreBluetooth
+import Combine
 
 struct SavedClock: Codable, Identifiable {
     var id: String
@@ -19,10 +20,45 @@ struct SavedClock: Codable, Identifiable {
     @Published var busy=false
     private var client:ClockClient?
     private var updateMonitor:Task<Void,Never>?
+    private var reconnectTask:Task<Void,Never>?
+    private var connectionSubscription:AnyCancellable?
     @Published var updateMessage=""
     init(enableBluetooth:Bool=true,loadSaved:Bool=true) {
         bluetooth=BluetoothTransport(enableRadio:enableBluetooth)
         if loadSaved,let data=UserDefaults.standard.data(forKey:"clocks.v1"),let saved=try? JSONDecoder().decode([SavedClock].self,from:data) {clocks=saved}
+        connectionSubscription=bluetooth.$connected.dropFirst().removeDuplicates().sink { [weak self] connected in
+            Task { @MainActor [weak self] in self?.connectionChanged(connected) }
+        }
+    }
+    private func connectionChanged(_ connected:Bool) {
+        guard !connected,let clock=selected,reconnectTask==nil else {return}
+        reconnectTask=Task {
+            defer {self.reconnectTask=nil}
+            let deadline=Date().addingTimeInterval(180)
+            var attempts=0
+            while Date()<deadline,attempts<4,!Task.isCancelled,self.selected?.id==clock.id {
+                try? await Task.sleep(nanoseconds:2_000_000_000)
+                if Task.isCancelled || self.selected?.id != clock.id {return}
+                if self.bluetooth.connected {return}
+                if self.busy {continue}
+                attempts+=1;self.busy=true
+                self.message="Reconnecting. The clock may briefly pause Bluetooth for its network requests."
+                do {
+                    try await self.bluetooth.connect(id:clock.peripheral)
+                    let client=ClockClient(transport:self.bluetooth)
+                    let hello=try await client.request("hello")
+                    guard hello["device_id"] as? String==clock.id else {throw ClockError.unavailable("Device identity changed. Add this clock again.")}
+                    self.client=client;self.hello=hello
+                    try await self.refresh()
+                    self.message="Reconnected. Saved settings refreshed."
+                    self.busy=false;return
+                } catch {
+                    self.bluetooth.close();self.client=nil
+                    self.message=error.localizedDescription
+                }
+                self.busy=false
+            }
+        }
     }
     func remember() { if let data=try? JSONEncoder().encode(clocks) {UserDefaults.standard.set(data,forKey:"clocks.v1")} }
     func connect(_ id:UUID) async {
@@ -133,5 +169,5 @@ struct SavedClock: Codable, Identifiable {
             }
         }
     }
-    func disconnect() {updateMonitor?.cancel();bluetooth.close();client=nil;selected=nil;settings=[:];status=[:];fields=[]}
+    func disconnect() {reconnectTask?.cancel();updateMonitor?.cancel();bluetooth.close();client=nil;selected=nil;settings=[:];status=[:];fields=[]}
 }

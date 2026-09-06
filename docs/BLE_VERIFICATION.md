@@ -28,7 +28,7 @@ Final binary occupies **86.4%** of a slot, so the existing greater-than-85% util
 c21093a2bd6d8798514928616ec59e0c948af60069413bde24ea4e020bce1f6f
 ```
 
-Machine-readable results: [BLE_BUILD_METRICS.json](BLE_BUILD_METRICS.json). Static RAM is not free runtime heap. **Runtime minimum heap, largest free block, stack margins and BLE/HTTPS/OTA coexistence have not been measured on hardware.** Firmware emits phase-specific BLE, glucose and OTA memory samples; authenticated status also reports free/minimum heap and largest free block. Use [BLE_ACCEPTANCE.md](BLE_ACCEPTANCE.md) to record actual measurements and repeated-session results.
+Latest machine-readable results (including subsequent fixes): [BLE_BUILD_METRICS.json](BLE_BUILD_METRICS.json). Static RAM is not free runtime heap. **Runtime minimum heap, largest free block, stack margins and BLE/HTTPS/OTA coexistence have not been measured on hardware.** Firmware emits phase-specific BLE, glucose and OTA memory samples; authenticated status also reports free/minimum heap and largest free block. Use [BLE_ACCEPTANCE.md](BLE_ACCEPTANCE.md) to record actual measurements and repeated-session results.
 
 ## Completed local checks
 
@@ -86,3 +86,9 @@ The installed CoreSimulator binary was subsequently invoked directly, bypassing 
 ## Native design follow-up — 2026-09-06
 
 The iOS interface now follows PR #30’s palette, cards and original icon assets. The gallery contains 13 simulator captures, including light/dark configuration pages and an accessibility-size text layout. Grouped editors use a tested draft model that preserves omitted values, secret actions and exact thresholds during unit-only changes. All 15 Swift tests pass; simulator Debug and unsigned iPhone Release source builds pass with the same documented local asset exclusion. The prior PR commit’s GitHub firmware, fleet and normal iOS CI builds passed; the design commit triggers another CI run. No firmware source or partition changes were made in this design follow-up. Hardware and signing acceptance remains pending.
+
+## Physical-device follow-up — 2026-09-06
+
+The owner subsequently authorized flashing the connected configured TC001. The application-only USB upgrade preserved the existing partition table, filesystem and all 79 application-configuration entries. Actual hardware exposed a Dexcom TLS allocation failure with BLE resident; the corrected build releases BLE memory during scheduled HTTPS work and resumes advertising afterward. The app now attempts bounded foreground reconnection without replaying mutations. See [the device smoke-test report](BLE_DEVICE_SMOKE_TEST.md) for exact final-image measurements, observations and remaining checks. These results supersede the earlier statement that no physical clock had been flashed; authenticated iPhone pairing and full acceptance remain pending.
+
+The corrected firmware builds successfully at 1,585,760 bytes with 249,248 bytes of slot headroom. All 45 Python tests and 15 Swift tests pass. The updated iPhone Release source build passes with the previously documented asset-catalog exclusion; no new signed phone install or distribution build is claimed.

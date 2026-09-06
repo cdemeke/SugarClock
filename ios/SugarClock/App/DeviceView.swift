@@ -165,6 +165,7 @@ struct SettingsPage:View {
             validation=""
             Task {
                 if await model.save(patch) {draft=SettingsDraft(settings:model.settings,fields:fields)}
+                else {validation=model.message}
             }
         } catch {validation=error.localizedDescription}
     }

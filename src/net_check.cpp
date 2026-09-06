@@ -1,4 +1,6 @@
 #include "net_check.h"
+#include "http_client.h"
+#include "ble_manager.h"
 #include "config_manager.h"
 #include "wifi_manager.h"
 
@@ -188,7 +190,14 @@ void netcheck_loop() {
             step = (res_dns == NC_OK) ? STEP_DATA : STEP_DONE;
             break;
         case STEP_DATA:
-            res_data = probe_data() ? NC_OK : NC_FAIL;
+            // An HTTP response already proves provider reachability, including
+            // an authentication rejection. Avoid a redundant TLS handshake.
+            if(http_get_last_response_code()>0) res_data=NC_OK;
+            else {
+                if(!ble_acquire_network()) return;
+                res_data = probe_data() ? NC_OK : NC_FAIL;
+                ble_release_network();
+            }
             step = STEP_NTP;
             break;
         case STEP_NTP:

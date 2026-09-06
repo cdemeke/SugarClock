@@ -1,3 +1,4 @@
+#include "ble_memory_policy.h"
 #include "ble_protocol.h"
 #include "config_patch.h"
 #include "config_transaction.h"
@@ -7,6 +8,13 @@
 #include <string>
 using namespace scble;
 int main() {
+    assert(ble_network_can_start(false,false,0,0));
+    assert(!ble_network_can_start(true,false,1000,10000));
+    assert(!ble_network_can_start(false,true,100,100));
+    assert(ble_network_can_start(false,true,300,100));
+    assert(ble_network_can_start(false,true,0,2500));
+    assert(!ble_network_can_start(false,true,10000,29999,true));
+    assert(ble_network_can_start(false,true,10000,30000,true));
  assert(wifi_trial_recovery(true,false)==WifiTrialRecovery::ReconnectSaved);
  assert(wifi_trial_recovery(true,true)==WifiTrialRecovery::RetrySavedInPortal);
  assert(wifi_trial_recovery(false,true)==WifiTrialRecovery::StayInPortal);

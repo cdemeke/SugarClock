@@ -1,4 +1,5 @@
 #include "http_client.h"
+#include "ble_manager.h"
 #include "config_manager.h"
 #include "wifi_manager.h"
 #include <WiFiClientSecure.h>
@@ -462,7 +463,8 @@ static void fetch_worker(void* parameter) {
  Serial.printf("[GLUCOSE MEM] start free=%u min=%u largest=%u\n",ESP.getFreeHeap(),ESP.getMinFreeHeap(),heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
  if(source==1) dexcom_fetch_glucose();else generic_fetch();
  Serial.printf("[GLUCOSE MEM] end free=%u min=%u largest=%u\n",ESP.getFreeHeap(),ESP.getMinFreeHeap(),heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
- fetch_complete=true;fetch_running=false;
+ Serial.printf("[GLUCOSE MEM] stack_unused=%u\n",unsigned(uxTaskGetStackHighWaterMark(nullptr)));
+ ble_release_network();fetch_complete=true;fetch_running=false;
  vTaskDelete(nullptr);
 }
 void http_init() {
@@ -501,9 +503,10 @@ void http_loop() {
     if(!wifi_is_connected() || !config_has_server()) return;
     unsigned long interval_ms=max(15,cfg.poll_interval_sec)*1000UL;
     if(!force && last_poll_ms && millis()-last_poll_ms<interval_ms) return;
+    if(!ble_acquire_network()) {if(force) force_requested=true;return;}
     last_poll_ms=millis();fetch_running=true;
     if(xTaskCreate(fetch_worker,"glucose_https",14336,reinterpret_cast<void*>(static_cast<intptr_t>(cfg.data_source)),1,nullptr)!=pdPASS) {
-        fetch_running=false;last_response_code=-1000;++failure_count;publish_result();
+        ble_release_network();fetch_running=false;last_response_code=-1000;++failure_count;publish_result();
     }
 }
 

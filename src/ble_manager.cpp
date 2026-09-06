@@ -1,5 +1,6 @@
 #include "ble_manager.h"
 #include "ble_protocol.h"
+#include "ble_memory_policy.h"
 #include "config_patch.h"
 #include "wifi_manager.h"
 #include "ota_manager.h"
@@ -32,6 +33,8 @@ std::atomic<uint16_t> connection{BLE_HS_CONN_HANDLE_NONE};
 std::atomic<uint32_t> windowUntil{0},passkeyUntil{0},passkey{0},connectedAt{0},lastActivity{0};
 std::atomic<bool> secure{false},resetRequested{false};
 bool enabled=false,queued=false,working=false,suspended=false;
+std::atomic<bool> networkLease{false};
+uint32_t networkWaitingSince=0;
 uint16_t workID=0,workLen=0;
 std::atomic<uint32_t> sessionEpoch{0};
 uint32_t workEpoch=0;
@@ -116,7 +119,7 @@ void execute(JsonDocument& in,JsonDocument& out) {
   out["firmware"]=SUGARCLOCK_VERSION;out["hardware"]="ulanzi-tc001-esp32-4mb";
   out["ota_disconnect"]=true;out["max_message"]=scble::MaxMessage;out["max_packet"]=scble::MaxPacket;
   auto a=out["capabilities"].to<JsonArray>();
-  for(auto cap:{"settings.patch","wifi.trial","wifi.enterprise.preserve","ota.signed_wifi","bonds.physical_reset","schema"}) a.add(cap);
+  for(auto cap:{"settings.patch","wifi.trial","wifi.enterprise.preserve","ota.signed_wifi","bonds.physical_reset","schema","network.pause"}) a.add(cap);
  } else if(!strcmp(op,"settings.get")) {
   ConfigGuard guard;config_public(out["settings"].to<JsonObject>(),config_get());out["saved"]=config_is_durable();
  } else if(!strcmp(op,"schema.get")) {
@@ -164,7 +167,7 @@ void execute(JsonDocument& in,JsonDocument& out) {
 }
 }
 void ble_init() {
- mutex=xSemaphoreCreateMutexStatic(&storage);bootID=esp_random();
+ if(!mutex) {mutex=xSemaphoreCreateMutexStatic(&storage);bootID=esp_random();}
  snprintf(identity,sizeof(identity),"%012llX",ESP.getEfuseMac());snprintf(name,sizeof(name),"SugarClock-%.6s",identity+6);
  if(!NimBLEDevice::init(name)) { Serial.println("[BLE] Unavailable; normal clock operation continues");return; }
  NimBLEDevice::setDeviceCallbacks(&deviceCallbacks);
@@ -193,8 +196,21 @@ void ble_suspend_for_ota() {
  disconnect();NimBLEDevice::stopAdvertising();
  if(NimBLEDevice::deinit(true)) {enabled=false;suspended=true;server=nullptr;tx=nullptr;connection=BLE_HS_CONN_HANDLE_NONE;secure=false;}
 }
+bool ble_acquire_network() {
+ uint32_t now=millis();
+ if(!networkWaitingSince) networkWaitingSince=now;
+ if(!ble_network_can_start(networkLease,ble_is_connected(),now-lastActivity,now-networkWaitingSince,!secure)) return false;
+ if(enabled) {
+  Serial.println("[BLE] Pausing for network TLS; reconnect after request");
+  ble_suspend_for_ota();
+  if(enabled) return false;
+ }
+ networkWaitingSince=0;networkLease=true;return true;
+}
+void ble_release_network() {networkLease=false;}
+bool ble_network_is_busy() {return networkLease;}
 void ble_loop() {
- if(suspended && !ota_is_busy()) {suspended=false;ble_init();}
+ if(suspended && !ota_is_busy() && !networkLease) {suspended=false;ble_init();}
  if(!enabled) return;
  if(resetRequested) {
   disconnect();if(ble_is_connected()) return;

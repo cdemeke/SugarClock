@@ -1,3 +1,4 @@
+#include "ble_manager.h"
 #include "fleet_manager.h"
 
 #include "config_manager.h"
@@ -497,7 +498,7 @@ static void fleet_worker(void*) {
                           static_cast<unsigned long>(delay_ms / 1000UL));
         }
     }
-    worker_running = false;
+    ble_release_network();worker_running = false;
     if (!ota_is_busy()) {
         http_set_paused(false);
         weather_set_paused(false);
@@ -522,6 +523,7 @@ void fleet_init() {
 void fleet_loop() {
     if (worker_running || http_is_fetching() || ota_is_busy() || !wifi_is_connected() || wifi_is_ap_mode() ||
         !time_is_available() || static_cast<int32_t>(millis() - next_attempt_ms) < 0) return;
+    if(!ble_acquire_network()) return;
     worker_running = true;
     // The ESP32 cannot reliably hold simultaneous TLS handshakes. This bounded
     // attempt runs after core traffic and pauses only future requests. Failed
@@ -529,7 +531,7 @@ void fleet_loop() {
     http_set_paused(true);
     weather_set_paused(true);
     if (xTaskCreate(fleet_worker, "fleet", 14336, nullptr, 1, nullptr) != pdPASS) {
-        worker_running = false;
+        ble_release_network();worker_running = false;
         http_set_paused(false);
         weather_set_paused(false);
         next_attempt_ms = millis() + 30000;

@@ -133,7 +133,7 @@ void loop() {
     improv_loop();
 
     // 1c. Reachability probes (DNS / data source / NTP) once online
-    if(!http_is_fetching()) netcheck_loop();
+    if(!http_is_fetching() && !ble_network_is_busy() && !ota_is_busy()) netcheck_loop();
 
     // Start web server once WiFi connects or in AP mode (one-time)
     if ((wifi_is_connected() || wifi_is_ap_mode()) && !webserver_started) {
