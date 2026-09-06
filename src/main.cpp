@@ -220,13 +220,15 @@ void loop() {
     sysmon_loop();
     countdown_loop();
 
-    // 7. Engine state machine + rendering
+    // 7. Compose all display layers before sending one final frame to LEDs.
+    display_begin_frame();
     engine_loop();
 
     // 8. Secure updater scheduling/rollback validation. Run after the normal
     // renderer so an active update progress screen remains visible.
     ota_loop();
     ble_render();
+    display_end_frame();
 
     // Poll the management service only when Wi-Fi and trusted time are ready.
     fleet_loop();

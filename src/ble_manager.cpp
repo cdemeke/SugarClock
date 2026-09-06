@@ -68,7 +68,7 @@ class ServerCallbacks:public NimBLEServerCallbacks {
  void onConfirmPassKey(NimBLEConnInfo& c,uint32_t) override { NimBLEDevice::injectConfirmPasskey(c,false); }
  void onAuthenticationComplete(NimBLEConnInfo& c) override {
   if(!scble::authorized(c.isEncrypted(),c.isAuthenticated(),c.isBonded(),ble_hs_cfg.sm_sc_only) || c.getSecKeySize()!=16) { disconnect();return; }
-  secure=true;passkeyUntil=0;
+  secure=true;passkeyUntil=0;windowUntil=0;
  }
 } serverCallbacks;
 class Characteristics:public NimBLECharacteristicCallbacks {
@@ -237,16 +237,22 @@ void ble_loop() {
  memset(work,0,sizeof(work));
 }
 void ble_render() {
- if(!enabled || ota_is_busy() || buzzer_is_active() || notify_is_urgent()) return;
+ if((!enabled && !suspended) || ota_is_busy() || buzzer_is_active() || notify_is_urgent()) return;
  const auto& reading=http_get_reading();const auto& cfg=config_get();
  if(reading.valid && (reading.glucose<cfg.thresh_urgent_low || reading.glucose>cfg.thresh_urgent_high)) return;
  uint32_t until=passkeyUntil;
- if(until && int32_t(until-millis())>0) {
+ if(enabled && until && int32_t(until-millis())>0) {
   // Six 3x5 digits fit in 24 pixels; no scrolling or truncation of the pairing code.
   static const uint16_t digits[]={0x7B6F,0x2492,0x73E7,0x73CF,0x5BC9,0x79CF,0x79EF,0x7249,0x7BEF,0x7BCF};
   char code[7];snprintf(code,sizeof(code),"%06u",unsigned(passkey));display_clear();display_set_transition_level(255);
   for(int d=0;d<6;++d) for(int y=0;y<5;++y) for(int x=0;x<3;++x)
    if(digits[code[d]-'0'] & (1 << (14-y*3-x))) display_draw_pixel(4+d*4+x,1+y,display_color(0,220,220));
   display_show();
- } else if(windowOpen() && (millis()%4000)<600) {display_clear();display_draw_text("PAIR",3,0,display_color(0,200,200));display_show();}
+ } else if(windowOpen() && !secure) {
+  // Admission is steady, not a blinking overlay on top of the glucose frame.
+  // Network memory leases temporarily pause the radio without ending admission.
+  display_clear();display_set_transition_level(255);
+  display_draw_text(enabled ? "PAIR" : "WAIT",3,0,display_color(0,200,200));
+  display_show();
+ }
 }
