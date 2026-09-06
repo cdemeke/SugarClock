@@ -55,3 +55,10 @@ See the [screenshot gallery](../docs/screenshots/README.md) for real simulator c
 The native [design system and asset provenance](DESIGN.md) follow web UI PR #30, with grouped settings cards, inline controls, and matching system light/dark appearance.
 
 On the no-PSRAM TC001, firmware can briefly suspend Bluetooth to free memory for glucose or other scheduled TLS requests. The current app automatically attempts bounded foreground reconnection, verifies device identity and refreshes settings. It retains unsaved drafts and never replays a settings mutation automatically. Rebuild/run the current app source to include this behavior; older development app builds may require tapping the saved clock again.
+
+
+### Connection timeout correction (2026-09-06)
+
+Install a newly built iOS app as well as the latest companion firmware for this correction. The previous development app disconnected on `.inactive`, which can occur while iOS presents its Bluetooth pairing sheet. It now disconnects only on `.background`. Firmware also protects fragmented reads and initial authentication before a bounded network pause; it still suspends BLE for TLS/OTA memory and does not promise a continuous radio connection.
+
+During reconnect, settings remain readable/editable, device commands wait for readiness, and Stop reconnecting / Reconnect controls remain accessible. An interrupted schema load is retried as a complete read; existing drafts are preserved. After installing, test pairing (or bond reconnection), full settings load, brightness save/readback, remaining foreground through at least two glucose polls, and a background/foreground round trip. No connected iPhone was available to the agent for signed installation or these checks.

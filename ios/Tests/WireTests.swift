@@ -15,6 +15,12 @@ import XCTest
     }
 }
 final class WireTests:XCTestCase {
+    func testPairingSheetDoesNotEndForegroundSession() {
+        for phase:ForegroundSessionPhase in [.active,.inactive,.active,.inactive,.active] {
+            XCTAssertFalse(phase.mustDisconnect)
+        }
+        XCTAssertTrue(ForegroundSessionPhase.background.mustDisconnect)
+    }
     func testDefaultMTUAndLargeMessage() throws {
         let message=Data(repeating:0x5a,count:4096)
         let frames=try Frame.split(message,id:65534,packetLimit:20)
@@ -93,6 +99,25 @@ final class WireTests:XCTestCase {
         _=try await ClockClient(transport:transport,pollDelay:0).request("wifi.scan")
         let starts=try transport.writes.map {try Frame(data:$0)}.filter{$0.flags==0 && $0.offset==0}
         XCTAssertEqual(starts.count,1)
+    }
+    @MainActor func testInterruptedSchemaNeverReturnsPartialFieldsAndCanReload() async throws {
+        let interrupted=MockTransport()
+        try interrupted.response(["v":1,"id":1,"state":"applied","fields":[["key":"brightness"]],"more":true])
+        do {_=try await ClockClient(transport:interrupted).schema();XCTFail("Partial schema must not appear complete")}
+        catch {XCTAssertEqual(error as? ClockError,.disconnected)}
+        let recovered=MockTransport()
+        try recovered.response(["v":1,"id":1,"state":"applied","fields":[["key":"brightness"]],"more":true])
+        let pageOne=recovered.replies
+        try recovered.response(["v":1,"id":2,"state":"applied","fields":[["key":"use_mmol"]],"more":false],id:2)
+        recovered.replies=pageOne+recovered.replies
+        let fields=try await ClockClient(transport:recovered).schema()
+        XCTAssertEqual(fields.compactMap{$0["key"] as? String},["brightness","use_mmol"])
+    }
+    @MainActor func testMalformedSchemaCompletionIsRejected() async throws {
+        let transport=MockTransport()
+        try transport.response(["v":1,"id":1,"state":"applied","fields":[["key":"brightness"]]])
+        do {_=try await ClockClient(transport:transport).schema();XCTFail()}
+        catch {XCTAssertEqual(error as? ClockError,.malformed)}
     }
     func testSecretsHaveThreeDistinctActions() {
         var patch:[String:Any]=["brightness":55]

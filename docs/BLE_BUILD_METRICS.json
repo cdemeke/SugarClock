@@ -5,14 +5,14 @@
   "baseline_elf_flash_bytes": 1312073,
   "baseline_static_ram_bytes": 73256,
   "firmware_version": "0.3.0",
-  "firmware_binary_bytes": 1585856,
-  "firmware_sha256": "5b820ad1dbed7e7f9fa451afbe005b8f9e24e871fae17927c472b084ff4a0932",
+  "firmware_binary_bytes": 1586208,
+  "firmware_sha256": "cbf48a9ffe69ef9fca581755190be24fb4c7748a104b80d4445a12902d8c878a",
   "slot_bytes": 1835008,
-  "headroom_bytes": 249152,
+  "headroom_bytes": 248800,
   "static_ram_bytes": 93512,
   "runtime_heap_measured": true,
   "physical_ble_tested": false,
-  "firmware_elf_flash_bytes": 1579285,
+  "firmware_elf_flash_bytes": 1579637,
   "hardware_measurement_scope": "Configured TC001 USB application-only upgrade, autonomous Dexcom HTTPS and BLE stack suspend/resume; no iPhone pairing or OTA qualification",
   "hardware_report": "BLE_DEVICE_SMOKE_TEST.md"
 }

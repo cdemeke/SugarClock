@@ -9,12 +9,19 @@
 using namespace scble;
 int main() {
     assert(ble_network_can_start(false,false,0,0));
-    assert(!ble_network_can_start(true,false,1000,10000));
-    assert(!ble_network_can_start(false,true,100,100));
-    assert(ble_network_can_start(false,true,300,100));
-    assert(ble_network_can_start(false,true,0,2500));
-    assert(!ble_network_can_start(false,true,10000,29999,true));
-    assert(ble_network_can_start(false,true,10000,30000,true));
+    assert(!ble_network_can_start(true,false,1000,60000));
+    assert(!ble_network_can_start(false,true,100,2500));
+    assert(ble_network_can_start(false,true,1500,2500));
+    assert(!ble_network_can_start(false,true,10000,44000,true));
+    assert(!ble_network_can_start(false,true,10000,44000,false,true));
+    assert(!ble_network_can_start(false,true,2000,5000,false,false,5000));
+    assert(ble_network_can_start(false,true,2000,10000,false,false,10000));
+    assert(ble_network_can_start(false,true,0,45000,true,true,0));
+    // A 4 KiB transfer at MTU 23 spans 342 fragments. It must not be
+    // disconnected by network scheduling between fragments after 2.5 seconds.
+    for(unsigned fragment=0;fragment<342;++fragment)
+        assert(!ble_network_can_start(false,true,100,fragment*100,false,true));
+
  assert(wifi_trial_recovery(true,false)==WifiTrialRecovery::ReconnectSaved);
  assert(wifi_trial_recovery(true,true)==WifiTrialRecovery::RetrySavedInPortal);
  assert(wifi_trial_recovery(false,true)==WifiTrialRecovery::StayInPortal);

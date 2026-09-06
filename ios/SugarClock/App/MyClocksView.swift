@@ -16,6 +16,7 @@ struct MyClocksView:View {
                 }
                 Divider()
                 PageHeading(title:"My Clocks",subtitle:"A little peace of mind, always nearby.",icon:"DashboardIcon")
+                OperationFeedback()
                 SugarCard(title:"Your devices") {
                     if model.clocks.isEmpty {
                         Text("Your clocks will appear here after pairing.").font(.subheadline).foregroundStyle(SugarTheme.secondary)
@@ -34,10 +35,9 @@ struct MyClocksView:View {
                     NavigationLink {TroubleshootingView()} label:{DestinationRow(title:"Need a hand?",subtitle:"Pairing, connection and setup help",symbol:"questionmark.circle")}
                         .buttonStyle(.plain)
                 }
-                OperationFeedback()
                 Text("Your clock keeps working when this app is closed.")
                     .font(.footnote).foregroundStyle(SugarTheme.secondary).frame(maxWidth:.infinity).multilineTextAlignment(.center)
-            }.disabled(model.busy)
+            }
         }.tint(SugarTheme.accent)
     }
 }
@@ -57,7 +57,7 @@ struct DiscoveryView:View {
             }
             Text(bluetooth.state).font(.caption).foregroundStyle(SugarTheme.secondary)
             ForEach(bluetooth.devices,id:\.identifier) {device in
-                Button {Task {await model.connect(device.identifier)}} label:{DestinationRow(title:device.name ?? "SugarClock",subtitle:"Nearby · Tap to pair",symbol:"plus.circle")}.buttonStyle(.plain)
+                Button {Task {await model.connect(device.identifier)}} label:{DestinationRow(title:device.name ?? "SugarClock",subtitle:"Nearby · Tap to pair",symbol:"plus.circle")}.buttonStyle(.plain).disabled(model.busy)
             }
             Button {bluetooth.scan()} label:{Label("Search nearby",systemImage:"magnifyingglass")}.buttonStyle(SugarButtonStyle(prominent:false))
         }
@@ -80,7 +80,7 @@ struct SavedClockRow:View {
                 Spacer(minLength:4)
                 Image(systemName:connected ? "checkmark.circle.fill":"chevron.right").foregroundStyle(SugarTheme.accent).accessibilityHidden(true)
             }.padding(.vertical,4).contentShape(Rectangle())
-        }.buttonStyle(.plain).contextMenu {
+        }.buttonStyle(.plain).disabled(model.busy).contextMenu {
             Button("Remove from My Clocks",role:.destructive) {model.clocks.removeAll(where:{$0.id==clock.id});model.remember()}
         }
     }

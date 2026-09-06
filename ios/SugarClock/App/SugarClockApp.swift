@@ -14,7 +14,8 @@ import SwiftUI
     }
     var body: some Scene {
         WindowGroup { content.environmentObject(model).onChange(of:phase) { _,new in
-            if new != .active { model.disconnect() }
+            let sessionPhase:ForegroundSessionPhase = new == .background ? .background : new == .inactive ? .inactive : .active
+            if sessionPhase.mustDisconnect { model.disconnect() }
         } }
     }
     @ViewBuilder private var content:some View {

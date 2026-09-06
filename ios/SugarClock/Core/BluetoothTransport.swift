@@ -95,7 +95,7 @@ import Combine
         fail(error ?? ClockError.disconnected)
     }
     public func centralManager(_ central:CBCentralManager,didDisconnectPeripheral peripheral:CBPeripheral,error:Error?) {
-        guard lifecycle.acceptsDisconnect(peripheral.identifier) else {return}
+        guard peripheral.state == .disconnected, lifecycle.acceptsDisconnect(peripheral.identifier) else {return}
         state="Disconnected · Tap your clock to reconnect";fail(error ?? ClockError.disconnected)
     }
     private func fail(_ error:Error) {

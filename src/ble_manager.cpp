@@ -32,8 +32,9 @@ uint8_t lastHash[32]={};
 std::atomic<uint16_t> connection{BLE_HS_CONN_HANDLE_NONE};
 std::atomic<uint32_t> windowUntil{0},passkeyUntil{0},passkey{0},connectedAt{0},lastActivity{0};
 std::atomic<bool> secure{false},resetRequested{false};
-bool enabled=false,queued=false,working=false,suspended=false;
+bool enabled=false,queued=false,working=false,suspended=false,responsePending=false;
 std::atomic<bool> networkLease{false};
+std::atomic<uint32_t> networkReleasedAt{0};
 uint32_t networkWaitingSince=0;
 uint16_t workID=0,workLen=0;
 std::atomic<uint32_t> sessionEpoch{0};
@@ -46,18 +47,20 @@ bool allowed(NimBLEConnInfo& c) {
    scble::authorized(c.isEncrypted(),c.isAuthenticated(),c.isBonded(),ble_hs_cfg.sm_sc_only) && c.getSecKeySize()==16;
 }
 void disconnect() { uint16_t c=connection;if(server && c!=BLE_HS_CONN_HANDLE_NONE) server->disconnect(c); }
-void clearMailbox() { receiver.reset();memset(response,0,sizeof(response));responseID=responseLen=responseOffset=lastID=0;queued=false; }
+void clearMailbox() { receiver.reset();memset(response,0,sizeof(response));responseID=responseLen=responseOffset=lastID=0;queued=false;responsePending=false; }
 class DeviceCallbacks:public NimBLEDeviceCallbacks {
  int onStoreStatus(ble_store_status_event*,void*) override { return BLE_HS_ENOMEM; } // Never evict an owner's bond implicitly.
 } deviceCallbacks;
 class ServerCallbacks:public NimBLEServerCallbacks {
  void onConnect(NimBLEServer* s,NimBLEConnInfo& c) override {
+  Serial.println("[BLE] Phone connected; authenticating");
   connection=c.getConnHandle();secure=false;connectedAt=lastActivity=millis();
   { Guard g; ++sessionEpoch;clearMailbox(); }
   if(!scble::canAdmit(NimBLEDevice::isBonded(c.getIdAddress()),windowOpen(),NimBLEDevice::getNumBonds())) { s->disconnect(c.getConnHandle());return; }
   s->updateConnParams(c.getConnHandle(),24,48,0,400);
  }
- void onDisconnect(NimBLEServer*,NimBLEConnInfo&,int) override {
+ void onDisconnect(NimBLEServer*,NimBLEConnInfo&,int reason) override {
+  Serial.printf("[BLE] Phone disconnected reason=%d network=%d\n",reason,int(networkLease.load()));
   secure=false;connection=BLE_HS_CONN_HANDLE_NONE;passkeyUntil=0;
   Guard g;++sessionEpoch;clearMailbox(); // queued but unexecuted work is canceled; Wi-Fi/OTA already started continues.
  }
@@ -69,6 +72,7 @@ class ServerCallbacks:public NimBLEServerCallbacks {
  void onAuthenticationComplete(NimBLEConnInfo& c) override {
   if(!scble::authorized(c.isEncrypted(),c.isAuthenticated(),c.isBonded(),ble_hs_cfg.sm_sc_only) || c.getSecKeySize()!=16) { disconnect();return; }
   secure=true;passkeyUntil=0;windowUntil=0;
+  Serial.println("[BLE] Phone authenticated");
  }
 } serverCallbacks;
 class Characteristics:public NimBLECharacteristicCallbacks {
@@ -94,6 +98,7 @@ class Characteristics:public NimBLECharacteristicCallbacks {
   size_t len=std::min<size_t>(capacity-scble::Header,responseLen-responseOffset);
   scble::header(packet,1,responseID,responseOffset,responseLen);
   memcpy(packet+scble::Header,response+responseOffset,len);ch->setValue(packet,len+scble::Header);
+  if(responseLen && responseOffset+len==responseLen) responsePending=false;
  }
 } characteristics;
 void status(JsonObject o) {
@@ -197,20 +202,24 @@ void ble_suspend_for_ota() {
  if(NimBLEDevice::deinit(true)) {enabled=false;suspended=true;server=nullptr;tx=nullptr;connection=BLE_HS_CONN_HANDLE_NONE;secure=false;}
 }
 bool ble_acquire_network() {
+ if(networkLease) return false;
  uint32_t now=millis();
  if(!networkWaitingSince) networkWaitingSince=now;
- if(!ble_network_can_start(networkLease,ble_is_connected(),now-lastActivity,now-networkWaitingSince,!secure)) return false;
+ bool transfer=false;
+ if(mutex) {Guard g;transfer=queued || working || receiver.used || responsePending;}
+ if(!ble_network_can_start(networkLease,ble_is_connected(),now-lastActivity,now-networkWaitingSince,!secure,transfer,now-connectedAt)) return false;
+ networkLease=true;
  if(enabled) {
   Serial.println("[BLE] Pausing for network TLS; reconnect after request");
   ble_suspend_for_ota();
-  if(enabled) return false;
+  if(enabled) {networkLease=false;return false;}
  }
  networkWaitingSince=0;networkLease=true;return true;
 }
-void ble_release_network() {networkLease=false;}
+void ble_release_network() {networkReleasedAt=millis();networkLease=false;}
 bool ble_network_is_busy() {return networkLease;}
 void ble_loop() {
- if(suspended && !ota_is_busy() && !networkLease) {suspended=false;ble_init();}
+ if(suspended && !ota_is_busy() && !networkLease && millis()-networkReleasedAt>=1500) {suspended=false;ble_init();}
  if(!enabled) return;
  if(resetRequested) {
   disconnect();if(ble_is_connected()) return;
@@ -233,7 +242,7 @@ void ble_loop() {
  { Guard g;if(workEpoch!=sessionEpoch) {working=false;memset(work,0,sizeof(work));return;}
    responseOffset=0;responseID=lastID=workID;memcpy(lastHash,hash,32);
    if(measureJson(out)>scble::MaxMessage) {out.clear();out["v"]=1;out["id"]=workID;out["state"]="failed";out["error"]="response_too_large";}
-   responseLen=serializeJson(out,response,sizeof(response));working=false; }
+   responseLen=serializeJson(out,response,sizeof(response));responsePending=true;working=false; }
  memset(work,0,sizeof(work));
 }
 void ble_render() {

@@ -18,6 +18,9 @@ struct SavedClock: Codable, Identifiable {
     @Published var networks:[[String:Any]]=[]
     @Published var message=""
     @Published var busy=false
+    @Published var reconnecting=false
+    private var automaticReconnect=true
+    private var schemaFirmware=""
     private var client:ClockClient?
     private var updateMonitor:Task<Void,Never>?
     private var reconnectTask:Task<Void,Never>?
@@ -31,9 +34,10 @@ struct SavedClock: Codable, Identifiable {
         }
     }
     private func connectionChanged(_ connected:Bool) {
-        guard !connected,let clock=selected,reconnectTask==nil else {return}
+        guard !connected,automaticReconnect,let clock=selected,reconnectTask==nil else {return}
+        reconnecting=true
         reconnectTask=Task {
-            defer {self.reconnectTask=nil}
+            defer {self.reconnectTask=nil;self.reconnecting=false}
             let deadline=Date().addingTimeInterval(180)
             var attempts=0
             while Date()<deadline,attempts<4,!Task.isCancelled,self.selected?.id==clock.id {
@@ -48,11 +52,15 @@ struct SavedClock: Codable, Identifiable {
                     let client=ClockClient(transport:self.bluetooth)
                     let hello=try await client.request("hello")
                     guard hello["device_id"] as? String==clock.id else {throw ClockError.unavailable("Device identity changed. Add this clock again.")}
+                    try Task.checkCancellation()
                     self.client=client;self.hello=hello
                     try await self.refresh()
+                    try await self.loadSchema(hello,client:client)
+                    try Task.checkCancellation()
                     self.message="Reconnected. Saved settings refreshed."
                     self.busy=false;return
                 } catch {
+                    if Task.isCancelled {self.busy=false;return}
                     self.bluetooth.close();self.client=nil
                     self.message=error.localizedDescription
                 }
@@ -62,6 +70,16 @@ struct SavedClock: Codable, Identifiable {
     }
     func remember() { if let data=try? JSONEncoder().encode(clocks) {UserDefaults.standard.set(data,forKey:"clocks.v1")} }
     func connect(_ id:UUID) async {
+        guard !busy else {return}
+        automaticReconnect=true
+        if bluetooth.connected,selected?.peripheral==id,let client {
+            await perform {
+                try await self.refresh()
+                try await self.loadSchema(self.hello,client:client)
+                self.message="Connected. Saved settings refreshed."
+            }
+            return
+        }
         await perform {
             try await self.bluetooth.connect(id:id)
             let client=ClockClient(transport:self.bluetooth);self.client=client
@@ -75,14 +93,7 @@ struct SavedClock: Codable, Identifiable {
             self.selected=SavedClock(id:identity,peripheral:id,nickname:saved.nickname)
             self.clocks.removeAll(where:{$0.id==identity});self.clocks.append(SavedClock(id:identity,peripheral:id,nickname:saved.nickname));self.remember()
             try await self.refresh()
-            self.fields=[]
-            if caps.contains("schema") {
-                for page in 0..<11 {
-                    let response=try await client.request("schema.get",fields:["page":page])
-                    self.fields += response["fields"] as? [[String:Any]] ?? []
-                    if response["more"] as? Bool != true {break}
-                }
-            }
+            try await self.loadSchema(hello,client:client)
             self.message="Connected. Existing settings loaded."
             if let expected=UserDefaults.standard.string(forKey:"update.expected."+identity) {
                 let ota=self.status["ota"] as? [String:Any] ?? [:]
@@ -90,11 +101,28 @@ struct SavedClock: Codable, Identifiable {
             }
         }
     }
+    private func loadSchema(_ hello:[String:Any],client:ClockClient) async throws {
+        let version=hello["firmware"] as? String ?? ""
+        guard (hello["capabilities"] as? [String] ?? []).contains("schema") else {fields=[];schemaFirmware="";return}
+        if !fields.isEmpty,schemaFirmware==version {return}
+        let loaded=try await client.schema()
+        try Task.checkCancellation()
+        fields=loaded;schemaFirmware=version
+    }
     func refresh() async throws {
         guard let client else {throw ClockError.disconnected}
-        settings=try await client.request("settings.get")["settings"] as? [String:Any] ?? [:]
-        status=try await client.request("status.get")["status"] as? [String:Any] ?? [:]
+        let loadedSettings=try await client.request("settings.get")["settings"] as? [String:Any] ?? [:]
+        let loadedStatus=try await client.request("status.get")["status"] as? [String:Any] ?? [:]
+        try Task.checkCancellation()
+        settings=loadedSettings;status=loadedStatus
     }
+    var canSend:Bool {bluetooth.connected && !busy}
+    func stopReconnecting() {
+        automaticReconnect=false;reconnectTask?.cancel();updateMonitor?.cancel()
+        bluetooth.close();client=nil
+        message="Reconnection paused. Your edits are still here; reconnect when ready."
+    }
+    func retrySelected() async {if let selected {await connect(selected.peripheral)}}
     func perform(_ action: @escaping () async throws -> Void) async {
         guard !busy else {return};busy=true;defer{busy=false}
         do {try await action()} catch {message=error.localizedDescription}
@@ -169,5 +197,5 @@ struct SavedClock: Codable, Identifiable {
             }
         }
     }
-    func disconnect() {reconnectTask?.cancel();updateMonitor?.cancel();bluetooth.close();client=nil;selected=nil;settings=[:];status=[:];fields=[]}
+    func disconnect() {automaticReconnect=false;reconnectTask?.cancel();updateMonitor?.cancel();bluetooth.close();client=nil;selected=nil;settings=[:];status=[:];fields=[]}
 }

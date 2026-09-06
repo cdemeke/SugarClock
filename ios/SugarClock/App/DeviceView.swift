@@ -29,6 +29,7 @@ struct DeviceView:View {
     var body:some View {
         SugarScreen {
             PageHeading(title:"Configuration",subtitle:"Tune what your SugarClock shows, sounds and connects to.")
+            OperationFeedback()
             SugarCard {
                 HStack(spacing:14) {
                     BrandIcon(name:"BrandLogo",size:48)
@@ -71,8 +72,7 @@ struct DeviceView:View {
                 Divider()
                 NavigationLink {AllSettingsView()} label:{DestinationRow(title:"Additional Settings",subtitle:"Every option supported by this firmware",symbol:"slider.horizontal.3")}.buttonStyle(.plain)
             }
-            OperationFeedback()
-        }.navigationTitle(model.selected?.nickname ?? "Clock").disabled(model.busy)
+        }.navigationTitle(model.selected?.nickname ?? "Clock")
             .onAppear {nickname=model.selected?.nickname ?? ""}
     }
 }
@@ -128,6 +128,7 @@ struct SettingsPage:View {
     var body:some View {
         SugarScreen {
             PageHeading(title:title,subtitle:subtitle)
+            OperationFeedback()
             ForEach(sections,id:\.0) {section in
                 let available=section.1.compactMap {key in fields.first(where:{$0["key"] as? String==key})}.filter {field in
                     guard sections.flatMap({$0.1}).contains("data_source") else {return true}
@@ -146,16 +147,17 @@ struct SettingsPage:View {
                     }
                 }
             }
-            if fields.isEmpty {Text("These settings are not supported by the connected firmware.").foregroundStyle(SugarTheme.secondary)}
+            if fields.isEmpty {Text(model.fields.isEmpty ? "Settings have not finished loading. Reconnect to load them before editing." : "These settings are not supported by the connected firmware.").foregroundStyle(SugarTheme.secondary)}
             else {
                 Button {save()} label:{Label("Save on clock",systemImage:"checkmark")}
-                    .buttonStyle(SugarButtonStyle()).disabled(model.busy || draft.changed.isEmpty)
+                    .buttonStyle(SugarButtonStyle()).disabled(!model.canSend || draft.changed.isEmpty)
                 Text("Only your changes are saved. Existing credentials stay on the clock.").font(.footnote).foregroundStyle(SugarTheme.secondary)
             }
             if !validation.isEmpty {Text(validation).font(.subheadline).foregroundStyle(.red).accessibilityLabel("Save error: \(validation)")}
-            OperationFeedback()
-        }.disabled(model.busy).onAppear {
-            if !loaded {draft=SettingsDraft(settings:model.settings,fields:fields);loaded=true}
+        }.onAppear {
+            if !loaded,!fields.isEmpty {draft=SettingsDraft(settings:model.settings,fields:fields);loaded=true}
+        }.onChange(of:model.fields.count) { _,_ in
+            if !loaded,!fields.isEmpty {draft=SettingsDraft(settings:model.settings,fields:fields);loaded=true}
         }.onDisappear {draft=SettingsDraft();loaded=false}
     }
     private func save() {
@@ -249,10 +251,10 @@ struct DiagnosticsView:View {
         SugarScreen {
             PageHeading(title:"Connection & Data",subtitle:"Know what’s connected, saved and up to date.",icon:"DiagnosticsIcon")
             StatusSection()
-            Button("Refresh status") {Task {await model.perform {try await model.refresh()}}}.buttonStyle(SugarButtonStyle())
+            Button("Refresh status") {Task {await model.perform {try await model.refresh()}}}.buttonStyle(SugarButtonStyle()).disabled(!model.canSend)
             NavigationLink("Troubleshooting") {TroubleshootingView()}.buttonStyle(SugarButtonStyle(prominent:false))
             OperationFeedback()
-        }.navigationTitle("Diagnostics").disabled(model.busy)
+        }.navigationTitle("Diagnostics")
     }
 }
 
@@ -283,7 +285,7 @@ struct WiFiView:View {
                     }.buttonStyle(.plain)
                     Divider()
                 }
-                Button {Task {await model.scanWiFi()}} label:{Label("Scan using clock",systemImage:"arrow.clockwise")}.buttonStyle(SugarButtonStyle(prominent:false))
+                Button {Task {await model.scanWiFi()}} label:{Label("Scan using clock",systemImage:"arrow.clockwise")}.buttonStyle(SugarButtonStyle(prominent:false)).disabled(!model.canSend)
             }
             SugarCard(title:"Join or replace network") {
                 VStack(alignment:.leading,spacing:8) {
@@ -301,13 +303,13 @@ struct WiFiView:View {
                 StatusPill(text:model.settings[(security==1 ? "wifi_eap_password":"wifi_password")+"_configured"] as? Bool==true ? "Password configured":"No saved password")
                 Picker("Password",selection:$secretAction) {Text("Leave unchanged").tag(0);Text("Replace").tag(1);Text("Clear / open network").tag(2)}.fieldSurface()
                 if secretAction==1 {SecureField("New password",text:$password).fieldSurface()}
-                Button("Test connection, then save") {join()}.buttonStyle(SugarButtonStyle())
+                Button("Test connection, then save") {join()}.buttonStyle(SugarButtonStyle()).disabled(!model.canSend)
                 Text("Saved only after the clock gets an IP address. If the trial fails, it retries your previous network. Internet and glucose access are checked separately.").font(.footnote).foregroundStyle(SugarTheme.secondary)
             }
             StatusSection()
-            Button("Refresh connection result") {Task {await model.perform {try await model.refresh()}}}.buttonStyle(SugarButtonStyle(prominent:false))
+            Button("Refresh connection result") {Task {await model.perform {try await model.refresh()}}}.buttonStyle(SugarButtonStyle(prominent:false)).disabled(!model.canSend)
             OperationFeedback()
-        }.navigationTitle("Wi-Fi").disabled(model.busy).onAppear {
+        }.navigationTitle("Wi-Fi").onAppear {
             original=model.settings;ssid=original["wifi_ssid"] as? String ?? "";security=original["wifi_security"] as? Int ?? 0;eap=original["wifi_eap_method"] as? Int ?? 0
             identity=original["wifi_identity"] as? String ?? "";anonymous=original["wifi_anon_identity"] as? String ?? "";validateCA=original["wifi_validate_ca"] as? Bool ?? false
         }.onDisappear {password=""}
@@ -345,8 +347,8 @@ struct FirmwareView:View {
                 if let reason=ota["deferral"] as? String,!reason.isEmpty {Text(reason).font(.subheadline).foregroundStyle(.orange)}
                 if let error=ota["error"] as? String,!error.isEmpty {Text(error).font(.subheadline).foregroundStyle(.red)}
                 if let progress=ota["progress"] as? Int,progress>0 {ProgressView(value:Double(progress),total:100).accessibilityLabel("Firmware update progress")}
-                Button {Task {await model.command("ota.check")}} label:{Label("Check for update",systemImage:"arrow.clockwise")}.buttonStyle(SugarButtonStyle())
-                Button("Install signed update") {Task {await model.command("ota.install")}}.buttonStyle(SugarButtonStyle(prominent:false))
+                Button {Task {await model.command("ota.check")}} label:{Label("Check for update",systemImage:"arrow.clockwise")}.buttonStyle(SugarButtonStyle()).disabled(!model.canSend)
+                Button("Install signed update") {Task {await model.command("ota.install")}}.buttonStyle(SugarButtonStyle(prominent:false)).disabled(!model.canSend)
             }
             SugarCard(title:"Automatic updates") {
                 ForEach(["auto_update_enabled","auto_update_hour"],id:\.self) {key in
@@ -362,6 +364,6 @@ struct FirmwareView:View {
             }
             Button("Refresh update status") {Task {await model.perform {try await model.refresh()}}}.buttonStyle(SugarButtonStyle(prominent:false))
             OperationFeedback()
-        }.navigationTitle("Firmware").disabled(model.busy)
+        }.navigationTitle("Firmware")
     }
 }

@@ -20,3 +20,9 @@ public struct ConnectionLifecycle: Equatable {
     public func acceptsDisconnect(_ id:UUID)->Bool {device==id && phase != .idle && phase != .connecting}
     public mutating func reset() {generation &+= 1;phase = .idle;device=nil}
 }
+
+/// System pairing sheets temporarily make the app inactive, not backgrounded.
+public enum ForegroundSessionPhase {
+    case active, inactive, background
+    public var mustDisconnect:Bool {self == .background}
+}

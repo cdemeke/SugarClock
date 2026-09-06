@@ -76,6 +76,17 @@ public struct Reassembly {
     private let timeout:TimeInterval
     private let pollDelay:UInt64
     public init(transport: ClockTransport,timeout:TimeInterval=45,pollDelay:UInt64=200_000_000) { self.transport=transport;self.timeout=timeout;self.pollDelay=pollDelay }
+    /// Publish a schema only when every page has arrived in this connection.
+    public func schema() async throws -> [[String:Any]] {
+        var fields:[[String:Any]]=[]
+        for page in 0..<11 {
+            let response=try await request("schema.get",fields:["page":page])
+            guard let items=response["fields"] as? [[String:Any]],let more=response["more"] as? Bool else {throw ClockError.malformed}
+            fields += items
+            if !more {return fields}
+        }
+        throw ClockError.oversized
+    }
     public func request(_ operation: String, fields: [String:Any]=[:]) async throws -> [String:Any] {
         guard !busy else { throw ClockError.busy }
         guard nextID<UInt16.max else { transport.close();throw ClockError.disconnected }

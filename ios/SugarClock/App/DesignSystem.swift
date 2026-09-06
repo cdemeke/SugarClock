@@ -141,7 +141,13 @@ struct DestinationRow:View {
 struct OperationFeedback:View {
     @EnvironmentObject var model:ClockModel
     var body:some View {
-        if model.busy {ProgressView("Working with your clock…").frame(maxWidth:.infinity).tint(SugarTheme.accent)}
+        if model.busy {ProgressView(model.reconnecting ? "Reconnecting to your clock…" : "Working with your clock…").frame(maxWidth:.infinity).tint(SugarTheme.accent)}
+        if model.reconnecting {
+            Text("You can keep browsing and editing. Saving resumes when the clock reconnects.").font(.footnote).foregroundStyle(SugarTheme.secondary)
+            Button("Stop reconnecting") {model.stopReconnecting()}.buttonStyle(SugarButtonStyle(prominent:false))
+        } else if model.selected != nil,!model.bluetooth.connected,!model.busy {
+            Button("Reconnect") {Task {await model.retrySelected()}}.buttonStyle(SugarButtonStyle(prominent:false))
+        }
         if !model.message.isEmpty {
             Text(model.message).font(.footnote).foregroundStyle(SugarTheme.secondary)
                 .accessibilityLabel("Operation result: \(model.message)").frame(maxWidth:.infinity,alignment:.leading)
