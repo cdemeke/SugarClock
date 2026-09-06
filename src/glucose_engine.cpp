@@ -160,7 +160,7 @@ static void on_weather_pre_fetch() {
     // Only force-render a clean frame if currently showing weather
     if (current_state == STATE_WEATHER_DISPLAY && weather_has_data()) {
         AppConfig& cfg = config_get();
-        const WeatherReading& wx = weather_get_reading();
+        WeatherReading wx = weather_get_reading();
 
         display_clear();
         char tbuf[8];
@@ -186,7 +186,7 @@ void engine_rebuild_toggle_order() {
     AppConfig& cfg = config_get();
     toggle_count = 0;
     toggle_order[toggle_count++] = STATE_GLUCOSE_DISPLAY;
-    toggle_order[toggle_count++] = STATE_TREND_DISPLAY;
+    if (cfg.show_delta) toggle_order[toggle_count++] = STATE_TREND_DISPLAY;
     if (cfg.time_display_enabled) toggle_order[toggle_count++] = STATE_TIME_DISPLAY;
     if (cfg.weather_enabled) toggle_order[toggle_count++] = STATE_WEATHER_DISPLAY;
     if (cfg.ambient_enabled) toggle_order[toggle_count++] = STATE_AMBIENT_CREATURE_DISPLAY;
@@ -270,7 +270,7 @@ static void check_alerts() {
     AppConfig& cfg = config_get();
     if (!cfg.alert_enabled) return;
 
-    const GlucoseReading& reading = http_get_reading();
+    GlucoseReading reading = http_get_reading();
     if (!reading.valid) return;
 
     // Check if snoozed
@@ -434,7 +434,7 @@ static DisplayState evaluate_state() {
     }
 
     // Check for server-pushed force_mode
-    const GlucoseReading& reading = http_get_reading();
+    GlucoseReading reading = http_get_reading();
     if (reading.valid && reading.force_mode >= 0) {
         return (DisplayState)reading.force_mode;
     }
@@ -476,7 +476,7 @@ static void render_state(DisplayState state) {
         }
 
         case STATE_GLUCOSE_DISPLAY: {
-            const GlucoseReading& reading = http_get_reading();
+            GlucoseReading reading = http_get_reading();
             if (!reading.valid) {
                 display_clear();
                 display_draw_text("---", 7, 0, display_color(100, 100, 100));
@@ -617,7 +617,7 @@ static void render_state(DisplayState state) {
             if (!weather_has_data()) {
                 display_draw_text("WX...", 4, 0, color_from_uint32(cfg.color_weather));
             } else {
-                const WeatherReading& wx = weather_get_reading();
+                WeatherReading wx = weather_get_reading();
                 int anim = weather_anim_type(wx.condition_id);
 
                 // Spawn and draw weather particles behind text
@@ -800,7 +800,7 @@ static void render_state(DisplayState state) {
             display_set_brightness(effective_brightness());
             display_clear();
 
-            const GlucoseReading& reading = http_get_reading();
+            GlucoseReading reading = http_get_reading();
             if (!reading.valid || reading.trend == TREND_UNKNOWN) {
                 display_draw_text("---", 7, 0, display_color(100, 100, 100));
             } else {
@@ -815,14 +815,16 @@ static void render_state(DisplayState state) {
                 display_draw_trend(reading.trend, 1, 0, tcolor);
 
                 // Draw delta number at x=8
-                int delta = http_get_delta();
-                char dbuf[8];
-                if (delta >= 0) {
-                    snprintf(dbuf, sizeof(dbuf), "+%d", delta);
-                } else {
-                    snprintf(dbuf, sizeof(dbuf), "%d", delta);
+                if (cfg.show_delta) {
+                    int delta = http_get_delta();
+                    char dbuf[8];
+                    if (delta >= 0) {
+                        snprintf(dbuf, sizeof(dbuf), "+%d", delta);
+                    } else {
+                        snprintf(dbuf, sizeof(dbuf), "%d", delta);
+                    }
+                    display_draw_text(dbuf, 8, 0, tcolor);
                 }
-                display_draw_text(dbuf, 8, 0, tcolor);
             }
 
             display_show();
@@ -887,7 +889,7 @@ static void render_state(DisplayState state) {
             display_set_brightness(effective_brightness());
             display_clear();
 
-            const GlucoseReading& reading = http_get_reading();
+            GlucoseReading reading = http_get_reading();
             if (!reading.valid) {
                 display_draw_text("---", 7, 0, color_from_uint32(cfg.color_stale));
                 display_show();
@@ -1032,7 +1034,11 @@ void engine_loop() {
 
     // Auto-cycle display modes
     AppConfig& cfg = config_get();
-    if (!connection_info_visible && cfg.auto_cycle_enabled && toggle_count > 1) {
+    bool cycling_active = cfg.auto_cycle_enabled && toggle_count > 1 && !connection_info_visible;
+    if (cycling_active && is_night_mode() && cfg.night_disable_auto_cycle) {
+        cycling_active = false;
+    }
+    if (cycling_active) {
         unsigned long cycle_interval_ms = (unsigned long)cfg.auto_cycle_sec * 1000UL;
         if (last_cycle_ms == 0) last_cycle_ms = millis();
         if (millis() - last_cycle_ms >= cycle_interval_ms) {

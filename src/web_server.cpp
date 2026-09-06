@@ -51,7 +51,7 @@ static uint32_t hex_to_color(const char* hex) {
 static void handle_status(AsyncWebServerRequest* request) {
     JsonDocument doc;
 
-    const GlucoseReading& r = http_get_reading();
+    GlucoseReading r = http_get_reading();
     doc["glucose"] = r.valid ? r.glucose : 0;
     doc["trend"] = r.valid ? TREND_NAMES[r.trend] : "Unknown";
     doc["valid"] = r.valid;
@@ -104,7 +104,7 @@ static void handle_status(AsyncWebServerRequest* request) {
 
     // Weather
     if (weather_has_data()) {
-        const WeatherReading& wx = weather_get_reading();
+        WeatherReading wx = weather_get_reading();
         doc["weather_temp"] = wx.temp;
         doc["weather_desc"] = wx.description;
         doc["weather_humidity"] = wx.humidity;
@@ -247,6 +247,7 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     // Auto-cycle
     doc["auto_cycle_enabled"] = cfg.auto_cycle_enabled;
     doc["auto_cycle_sec"] = cfg.auto_cycle_sec;
+    doc["night_disable_auto_cycle"] = cfg.night_disable_auto_cycle;
 
     String output;
     serializeJson(doc, output);
@@ -541,6 +542,9 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     if (doc["auto_cycle_sec"].is<int>()) {
         cfg.auto_cycle_sec = constrain(doc["auto_cycle_sec"].as<int>(), 3, 300);
     }
+    if (doc["night_disable_auto_cycle"].is<bool>()) {
+        cfg.night_disable_auto_cycle = doc["night_disable_auto_cycle"].as<bool>();
+    }
 
     config_save();
     engine_rebuild_toggle_order();
@@ -568,7 +572,9 @@ static void handle_debug(AsyncWebServerRequest* request) {
     JsonDocument doc;
 
     doc["last_http_code"] = http_get_last_response_code();
-    doc["last_http_body"] = http_get_last_response_body();
+    char last_body[512];
+    http_get_last_response_body(last_body, sizeof(last_body));
+    doc["last_http_body"] = last_body;
     doc["failure_count"] = http_get_failure_count();
     doc["ever_received"] = http_has_ever_received();
     doc["wifi_rssi"] = wifi_get_rssi();
@@ -599,7 +605,7 @@ static void handle_debug(AsyncWebServerRequest* request) {
     unsigned long age = http_time_since_last_reading();
     doc["data_age_ms"] = (age == ULONG_MAX) ? -1 : (long)age;
 
-    const GlucoseReading& r = http_get_reading();
+    GlucoseReading r = http_get_reading();
     if (r.valid) {
         doc["raw_glucose"] = r.glucose;
         doc["raw_trend"] = TREND_NAMES[r.trend];
@@ -787,18 +793,20 @@ static void handle_post_sysmon(AsyncWebServerRequest* request, uint8_t* data, si
 
 // POST /api/test/weather
 static void handle_test_weather(AsyncWebServerRequest* request) {
-    bool ok = weather_force_fetch();
+    bool ok = weather_force_fetch(15000);
     JsonDocument doc;
     doc["ok"] = ok;
     doc["http_code"] = weather_get_last_http_code();
 
     if (ok) {
-        const WeatherReading& wx = weather_get_reading();
+        WeatherReading wx = weather_get_reading();
         doc["temp"] = wx.temp;
         doc["description"] = wx.description;
         doc["humidity"] = wx.humidity;
     } else {
-        doc["error"] = weather_get_last_response();
+        char err[256];
+        weather_get_last_response(err, sizeof(err));
+        doc["error"] = err;
     }
 
     String output;
@@ -846,8 +854,8 @@ static void handle_test_glucose(AsyncWebServerRequest* request) {
 
     // Demo mode: no network involved, just return a synthetic reading.
     if (cfg.data_source == 2) {
-        http_force_fetch();
-        const GlucoseReading& r = http_get_reading();
+        http_force_fetch(5000);
+        GlucoseReading r = http_get_reading();
         JsonDocument doc;
         doc["ok"] = true;
         doc["http_code"] = 200;
@@ -868,18 +876,19 @@ static void handle_test_glucose(AsyncWebServerRequest* request) {
         return;
     }
 
-    bool ok = http_force_fetch();
+    bool ok = http_force_fetch(20000);
     JsonDocument doc;
     doc["ok"] = ok;
     doc["http_code"] = http_get_last_response_code();
 
     if (ok) {
-        const GlucoseReading& r = http_get_reading();
+        GlucoseReading r = http_get_reading();
         doc["glucose"] = r.glucose;
         doc["trend"] = TREND_NAMES[r.trend];
     } else {
         int code = http_get_last_response_code();
-        const char* body = http_get_last_response_body();
+        char body[512];
+        http_get_last_response_body(body, sizeof(body));
         if (code > 0 && strlen(body) > 0) {
             char err[384];
             snprintf(err, sizeof(err), "HTTP %d: %s", code, body);

@@ -20,7 +20,7 @@ struct AppConfig {
     char wifi_anon_identity[128];  // optional outer identity
     bool wifi_validate_ca;         // default false; only meaningful with /wifi_ca.pem present
 
-    // Data source: 0=custom URL, 1=Dexcom Share, 2=Demo (synthetic data)
+    // Data source: 0=custom URL, 1=Dexcom Share, 2=Demo (synthetic data), 3=Nightscout
     int data_source;
 
     // Custom server
@@ -123,6 +123,7 @@ struct AppConfig {
     // Auto-cycle display
     bool auto_cycle_enabled;   // default true
     int auto_cycle_sec;        // default 10, min 3, max 300
+    bool night_disable_auto_cycle; // default false; stop cycling during night mode
 
     // Secure OTA (new Preferences keys; absent keys preserve old NVS configs)
     bool auto_update_enabled;  // default true
