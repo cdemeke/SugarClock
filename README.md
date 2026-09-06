@@ -143,3 +143,13 @@ esptool.py -p /dev/cu.usbserial-* -b 460800 write_flash 0x0 tc001_factory_backup
 ## License
 
 MIT
+
+
+## iPhone companion (firmware 0.3.0 / protocol 1)
+
+The native [iOS companion source and build instructions](ios/README.md) support BLE
+pairing, saved clocks, settings, clock-side Wi-Fi trials and existing signed Wi-Fi OTA.
+See the [protocol specification](protocol/SUGARCLOCK_BLE_V1.md),
+[preservation migration paths](docs/BLE_MIGRATION.md), and
+[physical acceptance checklist](docs/BLE_ACCEPTANCE.md). Hardware qualification and
+Apple signing remain required before distribution; no release is published by this change.

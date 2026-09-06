@@ -1,4 +1,6 @@
 #include "ota_manager.h"
+#include "ble_manager.h"
+#include <esp_heap_caps.h>
 
 #include "buzzer.h"
 #include "config_manager.h"
@@ -99,11 +101,13 @@ static void copy_text(char* destination, size_t size, const char* source) {
 static void set_state(OtaState state, const char* error = nullptr,
                       const char* safety = nullptr) {
     portENTER_CRITICAL(&status_mux);
+    bool changed=status_snapshot.state!=state;
     status_snapshot.state = state;
     if (error) copy_text(status_snapshot.last_error, sizeof(status_snapshot.last_error), error);
     if (safety) copy_text(status_snapshot.safety_reason, sizeof(status_snapshot.safety_reason), safety);
     else if (state != OTA_DEFERRED) status_snapshot.safety_reason[0] = '\0';
     portEXIT_CRITICAL(&status_mux);
+    if(changed) Serial.printf("[OTA MEM] state=%d free=%u min=%u largest=%u\n",int(state),ESP.getFreeHeap(),ESP.getMinFreeHeap(),heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
 }
 
 static void set_progress(int progress) {
@@ -447,7 +451,7 @@ static void record_failure(const char* error) {
 static void ota_worker(void* parameter) {
     unsigned mode = static_cast<unsigned>(reinterpret_cast<uintptr_t>(parameter));
     bool managed = mode == 2;
-    bool owns_network_pause = mode == 0 || managed;
+    bool owns_network_pause = true; // All modes reserve the network while queued.
     char error[64] = "";
 
     if (owns_network_pause) {
@@ -601,17 +605,16 @@ static void ota_worker(void* parameter) {
     vTaskDelete(nullptr);
 }
 
+// Requests enqueue first, allowing the BLE acknowledgment to be read. The main
+// loop releases Bluetooth memory before creating the existing OTA worker.
+static int queued_worker_mode=-1;
+static unsigned long queued_worker_at=0;
 static OtaRequestResult start_worker(unsigned mode) {
-    if (worker_running) return OTA_REQUEST_BUSY;
-    worker_running = true;
-    BaseType_t result = xTaskCreate(ota_worker, mode ? "ota_install" : "ota_check",
-                                   12288, reinterpret_cast<void*>(static_cast<uintptr_t>(mode)),
-                                   1, nullptr);
-    if (result != pdPASS) {
-        worker_running = false;
-        set_state(OTA_ERROR, "task_create_failed");
-        return OTA_REQUEST_INTERNAL_ERROR;
-    }
+    portENTER_CRITICAL(&status_mux);
+    if(worker_running) {portEXIT_CRITICAL(&status_mux);return OTA_REQUEST_BUSY;}
+    worker_running=true;queued_worker_mode=mode;queued_worker_at=millis();
+    http_set_paused(true);weather_set_paused(true);
+    portEXIT_CRITICAL(&status_mux);
     return OTA_REQUEST_QUEUED;
 }
 
@@ -622,15 +625,18 @@ OtaRequestResult ota_request_check() {
     return start_worker(0);
 }
 
+static unsigned long next_install_attempt_ms=0;
 OtaRequestResult ota_request_install(bool manual) {
+    if(!manual && next_install_attempt_ms && int32_t(millis()-next_install_attempt_ms)<0) return OTA_REQUEST_UNSAFE;
     if (ota_is_busy()) return OTA_REQUEST_BUSY;
     if (!manifest_available) return OTA_REQUEST_NO_UPDATE;
+    if(!manual) next_install_attempt_ms=millis()+60000;
     AppConfig& cfg = config_get();
     const char* safety = ota_safety_failure(collect_safety_inputs());
     if (!safety && !manual && !ota_in_install_window(time_get_hour(), cfg.auto_update_hour)) {
         safety = "outside_install_window";
     }
-    if (safety) {
+    if (safety && strcmp(safety,"heap_low") != 0) {
         set_state(OTA_DEFERRED, nullptr, safety);
         return OTA_REQUEST_UNSAFE;
     }
@@ -749,6 +755,15 @@ static void render_update_status() {
 }
 
 void ota_loop() {
+    if(queued_worker_mode>=0 && !http_is_fetching() && millis()-queued_worker_at>=1500) {
+        int mode=queued_worker_mode;queued_worker_mode=-1;
+        ble_suspend_for_ota();
+        if(xTaskCreate(ota_worker,mode ? "ota_install":"ota_check",12288,
+            reinterpret_cast<void*>(static_cast<uintptr_t>(mode)),1,nullptr)!=pdPASS) {
+            worker_running=false;http_set_paused(false);weather_set_paused(false);set_state(OTA_ERROR,"task_create_failed");
+        }
+    }
+
     validate_pending_image();
     render_update_status();
 

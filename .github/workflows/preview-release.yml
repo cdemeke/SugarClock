@@ -37,6 +37,7 @@ jobs:
           pio run
           pio run -t buildfs
           python scripts/check_layout.py
+          python -m unittest discover -s tests -p "test_ble*.py" -v
       - name: Generate and verify signed preview manifest
         env:
           OTA_SIGNING_KEY_B64: ${{ secrets.OTA_SIGNING_KEY_B64 }}
@@ -48,6 +49,9 @@ jobs:
           version="$(tr -d '\r\n' < VERSION)"
           tag="${PREVIEW_RELEASE_TAG}"
           mkdir -p release
+          cp protocol/compatibility.json release/mobile-protocol.json
+          cp protocol/SUGARCLOCK_BLE_V1.md release/
+          cp docs/BLE_MIGRATION.md release/
           key_file="$(mktemp)"
           cleanup() { rm -f "${key_file}"; }
           trap cleanup EXIT

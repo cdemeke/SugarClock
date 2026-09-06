@@ -45,6 +45,21 @@ void buttons_init() {
 
 void buttons_loop() {
     unsigned long now = millis();
+    // Two-button chord consumes individual events until both are released.
+    // Release after 3 seconds admits a phone; hold 10 seconds resets bonds.
+    static bool chord=false,reset=false;
+    static unsigned long chordStart=0;
+    bool left=!digitalRead(PIN_BUTTON_LEFT),right=!digitalRead(PIN_BUTTON_RIGHT);
+    if(left && right && !chord) {chord=true;reset=false;chordStart=now;middle_click.cancel();pending_event=BTN_NONE;}
+    if(chord) {
+        if(left && right && !reset && now-chordStart>=10000) {pending_event=BTN_BOND_RESET;reset=true;}
+        if(!left && !right) {
+            if(!reset && now-chordStart>=3000) pending_event=BTN_PAIRING;
+            chord=false;
+            for(auto& b:buttons) {b.pressed=false;b.long_fired=false;b.last_raw=true;b.debounce_time=now;}
+        }
+        return;
+    }
     for (int i = 0; i < 3; i++) {
         bool raw = digitalRead(buttons[i].pin); // LOW = pressed (active LOW)
 

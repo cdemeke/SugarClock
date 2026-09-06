@@ -56,12 +56,12 @@ static void resolve_data_host() {
     if (url[0] == '\0') return;
     const char* p = strstr(url, "://");
     p = p ? p + 3 : url;
-    const char* at = strchr(p, '@');
-    const char* slash = strchr(p, '/');
-    if (at && (!slash || at < slash)) p = at + 1;
+    size_t authority_len=strcspn(p,"/?#");
+    const char* at=static_cast<const char*>(memchr(p,'@',authority_len));
+    if(at) p=at+1;
 
     size_t i = 0;
-    while (p[i] && p[i] != '/' && p[i] != ':' && i < sizeof(data_host) - 1) {
+    while (p[i] && p[i] != '/' && p[i] != ':' && p[i] != '?' && p[i] != '#' && i < sizeof(data_host) - 1) {
         data_host[i] = p[i];
         i++;
     }

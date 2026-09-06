@@ -20,6 +20,8 @@
 #include "net_check.h"
 #include "ota_manager.h"
 #include "fleet_manager.h"
+#include "ble_manager.h"
+#include <esp_heap_caps.h>
 
 #ifndef SUGARCLOCK_VERSION
 #error "SUGARCLOCK_VERSION must be injected from the root VERSION file"
@@ -106,6 +108,7 @@ void setup() {
     // Fleet registration/check-ins run independently of the clock's core
     // display and glucose paths. A fleet outage never blocks normal operation.
     fleet_init();
+    ble_init();
 
     // 14. Enable watchdog timer
     esp_task_wdt_init(WDT_TIMEOUT_SEC, true);
@@ -124,11 +127,13 @@ void loop() {
     // 1. WiFi management
     wifi_loop();
 
+    ble_loop();
+
     // 1b. Improv Wi-Fi serial (for ESP Web Tools credential input)
     improv_loop();
 
     // 1c. Reachability probes (DNS / data source / NTP) once online
-    netcheck_loop();
+    if(!http_is_fetching()) netcheck_loop();
 
     // Start web server once WiFi connects or in AP mode (one-time)
     if ((wifi_is_connected() || wifi_is_ap_mode()) && !webserver_started) {
@@ -140,7 +145,7 @@ void loop() {
     http_loop();
 
     // 2b. Weather polling
-    weather_loop();
+    if(!http_is_fetching()) weather_loop();
 
     // 3. Time management
     time_loop();
@@ -155,11 +160,14 @@ void loop() {
             engine_dismiss_connection_info();
             Serial.println("[BTN] Connection info dismissed");
         } else switch (evt) {
+            case BTN_PAIRING: ble_pairing_window(); break;
+            case BTN_BOND_RESET: ble_reset_bonds(); break;
             case BTN_LEFT_SHORT:
                 engine_toggle_mode();
                 break;
             case BTN_MIDDLE_SHORT: {
                 // Cycle brightness: 10 -> 40 -> 100 -> 200 -> 10
+                ConfigGuard guard;
                 AppConfig& cfg = config_get();
                 if (cfg.brightness < 20) cfg.brightness = 40;
                 else if (cfg.brightness < 60) cfg.brightness = 100;
@@ -214,6 +222,7 @@ void loop() {
     // 8. Secure updater scheduling/rollback validation. Run after the normal
     // renderer so an active update progress screen remains visible.
     ota_loop();
+    ble_render();
 
     // Poll the management service only when Wi-Fi and trusted time are ready.
     fleet_loop();
@@ -232,6 +241,8 @@ void loop() {
                       ESP.getFreeHeap(), ESP.getMinFreeHeap(),
                       avg, loop_time_max,
                       engine_state_name(engine_get_state()));
+        Serial.printf("[MEM] largest=%u BLE=%d OTA=%d\n", heap_caps_get_largest_free_block(MALLOC_CAP_8BIT), ble_is_connected(), ota_is_busy());
+        Serial.printf("[MEM] glucose_https=%d\n",http_is_fetching());
         loop_count = 0;
         loop_time_sum = 0;
         loop_time_max = 0;

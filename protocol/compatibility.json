@@ -1,0 +1,10 @@
+{
+  "protocol_major": 1,
+  "minimum_ble_firmware": "0.3.0",
+  "ios_deployment_target": "17.0",
+  "service_uuid": "ca7c0001-63a2-4b7c-9a5b-763e4e0c1000",
+  "transport": "authenticated-gatt-mailbox",
+  "max_message_bytes": 4096,
+  "max_packet_bytes": 180,
+  "firmware_transfer": "signed-wifi-ota-only"
+}

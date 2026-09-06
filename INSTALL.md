@@ -130,26 +130,20 @@ esptool.py -p /dev/cu.usbserial-1410 -b 460800 write_flash \
   0x390000 .pio/build/esp32dev/littlefs.bin
 ```
 
-### One-time OTA migration (preserve existing settings)
+### One-time OTA/Bluetooth migration (preserve existing settings)
 
-Release 0.2.0 changes the 4 MiB flash layout to two 1.75 MiB application slots and a
-448 KiB LittleFS partition. Existing firmware cannot install this partition table over the
-air, so this bootstrap release must be installed once with the Mac setup app or the command
-below. **Do not run `erase_flash` during migration**: NVS stays at `0x9000`, so saved WiFi,
-Dexcom, Nightscout, alert, and display settings survive.
+For a configured clock, use the Mac installer's **Upgrade existing SugarClock**
+option or the backup/extract/repack procedure in [BLE migration](docs/BLE_MIGRATION.md).
+Do not run `erase_flash`. NVS remains at `0x9000`, but avoiding erase alone does
+not preserve LittleFS overlays or enterprise CA certificates when its layout changes.
+The preservation flow validates the actual partition table, keeps a private full-flash
+backup, and rebuilds the existing filesystem before any write. It stops if preservation
+fails. Do not use a fresh empty filesystem image for this migration.
 
-```bash
-esptool.py -p /dev/cu.usbserial-1410 -b 460800 write_flash \
-  0x1000  .pio/build/esp32dev/bootloader.bin \
-  0x8000  .pio/build/esp32dev/partitions.bin \
-  0xe000  ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin \
-  0x10000 .pio/build/esp32dev/firmware.bin \
-  0x390000 .pio/build/esp32dev/littlefs.bin
-```
+After installing Bluetooth-capable firmware, pair using the [iOS companion](ios/README.md).
+A configured clock requires holding left and right together for three seconds, then
+releasing. Existing configuration is read from the clock without re-entering secrets.
 
-The old filesystem bytes that overlap `ota_1` are harmless; the first OTA write erases that
-inactive slot. Confirm the clock reconnects and still has its glucose-source settings. This
-is the last normally required USB firmware update.
 
 ---
 

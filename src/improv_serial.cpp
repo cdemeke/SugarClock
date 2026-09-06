@@ -100,7 +100,7 @@ static void handle_wifi_settings(const uint8_t* data, uint8_t len) {
 
     // Read SSID (length-prefixed string)
     uint8_t ssid_len = data[pos++];
-    if (pos + ssid_len > len) {
+    if (!ssid_len || ssid_len > 32 || pos + ssid_len > len) {
         send_error(ERROR_INVALID_RPC);
         return;
     }
@@ -115,7 +115,7 @@ static void handle_wifi_settings(const uint8_t* data, uint8_t len) {
         return;
     }
     uint8_t pass_len = data[pos++];
-    if (pos + pass_len > len) {
+    if (pass_len > 63 || pos + pass_len > len) {
         send_error(ERROR_INVALID_RPC);
         return;
     }
@@ -123,68 +123,14 @@ static void handle_wifi_settings(const uint8_t* data, uint8_t len) {
     memcpy(password, data + pos, pass_len);
     password[pass_len] = '\0';
 
-    Serial.printf("[IMPROV] Received WiFi credentials: SSID='%s'\n", ssid);
-
-    // Set provisioning state
+    WifiTrialParams params = {};
+    strncpy(params.ssid,ssid,sizeof(params.ssid)-1);
+    strncpy(params.password,password,sizeof(params.password)-1);
+    // Improv explicitly selects personal/open Wi-Fi; glucose fields are untouched.
+    if(!wifi_trial_start(params)) { send_error(ERROR_UNABLE_TO_CONNECT);return; }
     send_state(STATE_PROVISIONING);
-    active = true;
+    active=true;
 
-    // Stop AP mode if running, switch to STA
-    WiFi.softAPdisconnect(true);
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(ssid, password);
-
-    // Wait for connection
-    unsigned long start = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - start < WIFI_CONNECT_TIMEOUT) {
-        delay(250);
-    }
-
-    if (WiFi.status() == WL_CONNECTED) {
-        // Save WiFi credentials and clear any old glucose source config.
-        // This ensures the device shows "Visit <IP> to setup" after a
-        // web flash instead of "STALE" from leftover server URLs.
-        AppConfig& cfg = config_get();
-        strncpy(cfg.wifi_ssid, ssid, sizeof(cfg.wifi_ssid) - 1);
-        cfg.wifi_ssid[sizeof(cfg.wifi_ssid) - 1] = '\0';
-        strncpy(cfg.wifi_password, password, sizeof(cfg.wifi_password) - 1);
-        cfg.wifi_password[sizeof(cfg.wifi_password) - 1] = '\0';
-        // Improv has no identity field and deliberately remains a personal/open
-        // WiFi protocol. Clear any enterprise mode retained in NVS.
-        cfg.wifi_security = 0;
-        cfg.wifi_eap_method = 0;
-        cfg.wifi_identity[0] = '\0';
-        cfg.wifi_eap_password[0] = '\0';
-        cfg.wifi_anon_identity[0] = '\0';
-        cfg.wifi_validate_ca = false;
-        cfg.server_url[0] = '\0';
-        cfg.dexcom_username[0] = '\0';
-        cfg.dexcom_password[0] = '\0';
-        cfg.data_source = 0;
-        config_save();
-
-        // Build URL for the device
-        IPAddress ip = WiFi.localIP();
-        char url[64];
-        snprintf(url, sizeof(url), "http://%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
-
-        Serial.printf("[IMPROV] Connected! IP: %s\n", url);
-        send_rpc_result(CMD_WIFI_SETTINGS, url);
-        send_state(STATE_PROVISIONED);
-
-        // Reboot so wifi_manager picks up the saved creds cleanly
-        delay(1000);
-        ESP.restart();
-    } else {
-        Serial.println("[IMPROV] WiFi connection failed");
-        send_error(ERROR_UNABLE_TO_CONNECT);
-        send_state(STATE_READY);
-        active = false;
-
-        // Restart AP mode
-        WiFi.mode(WIFI_AP);
-        WiFi.softAP("SugarClock-Setup");
-    }
 }
 
 static void handle_identify() {
@@ -230,6 +176,7 @@ static void process_packet() {
         uint8_t cmd_data_len = (data_len > 1) ? data[1] : 0;
         uint8_t* cmd_data = data + 2;
 
+        if(data_len<2 || cmd_data_len>data_len-2) { send_error(ERROR_INVALID_RPC);return; }
         switch (command) {
             case CMD_WIFI_SETTINGS:
                 handle_wifi_settings(cmd_data, cmd_data_len);
@@ -249,6 +196,16 @@ void improv_init() {
 }
 
 void improv_loop() {
+    if(active) {
+        WifiTrialState state=wifi_trial_get_state();
+        if(state==WIFI_TRIAL_CONNECTED) {
+            char url[64];snprintf(url,sizeof(url),"http://%s",wifi_get_ip());
+            send_rpc_result(CMD_WIFI_SETTINGS,url);send_state(STATE_PROVISIONED);active=false;
+        } else if(state>=WIFI_TRIAL_FAILED_AUTH) {
+            send_error(ERROR_UNABLE_TO_CONNECT);send_state(STATE_READY);active=false;
+        }
+    }
+
     // Run Improv when WiFi is not configured, OR for the first 2 minutes
     // after boot. The boot window allows the web installer to send WiFi
     // credentials even on reinstalls (where the erase prompt is skipped

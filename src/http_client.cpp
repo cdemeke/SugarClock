@@ -5,6 +5,8 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <Arduino.h>
+#include <atomic>
+#include <esp_heap_caps.h>
 
 // Dexcom Share constants
 #define DEXCOM_APP_ID "d89443d2-327c-4a6f-89e5-496bbb0317db"
@@ -23,7 +25,21 @@ static char last_response_body[512] = "";
 static bool ever_received = false;
 static unsigned long last_poll_ms = 0;
 static unsigned long last_success_ms = 0;
-static volatile bool http_paused = false;
+static std::atomic<bool> http_paused{false};
+static std::atomic<bool> fetch_running{false},fetch_complete{false},force_requested{false};
+static portMUX_TYPE published_mux=portMUX_INITIALIZER_UNLOCKED;
+struct PublishedHTTP {
+ GlucoseReading reading;
+ GlucoseHistoryEntry history[GLUCOSE_HISTORY_SIZE];
+ int failure_count=0,code=0,delta=0,history_count=0,history_write=0;
+ bool ever=false;
+ unsigned long last_success=0;
+};
+static PublishedHTTP published;
+static std::atomic<unsigned long> fetch_generation{0};
+unsigned long http_fetch_generation() {return fetch_generation;}
+bool http_is_fetching() {return fetch_running;}
+
 
 // Delta tracking
 static int prev_glucose = 0;
@@ -127,7 +143,7 @@ static String dexcom_post(const char* url, const String& body, int& httpCode) {
 
 // Dexcom Share: two-step authenticate and get session ID
 static bool dexcom_login() {
-    AppConfig& cfg = config_get();
+    AppConfig cfg = config_snapshot();
     const char* base = cfg.dexcom_us ? DEXCOM_US_BASE : DEXCOM_OUS_BASE;
 
     // Step 1: AuthenticatePublisherAccount (get account ID)
@@ -145,7 +161,7 @@ static bool dexcom_login() {
 
     int authCode;
     String authResp = dexcom_post(auth_url, authBody, authCode);
-    strncpy(last_response_body, authResp.c_str(), sizeof(last_response_body) - 1);
+    strncpy(last_response_body, "Response body omitted from diagnostics", sizeof(last_response_body) - 1);
     last_response_code = authCode;
 
     Serial.printf("[DEXCOM] Auth step 1: HTTP %d\n", authCode);
@@ -173,7 +189,7 @@ static bool dexcom_login() {
 
     int loginCode;
     String loginResp = dexcom_post(login_url, loginBody, loginCode);
-    strncpy(last_response_body, loginResp.c_str(), sizeof(last_response_body) - 1);
+    strncpy(last_response_body, "Response body omitted from diagnostics", sizeof(last_response_body) - 1);
     last_response_code = loginCode;
 
     Serial.printf("[DEXCOM] Auth step 2: HTTP %d\n", loginCode);
@@ -202,7 +218,7 @@ static bool dexcom_login() {
 
 // Dexcom Share: fetch latest glucose reading
 static bool dexcom_fetch_glucose() {
-    AppConfig& cfg = config_get();
+    AppConfig cfg = config_snapshot();
 
     // Check if session needs refresh
     if (strlen(dexcom_session_id) == 0 ||
@@ -237,7 +253,7 @@ static bool dexcom_fetch_glucose() {
 
     if (httpCode == HTTP_CODE_OK) {
         String payload = http.getString();
-        strncpy(last_response_body, payload.c_str(), sizeof(last_response_body) - 1);
+        strncpy(last_response_body, "Response body omitted from diagnostics", sizeof(last_response_body) - 1);
         last_response_body[sizeof(last_response_body) - 1] = '\0';
 
         // Parse JSON array response
@@ -311,7 +327,7 @@ static bool dexcom_fetch_glucose() {
     }
 
     String resp = http.getString();
-    strncpy(last_response_body, resp.c_str(), sizeof(last_response_body) - 1);
+    strncpy(last_response_body, "Response body omitted from diagnostics", sizeof(last_response_body) - 1);
     Serial.printf("[DEXCOM] Fetch failed: HTTP %d\n", httpCode);
     failure_count++;
     http.end();
@@ -320,14 +336,14 @@ static bool dexcom_fetch_glucose() {
 
 // Generic URL fetch (original behavior)
 static void generic_fetch() {
-    AppConfig& cfg = config_get();
+    AppConfig cfg = config_snapshot();
 
     WiFiClientSecure client;
     client.setInsecure();
     client.setTimeout(10);
 
     HTTPClient http;
-    Serial.printf("[HTTP] Polling: %s\n", cfg.server_url);
+    Serial.println("[HTTP] Polling configured endpoint");
 
     if (!http.begin(client, cfg.server_url)) {
         Serial.println("[HTTP] Failed to begin connection");
@@ -350,7 +366,7 @@ static void generic_fetch() {
 
     if (httpCode == HTTP_CODE_OK) {
         String payload = http.getString();
-        strncpy(last_response_body, payload.c_str(), sizeof(last_response_body) - 1);
+        strncpy(last_response_body, "Response body omitted from diagnostics", sizeof(last_response_body) - 1);
         last_response_body[sizeof(last_response_body) - 1] = '\0';
 
         JsonDocument doc;
@@ -433,6 +449,22 @@ static void demo_generate() {
     strncpy(last_response_body, "demo mode", sizeof(last_response_body) - 1);
 }
 
+static void publish_result() {
+ portENTER_CRITICAL(&published_mux);
+ published.reading=current_reading;memcpy(published.history,history_buf,sizeof(history_buf));
+ published.failure_count=failure_count;published.code=last_response_code;published.delta=current_delta;
+ published.history_count=history_count;published.history_write=history_write_idx;
+ published.ever=ever_received;published.last_success=last_success_ms;
+ portEXIT_CRITICAL(&published_mux);
+}
+static void fetch_worker(void* parameter) {
+ int source=int(reinterpret_cast<intptr_t>(parameter));
+ Serial.printf("[GLUCOSE MEM] start free=%u min=%u largest=%u\n",ESP.getFreeHeap(),ESP.getMinFreeHeap(),heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+ if(source==1) dexcom_fetch_glucose();else generic_fetch();
+ Serial.printf("[GLUCOSE MEM] end free=%u min=%u largest=%u\n",ESP.getFreeHeap(),ESP.getMinFreeHeap(),heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+ fetch_complete=true;fetch_running=false;
+ vTaskDelete(nullptr);
+}
 void http_init() {
     memset(&current_reading, 0, sizeof(GlucoseReading));
     current_reading.valid = false;
@@ -452,107 +484,52 @@ void http_init() {
     // Demo mode state
     demo_last_update_ms = 0;
     demo_value = 90;
+    ever_received=false;failure_count=0;last_response_code=0;
+    publish_result();
 }
 
+static std::atomic<bool> configuration_changed{false};
+void http_configuration_changed() {configuration_changed=true;}
 void http_loop() {
-    if (http_paused) return;
-    AppConfig& cfg = config_get();
-
-    // Demo mode needs no WiFi or configured data source — just synthesize data.
-    if (cfg.data_source == 2) {
-        demo_generate();
-        return;
-    }
-
-    if (!wifi_is_connected()) return;
-    if (!config_has_server()) return;
-
-    unsigned long interval_ms = max(15, cfg.poll_interval_sec) * 1000UL;
-
-    if (last_poll_ms != 0 && (millis() - last_poll_ms < interval_ms)) {
-        return;
-    }
-
-    last_poll_ms = millis();
-
-    if (cfg.data_source == 1) {
-        dexcom_fetch_glucose();
-    } else {
-        generic_fetch();
+    if(fetch_running) return;
+    if(fetch_complete.exchange(false)) {publish_result();++fetch_generation;}
+    if(configuration_changed.exchange(false)) http_init();
+    if(http_paused) return;
+    AppConfig cfg=config_snapshot();
+    bool force=force_requested.exchange(false);
+    if(cfg.data_source==2) {if(force)demo_last_update_ms=0;unsigned long before=demo_last_update_ms;demo_generate();if(before!=demo_last_update_ms) {publish_result();++fetch_generation;}return;}
+    if(!wifi_is_connected() || !config_has_server()) return;
+    unsigned long interval_ms=max(15,cfg.poll_interval_sec)*1000UL;
+    if(!force && last_poll_ms && millis()-last_poll_ms<interval_ms) return;
+    last_poll_ms=millis();fetch_running=true;
+    if(xTaskCreate(fetch_worker,"glucose_https",14336,reinterpret_cast<void*>(static_cast<intptr_t>(cfg.data_source)),1,nullptr)!=pdPASS) {
+        fetch_running=false;last_response_code=-1000;++failure_count;publish_result();
     }
 }
 
-const GlucoseReading& http_get_reading() {
-    return current_reading;
+GlucoseReading http_get_reading() {
+ portENTER_CRITICAL(&published_mux);auto reading=published.reading;portEXIT_CRITICAL(&published_mux);return reading;
 }
-
-int http_get_failure_count() {
-    return failure_count;
-}
-
-int http_get_last_response_code() {
-    return last_response_code;
-}
-
-const char* http_get_last_response_body() {
-    return last_response_body;
-}
-
-bool http_has_ever_received() {
-    return ever_received;
-}
-
+int http_get_failure_count() {portENTER_CRITICAL(&published_mux);int n=published.failure_count;portEXIT_CRITICAL(&published_mux);return n;}
+int http_get_last_response_code() {portENTER_CRITICAL(&published_mux);int n=published.code;portEXIT_CRITICAL(&published_mux);return n;}
+const char* http_get_last_response_body() {return "Response bodies omitted from diagnostics";}
+bool http_has_ever_received() {portENTER_CRITICAL(&published_mux);bool b=published.ever;portEXIT_CRITICAL(&published_mux);return b;}
 unsigned long http_time_since_last_reading() {
-    if (!ever_received || last_success_ms == 0) {
-        return ULONG_MAX;
-    }
-    return millis() - last_success_ms;
+ portENTER_CRITICAL(&published_mux);bool ever=published.ever;unsigned long last=published.last_success;portEXIT_CRITICAL(&published_mux);
+ return !ever || !last ? ULONG_MAX:millis()-last;
 }
-
-int http_get_delta() {
-    return current_delta;
-}
-
+int http_get_delta() {portENTER_CRITICAL(&published_mux);int n=published.delta;portEXIT_CRITICAL(&published_mux);return n;}
 bool http_force_fetch() {
-    AppConfig& cfg = config_get();
-
-    // Demo mode: produce a fresh synthetic reading immediately.
-    if (cfg.data_source == 2) {
-        demo_last_update_ms = 0;
-        demo_generate();
-        return true;
-    }
-
-    if (!wifi_is_connected()) return false;
-    if (!config_has_server()) return false;
-
-    last_poll_ms = millis(); // reset timer so regular loop doesn't re-fetch
-
-    if (cfg.data_source == 1) {
-        return dexcom_fetch_glucose();
-    } else {
-        generic_fetch();
-        return current_reading.valid;
-    }
+ if(http_paused) return false;
+ force_requested=true;return true;
 }
-
-int http_get_history(GlucoseHistoryEntry* out, int max_count) {
-    if (history_count == 0) return 0;
-
-    int count = min(max_count, history_count);
-    // Read from oldest to newest
-    int start;
-    if (history_count < GLUCOSE_HISTORY_SIZE) {
-        start = 0;
-    } else {
-        start = history_write_idx; // oldest entry
-    }
-
-    for (int i = 0; i < count; i++) {
-        int idx = (start + (history_count - count) + i) % GLUCOSE_HISTORY_SIZE;
-        out[i] = history_buf[idx];
-    }
-    return count;
+int http_get_history(GlucoseHistoryEntry* out,int max_count) {
+ if(!out || max_count<=0) return 0;
+ portENTER_CRITICAL(&published_mux);
+ int count=min(max_count,published.history_count);
+ int start=published.history_count<GLUCOSE_HISTORY_SIZE?0:published.history_write;
+ for(int i=0;i<count;++i) out[i]=published.history[(start+published.history_count-count+i)%GLUCOSE_HISTORY_SIZE];
+ portEXIT_CRITICAL(&published_mux);return count;
 }
 
 void http_set_paused(bool paused) {

@@ -1,0 +1,52 @@
+// !$*UTF8*$!
+{ archiveVersion = 1; classes = {}; objectVersion = 56; objects = {
+E324C4AEF7BCAC30ED04DF2A = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SugarClock/App/ClockModel.swift"; sourceTree = SOURCE_ROOT; };
+AFB648848663B6D148958A0F = { isa = PBXBuildFile; fileRef = E324C4AEF7BCAC30ED04DF2A; };
+36EB57225DCA84B319384948 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SugarClock/App/DeviceView.swift"; sourceTree = SOURCE_ROOT; };
+DEB8B8BCC9108A7663A7830C = { isa = PBXBuildFile; fileRef = 36EB57225DCA84B319384948; };
+9F83C38A7FA3D20D707EE413 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SugarClock/App/MyClocksView.swift"; sourceTree = SOURCE_ROOT; };
+37E08DF3FB628E47214340F3 = { isa = PBXBuildFile; fileRef = 9F83C38A7FA3D20D707EE413; };
+9F4391100F4BE317F5C94B3B = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SugarClock/App/ProtocolPreview.swift"; sourceTree = SOURCE_ROOT; };
+D16CBA1EE52908CED185EF94 = { isa = PBXBuildFile; fileRef = 9F4391100F4BE317F5C94B3B; };
+8ADC2775BB907F3212146905 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SugarClock/App/SugarClockApp.swift"; sourceTree = SOURCE_ROOT; };
+FF4E7BDB4417A16966079D37 = { isa = PBXBuildFile; fileRef = 8ADC2775BB907F3212146905; };
+16014FFD28C2BE984C6FB5B5 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SugarClock/Core/BluetoothTransport.swift"; sourceTree = SOURCE_ROOT; };
+083668F5B898EBFC997E8803 = { isa = PBXBuildFile; fileRef = 16014FFD28C2BE984C6FB5B5; };
+4DB467B2E2A95711FA084838 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SugarClock/Core/ConnectionLifecycle.swift"; sourceTree = SOURCE_ROOT; };
+862F0CB9A568477098D76BB6 = { isa = PBXBuildFile; fileRef = 4DB467B2E2A95711FA084838; };
+06050EB11DC73EF90BEBCA9F = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SugarClock/Core/MockClockTransport.swift"; sourceTree = SOURCE_ROOT; };
+21335E091C469FE15716EF36 = { isa = PBXBuildFile; fileRef = 06050EB11DC73EF90BEBCA9F; };
+8095277A6D6FDA6DE1D00C77 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SugarClock/Core/Wire.swift"; sourceTree = SOURCE_ROOT; };
+9ED0FE7905768146812A214E = { isa = PBXBuildFile; fileRef = 8095277A6D6FDA6DE1D00C77; };
+8BF729FFE074CAEE622C0292 = { isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = SugarClock/Assets.xcassets; sourceTree = SOURCE_ROOT; };
+1091EC80094F49630E245FC2 = { isa = PBXBuildFile; fileRef = 8BF729FFE074CAEE622C0292; };
+A4CC6BC01A927E2A78FD3BEC = { isa = PBXFileReference; lastKnownFileType = text.xml; path = SugarClock/PrivacyInfo.xcprivacy; sourceTree = SOURCE_ROOT; };
+A7FE0BF4B0802FDBF38FFEA9 = { isa = PBXBuildFile; fileRef = A4CC6BC01A927E2A78FD3BEC; };
+A8792157CB4F27FB949C035F = { isa = PBXFileReference; explicitFileType = wrapper.application; path = SugarClock.app; sourceTree = BUILT_PRODUCTS_DIR; };
+0A3E27B8CA818264D75C8D81 = { isa = PBXGroup; children = (A8792157CB4F27FB949C035F,); name = Products; sourceTree = "<group>"; };
+AD936FCBED631FA67E05C3EA = { isa = PBXGroup; children = (E324C4AEF7BCAC30ED04DF2A,36EB57225DCA84B319384948,9F83C38A7FA3D20D707EE413,9F4391100F4BE317F5C94B3B,8ADC2775BB907F3212146905,16014FFD28C2BE984C6FB5B5,4DB467B2E2A95711FA084838,06050EB11DC73EF90BEBCA9F,8095277A6D6FDA6DE1D00C77,8BF729FFE074CAEE622C0292,A4CC6BC01A927E2A78FD3BEC,0A3E27B8CA818264D75C8D81,); sourceTree = "<group>"; };
+878A52FC5FF6A57D50B7B870 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (AFB648848663B6D148958A0F,DEB8B8BCC9108A7663A7830C,37E08DF3FB628E47214340F3,D16CBA1EE52908CED185EF94,FF4E7BDB4417A16966079D37,083668F5B898EBFC997E8803,862F0CB9A568477098D76BB6,21335E091C469FE15716EF36,9ED0FE7905768146812A214E,); runOnlyForDeploymentPostprocessing = 0; };
+E2AA269EB967A8853A258BFA = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+41D311A605520FC7B8B9A980 = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (1091EC80094F49630E245FC2,A7FE0BF4B0802FDBF38FFEA9,); runOnlyForDeploymentPostprocessing = 0; };
+1A03BD2FD107C453F3183E30 = { isa = XCBuildConfiguration; name = Debug; buildSettings = {
+ SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; ALWAYS_SEARCH_USER_PATHS = NO; SDKROOT = iphoneos; IPHONEOS_DEPLOYMENT_TARGET = 17.0; TARGETED_DEVICE_FAMILY = "1,2";
+ SWIFT_VERSION = 5.0; PRODUCT_NAME = SugarClock; PRODUCT_BUNDLE_IDENTIFIER = com.sugarclock.companion;
+ GENERATE_INFOPLIST_FILE = YES; ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+ INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "SugarClock uses Bluetooth to securely pair with and configure your nearby clocks.";
+ INFOPLIST_KEY_UILaunchScreen_Generation = YES; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+ INFOPLIST_KEY_CFBundleDisplayName = SugarClock; MARKETING_VERSION = 1.0.0; CURRENT_PROJECT_VERSION = 1;
+ CODE_SIGN_STYLE = Automatic; ENABLE_USER_SCRIPT_SANDBOXING = YES; SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+ }; };
+E020E3C67BD0C31227720BD8 = { isa = XCBuildConfiguration; name = Release; buildSettings = {
+ SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; ALWAYS_SEARCH_USER_PATHS = NO; SDKROOT = iphoneos; IPHONEOS_DEPLOYMENT_TARGET = 17.0; TARGETED_DEVICE_FAMILY = "1,2";
+ SWIFT_VERSION = 5.0; PRODUCT_NAME = SugarClock; PRODUCT_BUNDLE_IDENTIFIER = com.sugarclock.companion;
+ GENERATE_INFOPLIST_FILE = YES; ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+ INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "SugarClock uses Bluetooth to securely pair with and configure your nearby clocks.";
+ INFOPLIST_KEY_UILaunchScreen_Generation = YES; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+ INFOPLIST_KEY_CFBundleDisplayName = SugarClock; MARKETING_VERSION = 1.0.0; CURRENT_PROJECT_VERSION = 1;
+ CODE_SIGN_STYLE = Automatic; ENABLE_USER_SCRIPT_SANDBOXING = YES; SWIFT_OPTIMIZATION_LEVEL = "-O";
+ }; };
+175AB01246347EE3CB3AD67C = { isa = XCConfigurationList; buildConfigurations = (1A03BD2FD107C453F3183E30,E020E3C67BD0C31227720BD8,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+34A04005BCAF206EEC990BD9 = { isa = PBXNativeTarget; buildConfigurationList = 175AB01246347EE3CB3AD67C; buildPhases = (878A52FC5FF6A57D50B7B870,E2AA269EB967A8853A258BFA,41D311A605520FC7B8B9A980,); buildRules = (); dependencies = (); name = SugarClock; productName = SugarClock; productReference = A8792157CB4F27FB949C035F; productType = "com.apple.product-type.application"; };
+244210E48437B6556980A702 = { isa = PBXProject; attributes = { LastUpgradeCheck = 2600; }; buildConfigurationList = 175AB01246347EE3CB3AD67C; compatibilityVersion = "Xcode 14.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en,Base,); mainGroup = AD936FCBED631FA67E05C3EA; productRefGroup = 0A3E27B8CA818264D75C8D81; projectDirPath = ""; projectRoot = ""; targets = (34A04005BCAF206EEC990BD9,); };
+}; rootObject = 244210E48437B6556980A702; }
