@@ -2,7 +2,7 @@ import Foundation
 
 /// Editor state is independent of view rendering. Only explicit user changes
 /// enter a patch; displaying converted thresholds never changes saved integers.
-public struct SettingsDraft {
+public struct SettingsDraft:Equatable {
     public private(set) var text:[String:String]=[:]
     public private(set) var booleans:[String:Bool]=[:]
     public private(set) var secrets:[String:Int]=[:]
@@ -25,6 +25,42 @@ public struct SettingsDraft {
             }
         }
         initialText=text;initialBool=booleans
+    }
+    /// A readback can arrive after the user has continued editing during recovery.
+    /// Rebase on confirmed settings, then retain only edits made after submission.
+    public mutating func confirm(submitted:SettingsDraft,settings:[String:Any],fields:[[String:Any]]) {
+        var confirmed=SettingsDraft(settings:settings,fields:fields)
+        if booleans["use_mmol"] != submitted.booleans["use_mmol"],let units=booleans["use_mmol"] {
+            confirmed.setBool(units,key:"use_mmol")
+        }
+        for field in fields {
+            guard let key=field["key"] as? String else {continue}
+            if secretKeys.contains(key) {
+                if secrets[key] != submitted.secrets[key] || text[key] != submitted.text[key] {
+                    confirmed.setSecretAction(secrets[key] ?? 0,key:key)
+                    if let value=text[key] {confirmed.setText(value,key:key)}
+                }
+            } else if field["type"] as? String=="bool" {
+                if key != "use_mmol",booleans[key] != submitted.booleans[key],let value=booleans[key] {
+                    confirmed.setBool(value,key:key)
+                }
+            } else if let value=text[key] {
+                if Self.threshold(key),let current=thresholdMGDL(key),let sent=submitted.thresholdMGDL(key) {
+                    // Changing display units alone must not re-submit thresholds.
+                    if current != sent {
+                        let display=usesMMOL == confirmed.usesMMOL ? value
+                            : confirmed.usesMMOL ? String(format:"%.2f",current/18):String(format:"%.0f",current)
+                        confirmed.setText(display,key:key)
+                    }
+                } else if value != submitted.text[key] {confirmed.setText(value,key:key)}
+            }
+        }
+        self=confirmed
+    }
+    private func thresholdMGDL(_ key:String)->Double? {
+        if !changed.contains(key),let original=originalThresholds[key] {return Double(original)}
+        guard let n=Double((text[key] ?? "").replacingOccurrences(of:",",with:".")),n.isFinite else {return nil}
+        return usesMMOL ? (n*18).rounded():n
     }
     public static func threshold(_ key:String)->Bool {key.hasPrefix("thresh_") || ["alert_low","alert_high"].contains(key)}
     public func mmol(_ key:String)->Bool {usesMMOL && Self.threshold(key)}

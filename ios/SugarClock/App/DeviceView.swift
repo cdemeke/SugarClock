@@ -25,69 +25,73 @@ struct SettingsCategory:Identifiable {
 
 struct DeviceView:View {
     @EnvironmentObject var model:ClockModel
+    private var everyday:[SettingsCategory] {
+        ["display","time","companions","alerts","glucose"].compactMap {id in SettingsCategory.all.first(where:{$0.id==id})}
+    }
+    var body:some View {
+        SugarScreen {
+            HStack(spacing:14) {
+                BrandIcon(name:"BrandLogo",size:56)
+                VStack(alignment:.leading,spacing:5) {
+                    Text(model.selected?.nickname ?? "SugarClock").font(.title2.bold())
+                    Text(model.connectionSummary).font(.subheadline).foregroundStyle(SugarTheme.secondary)
+                }
+            }
+            OperationFeedback(showStatus:false)
+            SugarCard(spacing:10) {
+                ForEach(everyday) {category in
+                    NavigationLink {ConfigurationView(category:category)} label:{DestinationRow(title:category.title,subtitle:"",symbol:category.symbol)}.buttonStyle(.plain)
+                    if category.id != everyday.last?.id {Divider()}
+                }
+            }
+            SugarCard(spacing:10) {
+                NavigationLink {WiFiView()} label:{DestinationRow(title:"Wi-Fi",subtitle:model.settings["wifi_ssid"] as? String ?? "",symbol:"wifi")}.buttonStyle(.plain)
+                Divider()
+                NavigationLink {ClockDetailsView()} label:{DestinationRow(title:"Clock settings",subtitle:"",symbol:"gearshape")}.buttonStyle(.plain)
+            }
+        }.navigationTitle("SugarClock")
+    }
+}
+
+struct ClockDetailsView:View {
+    @EnvironmentObject var model:ClockModel
     @State private var nickname=""
     var body:some View {
         SugarScreen {
-            PageHeading(title:"Configuration",subtitle:"Tune what your SugarClock shows, sounds and connects to.")
-            OperationFeedback()
-            SugarCard {
-                HStack(spacing:14) {
-                    BrandIcon(name:"BrandLogo",size:48)
-                    VStack(alignment:.leading,spacing:5) {
-                        Text(model.selected?.nickname ?? "SugarClock").font(.headline)
-                        Text("Firmware \(model.hello["firmware"] as? String ?? "Unknown")").font(.caption).foregroundStyle(SugarTheme.secondary)
+            SugarCard(title:"Name") {
+                TextField("Clock name",text:$nickname).fieldSurface()
+                Button("Save name") {
+                    if let index=model.clocks.firstIndex(where:{$0.id==model.selected?.id}) {
+                        let name=nickname.trimmingCharacters(in:.whitespacesAndNewlines)
+                        if !name.isEmpty {model.clocks[index].nickname=name;model.selected=model.clocks[index];model.remember()}
                     }
-                    Spacer()
-                }
-                DisclosureGroup("Clock details & nickname") {
-                    VStack(alignment:.leading,spacing:16) {
-                        TextField("Nickname",text:$nickname).fieldSurface()
-                        Button("Save nickname on this phone") {
-                            if let index=model.clocks.firstIndex(where:{$0.id==model.selected?.id}) {
-                                model.clocks[index].nickname=nickname;model.selected=model.clocks[index];model.remember()
-                            }
-                        }.buttonStyle(SugarButtonStyle(prominent:false))
-                        DetailRow(title:"Identity",value:model.selected?.id ?? "Unknown")
-                    }.padding(.top,12)
-                }.font(.subheadline)
+                }.buttonStyle(SugarButtonStyle(prominent:false))
             }
-            if model.settings["wifi_ssid"] as? String=="" || model.status["data_received"] as? Bool != true {
-                SugarCard(title:"Finish setting up") {
-                    Text("Connect Wi-Fi, choose your glucose source, then set units and alerts. Confirm a reading has arrived in Connection & Data below.").font(.subheadline).foregroundStyle(SugarTheme.secondary)
-                    Text("Existing saved credentials stay on your clock.").font(.footnote).foregroundStyle(SugarTheme.accent)
-                }
-            }
-            SugarCard(title:"Make it yours") {
-                ForEach(SettingsCategory.all) {category in
-                    NavigationLink {ConfigurationView(category:category)} label:{DestinationRow(title:category.title,subtitle:category.subtitle,symbol:category.symbol)}.buttonStyle(.plain)
-                    if category.id != SettingsCategory.all.last?.id {Divider()}
-                }
-            }
-            SugarCard(title:"Connections & device") {
-                NavigationLink {WiFiView()} label:{DestinationRow(title:"Wi-Fi",subtitle:model.settings["wifi_ssid"] as? String ?? "Connect to a network",symbol:"wifi")}.buttonStyle(.plain)
+            SugarCard {
+                NavigationLink {FirmwareView()} label:{DestinationRow(title:"Firmware updates",subtitle:"",symbol:"arrow.down.circle")}.buttonStyle(.plain)
                 Divider()
-                NavigationLink {FirmwareView()} label:{DestinationRow(title:"Firmware Updates",subtitle:"Signed updates over your clock’s Wi-Fi",symbol:"arrow.down.circle")}.buttonStyle(.plain)
+                NavigationLink {DiagnosticsView()} label:{DestinationRow(title:"Connection & data",subtitle:"",symbol:"heart.text.clipboard")}.buttonStyle(.plain)
                 Divider()
-                NavigationLink {DiagnosticsView()} label:{DestinationRow(title:"Connection & Data",subtitle:"Network, saved settings and readings",symbol:"heart.text.clipboard")}.buttonStyle(.plain)
+                NavigationLink {AllSettingsView()} label:{DestinationRow(title:"Advanced",subtitle:"",symbol:"slider.horizontal.3")}.buttonStyle(.plain)
                 Divider()
-                NavigationLink {AllSettingsView()} label:{DestinationRow(title:"Additional Settings",subtitle:"Every option supported by this firmware",symbol:"slider.horizontal.3")}.buttonStyle(.plain)
+                NavigationLink {TroubleshootingView()} label:{DestinationRow(title:"Help",subtitle:"",symbol:"questionmark.circle")}.buttonStyle(.plain)
             }
-        }.navigationTitle(model.selected?.nickname ?? "Clock")
-            .onAppear {nickname=model.selected?.nickname ?? ""}
+            Text("Firmware \(model.hello["firmware"] as? String ?? "—")").font(.footnote).foregroundStyle(SugarTheme.secondary)
+        }.navigationTitle("Clock settings").onAppear {nickname=model.selected?.nickname ?? ""}
     }
 }
 
 struct ConfigurationView:View {
     let category:SettingsCategory
     var body:some View {
-        SettingsPage(title:category.title+" Configuration",subtitle:category.subtitle,sections:category.sections)
+        SettingsPage(title:category.title,subtitle:"",sections:category.sections)
             .navigationTitle(category.title)
     }
 }
 struct SettingEditor:View {
     let field:[String:Any]
     var body:some View {
-        SettingsPage(title:label(field["key"] as? String ?? "Setting"),subtitle:"A small adjustment, saved on your clock.",sections:[("Preference",[field["key"] as? String ?? ""])],overrideFields:[field])
+        SettingsPage(title:label(field["key"] as? String ?? "Setting"),subtitle:"",sections:[("Preference",[field["key"] as? String ?? ""])],overrideFields:[field])
     }
 }
 struct AllSettingsView:View {
@@ -121,13 +125,26 @@ struct SettingsPage:View {
     @State private var draft=SettingsDraft()
     @State private var loaded=false
     @State private var validation=""
+    @State private var submittedDraft:SettingsDraft?
+    private var receipt:SaveReceipt? {model.saveReceipt(for:Set(sections.flatMap{$0.1}))}
+    private var saveTitle:String {
+        switch receipt?.phase {
+        case .saving:return "Saving…"
+        case .checking:return "Checking save…"
+        case .saved where draft.changed.isEmpty:return "Saved on clock"
+        default:return "Save changes"
+        }
+    }
+    private var confirming:Bool {
+        receipt?.phase == .saving || receipt?.phase == .checking
+    }
     var fields:[[String:Any]] {
         let keys=Set(sections.flatMap{$0.1})
         return (overrideFields ?? model.fields).filter {keys.contains($0["key"] as? String ?? "")}
     }
     var body:some View {
         SugarScreen {
-            PageHeading(title:title,subtitle:subtitle)
+            if !subtitle.isEmpty {Text(subtitle).font(.subheadline).foregroundStyle(SugarTheme.secondary)}
             OperationFeedback()
             ForEach(sections,id:\.0) {section in
                 let available=section.1.compactMap {key in fields.first(where:{$0["key"] as? String==key})}.filter {field in
@@ -147,29 +164,65 @@ struct SettingsPage:View {
                     }
                 }
             }
-            if fields.isEmpty {Text(model.fields.isEmpty ? "Settings have not finished loading. Reconnect to load them before editing." : "These settings are not supported by the connected firmware.").foregroundStyle(SugarTheme.secondary)}
+            if fields.isEmpty {Text(model.fields.isEmpty ? (model.reconnecting ? "Loading settings…" : "Connect to load these settings.") : "These settings are not supported by the connected firmware.").foregroundStyle(SugarTheme.secondary)}
             else {
-                Button {save()} label:{Label("Save on clock",systemImage:"checkmark")}
-                    .buttonStyle(SugarButtonStyle()).disabled(!model.canSend || draft.changed.isEmpty)
-                Text("Only your changes are saved. Existing credentials stay on the clock.").font(.footnote).foregroundStyle(SugarTheme.secondary)
+                VStack(alignment:.leading,spacing:10) {
+                    Button {save()} label:{
+                        HStack {
+                            if confirming {ProgressView().tint(SugarTheme.buttonText)}
+                            else if case .saved = receipt?.phase,draft.changed.isEmpty {Image(systemName:"checkmark.circle.fill")}
+                            Text(saveTitle)
+                        }
+                    }
+                    .buttonStyle(SugarButtonStyle()).disabled(!model.canSend || draft.changed.isEmpty || confirming)
+                    if let receipt {SaveConfirmation(receipt:receipt)}
+                    if !draft.changed.isEmpty {Text("Unsaved changes").font(.caption).foregroundStyle(SugarTheme.secondary)}
+                }
             }
             if !validation.isEmpty {Text(validation).font(.subheadline).foregroundStyle(.red).accessibilityLabel("Save error: \(validation)")}
         }.onAppear {
             if !loaded,!fields.isEmpty {draft=SettingsDraft(settings:model.settings,fields:fields);loaded=true}
         }.onChange(of:model.fields.count) { _,_ in
             if !loaded,!fields.isEmpty {draft=SettingsDraft(settings:model.settings,fields:fields);loaded=true}
-        }.onDisappear {draft=SettingsDraft();loaded=false}
+        }.onChange(of:receipt?.phase) {_,phase in
+            if case .saved = phase,let submittedDraft {
+                draft.confirm(submitted:submittedDraft,settings:model.settings,fields:fields)
+                self.submittedDraft=nil
+            }
+        }.onDisappear {draft=SettingsDraft();submittedDraft=nil;loaded=false}
     }
     private func save() {
         do {
             let patch=try draft.patch(fields:fields)
             guard !patch.isEmpty else {return}
             validation=""
+            let submitted=draft
+            submittedDraft=submitted
             Task {
-                if await model.save(patch) {draft=SettingsDraft(settings:model.settings,fields:fields)}
-                else {validation=model.message}
+                if await model.save(patch),submittedDraft==submitted {
+                    draft.confirm(submitted:submitted,settings:model.settings,fields:fields)
+                    submittedDraft=nil
+                }
             }
         } catch {validation=error.localizedDescription}
+    }
+}
+
+struct SaveConfirmation:View {
+    let receipt:SaveReceipt
+    var body:some View {
+        switch receipt.phase {
+        case .saving:EmptyView()
+        case .checking:
+            Text("Waiting to verify the saved settings. Your edits are kept.").font(.footnote).foregroundStyle(SugarTheme.secondary)
+        case .saved(let date):
+            Label {Text("Last save confirmed at ") + Text(date,style:.time)} icon:{Image(systemName:"checkmark.circle.fill")}
+                .font(.footnote).foregroundStyle(SugarTheme.accent).accessibilityAddTraits(.updatesFrequently)
+        case .unconfirmed:
+            Text("Couldn't confirm the save. Refresh the connection before retrying.").font(.footnote).foregroundStyle(.orange)
+        case .failed(let detail):
+            Text(detail).font(.footnote).foregroundStyle(.red)
+        }
     }
 }
 

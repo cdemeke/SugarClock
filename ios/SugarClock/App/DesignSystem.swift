@@ -64,9 +64,10 @@ struct PageHeading:View {
 
 struct SugarCard<Content:View>:View {
     var title:String?=nil
+    var spacing:CGFloat=18
     @ViewBuilder let content:Content
     var body:some View {
-        VStack(alignment:.leading,spacing:18) {
+        VStack(alignment:.leading,spacing:spacing) {
             if let title {Text(title).font(.headline).accessibilityAddTraits(.isHeader);Divider()}
             content
         }.frame(maxWidth:.infinity,alignment:.leading).padding(20)
@@ -130,7 +131,7 @@ struct DestinationRow:View {
                 .frame(width:42,height:42).background(SugarTheme.accent.opacity(0.09),in:RoundedRectangle(cornerRadius:12)).accessibilityHidden(true)
             VStack(alignment:.leading,spacing:4) {
                 Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(SugarTheme.text)
-                Text(subtitle).font(.caption).foregroundStyle(SugarTheme.secondary)
+                if !subtitle.isEmpty {Text(subtitle).font(.caption).foregroundStyle(SugarTheme.secondary)}
             }
             Spacer(minLength:0)
             Image(systemName:"chevron.right").font(.caption.weight(.semibold)).foregroundStyle(SugarTheme.secondary).accessibilityHidden(true)
@@ -140,17 +141,43 @@ struct DestinationRow:View {
 
 struct OperationFeedback:View {
     @EnvironmentObject var model:ClockModel
+    var showStatus=true
     var body:some View {
-        if model.busy {ProgressView(model.reconnecting ? "Reconnecting to your clock…" : "Working with your clock…").frame(maxWidth:.infinity).tint(SugarTheme.accent)}
-        if model.reconnecting {
-            Text("You can keep browsing and editing. Saving resumes when the clock reconnects.").font(.footnote).foregroundStyle(SugarTheme.secondary)
-            Button("Stop reconnecting") {model.stopReconnecting()}.buttonStyle(SugarButtonStyle(prominent:false))
-        } else if model.selected != nil,!model.bluetooth.connected,!model.busy {
-            Button("Reconnect") {Task {await model.retrySelected()}}.buttonStyle(SugarButtonStyle(prominent:false))
+        VStack(alignment:.leading,spacing:8) {
+        if model.hasLoadedSettings,!model.sessionReady {
+            HStack(alignment:.firstTextBaseline) {
+                if showStatus {
+                    Label(model.reconnecting ? "Reconnecting quietly" : "Offline",systemImage:"circle.dotted")
+                        .font(.caption).foregroundStyle(SugarTheme.secondary)
+                }
+                Spacer()
+                if !model.reconnecting {
+                    Button("Retry") {Task {await model.retrySelected()}}.font(.caption)
+                }
+            }
+            if let refreshed=model.lastSettingsRefresh {
+                (Text("Last synced ") + Text(refreshed,style:.time)).font(.caption).foregroundStyle(SugarTheme.secondary)
+            } else {Text("Showing last loaded settings").font(.caption).foregroundStyle(SugarTheme.secondary)}
+        } else if model.reconnecting {
+            HStack {
+                ProgressView().tint(SugarTheme.accent)
+                if showStatus {Text(model.connectionState).font(.subheadline)}
+                Spacer()
+                Button("Cancel") {model.stopReconnecting()}.font(.subheadline)
+            }
+        } else if model.selected != nil,!model.sessionReady {
+            HStack {
+                if showStatus {Text(model.connectionState).font(.subheadline).foregroundStyle(SugarTheme.secondary)}
+                Spacer()
+                Button("Retry") {Task {await model.retrySelected()}}.font(.subheadline)
+            }
+        } else if model.busy,!model.checkingConnection,model.operationTitle != "Saving…" {
+            ProgressView(model.operationTitle).tint(SugarTheme.accent)
         }
         if !model.message.isEmpty {
             Text(model.message).font(.footnote).foregroundStyle(SugarTheme.secondary)
-                .accessibilityLabel("Operation result: \(model.message)").frame(maxWidth:.infinity,alignment:.leading)
+                .accessibilityLabel("Operation result: \(model.message)")
+        }
         }
     }
 }

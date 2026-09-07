@@ -16,7 +16,7 @@ struct ScreenshotPreview:View {
                     case "glucose":ConfigurationView(category:SettingsCategory.all[0])
                     case "wifi":WiFiView()
                     case "firmware":FirmwareView()
-                    case "brightness":SettingEditor(field:["key":"brightness","type":"int","min":1,"max":255])
+                    case "brightness", "saved", "saved-large", "checking":SettingEditor(field:["key":"brightness","type":"int","min":1,"max":255])
                     case "secret":SettingEditor(field:["key":"dexcom_password","type":"secret","max_length":63])
                     case "troubleshooting":TroubleshootingView()
                     default:DeviceView()
@@ -25,7 +25,7 @@ struct ScreenshotPreview:View {
             }
         }
         .tint(SugarTheme.accent)
-        .dynamicTypeSize(screen=="display-accessibility" ? .accessibility3:.large)
+        .dynamicTypeSize(["display-accessibility","saved-large"].contains(screen) ? .accessibility3:.large)
         .safeAreaInset(edge:.bottom) {
             Label("SCREENSHOT PREVIEW · SAMPLE DATA",systemImage:"photo")
                 .font(.system(size:10,weight:.semibold)).frame(maxWidth:.infinity).padding(10)
@@ -68,7 +68,11 @@ struct ScreenshotPreview:View {
             ["key":"auto_update_enabled","type":"bool"]
         ]
         model.networks=[["ssid":"Home Wi-Fi","rssi":-42],["ssid":"Guest Network","rssi":-61]]
-        model.message="Sample clock state for screenshots. No Bluetooth connection."
+        let screen=ProcessInfo.processInfo.environment["SUGARCLOCK_SCREENSHOT"] ?? ""
+        if ["saved","saved-large"].contains(screen) {model.previewSave(.saved(Date()))}
+        if screen=="checking" {model.previewSave(.checking)}
+        if ["checking","quiet"].contains(screen) {model.reconnecting=true;model.connectionState="Loading settings…"}
+        model.message=""
         model.updateMessage="Sample state: firmware is up to date."
         return model
     }

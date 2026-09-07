@@ -13,9 +13,10 @@ import SwiftUI
         _model=StateObject(wrappedValue:ClockModel())
     }
     var body: some Scene {
-        WindowGroup { content.environmentObject(model).onChange(of:phase) { _,new in
+        WindowGroup { content.environmentObject(model).task {model.resume()}.onChange(of:phase) { _,new in
             let sessionPhase:ForegroundSessionPhase = new == .background ? .background : new == .inactive ? .inactive : .active
-            if sessionPhase.mustDisconnect { model.disconnect() }
+            if sessionPhase.mustDisconnect {model.suspend()}
+            else if new == .active {model.resume()}
         } }
     }
     @ViewBuilder private var content:some View {

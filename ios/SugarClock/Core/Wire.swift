@@ -73,9 +73,9 @@ public struct Reassembly {
     public let transport: ClockTransport
     private var nextID: UInt16=1
     private var busy=false
-    private let timeout:TimeInterval
+    public var requestTimeout:TimeInterval
     private let pollDelay:UInt64
-    public init(transport: ClockTransport,timeout:TimeInterval=45,pollDelay:UInt64=200_000_000) { self.transport=transport;self.timeout=timeout;self.pollDelay=pollDelay }
+    public init(transport: ClockTransport,timeout:TimeInterval=45,pollDelay:UInt64=200_000_000) { self.transport=transport;self.requestTimeout=timeout;self.pollDelay=pollDelay }
     /// Publish a schema only when every page has arrived in this connection.
     public func schema() async throws -> [[String:Any]] {
         var fields:[[String:Any]]=[]
@@ -97,7 +97,7 @@ public struct Reassembly {
         for packet in try Frame.split(bytes,id:id,packetLimit:transport.packetLimit) {
             try Task.checkCancellation();try await transport.write(packet.data)
         }
-        var assembly=Reassembly();let deadline=Date().addingTimeInterval(timeout)
+        var assembly=Reassembly();let deadline=Date().addingTimeInterval(requestTimeout)
         while Date()<deadline {
             try Task.checkCancellation()
             let frame=try Frame(data:await transport.read())

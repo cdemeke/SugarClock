@@ -31,6 +31,7 @@ for config in ('Debug','Release'):
  GENERATE_INFOPLIST_FILE = YES; ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
  INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "SugarClock uses Bluetooth to securely pair with and configure your nearby clocks.";
  INFOPLIST_KEY_UILaunchScreen_Generation = YES; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+ INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
  INFOPLIST_KEY_CFBundleDisplayName = SugarClock; MARKETING_VERSION = 1.0.0; CURRENT_PROJECT_VERSION = 1;
  SWIFT_ACTIVE_COMPILATION_CONDITIONS = "'''+('DEBUG' if config=='Debug' else '')+'''";
  CODE_SIGN_STYLE = Automatic; ENABLE_USER_SCRIPT_SANDBOXING = YES; SWIFT_OPTIMIZATION_LEVEL = "'''+('-Onone' if config=='Debug' else '-O')+'''";
