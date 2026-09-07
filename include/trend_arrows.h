@@ -116,8 +116,8 @@ static const uint8_t* TREND_BITMAPS[] = {
     TREND_BITMAP_FALLING_FAST
 };
 
-// Trend name strings
-static const char* TREND_NAMES[] = {
+// Some translation units use only the bitmaps from this shared header.
+static const char* TREND_NAMES[] __attribute__((unused)) = {
     "RisingFast",
     "Rising",
     "Flat",
