@@ -42,25 +42,43 @@ uint32_t workEpoch=0;
 char identity[20],name[26];
 uint32_t bootID;
 bool windowOpen() { uint32_t end=windowUntil;return end && int32_t(end-millis())>0; }
+bool peerAuthorized(NimBLEConnInfo& c) {
+ return scble::authorized(c.isEncrypted(),c.isAuthenticated(),c.isBonded(),ble_hs_cfg.sm_sc_only) && c.getSecKeySize()==16;
+}
 bool allowed(NimBLEConnInfo& c) {
- return secure && connection==c.getConnHandle() &&
-   scble::authorized(c.isEncrypted(),c.isAuthenticated(),c.isBonded(),ble_hs_cfg.sm_sc_only) && c.getSecKeySize()==16;
+ return secure && connection==c.getConnHandle() && peerAuthorized(c);
 }
 void disconnect() { uint16_t c=connection;if(server && c!=BLE_HS_CONN_HANDLE_NONE) server->disconnect(c); }
 void clearMailbox() { receiver.reset();memset(response,0,sizeof(response));responseID=responseLen=responseOffset=lastID=0;queued=false;responsePending=false; }
+void rejectPeer(NimBLEConnInfo& c,const char* reason) {
+ Serial.printf("[BLE] Rejecting handle=%u reason=%s\n",unsigned(c.getConnHandle()),reason);
+ if(server) server->disconnect(c.getConnHandle());
+}
+bool beginSession(NimBLEConnInfo& c) {
+ if(connection==c.getConnHandle()) return true;
+ if(connection!=BLE_HS_CONN_HANDLE_NONE) {rejectPeer(c,"different_session");return false;}
+ Guard g;
+ secure=false;connection=c.getConnHandle();connectedAt=lastActivity=millis();
+ ++sessionEpoch;clearMailbox();
+ return true;
+}
 class DeviceCallbacks:public NimBLEDeviceCallbacks {
  int onStoreStatus(ble_store_status_event*,void*) override { return BLE_HS_ENOMEM; } // Never evict an owner's bond implicitly.
 } deviceCallbacks;
 class ServerCallbacks:public NimBLEServerCallbacks {
  void onConnect(NimBLEServer* s,NimBLEConnInfo& c) override {
-  Serial.println("[BLE] Phone connected; authenticating");
-  connection=c.getConnHandle();secure=false;connectedAt=lastActivity=millis();
-  { Guard g; ++sessionEpoch;clearMailbox(); }
-  if(!scble::canAdmit(NimBLEDevice::isBonded(c.getIdAddress()),windowOpen(),NimBLEDevice::getNumBonds())) { s->disconnect(c.getConnHandle());return; }
+  if(!scble::canAdmit(NimBLEDevice::isBonded(c.getIdAddress()),windowOpen(),NimBLEDevice::getNumBonds())) {rejectPeer(c,"admission");return;}
+  if(!beginSession(c)) return;
+  // Bond encryption can complete before NimBLE finishes remote feature discovery
+  // and calls onConnect. Use the peer's verified security, and initialize the
+  // session only once so a late connect event preserves an in-flight request.
+  secure=peerAuthorized(c);
+  Serial.printf("[BLE] Phone connected handle=%u secure=%d\n",unsigned(c.getConnHandle()),int(secure.load()));
   s->updateConnParams(c.getConnHandle(),24,48,0,400);
  }
- void onDisconnect(NimBLEServer*,NimBLEConnInfo&,int reason) override {
-  Serial.printf("[BLE] Phone disconnected reason=%d network=%d\n",reason,int(networkLease.load()));
+ void onDisconnect(NimBLEServer*,NimBLEConnInfo& c,int reason) override {
+  Serial.printf("[BLE] Phone disconnected handle=%u reason=%d network=%d\n",unsigned(c.getConnHandle()),reason,int(networkLease.load()));
+  if(connection!=c.getConnHandle()) return;
   secure=false;connection=BLE_HS_CONN_HANDLE_NONE;passkeyUntil=0;
   Guard g;++sessionEpoch;clearMailbox(); // queued but unexecuted work is canceled; Wi-Fi/OTA already started continues.
  }
@@ -70,14 +88,18 @@ class ServerCallbacks:public NimBLEServerCallbacks {
  }
  void onConfirmPassKey(NimBLEConnInfo& c,uint32_t) override { NimBLEDevice::injectConfirmPasskey(c,false); }
  void onAuthenticationComplete(NimBLEConnInfo& c) override {
-  if(!scble::authorized(c.isEncrypted(),c.isAuthenticated(),c.isBonded(),ble_hs_cfg.sm_sc_only) || c.getSecKeySize()!=16) { disconnect();return; }
+  if(!peerAuthorized(c)) {
+   if(connection==c.getConnHandle()) secure=false;
+   rejectPeer(c,"authentication");return;
+  }
+  if(!beginSession(c)) return;
   secure=true;passkeyUntil=0;windowUntil=0;
-  Serial.println("[BLE] Phone authenticated");
+  Serial.printf("[BLE] Phone authenticated handle=%u\n",unsigned(c.getConnHandle()));
  }
 } serverCallbacks;
 class Characteristics:public NimBLECharacteristicCallbacks {
  void onWrite(NimBLECharacteristic* ch,NimBLEConnInfo& c) override {
-  if(!allowed(c)) { disconnect();return; }
+  if(!allowed(c)) {rejectPeer(c,"write_security");return;}
   auto value=ch->getValue();ch->setValue(""); // do not retain credentials in GATT attribute
   Guard g;lastActivity=millis();
   const uint8_t* p=value.data();size_t n=value.size();
@@ -91,7 +113,7 @@ class Characteristics:public NimBLECharacteristicCallbacks {
   if(result==scble::Result::Complete) queued=true;
  }
  void onRead(NimBLECharacteristic* ch,NimBLEConnInfo& c) override {
-  if(!allowed(c)) { ch->setValue("");disconnect();return; }
+  if(!allowed(c)) {ch->setValue("");rejectPeer(c,"read_security");return;}
   Guard g;lastActivity=millis();
   uint8_t packet[scble::MaxPacket];
   size_t capacity=std::min<size_t>(scble::MaxPacket,c.getMTU()-3);
