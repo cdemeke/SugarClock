@@ -93,6 +93,52 @@ import Combine
         model.selected=model.clocks[0]
         return (model,radio,defaults,id)
     }
+    func testSingleSavedClockStartsConnectingOnLaunchAndOpeningReusesAttempt() async throws {
+        let (_,radio,defaults,id)=fixture()
+        defaults.set(try JSONEncoder().encode([SavedClock(id:"clock-a",peripheral:id,nickname:"Bedside Clock")]),forKey:"clocks.v1")
+        radio.holdConnection=true
+        let model=ClockModel(enableBluetooth:false,transport:radio,preferences:defaults,retryDelay:0)
+        model.resume()
+        await settle {radio.waiting != nil}
+        XCTAssertEqual(model.selected?.peripheral,id)
+        let opening=Task {await model.connect(id)}
+        await Task.yield()
+        radio.holdConnection=false
+        let pending=radio.waiting;radio.waiting=nil;pending?.resume()
+        await opening.value
+        XCTAssertEqual(radio.attempts,1)
+        XCTAssertTrue(model.sessionReady)
+        await model.connect(id)
+        XCTAssertEqual(radio.attempts,1)
+        model.suspend()
+    }
+    func testMultipleSavedClocksWaitForSelectionDespiteRememberedClock() async throws {
+        let (_,radio,defaults,id)=fixture()
+        let clocks=[SavedClock(id:"clock-a",peripheral:id,nickname:"Bedside"),SavedClock(id:"clock-b",peripheral:UUID(),nickname:"Kitchen")]
+        defaults.set(try JSONEncoder().encode(clocks),forKey:"clocks.v1")
+        defaults.set("clock-b",forKey:"clock.selected")
+        let model=ClockModel(enableBluetooth:false,transport:radio,preferences:defaults,retryDelay:0)
+        model.resume()
+        await Task.yield()
+        XCTAssertNil(model.selected)
+        XCTAssertFalse(model.reconnecting)
+        XCTAssertEqual(radio.attempts,0)
+        await model.connect(id)
+        XCTAssertTrue(model.sessionReady)
+        model.suspend();model.resume()
+        await settle {model.sessionReady}
+        XCTAssertEqual(radio.attempts,2)
+        model.suspend()
+    }
+    func testNoSavedClocksDoesNotStartConnectionOnLaunch() async {
+        let (_,radio,defaults,_)=fixture()
+        let model=ClockModel(enableBluetooth:false,transport:radio,preferences:defaults,retryDelay:0)
+        model.resume()
+        await Task.yield()
+        XCTAssertNil(model.selected)
+        XCTAssertEqual(radio.attempts,0)
+        model.suspend()
+    }
     func testWiFiScanWaitsForCompletedResultsWithoutSavingSettings() async {
         let (model,radio,_,id)=fixture()
         await model.connect(id)

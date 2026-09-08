@@ -48,3 +48,10 @@ struct NearbyNetwork:Identifiable,Equatable {
         return unique.values.sorted {$0.rssi == $1.rssi ? $0.ssid<$1.ssid:$0.rssi>$1.rssi}
     }
 }
+
+/// The firmware schedules updates at a whole hour in the clock's configured time zone.
+enum ClockUpdateTime {
+    static let choices:[Int:String]=Dictionary(uniqueKeysWithValues:(0..<24).map {hour in
+        (hour,"\(hour % 12 == 0 ? 12:hour % 12):00 \(hour<12 ? "AM":"PM")")
+    })
+}

@@ -19,6 +19,7 @@ struct ScreenshotPreview:View {
                     case "glucose", "glucose-off":ConfigurationView(category:SettingsCategory.all[0])
                     case "wifi":WiFiView()
                     case "firmware":FirmwareView()
+                    case "update-time":SettingEditor(field:["key":"auto_update_hour","type":"int","min":0,"max":23])
                     case "brightness", "saved", "saved-large", "checking":SettingEditor(field:["key":"brightness","type":"int","min":1,"max":255])
                     case "secret":SettingEditor(field:["key":"dexcom_password","type":"secret","max_length":63])
                     case "troubleshooting":TroubleshootingView()
@@ -68,9 +69,10 @@ struct ScreenshotPreview:View {
             ["key":"auto_brightness","type":"bool"],
             ["key":"use_mmol","type":"bool"],
             ["key":"alert_enabled","type":"bool"],
-            ["key":"auto_update_enabled","type":"bool"]
+            ["key":"auto_update_enabled","type":"bool"],
+            ["key":"auto_update_hour","type":"int","min":0,"max":23]
         ]
-        model.settings.merge(["glucose_enabled":true,"timezone":"EST5EDT,M3.2.0,M11.1.0","use_24h":false,"date_on_time_screen":true,"date_format":0,"ambient_enabled":true,"ambient_creature":0,"ambient_seasonal":true,"alert_low":70,"alert_high":250,"alert_snooze_min":15,"auto_cycle_enabled":true]) {_,new in new}
+        model.settings.merge(["glucose_enabled":true,"timezone":"EST5EDT,M3.2.0,M11.1.0","use_24h":false,"date_on_time_screen":true,"date_format":0,"ambient_enabled":true,"ambient_creature":0,"ambient_seasonal":true,"alert_low":70,"alert_high":250,"alert_snooze_min":15,"auto_cycle_enabled":true,"auto_update_enabled":true,"auto_update_hour":3]) {_,new in new}
         model.fields += [
             ["key":"glucose_enabled","type":"bool"],
             ["key":"timezone","type":"text","max_length":63],

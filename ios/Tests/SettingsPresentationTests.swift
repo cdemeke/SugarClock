@@ -2,6 +2,19 @@ import XCTest
 @testable import SugarClockCore
 
 final class SettingsPresentationTests:XCTestCase {
+    func testUpdateTimesKeepWholeHourWireValuesAndDistinguishNoonFromMidnight() throws {
+        XCTAssertEqual(ClockUpdateTime.choices.count,24)
+        XCTAssertEqual(ClockUpdateTime.choices[0],"12:00 AM")
+        XCTAssertEqual(ClockUpdateTime.choices[12],"12:00 PM")
+        XCTAssertEqual(ClockUpdateTime.choices[18],"6:00 PM")
+        XCTAssertEqual(ClockUpdateTime.choices[23],"11:00 PM")
+        let fields:[[String:Any]]=[["key":"auto_update_hour","type":"int","min":0,"max":23]]
+        for hour in ClockUpdateTime.choices.keys {
+            var draft=SettingsDraft(settings:["auto_update_hour":(hour+1)%24],fields:fields)
+            draft.setText(String(hour),key:"auto_update_hour")
+            XCTAssertEqual(try draft.patch(fields:fields)["auto_update_hour"] as? Int,hour)
+        }
+    }
     func testTimeZonePreservesUnrecognizedRulesUntilExplicitSelection() throws {
         let fields:[[String:Any]]=[["key":"timezone","type":"text","max_length":63]]
         let custom="CUSTOM-9:30"

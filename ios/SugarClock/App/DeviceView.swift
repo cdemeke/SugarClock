@@ -110,7 +110,7 @@ struct AllSettingsView:View {
 }
 
 func label(_ key:String)->String {
-    ["glucose_enabled":"Blood sugar readings","timezone":"Time zone","use_24h":"24-hour time","date_on_time_screen":"Show date","date_format":"Date format","ambient_enabled":"Enabled","ambient_seasonal":"Seasonal surprises","alert_enabled":"Enabled","time_display_enabled":"Enabled","auto_cycle_enabled":"Auto cycle","auto_cycle_sec":"Seconds per screen","alert_low":"Low glucose alert","alert_high":"High glucose alert","alert_snooze_min":"Snooze (minutes)","use_mmol":"Use mmol/L","data_source":"Source type","dexcom_us":"Dexcom US server","server_url":"Server URL","auth_token":"Auth token","ambient_creature":"Companion","default_mode":"Default view","wifi_security":"Wi-Fi security","poll_interval":"Poll interval (seconds)","stale_timeout_min":"Stale timeout (minutes)","show_delta":"Show glucose change (delta)","auto_brightness":"Auto brightness","thresh_urgent_low":"Urgent low","thresh_low":"Low","thresh_high":"High","thresh_urgent_high":"Urgent high"][key] ?? key.replacingOccurrences(of:"_",with:" ").capitalized
+    ["glucose_enabled":"Blood sugar readings","timezone":"Time zone","use_24h":"24-hour time","date_on_time_screen":"Show date","date_format":"Date format","ambient_enabled":"Enabled","ambient_seasonal":"Seasonal surprises","alert_enabled":"Enabled","time_display_enabled":"Enabled","auto_cycle_enabled":"Auto cycle","auto_cycle_sec":"Seconds per screen","alert_low":"Low glucose alert","alert_high":"High glucose alert","alert_snooze_min":"Snooze (minutes)","use_mmol":"Use mmol/L","data_source":"Source","auto_update_hour":"Update time","auto_update_enabled":"Automatic updates","dexcom_us":"Dexcom US server","server_url":"Server URL","auth_token":"Auth token","ambient_creature":"Companion","default_mode":"Default view","wifi_security":"Wi-Fi security","poll_interval":"Poll interval (seconds)","stale_timeout_min":"Stale timeout (minutes)","show_delta":"Show glucose change (delta)","auto_brightness":"Auto brightness","thresh_urgent_low":"Urgent low","thresh_low":"Low","thresh_high":"High","thresh_urgent_high":"Urgent high"][key] ?? key.replacingOccurrences(of:"_",with:" ").capitalized
 }
 
 struct SettingsPage:View {
@@ -259,6 +259,7 @@ struct DraftField:View {
         case "data_source":return [0:"Custom URL / Nightscout",1:"Dexcom Share",2:"Demo (synthetic data)"]
         case "ambient_creature":return [0:"Fish",1:"Ghost"]
         case "default_mode":return [0:"Glucose",1:"Time",2:"Weather",3:"Pixel companion"]
+        case "auto_update_hour":return ClockUpdateTime.choices
         case "date_format":return [0:"M/DD",1:"MMMDD",2:"DD/MM"]
         default:return nil
         }
@@ -296,6 +297,7 @@ struct DraftField:View {
                     }
                 }
             }
+            if key=="auto_update_hour" {Text("Uses your clock’s time zone. Updates may wait until the clock is ready.").font(.footnote).foregroundStyle(SugarTheme.secondary)}
             if key=="auto_brightness" {Text("Adjusts brightness to room lighting. The middle button switches to manual brightness.").font(.caption).foregroundStyle(SugarTheme.secondary)}
             if key=="brightness" {Text("Turn off auto brightness to use a fixed level.").font(.caption).foregroundStyle(SugarTheme.secondary)}
             if key=="server_url" {Text("Use the full JSON endpoint. The URL and any credentials stay on your clock.").font(.footnote).foregroundStyle(SugarTheme.secondary)}
@@ -462,7 +464,7 @@ struct FirmwareView:View {
             SugarCard(title:"Automatic updates") {
                 ForEach(["auto_update_enabled","auto_update_hour"],id:\.self) {key in
                     if let field=model.fields.first(where:{$0["key"] as? String==key}) {
-                        NavigationLink {SettingEditor(field:field)} label:{DestinationRow(title:label(key),subtitle:"Edit preference",symbol:"clock.arrow.circlepath")}.buttonStyle(.plain)
+                        NavigationLink {SettingEditor(field:field)} label:{DestinationRow(title:label(key),subtitle:key=="auto_update_hour" ? ClockUpdateTime.choices[model.settings[key] as? Int ?? -1] ?? "Choose a time" : (model.settings[key] as? Bool==true ? "On":"Off"),symbol:"clock.arrow.circlepath")}.buttonStyle(.plain)
                     }
                 }
             }

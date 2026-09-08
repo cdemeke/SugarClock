@@ -147,7 +147,7 @@ struct OperationFeedback:View {
         if model.selected != nil || model.reconnecting {
             HStack(spacing:8) {
                 Group {
-                    if model.reconnecting,!model.hasLoadedSettings {
+                    if model.reconnecting {
                         ProgressView().tint(SugarTheme.accent)
                     } else {
                         Image(systemName:model.sessionReady ? "checkmark.circle.fill":"circle.dotted")

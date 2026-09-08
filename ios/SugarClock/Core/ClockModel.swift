@@ -89,7 +89,8 @@ private struct PendingSave {
         self.preferences=preferences;self.retryDelay=retryDelay
         if loadSaved,let data=preferences.data(forKey:"clocks.v1"),let saved=try? JSONDecoder().decode([SavedClock].self,from:data) {
             clocks=saved
-            selected=saved.first(where:{$0.id==preferences.string(forKey:"clock.selected")}) ?? saved.first
+            // Warm up the only saved clock without choosing for a multi-clock household.
+            selected=saved.count==1 ? saved.first:nil
         }
         connectionSubscription=self.transport.connectionPublisher.dropFirst().removeDuplicates().sink { [weak self] connected in
             Task { @MainActor [weak self] in
