@@ -21,6 +21,7 @@
 #include "ota_manager.h"
 #include "fleet_manager.h"
 #include "ble_manager.h"
+#include "tls_memory.h"
 #include <esp_heap_caps.h>
 
 #ifndef SUGARCLOCK_VERSION
@@ -55,6 +56,8 @@ void setup() {
         Serial.println("WARNING: Previous watchdog reset!");
     }
     Serial.println("================================");
+
+    tls_log_memory_profile();
 
     // 3. Load configuration
     config_init();

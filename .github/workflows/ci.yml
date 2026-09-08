@@ -37,6 +37,8 @@ jobs:
           done
       - name: BLE protocol and configuration tests with resolved dependencies
         run: python -m unittest discover -s tests -p "test_ble*.py" -v
+      - name: TLS encryption, large transfers, and certificate rejection
+        run: python -m unittest discover -s tests -p "test_tls.py" -v
       - name: Verify partitions, versions, rollback, and size limits
         run: python scripts/check_layout.py
       - name: Confirm generated sources are reproducible
