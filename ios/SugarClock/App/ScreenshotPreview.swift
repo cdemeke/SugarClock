@@ -74,6 +74,7 @@ struct ScreenshotPreview:View {
         if screen=="checking" {model.previewSave(.checking)}
         if ["checking","quiet","loading","loading-large"].contains(screen) {model.reconnecting=true;model.connectionState="Loading settings…"}
         if ["loading","loading-large"].contains(screen) {model.settings=[:];model.fields=[]}
+        if screen=="operation" {model.busy=true;model.operationTitle="Refreshing settings…"}
         model.message=""
         model.updateMessage="Sample state: firmware is up to date."
         return model

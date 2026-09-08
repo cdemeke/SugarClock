@@ -170,7 +170,13 @@ struct OperationFeedback:View {
             }
         }
         if model.busy,!model.reconnecting,!model.checkingConnection,model.operationTitle != "Saving…" {
-            ProgressView(model.operationTitle).tint(SugarTheme.accent)
+            HStack(spacing:8) {
+                ProgressView().tint(SugarTheme.accent)
+                    .frame(width:statusIconSize,height:statusIconSize).accessibilityHidden(true)
+                Text(model.operationTitle).font(.subheadline).foregroundStyle(SugarTheme.secondary)
+                    .fixedSize(horizontal:false,vertical:true)
+            }
+            .frame(minHeight:28)
         }
         if !model.message.isEmpty {
             Text(model.message).font(.footnote).foregroundStyle(SugarTheme.secondary)
