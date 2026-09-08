@@ -35,6 +35,8 @@ void http_configuration_changed();
 GlucoseReading http_get_reading();
 bool http_is_fetching();
 unsigned long http_fetch_generation();
+// Main-loop batching hint; false for a paused, absent or custom-source schedule.
+bool http_dexcom_due_within(uint32_t milliseconds);
 
 // Get failure count since last success
 int http_get_failure_count();

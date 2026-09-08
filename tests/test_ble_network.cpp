@@ -10,7 +10,7 @@ constexpr int MALLOC_CAP_8BIT=1;
 unsigned heap_caps_get_largest_free_block(int) {return 50000;}
 uint32_t now=20000;
 uint32_t millis() {return now;}
-bool connected=true,enabled=true,networkLease=false,secure=true;
+bool connected=true,enabled=true,networkLease=false,secure=true,suspended=false;
 bool queued=false,working=false,responsePending=false;
 void* mutex=nullptr;
 struct Guard {};
@@ -18,7 +18,7 @@ struct {unsigned used=0;} receiver;
 uint32_t lastActivity=1000,connectedAt=1000,networkWaitingSince=0,networkReleasedAt=0;
 unsigned suspensions=0;
 bool ble_is_connected() {return connected;}
-void ble_suspend_for_ota() {++suspensions;enabled=false;connected=false;}
+void ble_suspend_for_ota() {++suspensions;enabled=false;connected=false;suspended=true;}
 #include "ble_network.inc"
 int main() {
  // The production lease path keeps one network worker at a time in both modes.
@@ -29,6 +29,8 @@ int main() {
  assert(suspensions==unsigned(!SUGARCLOCK_BLE_COEXIST_TEST));
  assert(!ble_acquire_network());
  ble_release_network();assert(!networkLease && networkReleasedAt==now);
+ assert(ble_network_batch_window()==!bool(SUGARCLOCK_BLE_COEXIST_TEST));
+ now+=1500;assert(!ble_network_batch_window());
  // Protection for an in-progress authenticated transfer remains in place.
  enabled=connected=true;mutex=&connected;responsePending=true;lastActivity=now;
  assert(!ble_acquire_network());

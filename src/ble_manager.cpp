@@ -266,6 +266,9 @@ void ble_release_network() {
  networkReleasedAt=millis();networkLease=false;
 }
 bool ble_network_is_busy() {return networkLease;}
+bool ble_network_batch_window() {
+ return suspended && !enabled && !networkLease && millis()-networkReleasedAt<1500;
+}
 void ble_loop() {
 #if SUGARCLOCK_BLE_COEXIST_TEST
  uint32_t failures=failedAllocations.exchange(0);

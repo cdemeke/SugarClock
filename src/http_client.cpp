@@ -2,6 +2,8 @@
 #include "ble_manager.h"
 #include "config_manager.h"
 #include "wifi_manager.h"
+#include "network_schedule.h"
+#include <time.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
@@ -25,6 +27,9 @@ static int last_response_code = 0;
 static char last_response_body[512] = "";
 static bool ever_received = false;
 static unsigned long last_poll_ms = 0;
+static scnet::DexcomSchedule dexcom_schedule;
+static uint32_t dexcom_fallback_seconds=60;
+static int polling_source=0;
 static unsigned long last_success_ms = 0;
 static std::atomic<bool> http_paused{false};
 static std::atomic<bool> fetch_running{false},fetch_complete{false},force_requested{false};
@@ -40,6 +45,10 @@ static PublishedHTTP published;
 static std::atomic<unsigned long> fetch_generation{0};
 unsigned long http_fetch_generation() {return fetch_generation;}
 bool http_is_fetching() {return fetch_running;}
+bool http_dexcom_due_within(uint32_t milliseconds) {
+ if(fetch_running || http_paused || polling_source!=1 || !dexcom_schedule.scheduled) return false;
+ return dexcom_schedule.ready(millis()) || dexcom_schedule.deadline-millis()<=milliseconds;
+}
 
 
 // Delta tracking
@@ -294,14 +303,9 @@ static bool dexcom_fetch_glucose() {
         }
 
         // Parse timestamp from "Date(1234567890000)" or "WT" field
-        const char* wt = reading["WT"] | reading["ST"] | "";
-        if (strlen(wt) > 0) {
-            // Extract epoch ms from "Date(1234567890000)" or "/Date(1234567890000)/"
-            const char* start = strchr(wt, '(');
-            if (start) {
-                current_reading.timestamp = (unsigned long)(strtoull(start + 1, NULL, 10) / 1000ULL);
-            }
-        }
+        current_reading.timestamp = scnet::dexcom_timestamp(reading["WT"] | "");
+        if(!current_reading.timestamp)
+            current_reading.timestamp = scnet::dexcom_timestamp(reading["ST"] | "");
 
         current_reading.valid = (current_reading.glucose > 0);
 
@@ -461,7 +465,12 @@ static void publish_result() {
 static void fetch_worker(void* parameter) {
  int source=int(reinterpret_cast<intptr_t>(parameter));
  Serial.printf("[GLUCOSE MEM] start free=%u min=%u largest=%u\n",ESP.getFreeHeap(),ESP.getMinFreeHeap(),heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
- if(source==1) dexcom_fetch_glucose();else generic_fetch();
+ if(source==1) {
+  bool ok=dexcom_fetch_glucose();
+  uint32_t seconds=dexcom_schedule.complete(millis(),uint32_t(time(nullptr)),
+      current_reading.timestamp,ok,dexcom_fallback_seconds);
+  Serial.printf("[NET SCHEDULE] Dexcom next=%us result=%s\n",unsigned(seconds),ok ? "reading":"retry");
+ } else generic_fetch();
  Serial.printf("[GLUCOSE MEM] end free=%u min=%u largest=%u\n",ESP.getFreeHeap(),ESP.getMinFreeHeap(),heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
  Serial.printf("[GLUCOSE MEM] stack_unused=%u\n",unsigned(uxTaskGetStackHighWaterMark(nullptr)));
  ble_release_network();fetch_complete=true;fetch_running=false;
@@ -472,6 +481,7 @@ void http_init() {
     current_reading.valid = false;
     current_reading.force_mode = -1;
     last_poll_ms = 0;
+    dexcom_schedule={};
     last_success_ms = 0;
     dexcom_session_id[0] = '\0';
 
@@ -498,14 +508,18 @@ void http_loop() {
     if(configuration_changed.exchange(false)) http_init();
     if(http_paused) return;
     AppConfig cfg=config_snapshot();
+    polling_source=cfg.data_source;
     bool force=force_requested.exchange(false);
     if(cfg.data_source==2) {if(force)demo_last_update_ms=0;unsigned long before=demo_last_update_ms;demo_generate();if(before!=demo_last_update_ms) {publish_result();++fetch_generation;}return;}
-    if(!wifi_is_connected() || !config_has_server()) return;
+    if(!wifi_is_connected() || !config_has_server()) {if(force) force_requested=true;return;}
     unsigned long interval_ms=max(15,cfg.poll_interval_sec)*1000UL;
-    if(!force && last_poll_ms && millis()-last_poll_ms<interval_ms) return;
+    if(!force && (cfg.data_source==1 ? !dexcom_schedule.ready(millis()) :
+       last_poll_ms && millis()-last_poll_ms<interval_ms)) return;
     if(!ble_acquire_network()) {if(force) force_requested=true;return;}
+    dexcom_fallback_seconds=uint32_t(max(15,cfg.poll_interval_sec));
     last_poll_ms=millis();fetch_running=true;
     if(xTaskCreate(fetch_worker,"glucose_https",14336,reinterpret_cast<void*>(static_cast<intptr_t>(cfg.data_source)),1,nullptr)!=pdPASS) {
+        if(cfg.data_source==1) dexcom_schedule.complete(millis(),0,0,false,60);
         ble_release_network();fetch_running=false;last_response_code=-1000;++failure_count;publish_result();
     }
 }

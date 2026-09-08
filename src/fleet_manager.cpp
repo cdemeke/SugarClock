@@ -4,6 +4,7 @@
 #include "config_manager.h"
 #include "config_patch.h"
 #include "fleet_policy.h"
+#include "network_schedule.h"
 #include "glucose_engine.h"
 #include "http_client.h"
 #include "notify_engine.h"
@@ -23,6 +24,7 @@
 #include <esp_ota_ops.h>
 #include <esp_system.h>
 #include <time.h>
+#include <atomic>
 
 #ifndef SUGARCLOCK_VERSION
 #error "SUGARCLOCK_VERSION must be injected from VERSION"
@@ -39,14 +41,12 @@
 
 static const char* FLEET_NAMESPACE = "sugarfleet";
 static const uint32_t INITIAL_DELAY_MS = 30000;
-static const uint32_t MIN_CHECKIN_SECONDS = 90;
-static const uint32_t MAX_CHECKIN_SECONDS = 150;
 
 static char installation_id[37];
 static char credential[44];
 static char channel[16] = "stable";
 static bool registered = false;
-static volatile bool worker_running = false;
+static std::atomic<bool> worker_running{false};
 static bool restart_requested = false;
 static uint32_t next_attempt_ms = 0;
 static unsigned failure_count = 0;
@@ -483,7 +483,7 @@ static void fleet_worker(void*) {
     if (ok && registered) ok = check_in(next_seconds);
     if (ok) {
         failure_count = 0;
-        next_seconds = constrain(next_seconds, MIN_CHECKIN_SECONDS, MAX_CHECKIN_SECONDS);
+        next_seconds = scnet::management_interval(next_seconds);
         int jitter = static_cast<int>(esp_random() % 31U) - 15;
         next_attempt_ms = millis() + (next_seconds + jitter) * 1000UL;
     } else {
@@ -498,6 +498,8 @@ static void fleet_worker(void*) {
                           static_cast<unsigned long>(delay_ms / 1000UL));
         }
     }
+    Serial.printf("[NET SCHEDULE] Management end result=%s next_in=%us\n",
+                  ok ? "ok":"retry",unsigned((next_attempt_ms-millis())/1000));
     ble_release_network();worker_running = false;
     if (!ota_is_busy()) {
         http_set_paused(false);
@@ -522,8 +524,12 @@ void fleet_init() {
 
 void fleet_loop() {
     if (worker_running || http_is_fetching() || ota_is_busy() || !wifi_is_connected() || wifi_is_ap_mode() ||
-        !time_is_available() || static_cast<int32_t>(millis() - next_attempt_ms) < 0) return;
+        !time_is_available()) return;
+    bool grouped=ble_network_batch_window();
+    if(!scnet::management_ready(millis(),next_attempt_ms,grouped,failure_count!=0,
+                               http_dexcom_due_within(300000))) return;
     if(!ble_acquire_network()) return;
+    Serial.printf("[NET SCHEDULE] Management start grouped=%d retry=%u\n",int(grouped),failure_count);
     worker_running = true;
     // The ESP32 cannot reliably hold simultaneous TLS handshakes. This bounded
     // attempt runs after core traffic and pauses only future requests. Failed
@@ -534,7 +540,8 @@ void fleet_loop() {
         ble_release_network();worker_running = false;
         http_set_paused(false);
         weather_set_paused(false);
-        next_attempt_ms = millis() + 30000;
+        ++failure_count;
+        next_attempt_ms = millis() + fleet_retry_delay_ms(failure_count);
         Serial.println("[FLEET] Task creation failed");
     }
 }

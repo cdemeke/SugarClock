@@ -12,3 +12,5 @@ void ble_suspend_for_ota();
 bool ble_acquire_network();
 void ble_release_network();
 bool ble_network_is_busy();
+// Main-loop only: reuse an existing pause before Bluetooth resumes.
+bool ble_network_batch_window();
