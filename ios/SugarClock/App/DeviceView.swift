@@ -8,18 +8,17 @@ struct SettingsCategory:Identifiable {
     let sections:[(String,[String])]
     static let all:[SettingsCategory]=[
         .init(id:"glucose",title:"Blood Sugar",subtitle:"Source, credentials and glucose ranges",symbol:"drop",sections:[
-            ("Data source",["data_source","dexcom_username","dexcom_password","dexcom_us","server_url","auth_token","poll_interval","stale_timeout_min"]),
+            ("Blood sugar readings",["data_source","dexcom_username","dexcom_password","dexcom_us","server_url","auth_token","poll_interval","stale_timeout_min"]),
+            ("Reading display",["show_delta"]),
             ("Units and ranges",["use_mmol","thresh_urgent_low","thresh_low","thresh_high","thresh_urgent_high"])]),
-        .init(id:"display",title:"Display",subtitle:"Brightness and what your clock shows",symbol:"sun.max",sections:[
-            ("Brightness",["brightness","default_mode","auto_brightness"]),
-            ("Reading display",["show_delta","time_display_enabled","auto_cycle_enabled","auto_cycle_sec"])]),
-        .init(id:"time",title:"Time & Night Mode",subtitle:"Time zone, format and quiet evenings",symbol:"moon.stars",sections:[
-            ("Time",["timezone","use_24h","date_on_time_screen","date_format"]),
-            ("Night mode",["night_mode_enabled","night_start_hour","night_end_hour","night_brightness"])]),
+        .init(id:"display",title:"Display",subtitle:"Choose how screens cycle",symbol:"sun.max",sections:[
+            ("Screen rotation",["auto_cycle_enabled","auto_cycle_sec"])]),
+        .init(id:"time",title:"Time",subtitle:"Time zone and clock format",symbol:"moon.stars",sections:[
+            ("Time display",["time_display_enabled","timezone","use_24h","date_on_time_screen","date_format"])]),
         .init(id:"alerts",title:"Alerts",subtitle:"Thresholds and snooze preferences",symbol:"bell",sections:[
             ("Glucose alerts",["alert_enabled","alert_low","alert_high","alert_snooze_min"])]),
         .init(id:"companions",title:"Pixel Companions",subtitle:"A little company on your display",symbol:"sparkles",sections:[
-            ("Your companion",["ambient_enabled","ambient_creature","ambient_seasonal"])])
+            ("Pixel companions",["ambient_enabled","ambient_creature","ambient_seasonal"])])
     ]
 }
 
@@ -81,7 +80,7 @@ struct ClockDetailsView:View {
 struct ConfigurationView:View {
     let category:SettingsCategory
     var body:some View {
-        SettingsPage(title:category.title,subtitle:"",sections:category.sections)
+        SettingsPage(title:category.title,subtitle:"",sections:category.sections,headerToggleKey:["time":"time_display_enabled","alerts":"alert_enabled","companions":"ambient_enabled"][category.id])
             .navigationTitle(category.title)
     }
 }
@@ -93,15 +92,16 @@ struct SettingEditor:View {
 }
 struct AllSettingsView:View {
     @EnvironmentObject var model:ClockModel
+    private var advancedFields:[[String:Any]] {model.fields.filter {!($0["key"] as? String ?? "").hasPrefix("night_")}}
     var body:some View {
         SugarScreen {
             PageHeading(title:"Additional Settings",subtitle:"Options available on your clock’s firmware.")
             SugarCard {
-                ForEach(model.fields.indices,id:\.self) {index in
-                    let field=model.fields[index]
+                ForEach(advancedFields.indices,id:\.self) {index in
+                    let field=advancedFields[index]
                     if let key=field["key"] as? String {
                         NavigationLink {SettingEditor(field:field)} label:{DestinationRow(title:label(key),subtitle:"Edit on clock",symbol:"slider.horizontal.3")}.buttonStyle(.plain)
-                        if index<model.fields.count-1 {Divider()}
+                        if index<advancedFields.count-1 {Divider()}
                     }
                 }
             }
@@ -110,7 +110,7 @@ struct AllSettingsView:View {
 }
 
 func label(_ key:String)->String {
-    ["use_mmol":"Use mmol/L","data_source":"Source type","dexcom_us":"Dexcom US server","server_url":"Server URL","auth_token":"Auth token","ambient_creature":"Companion","default_mode":"Default view","wifi_security":"Wi-Fi security","poll_interval":"Poll interval (seconds)","stale_timeout_min":"Stale timeout (minutes)","show_delta":"Show delta on display","auto_brightness":"Auto brightness","thresh_urgent_low":"Urgent low","thresh_low":"Low","thresh_high":"High","thresh_urgent_high":"Urgent high"][key] ?? key.replacingOccurrences(of:"_",with:" ").capitalized
+    ["timezone":"Time zone","use_24h":"24-hour time","date_on_time_screen":"Show date","date_format":"Date format","ambient_enabled":"Enabled","ambient_seasonal":"Seasonal surprises","alert_enabled":"Enabled","time_display_enabled":"Enabled","auto_cycle_enabled":"Auto cycle","auto_cycle_sec":"Seconds per screen","alert_low":"Low glucose alert","alert_high":"High glucose alert","alert_snooze_min":"Snooze (minutes)","use_mmol":"Use mmol/L","data_source":"Source type","dexcom_us":"Dexcom US server","server_url":"Server URL","auth_token":"Auth token","ambient_creature":"Companion","default_mode":"Default view","wifi_security":"Wi-Fi security","poll_interval":"Poll interval (seconds)","stale_timeout_min":"Stale timeout (minutes)","show_delta":"Show glucose change (delta)","auto_brightness":"Auto brightness","thresh_urgent_low":"Urgent low","thresh_low":"Low","thresh_high":"High","thresh_urgent_high":"Urgent high"][key] ?? key.replacingOccurrences(of:"_",with:" ").capitalized
 }
 
 struct SettingsPage:View {
@@ -119,6 +119,7 @@ struct SettingsPage:View {
     let subtitle:String
     let sections:[(String,[String])]
     var overrideFields:[[String:Any]]?=nil
+    var headerToggleKey:String?=nil
     @State private var draft=SettingsDraft()
     @State private var loaded=false
     @State private var validation=""
@@ -143,17 +144,29 @@ struct SettingsPage:View {
         SugarScreen {
             if !subtitle.isEmpty {Text(subtitle).font(.subheadline).foregroundStyle(SugarTheme.secondary)}
             OperationFeedback()
+            if let key=headerToggleKey,fields.contains(where:{$0["key"] as? String==key}) {
+                SugarCard {
+                    Toggle(isOn:Binding(get:{draft.booleans[key] ?? false},set:{draft.setBool($0,key:key)})) {
+                        Text(sections.first?.0 ?? title).font(.headline)
+                    }.tint(SugarTheme.accent).accessibilityValue(draft.booleans[key] == true ? "Enabled":"Disabled")
+                }
+            }
             ForEach(sections,id:\.0) {section in
                 let available=section.1.compactMap {key in fields.first(where:{$0["key"] as? String==key})}.filter {field in
-                    guard sections.flatMap({$0.1}).contains("data_source") else {return true}
                     let key=field["key"] as? String ?? ""
+                    if let headerToggleKey,fields.contains(where:{$0["key"] as? String==headerToggleKey}) {
+                        if key==headerToggleKey || draft.booleans[headerToggleKey] != true {return false}
+                    }
+                    if key=="auto_cycle_sec",draft.booleans["auto_cycle_enabled"] == false {return false}
+                    if key=="date_format",draft.booleans["date_on_time_screen"] == false {return false}
+                    guard sections.flatMap({$0.1}).contains("data_source") else {return true}
                     let source=Int(draft.text["data_source"] ?? "") ?? 0
                     if key.hasPrefix("dexcom_") {return source==1}
                     if ["server_url","auth_token"].contains(key) {return source==0}
                     return true
                 }
                 if !available.isEmpty {
-                    SugarCard(title:section.0) {
+                    SugarCard(title:headerToggleKey == nil ? section.0:nil) {
                         ForEach(available.indices,id:\.self) {index in
                             DraftField(field:available[index],draft:$draft,settings:model.settings)
                             if index<available.count-1 {Divider()}
@@ -256,6 +269,8 @@ struct DraftField:View {
                     }.pickerStyle(.menu).fieldSurface()
                     if draft.secrets[key]==1 {SecureField("Replacement value",text:text).textInputAutocapitalization(.never).autocorrectionDisabled().fieldSurface()}
                     if draft.secrets[key]==2 {Text("This saved value will be cleared when you save.").font(.footnote).foregroundStyle(.red)}
+                } else if key=="timezone" {
+                    TimeZoneField(value:text)
                 } else if let choices {
                     Picker(label(key),selection:text) {ForEach(choices.keys.sorted(),id:\.self) {value in Text(choices[value] ?? "").tag(String(value))}}
                         .labelsHidden().pickerStyle(.menu).frame(maxWidth:.infinity,alignment:.leading).fieldSurface().accessibilityLabel(label(key))
@@ -272,7 +287,7 @@ struct DraftField:View {
                     }
                 }
             }
-            if key=="timezone" {Text("POSIX format, for example EST5EDT,M3.2.0,M11.1.0.").font(.footnote).foregroundStyle(SugarTheme.secondary)}
+            if key=="auto_brightness" {Text("Adjusts brightness to room lighting. The middle button switches to manual brightness.").font(.caption).foregroundStyle(SugarTheme.secondary)}
             if key=="brightness" {Text("Turn off auto brightness to use a fixed level.").font(.caption).foregroundStyle(SugarTheme.secondary)}
             if key=="server_url" {Text("Use the full JSON endpoint. The URL and any credentials stay on your clock.").font(.footnote).foregroundStyle(SugarTheme.secondary)}
         }
@@ -323,28 +338,45 @@ struct WiFiView:View {
     @State private var secretAction=0
     @State private var validateCA=false
     @State private var original:[String:Any]=[:]
+    @State private var enteredManually=false
+    @State private var attemptedScan=false
+    private var networks:[NearbyNetwork] {NearbyNetwork.sorted(model.networks)}
     var body:some View {
         SugarScreen {
             PageHeading(title:"Wi-Fi Configuration",subtitle:"Connect your clock to a 2.4 GHz network.")
             SugarCard(title:"Nearby networks") {
-                ForEach(model.networks.indices,id:\.self) {index in
-                    let n=model.networks[index]
-                    Button {ssid=n["ssid"] as? String ?? ""} label:{
-                        HStack {
+                if model.scanningWiFi {
+                    HStack(spacing:8) {ProgressView().tint(SugarTheme.accent);Text("Finding nearby networks…").font(.subheadline)}
+                }
+                ForEach(networks) {network in
+                    Button {selectNetwork(network)} label:{
+                        HStack(spacing:12) {
                             Image(systemName:"wifi").foregroundStyle(SugarTheme.accent)
-                            Text(n["ssid"] as? String ?? "Hidden network").foregroundStyle(SugarTheme.text)
+                            VStack(alignment:.leading,spacing:4) {
+                                Text(network.ssid).foregroundStyle(SugarTheme.text)
+                                Text(network.signal).font(.caption).foregroundStyle(SugarTheme.secondary)
+                            }
                             Spacer()
-                            Text("\(n["rssi"] as? Int ?? 0) dBm").font(.caption).foregroundStyle(SugarTheme.secondary)
-                        }.frame(minHeight:44)
+                            if !network.open {Image(systemName:"lock.fill").foregroundStyle(SugarTheme.secondary).accessibilityLabel(network.enterprise ? "Enterprise network":"Secured network")}
+                            if ssid==network.ssid {Image(systemName:"checkmark").foregroundStyle(SugarTheme.accent).accessibilityLabel("Selected")}
+                        }.frame(minHeight:44).contentShape(Rectangle())
                     }.buttonStyle(.plain)
                     Divider()
                 }
-                Button {Task {await model.scanWiFi()}} label:{Label("Scan using clock",systemImage:"arrow.clockwise")}.buttonStyle(SugarButtonStyle(prominent:false)).disabled(!model.canSend)
+                if !model.wifiScanMessage.isEmpty {Text(model.wifiScanMessage).font(.footnote).foregroundStyle(SugarTheme.secondary)}
+                if networks.isEmpty,!model.scanningWiFi,model.wifiScanMessage.isEmpty {
+                    Text(model.canSend ? "Choose a nearby network or enter a hidden one.":"Connect to your clock to find nearby networks.").font(.footnote).foregroundStyle(SugarTheme.secondary)
+                }
+                Button {Task {await model.scanWiFi()}} label:{Label("Refresh networks",systemImage:"arrow.clockwise")}.buttonStyle(SugarButtonStyle(prominent:false)).disabled(!model.canSend)
+                Button("Other network…") {enteredManually=true;ssid="";password="";secretAction=1}.font(.subheadline)
             }
-            SugarCard(title:"Join or replace network") {
-                VStack(alignment:.leading,spacing:8) {
-                    Text("Network name").font(.subheadline).foregroundStyle(SugarTheme.secondary)
-                    TextField("SSID, including hidden networks",text:$ssid).textInputAutocapitalization(.never).autocorrectionDisabled().fieldSurface()
+            SugarCard(title:"Connect to network") {
+                if enteredManually {
+                    TextField("Network name",text:$ssid).textInputAutocapitalization(.never).autocorrectionDisabled().fieldSurface()
+                } else if !ssid.isEmpty {
+                    DetailRow(title:"Network",value:ssid)
+                } else {
+                    Text("Select a network above.").foregroundStyle(SugarTheme.secondary)
                 }
                 Picker("Security",selection:$security) {Text("Personal / open").tag(0);Text("WPA2 Enterprise").tag(1)}.fieldSurface()
                 if security==1 {
@@ -357,7 +389,7 @@ struct WiFiView:View {
                 StatusPill(text:model.settings[(security==1 ? "wifi_eap_password":"wifi_password")+"_configured"] as? Bool==true ? "Password configured":"No saved password")
                 Picker("Password",selection:$secretAction) {Text("Leave unchanged").tag(0);Text("Replace").tag(1);Text("Clear / open network").tag(2)}.fieldSurface()
                 if secretAction==1 {SecureField("New password",text:$password).fieldSurface()}
-                Button("Test connection, then save") {join()}.buttonStyle(SugarButtonStyle()).disabled(!model.canSend)
+                Button("Test connection, then save") {join()}.buttonStyle(SugarButtonStyle()).disabled(!model.canSend || ssid.isEmpty)
                 Text("Saved only after the clock gets an IP address. If the trial fails, it retries your previous network. Internet and glucose access are checked separately.").font(.footnote).foregroundStyle(SugarTheme.secondary)
             }
             StatusSection()
@@ -366,7 +398,21 @@ struct WiFiView:View {
         }.navigationTitle("Wi-Fi").onAppear {
             original=model.settings;ssid=original["wifi_ssid"] as? String ?? "";security=original["wifi_security"] as? Int ?? 0;eap=original["wifi_eap_method"] as? Int ?? 0
             identity=original["wifi_identity"] as? String ?? "";anonymous=original["wifi_anon_identity"] as? String ?? "";validateCA=original["wifi_validate_ca"] as? Bool ?? false
+        }.onChange(of:model.canSend,initial:true) {_,ready in
+            if ready,!attemptedScan {
+                attemptedScan=true
+                Task {await model.scanWiFi()}
+            }
         }.onDisappear {password=""}
+    }
+    private func selectNetwork(_ network:NearbyNetwork) {
+        let changed=ssid != network.ssid || security != (network.enterprise ? 1:0)
+        ssid=network.ssid;security=network.enterprise ? 1:0;enteredManually=false
+        if changed || network.open {
+            password=""
+            let originalSecurity=original["wifi_security"] as? Int ?? 0
+            secretAction=network.open ? 2:(ssid==original["wifi_ssid"] as? String && security==originalSecurity ? 0:1)
+        }
     }
     func join() {
         var patch:[String:Any]=["wifi_ssid":ssid]
@@ -419,5 +465,27 @@ struct FirmwareView:View {
             Button("Refresh update status") {Task {await model.perform {try await model.refresh()}}}.buttonStyle(SugarButtonStyle(prominent:false))
             OperationFeedback()
         }.navigationTitle("Firmware")
+    }
+}
+
+struct TimeZoneField:View {
+    @Binding var value:String
+    private var selected:ClockTimeZone? {ClockTimeZone.matching(value)}
+    var body:some View {
+        Picker("Time zone",selection:$value) {
+            if !ClockTimeZone.choices.contains(where:{$0.posix==value}) {
+                Text(selected?.name ?? "Custom time zone").tag(value)
+            }
+            ForEach(ClockTimeZone.choices) {zone in Text(zone.name).tag(zone.posix)}
+        }.labelsHidden().pickerStyle(.menu).frame(maxWidth:.infinity,alignment:.leading).fieldSurface().accessibilityLabel("Time zone")
+        if let selected {
+            Text(selected.observesDaylightSaving ? "Daylight saving time adjusts automatically.":"Uses the same time offset all year.")
+                .font(.footnote).foregroundStyle(SugarTheme.secondary)
+        }
+        DisclosureGroup("Custom time zone") {
+            TextField("POSIX rule",text:$value).textInputAutocapitalization(.never).autocorrectionDisabled().fieldSurface()
+            Text("For locations not listed. Your existing clock setting is kept until you choose a zone and save.")
+                .font(.footnote).foregroundStyle(SugarTheme.secondary)
+        }.font(.footnote)
     }
 }

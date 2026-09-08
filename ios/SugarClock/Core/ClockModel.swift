@@ -33,6 +33,8 @@ private struct PendingSave {
     @Published var hello:[String:Any]=[:]
     @Published var fields:[[String:Any]]=[]
     @Published var networks:[[String:Any]]=[]
+    @Published private(set) var scanningWiFi=false
+    @Published private(set) var wifiScanMessage=""
     @Published var message=""
     @Published private(set) var saveReceipts:[String:SaveReceipt]=[:]
     @Published private(set) var lastSettingsRefresh:Date?
@@ -192,7 +194,7 @@ private struct PendingSave {
             finishPendingAsUnconfirmed();pendingSave=nil;lastSettingsRefresh=nil
             sessionReady=false;unconfirmedChange=false
             selected=clocks.first(where:{$0.peripheral==id})
-            settings=[:];status=[:];hello=[:];fields=[];schemaFirmware="";networks=[]
+            settings=[:];status=[:];hello=[:];fields=[];schemaFirmware="";networks=[];wifiScanMessage=""
         }
         if sessionReady,transport.connected,selected?.peripheral==id {return}
         launchConnection(id)
@@ -397,21 +399,34 @@ private struct PendingSave {
             self.updateMessage="Automatic reconnection timed out. Reconnect from My Clocks and check the current version and update status."
         }
     }
-    func scanWiFi() async {
-        operationTitle="Finding networks…"
-        await perform {
-            guard let client=self.client else {throw ClockError.disconnected}
+    @discardableResult func scanWiFi(pollDelay:UInt64=1_000_000_000) async -> Bool {
+        guard canSend,let client else {return false}
+        busy=true;scanningWiFi=true;wifiScanMessage="";operationTitle="Finding networks…"
+        defer {busy=false;scanningWiFi=false;if !sessionReady {startReconnect()}}
+        do {
             _=try await client.request("wifi.scan")
             for _ in 0..<15 {
-                try await Task.sleep(nanoseconds:1_000_000_000)
+                try await Task.sleep(nanoseconds:pollDelay)
                 let response=try await client.request("wifi.results")
-                self.networks=response["networks"] as? [[String:Any]] ?? []
-                if response["scanning"] as? Bool==false {break}
+                guard let scanning=response["scanning"] as? Bool,
+                      let networks=response["networks"] as? [[String:Any]] else {throw ClockError.malformed}
+                if !scanning {
+                    self.networks=networks
+                    wifiScanMessage=NearbyNetwork.sorted(networks).isEmpty ? "No networks found. Try again or enter a hidden network.":""
+                    return true
+                }
+            }
+            wifiScanMessage="The search took too long. Try again."
+        } catch {
+            wifiScanMessage="Couldn’t finish the search. Reconnect and try again."
+            if Self.canRetryConnection(error) {
+                sessionReady=false;self.client=nil;transport.close()
             }
         }
+        return false
     }
     func disconnect() {
-        stopReconnecting();pendingSave=nil;lastSettingsRefresh=nil;selected=nil;settings=[:];status=[:];fields=[];hello=[:];schemaFirmware=""
+        stopReconnecting();pendingSave=nil;lastSettingsRefresh=nil;selected=nil;settings=[:];status=[:];fields=[];hello=[:];schemaFirmware="";networks=[];wifiScanMessage=""
         remember()
     }
     func remove(_ clock:SavedClock) {

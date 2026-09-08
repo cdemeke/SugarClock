@@ -20,6 +20,8 @@ import Combine
     var durable:Bool?=true
     var storedSettings:[String:Any]=["brightness":77,"dexcom_password_configured":true]
 
+    var scanNeverFinishes=false
+    var scanResultsReads=0
     var holdConnection=false
     var waiting:CheckedContinuation<Void,Error>?
     var identity="clock-a"
@@ -57,6 +59,10 @@ import Combine
             if let durable {reply["saved"]=durable}
         case "status.get":if failStatus {throw ClockError.timeout};reply["status"]=["data_received":true]
         case "schema.get":reply["fields"]=[["key":"brightness","type":"int"],["key":"dexcom_password","type":"secret"]];reply["more"]=false
+        case "wifi.results":
+            scanResultsReads+=1
+            reply["scanning"]=scanNeverFinishes || scanResultsReads<2
+            reply["networks"]=[["ssid":"Home","rssi":-40,"auth":3]]
         case "settings.patch":
             if !ignorePatch,let patch=request["patch"] as? [String:Any] {
                 for (key,value) in patch {
@@ -86,6 +92,33 @@ import Combine
         model.clocks=[SavedClock(id:"clock-a",peripheral:id,nickname:"Bedside Clock")]
         model.selected=model.clocks[0]
         return (model,radio,defaults,id)
+    }
+    func testWiFiScanWaitsForCompletedResultsWithoutSavingSettings() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id)
+        let result=await model.scanWiFi(pollDelay:0)
+        XCTAssertTrue(result)
+        XCTAssertEqual(model.networks.first?["ssid"] as? String,"Home")
+        XCTAssertEqual(radio.scanResultsReads,2)
+        XCTAssertFalse(model.scanningWiFi)
+        XCTAssertTrue(model.wifiScanMessage.isEmpty)
+        XCTAssertFalse(radio.operations.contains("settings.patch"))
+        model.suspend()
+    }
+    func testWiFiScanStopsPollingAndRetainsPreviousResultsOnTimeout() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id)
+        model.networks=[["ssid":"Previous"]]
+        radio.scanNeverFinishes=true
+        let result=await model.scanWiFi(pollDelay:0)
+        XCTAssertFalse(result)
+        XCTAssertEqual(radio.scanResultsReads,15)
+        XCTAssertEqual(model.networks.first?["ssid"] as? String,"Previous")
+        XCTAssertFalse(model.scanningWiFi)
+        XCTAssertFalse(model.busy)
+        XCTAssertTrue(model.wifiScanMessage.contains("too long"))
+        XCTAssertTrue(model.canSend)
+        model.suspend()
     }
     private func settle(_ condition:()->Bool) async {
         for _ in 0..<200 {

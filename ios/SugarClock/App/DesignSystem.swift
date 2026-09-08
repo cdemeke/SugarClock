@@ -169,7 +169,7 @@ struct OperationFeedback:View {
                 } else {Text("Showing last loaded settings").font(.caption).foregroundStyle(SugarTheme.secondary)}
             }
         }
-        if model.busy,!model.reconnecting,!model.checkingConnection,model.operationTitle != "Saving…" {
+        if model.busy,!model.reconnecting,!model.checkingConnection,!model.scanningWiFi,model.operationTitle != "Saving…" {
             HStack(spacing:8) {
                 ProgressView().tint(SugarTheme.accent)
                     .frame(width:statusIconSize,height:statusIconSize).accessibilityHidden(true)

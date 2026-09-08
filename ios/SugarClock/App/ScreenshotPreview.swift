@@ -13,6 +13,9 @@ struct ScreenshotPreview:View {
                 NavigationStack {
                     switch screen {
                     case "display", "display-accessibility":ConfigurationView(category:SettingsCategory.all[1])
+                    case "time", "time-off", "time-large":ConfigurationView(category:SettingsCategory.all[2])
+                    case "alerts", "alerts-off":ConfigurationView(category:SettingsCategory.all[3])
+                    case "companions", "companions-off":ConfigurationView(category:SettingsCategory.all[4])
                     case "glucose":ConfigurationView(category:SettingsCategory.all[0])
                     case "wifi":WiFiView()
                     case "firmware":FirmwareView()
@@ -25,7 +28,7 @@ struct ScreenshotPreview:View {
             }
         }
         .tint(SugarTheme.accent)
-        .dynamicTypeSize(["display-accessibility","saved-large","loading-large"].contains(screen) ? .accessibility3:.large)
+        .dynamicTypeSize(["time-large","display-accessibility","saved-large","loading-large"].contains(screen) ? .accessibility3:.large)
         .safeAreaInset(edge:.bottom) {
             Label("SCREENSHOT PREVIEW · SAMPLE DATA",systemImage:"photo")
                 .font(.system(size:10,weight:.semibold)).frame(maxWidth:.infinity).padding(10)
@@ -67,8 +70,24 @@ struct ScreenshotPreview:View {
             ["key":"alert_enabled","type":"bool"],
             ["key":"auto_update_enabled","type":"bool"]
         ]
+        model.settings.merge(["timezone":"EST5EDT,M3.2.0,M11.1.0","use_24h":false,"date_on_time_screen":true,"date_format":0,"ambient_enabled":true,"ambient_creature":0,"ambient_seasonal":true,"alert_low":70,"alert_high":250,"alert_snooze_min":15,"auto_cycle_enabled":true]) {_,new in new}
+        model.fields += [
+            ["key":"timezone","type":"text","max_length":63],
+            ["key":"use_24h","type":"bool"],
+            ["key":"date_on_time_screen","type":"bool"],
+            ["key":"date_format","type":"int","min":0,"max":2],
+            ["key":"ambient_enabled","type":"bool"],
+            ["key":"ambient_creature","type":"int","min":0,"max":1],
+            ["key":"ambient_seasonal","type":"bool"],
+            ["key":"alert_low","type":"int","min":20,"max":600],
+            ["key":"alert_high","type":"int","min":20,"max":600],
+            ["key":"alert_snooze_min","type":"int","min":1,"max":120]
+        ]
         model.networks=[["ssid":"Home Wi-Fi","rssi":-42],["ssid":"Guest Network","rssi":-61]]
         let screen=ProcessInfo.processInfo.environment["SUGARCLOCK_SCREENSHOT"] ?? ""
+        if screen=="time-off" {model.settings["time_display_enabled"]=false}
+        if screen=="alerts-off" {model.settings["alert_enabled"]=false}
+        if screen=="companions-off" {model.settings["ambient_enabled"]=false}
         model.previewConnection(ready:!["checking","quiet","loading","loading-large","offline"].contains(screen))
         if ["saved","saved-large"].contains(screen) {model.previewSave(.saved(Date()))}
         if screen=="checking" {model.previewSave(.checking)}
