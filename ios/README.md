@@ -86,3 +86,7 @@ A matching settings readback confirms a save only when the same response explici
 Delayed confirmation updates the editor's baseline to the confirmed clock settings and retains edits made after submission. Returning to an earlier value remains a change if it differs from the newly saved value. Confirmed fields become clean even while another field is being edited; unit changes retain threshold values, and confirmed secret text is cleared while a newer secret edit is preserved.
 
 All 42 Swift tests pass, including acknowledgment loss, false/missing durability, eventual durable readback without replay, edits during confirmation, units and secret handling. The complete unsigned iPhone Debug build, including assets, passes. These tests do not establish the cause of the owner's later physical second-save failure; a recorded phone/clock retest remains outstanding. No new TestFlight build was uploaded for these corrections.
+
+### Connection status presentation
+
+Loading, Connected and reconnect/failure messages share one row with their status icon. The home header no longer duplicates connection text, initial settings pages avoid a second loading message, and the loading state has no Cancel button. Retry remains available after attempts stop. Loaded settings still use a quiet reconnect indicator and last-sync information. The Debug screenshot fixture covers loading, connected, quiet reconnect, failure and large-text loading; this presentation change does not alter retry limits or firmware radio scheduling.

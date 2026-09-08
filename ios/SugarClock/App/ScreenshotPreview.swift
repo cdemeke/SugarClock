@@ -25,7 +25,7 @@ struct ScreenshotPreview:View {
             }
         }
         .tint(SugarTheme.accent)
-        .dynamicTypeSize(["display-accessibility","saved-large"].contains(screen) ? .accessibility3:.large)
+        .dynamicTypeSize(["display-accessibility","saved-large","loading-large"].contains(screen) ? .accessibility3:.large)
         .safeAreaInset(edge:.bottom) {
             Label("SCREENSHOT PREVIEW · SAMPLE DATA",systemImage:"photo")
                 .font(.system(size:10,weight:.semibold)).frame(maxWidth:.infinity).padding(10)
@@ -69,9 +69,11 @@ struct ScreenshotPreview:View {
         ]
         model.networks=[["ssid":"Home Wi-Fi","rssi":-42],["ssid":"Guest Network","rssi":-61]]
         let screen=ProcessInfo.processInfo.environment["SUGARCLOCK_SCREENSHOT"] ?? ""
+        model.previewConnection(ready:!["checking","quiet","loading","loading-large","offline"].contains(screen))
         if ["saved","saved-large"].contains(screen) {model.previewSave(.saved(Date()))}
         if screen=="checking" {model.previewSave(.checking)}
-        if ["checking","quiet"].contains(screen) {model.reconnecting=true;model.connectionState="Loading settings…"}
+        if ["checking","quiet","loading","loading-large"].contains(screen) {model.reconnecting=true;model.connectionState="Loading settings…"}
+        if ["loading","loading-large"].contains(screen) {model.settings=[:];model.fields=[]}
         model.message=""
         model.updateMessage="Sample state: firmware is up to date."
         return model

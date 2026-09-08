@@ -45,6 +45,11 @@ private struct PendingSave {
         return connectionState
     }
     #if DEBUG
+    func previewConnection(ready:Bool) {
+        guard ProcessInfo.processInfo.environment["SUGARCLOCK_SCREENSHOT"] != nil else {return}
+        sessionReady=ready
+        connectionState=ready ? "Connected":"Couldn't connect"
+    }
     func previewSave(_ phase:SavePhase) {
         guard ProcessInfo.processInfo.environment["SUGARCLOCK_SCREENSHOT"] != nil,let selected else {return}
         saveReceipts[selected.id]=SaveReceipt(id:UUID(),clockID:selected.id,keys:["brightness"],phase:phase)

@@ -141,37 +141,35 @@ struct DestinationRow:View {
 
 struct OperationFeedback:View {
     @EnvironmentObject var model:ClockModel
-    var showStatus=true
+    @ScaledMetric(relativeTo:.subheadline) private var statusIconSize:CGFloat=20
     var body:some View {
         VStack(alignment:.leading,spacing:8) {
-        if model.hasLoadedSettings,!model.sessionReady {
-            HStack(alignment:.firstTextBaseline) {
-                if showStatus {
-                    Label(model.reconnecting ? "Reconnecting quietly" : "Offline",systemImage:"circle.dotted")
-                        .font(.caption).foregroundStyle(SugarTheme.secondary)
+        if model.selected != nil || model.reconnecting {
+            HStack(spacing:8) {
+                Group {
+                    if model.reconnecting,!model.hasLoadedSettings {
+                        ProgressView().tint(SugarTheme.accent)
+                    } else {
+                        Image(systemName:model.sessionReady ? "checkmark.circle.fill":"circle.dotted")
+                            .foregroundStyle(model.sessionReady ? SugarTheme.accent:SugarTheme.secondary)
+                    }
                 }
+                .frame(width:statusIconSize,height:statusIconSize).accessibilityHidden(true)
+                Text(model.connectionSummary).font(.subheadline).foregroundStyle(SugarTheme.secondary)
+                    .fixedSize(horizontal:false,vertical:true)
                 Spacer()
-                if !model.reconnecting {
-                    Button("Retry") {Task {await model.retrySelected()}}.font(.caption)
+                if !model.sessionReady,!model.reconnecting {
+                    Button("Retry") {Task {await model.retrySelected()}}.font(.subheadline)
                 }
             }
-            if let refreshed=model.lastSettingsRefresh {
-                (Text("Last synced ") + Text(refreshed,style:.time)).font(.caption).foregroundStyle(SugarTheme.secondary)
-            } else {Text("Showing last loaded settings").font(.caption).foregroundStyle(SugarTheme.secondary)}
-        } else if model.reconnecting {
-            HStack {
-                ProgressView().tint(SugarTheme.accent)
-                if showStatus {Text(model.connectionState).font(.subheadline)}
-                Spacer()
-                Button("Cancel") {model.stopReconnecting()}.font(.subheadline)
+            .frame(minHeight:28)
+            if model.hasLoadedSettings,!model.sessionReady {
+                if let refreshed=model.lastSettingsRefresh {
+                    (Text("Last synced ") + Text(refreshed,style:.time)).font(.caption).foregroundStyle(SugarTheme.secondary)
+                } else {Text("Showing last loaded settings").font(.caption).foregroundStyle(SugarTheme.secondary)}
             }
-        } else if model.selected != nil,!model.sessionReady {
-            HStack {
-                if showStatus {Text(model.connectionState).font(.subheadline).foregroundStyle(SugarTheme.secondary)}
-                Spacer()
-                Button("Retry") {Task {await model.retrySelected()}}.font(.subheadline)
-            }
-        } else if model.busy,!model.checkingConnection,model.operationTitle != "Saving…" {
+        }
+        if model.busy,!model.reconnecting,!model.checkingConnection,model.operationTitle != "Saving…" {
             ProgressView(model.operationTitle).tint(SugarTheme.accent)
         }
         if !model.message.isEmpty {

@@ -32,12 +32,9 @@ struct DeviceView:View {
         SugarScreen {
             HStack(spacing:14) {
                 BrandIcon(name:"BrandLogo",size:56)
-                VStack(alignment:.leading,spacing:5) {
-                    Text(model.selected?.nickname ?? "SugarClock").font(.title2.bold())
-                    Text(model.connectionSummary).font(.subheadline).foregroundStyle(SugarTheme.secondary)
-                }
+                Text(model.selected?.nickname ?? "SugarClock").font(.title2.bold())
             }
-            OperationFeedback(showStatus:false)
+            OperationFeedback()
             SugarCard(spacing:10) {
                 ForEach(everyday) {category in
                     NavigationLink {ConfigurationView(category:category)} label:{DestinationRow(title:category.title,subtitle:"",symbol:category.symbol)}.buttonStyle(.plain)
@@ -164,7 +161,11 @@ struct SettingsPage:View {
                     }
                 }
             }
-            if fields.isEmpty {Text(model.fields.isEmpty ? (model.reconnecting ? "Loading settings…" : "Connect to load these settings.") : "These settings are not supported by the connected firmware.").foregroundStyle(SugarTheme.secondary)}
+            if fields.isEmpty {
+                if !model.reconnecting {
+                    Text(model.fields.isEmpty ? "Connect to load these settings." : "These settings are not supported by the connected firmware.").foregroundStyle(SugarTheme.secondary)
+                }
+            }
             else {
                 VStack(alignment:.leading,spacing:10) {
                     Button {save()} label:{
