@@ -14,9 +14,9 @@ struct ScreenshotPreview:View {
                     switch screen {
                     case "display", "display-accessibility":ConfigurationView(category:SettingsCategory.all[1])
                     case "time", "time-off", "time-large":ConfigurationView(category:SettingsCategory.all[2])
-                    case "alerts", "alerts-off":ConfigurationView(category:SettingsCategory.all[3])
+                    case "alerts", "alerts-off", "alerts-blocked":ConfigurationView(category:SettingsCategory.all[3])
                     case "companions", "companions-off":ConfigurationView(category:SettingsCategory.all[4])
-                    case "glucose":ConfigurationView(category:SettingsCategory.all[0])
+                    case "glucose", "glucose-off":ConfigurationView(category:SettingsCategory.all[0])
                     case "wifi":WiFiView()
                     case "firmware":FirmwareView()
                     case "brightness", "saved", "saved-large", "checking":SettingEditor(field:["key":"brightness","type":"int","min":1,"max":255])
@@ -70,8 +70,9 @@ struct ScreenshotPreview:View {
             ["key":"alert_enabled","type":"bool"],
             ["key":"auto_update_enabled","type":"bool"]
         ]
-        model.settings.merge(["timezone":"EST5EDT,M3.2.0,M11.1.0","use_24h":false,"date_on_time_screen":true,"date_format":0,"ambient_enabled":true,"ambient_creature":0,"ambient_seasonal":true,"alert_low":70,"alert_high":250,"alert_snooze_min":15,"auto_cycle_enabled":true]) {_,new in new}
+        model.settings.merge(["glucose_enabled":true,"timezone":"EST5EDT,M3.2.0,M11.1.0","use_24h":false,"date_on_time_screen":true,"date_format":0,"ambient_enabled":true,"ambient_creature":0,"ambient_seasonal":true,"alert_low":70,"alert_high":250,"alert_snooze_min":15,"auto_cycle_enabled":true]) {_,new in new}
         model.fields += [
+            ["key":"glucose_enabled","type":"bool"],
             ["key":"timezone","type":"text","max_length":63],
             ["key":"use_24h","type":"bool"],
             ["key":"date_on_time_screen","type":"bool"],
@@ -85,6 +86,7 @@ struct ScreenshotPreview:View {
         ]
         model.networks=[["ssid":"Home Wi-Fi","rssi":-42],["ssid":"Guest Network","rssi":-61]]
         let screen=ProcessInfo.processInfo.environment["SUGARCLOCK_SCREENSHOT"] ?? ""
+        if ["glucose-off","alerts-blocked"].contains(screen) {model.settings["glucose_enabled"]=false;model.settings["alert_enabled"]=false}
         if screen=="time-off" {model.settings["time_display_enabled"]=false}
         if screen=="alerts-off" {model.settings["alert_enabled"]=false}
         if screen=="companions-off" {model.settings["ambient_enabled"]=false}

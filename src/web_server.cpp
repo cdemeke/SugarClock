@@ -158,6 +158,7 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     doc["wifi_anon_identity"] = cfg.wifi_anon_identity;
     doc["wifi_validate_ca"] = cfg.wifi_validate_ca;
     doc["has_wifi_ca"] = config_ca_exists();
+    doc["glucose_enabled"] = cfg.glucose_enabled;
     doc["data_source"] = cfg.data_source;
     doc["has_server_url"] = strlen(cfg.server_url) > 0;
     doc["has_auth_token"] = strlen(cfg.auth_token) > 0;

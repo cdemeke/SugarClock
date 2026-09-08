@@ -32,6 +32,17 @@ final class SettingsPresentationTests:XCTestCase {
         XCTAssertTrue(networks[1].open)
         XCTAssertTrue(networks[2].enterprise)
     }
+    func testDisablingBloodSugarAlsoDisablesAlertsWithoutClearingCredentials() throws {
+        let fields:[[String:Any]]=[["key":"glucose_enabled","type":"bool"],["key":"alert_enabled","type":"bool"],["key":"dexcom_password","type":"secret"],["key":"data_source","type":"int"]]
+        var draft=SettingsDraft(settings:["glucose_enabled":true,"alert_enabled":true,"data_source":1,"dexcom_password_configured":true],fields:fields)
+        draft.setBool(false,key:"glucose_enabled")
+        let patch=try draft.patch(fields:fields)
+        XCTAssertEqual(Set(patch.keys),["glucose_enabled","alert_enabled"])
+        XCTAssertEqual(patch["glucose_enabled"] as? Bool,false)
+        XCTAssertEqual(patch["alert_enabled"] as? Bool,false)
+        draft.setBool(true,key:"glucose_enabled")
+        XCTAssertEqual(draft.booleans["alert_enabled"],false)
+    }
     func testDisablingSectionPreservesSavedOptions() throws {
         let fields:[[String:Any]]=[["key":"alert_enabled","type":"bool"],["key":"alert_low","type":"int","min":20,"max":600]]
         var draft=SettingsDraft(settings:["alert_enabled":true,"alert_low":70],fields:fields)

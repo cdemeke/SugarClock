@@ -9,7 +9,7 @@ static bool enabled=true,suspended=false,secure=false,admission=true;
 static bool updating=false,buzzing=false,urgent=false;
 static uint32_t passkeyUntil=0,passkey=123456;
 struct Reading {bool valid=true;int glucose=100;} reading;
-struct Config {int thresh_urgent_low=55,thresh_urgent_high=300;} cfg;
+struct Config {bool glucose_enabled=true;int thresh_urgent_low=55,thresh_urgent_high=300;} cfg;
 bool windowOpen() {return admission;}
 bool ota_is_busy() {return updating;}
 bool buzzer_is_active() {return buzzing;}

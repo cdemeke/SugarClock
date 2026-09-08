@@ -303,7 +303,7 @@ void ble_loop() {
 void ble_render() {
  if((!enabled && !suspended) || ota_is_busy() || buzzer_is_active() || notify_is_urgent()) return;
  const auto& reading=http_get_reading();const auto& cfg=config_get();
- if(reading.valid && (reading.glucose<cfg.thresh_urgent_low || reading.glucose>cfg.thresh_urgent_high)) return;
+ if(cfg.glucose_enabled && reading.valid && (reading.glucose<cfg.thresh_urgent_low || reading.glucose>cfg.thresh_urgent_high)) return;
  uint32_t until=passkeyUntil;
  if(enabled && until && int32_t(until-millis())>0) {
   // Six 3x5 digits fit in 24 pixels; no scrolling or truncation of the pairing code.

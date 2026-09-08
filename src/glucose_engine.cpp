@@ -185,8 +185,10 @@ static unsigned long last_cycle_ms = 0;
 void engine_rebuild_toggle_order() {
     AppConfig& cfg = config_get();
     toggle_count = 0;
-    toggle_order[toggle_count++] = STATE_GLUCOSE_DISPLAY;
-    toggle_order[toggle_count++] = STATE_TREND_DISPLAY;
+    if (cfg.glucose_enabled) {
+        toggle_order[toggle_count++] = STATE_GLUCOSE_DISPLAY;
+        toggle_order[toggle_count++] = STATE_TREND_DISPLAY;
+    }
     if (cfg.time_display_enabled) toggle_order[toggle_count++] = STATE_TIME_DISPLAY;
     if (cfg.weather_enabled) toggle_order[toggle_count++] = STATE_WEATHER_DISPLAY;
     if (cfg.ambient_enabled) toggle_order[toggle_count++] = STATE_AMBIENT_CREATURE_DISPLAY;
@@ -194,6 +196,8 @@ void engine_rebuild_toggle_order() {
     if (cfg.stopwatch_enabled) toggle_order[toggle_count++] = STATE_STOPWATCH_DISPLAY;
     if (cfg.sysmon_enabled && sysmon_has_data()) toggle_order[toggle_count++] = STATE_SYSMON_DISPLAY;
     if (cfg.countdown_enabled) toggle_order[toggle_count++] = STATE_COUNTDOWN_DISPLAY;
+
+    if (!toggle_count) toggle_order[toggle_count++] = STATE_TIME_DISPLAY;
 
     // Reset toggle_index to match current user_mode
     for (int i = 0; i < toggle_count; i++) {
@@ -268,7 +272,7 @@ static uint8_t effective_brightness() {
 // Handle buzzer alerts
 static void check_alerts() {
     AppConfig& cfg = config_get();
-    if (!cfg.alert_enabled) return;
+    if (!cfg.glucose_enabled || !cfg.alert_enabled) return;
 
     const GlucoseReading& reading = http_get_reading();
     if (!reading.valid) return;
@@ -295,6 +299,7 @@ static void check_alerts() {
 
 static bool urgent_glucose_is_active() {
     AppConfig& cfg = config_get();
+    if (!cfg.glucose_enabled) return false;
     const GlucoseReading& reading = http_get_reading();
     if (!reading.valid) return false;
 
@@ -371,6 +376,14 @@ static DisplayState evaluate_state() {
         if (cfg.notify_enabled && notify_has_active()) return STATE_NOTIFY_DISPLAY;
         if (urgent_glucose_is_active()) return STATE_GLUCOSE_DISPLAY;
         return STATE_CONNECTION_INFO_DISPLAY;
+    }
+
+    if (!cfg.glucose_enabled) {
+        if (cfg.notify_enabled && notify_has_active()) return STATE_NOTIFY_DISPLAY;
+        if (user_mode==STATE_GLUCOSE_DISPLAY || user_mode==STATE_TREND_DISPLAY) engine_rebuild_toggle_order();
+        if (user_mode==STATE_TIME_DISPLAY && cfg.date_on_time_screen &&
+            time_is_available() && ((millis()/5000)%2==1)) return STATE_DATE_DISPLAY;
+        return user_mode;
     }
 
     // Demo mode synthesizes its own readings, so skip all the connectivity and
@@ -1163,6 +1176,7 @@ void engine_set_default_mode(DisplayState mode) {
     if (mode == STATE_AMBIENT_CREATURE_DISPLAY && !config_get().ambient_enabled) {
         mode = STATE_GLUCOSE_DISPLAY;
     }
+    if (!config_get().glucose_enabled && (mode==STATE_GLUCOSE_DISPLAY || mode==STATE_TREND_DISPLAY)) mode=toggle_order[0];
     default_mode = mode;
     user_mode = mode;
 }

@@ -14,6 +14,7 @@ const Field fields[] = {
     {"wifi_eap_password",offsetof(AppConfig,wifi_eap_password),sizeof(((AppConfig*)0)->wifi_eap_password),Kind::Text,0,2147483647,true},
     {"wifi_anon_identity",offsetof(AppConfig,wifi_anon_identity),sizeof(((AppConfig*)0)->wifi_anon_identity),Kind::Text,0,2147483647,false},
     {"wifi_validate_ca",offsetof(AppConfig,wifi_validate_ca),sizeof(((AppConfig*)0)->wifi_validate_ca),Kind::Bool,0,2147483647,false},
+    {"glucose_enabled",offsetof(AppConfig,glucose_enabled),sizeof(((AppConfig*)0)->glucose_enabled),Kind::Bool,0,2147483647,false},
     {"data_source",offsetof(AppConfig,data_source),sizeof(((AppConfig*)0)->data_source),Kind::Int,0,2,false},
     {"server_url",offsetof(AppConfig,server_url),sizeof(((AppConfig*)0)->server_url),Kind::Text,0,2147483647,true},
     {"auth_token",offsetof(AppConfig,auth_token),sizeof(((AppConfig*)0)->auth_token),Kind::Text,0,2147483647,true},
@@ -143,13 +144,14 @@ const char* config_patch(AppConfig& c,JsonObjectConst patch,bool web) {
  }
  if(!(c.thresh_urgent_low<=c.thresh_low && c.thresh_low<c.thresh_high && c.thresh_high<=c.thresh_urgent_high)) return "threshold_order";
  if(c.alert_low>=c.alert_high) return "alert_order";
+ if(!c.glucose_enabled) c.alert_enabled=false;
  if(!c.time_display_enabled && c.default_mode==1) c.default_mode=0;
  if(!c.ambient_enabled && c.default_mode==3) c.default_mode=0;
  return nullptr;
 }
 
 bool config_source_changed(const AppConfig& a,const AppConfig& b) {
- return a.data_source!=b.data_source || a.dexcom_us!=b.dexcom_us ||
+ return a.glucose_enabled!=b.glucose_enabled || a.data_source!=b.data_source || a.dexcom_us!=b.dexcom_us ||
   strcmp(a.dexcom_username,b.dexcom_username) || strcmp(a.dexcom_password,b.dexcom_password) ||
   strcmp(a.server_url,b.server_url) || strcmp(a.auth_token,b.auth_token);
 }

@@ -135,6 +135,9 @@ struct AppConfig {
 
     // Config validity marker
     uint32_t magic;            // 0xGLUC to verify config is initialized
+
+    // Appended to preserve the previous redo-journal layout.
+    bool glucose_enabled; // stop readings and glucose alerts when false
 };
 
 // Initialize config manager - loads from NVS or writes defaults

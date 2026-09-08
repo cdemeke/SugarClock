@@ -36,6 +36,7 @@ static void config_set_defaults() {
     config.wifi_validate_ca = false;
 
     // Data source
+    config.glucose_enabled = true;
     config.data_source = 0; // custom URL by default
 
     // Custom server
@@ -203,6 +204,8 @@ static void config_check_littlefs_overlay() {
     config.wifi_identity[sizeof(config.wifi_identity) - 1] = '\0';
     config.wifi_eap_password[sizeof(config.wifi_eap_password) - 1] = '\0';
     config.wifi_anon_identity[sizeof(config.wifi_anon_identity) - 1] = '\0';
+    if (doc["glucose_enabled"].is<bool>()) config.glucose_enabled = doc["glucose_enabled"];
+    if (!config.glucose_enabled) config.alert_enabled=false;
     if (doc["data_source"].is<int>())            config.data_source = doc["data_source"];
     if (doc["dexcom_username"].is<const char*>()) strncpy(config.dexcom_username, doc["dexcom_username"], sizeof(config.dexcom_username));
     if (doc["dexcom_password"].is<const char*>()) strncpy(config.dexcom_password, doc["dexcom_password"], sizeof(config.dexcom_password));
@@ -250,6 +253,7 @@ void config_init() {
         prefs.getString("wifi_epass", config.wifi_eap_password, sizeof(config.wifi_eap_password));
         prefs.getString("wifi_anon", config.wifi_anon_identity, sizeof(config.wifi_anon_identity));
         config.wifi_validate_ca = prefs.getBool("wifi_ca_val", false);
+        config.glucose_enabled = prefs.getBool("glucose_en", true);
         config.data_source = prefs.getInt("data_src", 0);
         prefs.getString("server_url", config.server_url, sizeof(config.server_url));
         prefs.getString("auth_token", config.auth_token, sizeof(config.auth_token));
@@ -284,7 +288,7 @@ void config_init() {
         config.ambient_seasonal = prefs.getBool("amb_season", previous_fish_seasonal);
 
         // Alerts
-        config.alert_enabled = prefs.getBool("alert_en", false);
+        config.alert_enabled = config.glucose_enabled && prefs.getBool("alert_en", false);
         config.alert_low = prefs.getInt("alert_low", 70);
         config.alert_high = prefs.getInt("alert_high", 250);
         config.alert_snooze_min = prefs.getInt("alert_snz", 15);
@@ -380,9 +384,14 @@ void config_init() {
 
     // Single NVS blob is the redo journal. It survives interruption while mirroring
     // legacy keys. Unknown keys are never removed. Old firmware ignores this key.
-    if(prefs.getBytesLength("pending_v1")==sizeof(AppConfig)) {
-        AppConfig recovered;
-        if(prefs.getBytes("pending_v1", &recovered,sizeof(recovered))==sizeof(recovered) && recovered.magic==CONFIG_MAGIC) config=recovered;
+    const size_t journal_size=prefs.getBytesLength("pending_v1");
+    static_assert(alignof(AppConfig)==4,"Legacy journal migration requires the ESP32 layout");
+    const size_t legacy_size=offsetof(AppConfig,glucose_enabled);
+    if(journal_size==sizeof(AppConfig) || journal_size==legacy_size) {
+        AppConfig recovered=config;
+        recovered.glucose_enabled=true;
+        if(prefs.getBytes("pending_v1", &recovered,journal_size)==journal_size && recovered.magic==CONFIG_MAGIC) config=recovered;
+        if(!config.glucose_enabled) config.alert_enabled=false;
         config_save();
     }
     committed=config;
@@ -415,6 +424,7 @@ bool config_save() {
     ok = (prefs.putString("wifi_anon", config.wifi_anon_identity) == strlen(config.wifi_anon_identity)) && ok;
     ok = (prefs.getString("wifi_anon", "__missing__") == config.wifi_anon_identity) && ok;
     ok = (prefs.putBool("wifi_ca_val", config.wifi_validate_ca) > 0) && ok;
+    ok = (prefs.putBool("glucose_en", config.glucose_enabled) > 0) && ok;
     ok = (prefs.putInt("data_src", config.data_source) > 0) && ok;
     ok = (prefs.putString("server_url", config.server_url) == strlen(config.server_url)) && ok;
     ok = (prefs.getString("server_url", "__missing__") == config.server_url) && ok;

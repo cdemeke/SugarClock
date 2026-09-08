@@ -68,6 +68,9 @@ public struct SettingsDraft:Equatable {
         text[key]=value;mark(key,secretKeys.contains(key) ? (secrets[key] ?? 0) != 0:value != initialText[key])
     }
     public mutating func setBool(_ value:Bool,key:String) {
+        if key=="glucose_enabled",!value,booleans["alert_enabled"] != nil {
+            setBool(false,key:"alert_enabled")
+        }
         if key=="use_mmol",value != usesMMOL {
             for (threshold,original) in originalThresholds {
                 // Preserve exact original mg/dL integers when only units change.

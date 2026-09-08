@@ -8,7 +8,7 @@ struct SettingsCategory:Identifiable {
     let sections:[(String,[String])]
     static let all:[SettingsCategory]=[
         .init(id:"glucose",title:"Blood Sugar",subtitle:"Source, credentials and glucose ranges",symbol:"drop",sections:[
-            ("Blood sugar readings",["data_source","dexcom_username","dexcom_password","dexcom_us","server_url","auth_token","poll_interval","stale_timeout_min"]),
+            ("Blood sugar readings",["glucose_enabled","alert_enabled","data_source","dexcom_username","dexcom_password","dexcom_us","server_url","auth_token","poll_interval","stale_timeout_min"]),
             ("Reading display",["show_delta"]),
             ("Units and ranges",["use_mmol","thresh_urgent_low","thresh_low","thresh_high","thresh_urgent_high"])]),
         .init(id:"display",title:"Display",subtitle:"Choose how screens cycle",symbol:"sun.max",sections:[
@@ -80,7 +80,7 @@ struct ClockDetailsView:View {
 struct ConfigurationView:View {
     let category:SettingsCategory
     var body:some View {
-        SettingsPage(title:category.title,subtitle:"",sections:category.sections,headerToggleKey:["time":"time_display_enabled","alerts":"alert_enabled","companions":"ambient_enabled"][category.id])
+        SettingsPage(title:category.title,subtitle:"",sections:category.sections,headerToggleKey:["glucose":"glucose_enabled","time":"time_display_enabled","alerts":"alert_enabled","companions":"ambient_enabled"][category.id])
             .navigationTitle(category.title)
     }
 }
@@ -110,7 +110,7 @@ struct AllSettingsView:View {
 }
 
 func label(_ key:String)->String {
-    ["timezone":"Time zone","use_24h":"24-hour time","date_on_time_screen":"Show date","date_format":"Date format","ambient_enabled":"Enabled","ambient_seasonal":"Seasonal surprises","alert_enabled":"Enabled","time_display_enabled":"Enabled","auto_cycle_enabled":"Auto cycle","auto_cycle_sec":"Seconds per screen","alert_low":"Low glucose alert","alert_high":"High glucose alert","alert_snooze_min":"Snooze (minutes)","use_mmol":"Use mmol/L","data_source":"Source type","dexcom_us":"Dexcom US server","server_url":"Server URL","auth_token":"Auth token","ambient_creature":"Companion","default_mode":"Default view","wifi_security":"Wi-Fi security","poll_interval":"Poll interval (seconds)","stale_timeout_min":"Stale timeout (minutes)","show_delta":"Show glucose change (delta)","auto_brightness":"Auto brightness","thresh_urgent_low":"Urgent low","thresh_low":"Low","thresh_high":"High","thresh_urgent_high":"Urgent high"][key] ?? key.replacingOccurrences(of:"_",with:" ").capitalized
+    ["glucose_enabled":"Blood sugar readings","timezone":"Time zone","use_24h":"24-hour time","date_on_time_screen":"Show date","date_format":"Date format","ambient_enabled":"Enabled","ambient_seasonal":"Seasonal surprises","alert_enabled":"Enabled","time_display_enabled":"Enabled","auto_cycle_enabled":"Auto cycle","auto_cycle_sec":"Seconds per screen","alert_low":"Low glucose alert","alert_high":"High glucose alert","alert_snooze_min":"Snooze (minutes)","use_mmol":"Use mmol/L","data_source":"Source type","dexcom_us":"Dexcom US server","server_url":"Server URL","auth_token":"Auth token","ambient_creature":"Companion","default_mode":"Default view","wifi_security":"Wi-Fi security","poll_interval":"Poll interval (seconds)","stale_timeout_min":"Stale timeout (minutes)","show_delta":"Show glucose change (delta)","auto_brightness":"Auto brightness","thresh_urgent_low":"Urgent low","thresh_low":"Low","thresh_high":"High","thresh_urgent_high":"Urgent high"][key] ?? key.replacingOccurrences(of:"_",with:" ").capitalized
 }
 
 struct SettingsPage:View {
@@ -133,6 +133,7 @@ struct SettingsPage:View {
         default:return "Save changes"
         }
     }
+    private var blockedByBloodSugar:Bool {headerToggleKey=="alert_enabled" && model.settings["glucose_enabled"] as? Bool==false}
     private var confirming:Bool {
         receipt?.phase == .saving || receipt?.phase == .checking
     }
@@ -146,14 +147,20 @@ struct SettingsPage:View {
             OperationFeedback()
             if let key=headerToggleKey,fields.contains(where:{$0["key"] as? String==key}) {
                 SugarCard {
-                    Toggle(isOn:Binding(get:{draft.booleans[key] ?? false},set:{draft.setBool($0,key:key)})) {
+                    Toggle(isOn:Binding(get:{!blockedByBloodSugar && (draft.booleans[key] ?? false)},set:{draft.setBool($0,key:key)})) {
                         Text(sections.first?.0 ?? title).font(.headline)
-                    }.tint(SugarTheme.accent).accessibilityValue(draft.booleans[key] == true ? "Enabled":"Disabled")
+                    }.tint(SugarTheme.accent).disabled(blockedByBloodSugar).accessibilityValue(!blockedByBloodSugar && draft.booleans[key] == true ? "Enabled":"Disabled")
+                    if blockedByBloodSugar {Text("Turn on Blood Sugar readings to enable alerts.").font(.footnote).foregroundStyle(SugarTheme.secondary)}
+                    if key=="glucose_enabled" {Text("Turning this off stops readings and disables glucose alerts. Your source settings are kept.").font(.footnote).foregroundStyle(SugarTheme.secondary)}
                 }
+            }
+            if headerToggleKey=="glucose_enabled",!fields.contains(where:{$0["key"] as? String=="glucose_enabled"}),!fields.isEmpty {
+                Text("Update your clock’s firmware to turn blood sugar readings on or off.").font(.footnote).foregroundStyle(SugarTheme.secondary)
             }
             ForEach(sections,id:\.0) {section in
                 let available=section.1.compactMap {key in fields.first(where:{$0["key"] as? String==key})}.filter {field in
                     let key=field["key"] as? String ?? ""
+                    if blockedByBloodSugar || (headerToggleKey=="glucose_enabled" && key=="alert_enabled") {return false}
                     if let headerToggleKey,fields.contains(where:{$0["key"] as? String==headerToggleKey}) {
                         if key==headerToggleKey || draft.booleans[headerToggleKey] != true {return false}
                     }
@@ -188,7 +195,7 @@ struct SettingsPage:View {
                             Text(saveTitle)
                         }
                     }
-                    .buttonStyle(SugarButtonStyle()).disabled(!model.canSend || draft.changed.isEmpty || confirming)
+                    .buttonStyle(SugarButtonStyle()).disabled(!model.canSend || draft.changed.isEmpty || confirming || blockedByBloodSugar)
                     if let receipt {SaveConfirmation(receipt:receipt)}
                     if !draft.changed.isEmpty {Text("Unsaved changes").font(.caption).foregroundStyle(SugarTheme.secondary)}
                 }
@@ -260,6 +267,8 @@ struct DraftField:View {
         VStack(alignment:.leading,spacing:10) {
             if type=="bool" {
                 Toggle(label(key),isOn:Binding(get:{draft.booleans[key] ?? false},set:{draft.setBool($0,key:key)})).font(.subheadline).tint(SugarTheme.accent)
+                    .disabled(key=="alert_enabled" && settings["glucose_enabled"] as? Bool==false)
+                if key=="alert_enabled",settings["glucose_enabled"] as? Bool==false {Text("Turn on Blood Sugar readings to enable alerts.").font(.footnote).foregroundStyle(SugarTheme.secondary)}
             } else {
                 Text(label(key)).font(.subheadline.weight(.medium)).foregroundStyle(SugarTheme.secondary)
                 if type=="secret" {

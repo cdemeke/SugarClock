@@ -55,7 +55,7 @@ int main() {
  assert(r.used==4096);r.reset();header(p,0,1,0,4097);assert(r.accept(p,9,1)==Result::Invalid);
  header(p,0,1,0,20);assert(r.accept(p,18,1)==Result::More);header(p,0,1,10,20);assert(r.accept(p,18,10002)==Result::Invalid);
  for(int bits=0;bits<16;++bits) assert(authorized(bits&1,bits&2,bits&4,bits&8)==(bits==15));
- AppConfig config={};config.thresh_urgent_low=70;config.thresh_low=80;config.thresh_high=180;config.thresh_urgent_high=250;config.alert_low=70;config.alert_high=250;
+ AppConfig config={};config.glucose_enabled=true;config.thresh_urgent_low=70;config.thresh_low=80;config.thresh_high=180;config.thresh_urgent_high=250;config.alert_low=70;config.alert_high=250;
  strcpy(config.dexcom_password,"keep-test-password");strcpy(config.wifi_eap_password,"keep-enterprise");config.wifi_security=1;config.wifi_validate_ca=true;
  JsonDocument patch;deserializeJson(patch,"{\"brightness\":77}");assert(!config_patch(config,patch.as<JsonObjectConst>()));assert(config.brightness==77);
  AppConfig same=config;same.brightness=12;assert(!config_source_changed(config,same));same.dexcom_password[0]=0;assert(config_source_changed(config,same));
@@ -65,6 +65,19 @@ int main() {
  deserializeJson(patch,"{\"future_field\":1}");assert(config_patch(config,patch.as<JsonObjectConst>()));
  deserializeJson(patch,"{\"dexcom_password\":null}");assert(!config_patch(config,patch.as<JsonObjectConst>()));assert(!config.dexcom_password[0]);
  deserializeJson(patch,"{\"alert_low\":300}");assert(!strcmp(config_patch(config,patch.as<JsonObjectConst>()),"alert_order"));config.alert_low=70;
+
+ config.alert_enabled=true;strcpy(config.dexcom_password,"saved-password");
+ AppConfig enabled=config;
+ deserializeJson(patch,"{\"glucose_enabled\":false}");
+ assert(!config_patch(config,patch.as<JsonObjectConst>()));
+ assert(!config.glucose_enabled && !config.alert_enabled);
+ assert(!strcmp(config.dexcom_password,"saved-password"));
+ assert(config_source_changed(enabled,config));
+ deserializeJson(patch,"{\"alert_enabled\":true}");
+ assert(!config_patch(config,patch.as<JsonObjectConst>()) && !config.alert_enabled);
+ deserializeJson(patch,"{\"glucose_enabled\":true}");
+ assert(!config_patch(config,patch.as<JsonObjectConst>()));
+ assert(config.glucose_enabled && !config.alert_enabled);
  JsonDocument output;config_public(output.to<JsonObject>(),config);assert(output["wifi_eap_password"].isNull());assert(output["wifi_eap_password_configured"].as<bool>());
  std::ifstream f("protocol/fixtures/frames.json");JsonDocument fixtures;assert(!deserializeJson(fixtures,f));
  for(JsonObject fixture:fixtures.as<JsonArray>()) {

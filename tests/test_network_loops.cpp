@@ -6,7 +6,7 @@
 using std::max;
 uint32_t now=100000;
 uint32_t millis() {return now;}
-struct Config {int data_source=1,poll_interval_sec=60;} config;
+struct Config {int data_source=1,poll_interval_sec=60;bool glucose_enabled=true;} config;
 using AppConfig=Config;
 uint32_t dexcom_fallback_seconds=60;
 int polling_source=0;
@@ -87,4 +87,18 @@ int main() {
  assert(!worker_running && !lease && !http_paused && !weatherPaused);
  pausedWindow=true;unsigned before=acquisitions;fleet_loop();assert(acquisitions==before);
  failTask=false;now=next_attempt_ms+60000;fleet_loop();assert(fleetTasks==3);
+ // Disabled sources neither generate demo data nor acquire a network lease.
+ worker_running=false;lease=false;http_paused=false;fetch_running=false;
+ config.glucose_enabled=false;
+ unsigned tasksBefore=glucoseTasks,leasesBefore=acquisitions,readsBefore=publications;
+ for(int source=0;source<3;++source) {
+  config.data_source=source;force_requested=true;now+=3600000;http_loop();
+  assert(!force_requested && !fetch_running && !lease);
+  assert(glucoseTasks==tasksBefore && acquisitions==leasesBefore && publications==readsBefore);
+ }
+ fetch_complete=true;configuration_changed=true;http_loop();assert(publications==readsBefore);
+ fetch_complete=true;http_loop();assert(publications==readsBefore);
+ config.glucose_enabled=true;config.data_source=1;configuration_changed=true;
+ http_loop();assert(glucoseTasks==tasksBefore+1 && fetch_running);
+
 }

@@ -46,7 +46,7 @@ static std::atomic<unsigned long> fetch_generation{0};
 unsigned long http_fetch_generation() {return fetch_generation;}
 bool http_is_fetching() {return fetch_running;}
 bool http_dexcom_due_within(uint32_t milliseconds) {
- if(fetch_running || http_paused || polling_source!=1 || !dexcom_schedule.scheduled) return false;
+ if(!config_snapshot().glucose_enabled || fetch_running || http_paused || polling_source!=1 || !dexcom_schedule.scheduled) return false;
  return dexcom_schedule.ready(millis()) || dexcom_schedule.deadline-millis()<=milliseconds;
 }
 
@@ -131,6 +131,7 @@ static TrendType parse_trend_number(int trend) {
 
 // Helper: POST JSON to Dexcom endpoint, return response string
 static String dexcom_post(const char* url, const String& body, int& httpCode) {
+    if(!config_snapshot().glucose_enabled) {httpCode=0;return "";}
     WiFiClientSecure client;
     client.setInsecure();
     client.setTimeout(15);
@@ -258,6 +259,7 @@ static bool dexcom_fetch_glucose() {
     http.setTimeout(15000);
     http.addHeader("Accept", "application/json");
 
+    if(!config_snapshot().glucose_enabled) {http.end();return false;}
     int httpCode = http.POST(""); // Dexcom requires POST even for reads
     last_response_code = httpCode;
 
@@ -342,6 +344,7 @@ static bool dexcom_fetch_glucose() {
 // Generic URL fetch (original behavior)
 static void generic_fetch() {
     AppConfig cfg = config_snapshot();
+    if(!cfg.glucose_enabled) return;
 
     WiFiClientSecure client;
     client.setInsecure();
@@ -504,11 +507,14 @@ static std::atomic<bool> configuration_changed{false};
 void http_configuration_changed() {configuration_changed=true;}
 void http_loop() {
     if(fetch_running) return;
-    if(fetch_complete.exchange(false)) {publish_result();++fetch_generation;}
-    if(configuration_changed.exchange(false)) http_init();
+    const bool complete=fetch_complete.exchange(false);
+    // A result started before a source change must never become a fresh reading.
+    if(configuration_changed.exchange(false)) {http_init();}
+    else if(complete && config_snapshot().glucose_enabled) {publish_result();++fetch_generation;}
     if(http_paused) return;
     AppConfig cfg=config_snapshot();
     polling_source=cfg.data_source;
+    if(!cfg.glucose_enabled) {force_requested=false;return;}
     bool force=force_requested.exchange(false);
     if(cfg.data_source==2) {if(force)demo_last_update_ms=0;unsigned long before=demo_last_update_ms;demo_generate();if(before!=demo_last_update_ms) {publish_result();++fetch_generation;}return;}
     if(!wifi_is_connected() || !config_has_server()) {if(force) force_requested=true;return;}
@@ -537,7 +543,7 @@ unsigned long http_time_since_last_reading() {
 }
 int http_get_delta() {portENTER_CRITICAL(&published_mux);int n=published.delta;portEXIT_CRITICAL(&published_mux);return n;}
 bool http_force_fetch() {
- if(http_paused) return false;
+ if(http_paused || !config_snapshot().glucose_enabled) return false;
  force_requested=true;return true;
 }
 int http_get_history(GlucoseHistoryEntry* out,int max_count) {
