@@ -18,6 +18,13 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 
+#ifndef SUGARCLOCK_BLE_COEXIST_TEST
+#define SUGARCLOCK_BLE_COEXIST_TEST 0
+#endif
+#if SUGARCLOCK_BLE_COEXIST_TEST && SUGARCLOCK_TLS_TX_BYTES != 4096
+#error "The coexistence experiment requires the reduced TLS send buffer"
+#endif
+
 namespace {
 NimBLEServer* server=nullptr;
 NimBLECharacteristic* tx=nullptr;
@@ -41,6 +48,13 @@ std::atomic<uint32_t> sessionEpoch{0};
 uint32_t workEpoch=0;
 char identity[20],name[26];
 uint32_t bootID;
+#if SUGARCLOCK_BLE_COEXIST_TEST
+std::atomic<uint32_t> failedAllocations{0},failedAllocationSize{0},failedAllocationCaps{0};
+void allocationFailed(size_t size,uint32_t caps,const char*) {
+ // Do not allocate or print from inside an allocator failure callback.
+ failedAllocationSize=size;failedAllocationCaps=caps;++failedAllocations;
+}
+#endif
 bool windowOpen() { uint32_t end=windowUntil;return end && int32_t(end-millis())>0; }
 bool peerAuthorized(NimBLEConnInfo& c) {
  return scble::authorized(c.isEncrypted(),c.isAuthenticated(),c.isBonded(),ble_hs_cfg.sm_sc_only) && c.getSecKeySize()==16;
@@ -194,6 +208,10 @@ void execute(JsonDocument& in,JsonDocument& out) {
 }
 }
 void ble_init() {
+#if SUGARCLOCK_BLE_COEXIST_TEST
+ heap_caps_register_failed_alloc_callback(allocationFailed);
+ Serial.println("[BLE TEST] Coexistence enabled for ordinary network requests; OTA still suspends BLE");
+#endif
  if(!mutex) {mutex=xSemaphoreCreateMutexStatic(&storage);bootID=esp_random();}
  snprintf(identity,sizeof(identity),"%012llX",ESP.getEfuseMac());snprintf(name,sizeof(name),"SugarClock-%.6s",identity+6);
  if(!NimBLEDevice::init(name)) { Serial.println("[BLE] Unavailable; normal clock operation continues");return; }
@@ -231,16 +249,28 @@ bool ble_acquire_network() {
  if(mutex) {Guard g;transfer=queued || working || receiver.used || responsePending;}
  if(!ble_network_can_start(networkLease,ble_is_connected(),now-lastActivity,now-networkWaitingSince,!secure,transfer,now-connectedAt)) return false;
  networkLease=true;
- if(enabled) {
+ if(enabled && !SUGARCLOCK_BLE_COEXIST_TEST) {
   Serial.println("[BLE] Pausing for network TLS; reconnect after request");
   ble_suspend_for_ota();
   if(enabled) {networkLease=false;return false;}
  }
+#if SUGARCLOCK_BLE_COEXIST_TEST
+ Serial.printf("[BLE TEST] Network begin connected=%d free=%u largest=%u\n",int(ble_is_connected()),ESP.getFreeHeap(),heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+#endif
  networkWaitingSince=0;networkLease=true;return true;
 }
-void ble_release_network() {networkReleasedAt=millis();networkLease=false;}
+void ble_release_network() {
+#if SUGARCLOCK_BLE_COEXIST_TEST
+ Serial.printf("[BLE TEST] Network end connected=%d free=%u largest=%u\n",int(ble_is_connected()),ESP.getFreeHeap(),heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+#endif
+ networkReleasedAt=millis();networkLease=false;
+}
 bool ble_network_is_busy() {return networkLease;}
 void ble_loop() {
+#if SUGARCLOCK_BLE_COEXIST_TEST
+ uint32_t failures=failedAllocations.exchange(0);
+ if(failures) Serial.printf("[BLE TEST] Allocation failures=%u last_size=%u caps=%u\n",failures,failedAllocationSize.load(),failedAllocationCaps.load());
+#endif
  if(suspended && !ota_is_busy() && !networkLease && millis()-networkReleasedAt>=1500) {suspended=false;ble_init();}
  if(!enabled) return;
  if(resetRequested) {
