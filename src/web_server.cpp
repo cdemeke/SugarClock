@@ -20,6 +20,8 @@
 #include "net_check.h"
 #include "web_assets.h"
 #include "ota_manager.h"
+#include "web_request_body.h"
+#include "sensitive_json.h"
 
 #include <ESPAsyncWebServer.h>
 #include <LittleFS.h>
@@ -260,20 +262,16 @@ static void handle_get_config(AsyncWebServerRequest* request) {
 
 // POST /api/config (JSON body) — accumulate chunks before parsing
 static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
-    if(total>4095 || index>total || len>total-index) {request->send(413,"application/json","{\"error\":\"Body too large\"}");return;}
-    // AsyncWebServer frees _tempObject on aborted requests. Each request owns its
-    // buffer so simultaneous web posts cannot combine fragments or credentials.
-    if(index==0) {request->_tempObject=calloc(total+1,1);}
-    if(!request->_tempObject) {request->send(503,"application/json","{\"error\":\"busy\"}");return;}
-    char* body=static_cast<char*>(request->_tempObject);
-    memcpy(body+index,data,len);if(index+len<total) return;
-    JsonDocument doc;
-    DeserializationError err=deserializeJson(doc,body,total,DeserializationOption::NestingLimit(6));
-    memset(body,0,total);free(body);request->_tempObject=nullptr;
+    WebRequestBody body;
+    if (!body.receive(request,data,len,index,total,4095)) return;
+    SensitiveJsonAllocator allocator;
+    JsonDocument doc(&allocator);
+    DeserializationError err=deserializeJson(doc,body.data(),body.size(),DeserializationOption::NestingLimit(6));
     if(err) {request->send(400,"application/json","{\"error\":\"Invalid JSON\"}");return;}
     if(ota_is_busy()) {request->send(409,"application/json","{\"error\":\"ota_busy\"}");return;}
     ConfigGuard guard;
     AppConfig candidate=config_get();
+    SensitiveScope<AppConfig> erase_candidate(candidate);
     const char* error=config_patch(candidate,doc.as<JsonObjectConst>(),true);
     if(error) { request->send(400,"application/json",String("{\"error\":\"")+error+"\"}");return; }
     const AppConfig& current=config_get();
@@ -693,25 +691,19 @@ static void handle_wifi_status(AsyncWebServerRequest* request) {
 
 // POST /api/wifi/connect — start a trial. Credentials are not persisted here;
 // wifi_loop() writes them to NVS only once the join actually succeeds.
-static char wifi_body[1024];
-
 static void handle_wifi_connect(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
-    if (total > sizeof(wifi_body) - 1) {
-        request->send(413, "application/json", "{\"error\":\"Body too large\"}");
-        return;
-    }
-    memcpy(wifi_body + index, data, len);
-    if (index + len < total) return;
-    wifi_body[total] = '\0';
-
-    JsonDocument doc;
-    if (deserializeJson(doc, wifi_body, total)) {
+    WebRequestBody body;
+    if (!body.receive(request,data,len,index,total,1023)) return;
+    SensitiveJsonAllocator allocator;
+    JsonDocument doc(&allocator);
+    if (deserializeJson(doc, body.data(), body.size(), DeserializationOption::NestingLimit(6))) {
         request->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
         return;
     }
 
     WifiTrialParams p;
     memset(&p, 0, sizeof(p));
+    SensitiveScope<WifiTrialParams> erase_params(p);
     strncpy(p.ssid, doc["ssid"] | "", sizeof(p.ssid) - 1);
     p.security = doc["security"] | 0;
     p.eap_method = doc["eap_method"] | 0;
@@ -755,23 +747,17 @@ static void handle_wifi_connect(AsyncWebServerRequest* request, uint8_t* data, s
 }
 
 // POST /api/wifi/ca — raw PEM body
-static char ca_body[4096];
-
 static void handle_wifi_ca_upload(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
-    if (total > sizeof(ca_body) - 1) {
-        request->send(413, "application/json", "{\"error\":\"Certificate too large (4 KB max)\"}");
-        return;
-    }
-    memcpy(ca_body + index, data, len);
-    if (index + len < total) return;
-    ca_body[total] = '\0';
+    WebRequestBody body;
+    if (!body.receive(request,data,len,index,total,4095)) return;
+    const char* ca_body = body.data();
 
     if (!strstr(ca_body, "-----BEGIN CERTIFICATE-----") ||
         !strstr(ca_body, "-----END CERTIFICATE-----")) {
         request->send(400, "application/json", "{\"error\":\"Expected a PEM certificate\"}");
         return;
     }
-    if (!config_ca_write(ca_body, total)) {
+    if (!config_ca_write(ca_body, body.size())) {
         request->send(500, "application/json", "{\"error\":\"Failed to store certificate\"}");
         return;
     }

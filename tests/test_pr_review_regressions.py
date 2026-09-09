@@ -29,3 +29,11 @@ class ReviewRegressionTests(unittest.TestCase):
             operations=ble[ble.index(' } else if(!strcmp(op,"wifi.scan"))'):ble.index(' } else if(!strcmp(op,"wifi.trial"))')]
             (pathlib.Path(tmp)/'ble_scan.inc').write_text('void execute_scan(const char* op,JsonDocument& out) {if(false) {\n'+operations+'}}\n')
             self.compile_run(tmp,'test_wifi_scan')
+
+    def test_actual_web_body_handlers_bounds_isolation_and_erasure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source=(ROOT/'src/web_server.cpp').read_text()
+            config=source[source.index('static void handle_post_config('):source.index('// GET /api/debug')]
+            wifi=source[source.index('// POST /api/wifi/connect'):source.index('// DELETE /api/wifi/ca')]
+            (pathlib.Path(tmp)/'web_bodies.inc').write_text(config+'\n'+wifi)
+            self.compile_run(tmp,'test_web_bodies',['src/config_patch.cpp','-fsanitize=address,undefined','-fno-omit-frame-pointer'])
