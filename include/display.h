@@ -28,7 +28,7 @@ void display_set_transition_level(uint8_t level);
 
 // Draw glucose value centered on matrix with specified color
 // color is a 16-bit RGB565 color for GFX compatibility
-void display_draw_glucose(int value, uint16_t color);
+void display_draw_glucose(int value, uint16_t color, bool use_mmol=false);
 
 // Draw general text at position
 void display_draw_text(const char* text, int x, int y, uint16_t color);

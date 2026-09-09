@@ -39,6 +39,9 @@ struct SugarScreen<Content:View>:View {
                 .frame(maxWidth:760).padding(.horizontal,20).padding(.top,16).padding(.bottom,32)
                 .frame(maxWidth:.infinity)
         }
+        #if DEBUG
+        .defaultScrollAnchor(ProcessInfo.processInfo.environment["SUGARCLOCK_SCREENSHOT"]?.hasPrefix("alerts") == true ? .bottom:nil)
+        #endif
         .background(SugarTheme.background.ignoresSafeArea())
         .foregroundStyle(SugarTheme.text).tint(SugarTheme.accent)
         .navigationBarTitleDisplayMode(.inline)

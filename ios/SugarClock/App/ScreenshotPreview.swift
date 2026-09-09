@@ -12,12 +12,11 @@ struct ScreenshotPreview:View {
             else {
                 NavigationStack {
                     switch screen {
-                    case "display", "display-accessibility":ConfigurationView(category:SettingsCategory.all[1])
-                    case "time", "time-off", "time-large":ConfigurationView(category:SettingsCategory.all[2])
-                    case "alerts", "alerts-off", "alerts-blocked":ConfigurationView(category:SettingsCategory.all[3])
-                    case "companions", "companions-off", "companions-ghost", "companions-large":ConfigurationView(category:SettingsCategory.all[4])
-                    case "glucose", "glucose-off":ConfigurationView(category:SettingsCategory.all[0])
-                    case "weather", "pomodoro", "stopwatch", "countdown", "notifications", "system":ConfigurationView(category:SettingsCategory.all.first {$0.id==screen}!)
+                    case "display", "display-accessibility":ConfigurationView(category:SettingsCategory.all.first {$0.id=="display"}!)
+                    case "time", "time-off", "time-large":ConfigurationView(category:SettingsCategory.all.first {$0.id=="time"}!)
+                    case "companions", "companions-off", "companions-ghost", "companions-large":ConfigurationView(category:SettingsCategory.all.first {$0.id=="companions"}!)
+                    case "glucose", "glucose-off", "alerts", "alerts-off", "alerts-blocked":ConfigurationView(category:SettingsCategory.all.first {$0.id=="glucose"}!)
+                    case "weather", "pomodoro", "stopwatch", "countdown", "system":ConfigurationView(category:SettingsCategory.all.first {$0.id==screen}!)
                     case "clock-settings":ClockDetailsView()
                     case "wifi":WiFiView()
                     case "firmware":FirmwareView()
@@ -88,7 +87,7 @@ struct ScreenshotPreview:View {
             ["key":"alert_high","type":"int","min":20,"max":600],
             ["key":"alert_snooze_min","type":"int","min":1,"max":120]
         ]
-        model.settings.merge(["weather_enabled":false,"weather_city":"New York,US","weather_api_key_configured":false,"weather_use_f":true,"weather_poll_min":30,"timer_enabled":false,"timer_work_min":25,"timer_break_min":5,"timer_long_break_min":15,"timer_sessions":4,"timer_buzzer":true,"stopwatch_enabled":false,"countdown_enabled":false,"countdown_name":"Vacation","countdown_target":1800000000,"notify_enabled":false,"notify_default_duration":60,"notify_allow_buzzer":true,"sysmon_enabled":false,"sysmon_label":"CPU","sysmon_display_mode":0,"sysmon_warn_pct":70,"sysmon_crit_pct":90]) {_,new in new}
+        model.settings.merge(["weather_enabled":false,"weather_city":"New York,US","weather_api_key_configured":false,"weather_use_f":true,"weather_poll_min":30,"timer_enabled":false,"timer_work_min":25,"timer_break_min":5,"timer_long_break_min":15,"timer_sessions":4,"timer_buzzer":true,"stopwatch_enabled":false,"countdown_enabled":false,"countdown_name":"Vacation","countdown_target":1800000000,"sysmon_enabled":false,"sysmon_label":"CPU","sysmon_display_mode":0,"sysmon_warn_pct":70,"sysmon_crit_pct":90]) {_,new in new}
         model.fields += [
             ["key":"weather_enabled","type":"bool"],["key":"weather_city","type":"text","max_length":63],
             ["key":"weather_api_key","type":"secret","max_length":63],["key":"weather_use_f","type":"bool"],["key":"weather_poll_min","type":"int","min":5,"max":60],
@@ -97,7 +96,6 @@ struct ScreenshotPreview:View {
             ["key":"timer_sessions","type":"int","min":1,"max":12],["key":"timer_buzzer","type":"bool"],
             ["key":"stopwatch_enabled","type":"bool"],["key":"countdown_enabled","type":"bool"],
             ["key":"countdown_name","type":"text","max_length":31],["key":"countdown_target","type":"int","min":0,"max":2147483647],
-            ["key":"notify_enabled","type":"bool"],["key":"notify_default_duration","type":"int","min":5,"max":600],["key":"notify_allow_buzzer","type":"bool"],
             ["key":"sysmon_enabled","type":"bool"],["key":"sysmon_label","type":"text","max_length":15],
             ["key":"sysmon_display_mode","type":"int","min":0,"max":1],["key":"sysmon_warn_pct","type":"int","min":0,"max":100],["key":"sysmon_crit_pct","type":"int","min":0,"max":100]
         ]

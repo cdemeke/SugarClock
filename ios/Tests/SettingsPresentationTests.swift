@@ -95,15 +95,16 @@ final class SettingsPresentationTests:XCTestCase {
         XCTAssertEqual(weather.enabled(in:["weather_enabled":false]),false)
         XCTAssertEqual(weather.enabled(in:["weather_enabled":true]),true)
     }
-    func testLegacyGlucoseAndDisabledGlucoseAlertPresentation() throws {
+    func testLegacyGlucoseAndIntegratedAlertPresentation() throws {
         let glucose=try XCTUnwrap(SettingsCategory.all.first {$0.id=="glucose"})
-        let alerts=try XCTUnwrap(SettingsCategory.all.first {$0.id=="alerts"})
         XCTAssertTrue(glucose.supported(by:[["key":"data_source","type":"int"]]))
         XCTAssertEqual(glucose.enabled(in:["data_source":1]),true)
         XCTAssertNil(glucose.enabled(in:[:]))
         XCTAssertEqual(glucose.enabled(in:["glucose_enabled":false,"data_source":1]),false)
-        XCTAssertEqual(alerts.enabled(in:["glucose_enabled":false,"alert_enabled":true]),false)
-        XCTAssertEqual(alerts.enabled(in:["alert_enabled":true]),true)
+        XCTAssertFalse(SettingsCategory.all.contains {$0.id=="alerts"})
+        let alerts=try XCTUnwrap(glucose.sections.last)
+        XCTAssertEqual(alerts.0,"Glucose alerts")
+        XCTAssertEqual(alerts.1,["alert_enabled","alert_low","alert_high","alert_snooze_min"])
     }
     func testEnablingServiceKeepsSavedOptionsAndDoesNotChangeConfirmedGrouping() throws {
         let category=try XCTUnwrap(SettingsCategory.all.first {$0.id=="pomodoro"})
