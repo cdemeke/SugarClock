@@ -170,7 +170,7 @@ void loop() {
             Serial.println("[BTN] Connection info dismissed");
         } else switch (evt) {
             case BTN_LEFT_SHORT:
-                engine_toggle_mode();
+                engine_toggle_mode_prev();
                 break;
             case BTN_MIDDLE_SHORT: {
                 // Cycle brightness: 10 -> 40 -> 100 -> 200 -> 10

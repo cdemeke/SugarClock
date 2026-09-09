@@ -90,6 +90,13 @@ You may need the [CH340 USB driver](https://sparks.gogo.co.nz/ch340.html) on Win
 
 </details>
 
+## Clock Buttons
+
+- **Tap right:** next screen. On the timer or stopwatch, starts or pauses it.
+- **Tap left:** previous screen.
+- **Tap middle:** cycle brightness.
+- **Hold right on a Pixel Pet for one second:** the ghost waves or the fish reacts. Release and hold again to repeat.
+
 ## Firmware Updates
 
 Version 0.2.0 is the one-time OTA bootstrap release. Install it once over USB so the new

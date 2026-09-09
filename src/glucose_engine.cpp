@@ -1232,17 +1232,9 @@ void engine_right_button_action() {
         case STATE_STOPWATCH_DISPLAY:
             stopwatch_toggle_start_pause();
             break;
-        case STATE_AMBIENT_CREATURE_DISPLAY:
-            if (config_get().ambient_creature == 1) {
-                ambient_ghost_interact();
-            } else {
-                ambient_fish_interact();
-            }
-            engine_reset_auto_cycle();
-            break;
         default:
-            // Navigate backwards through screens
-            engine_toggle_mode_prev();
+            // Navigate forwards through screens, including Pixel Pets.
+            engine_toggle_mode();
             break;
     }
 }
@@ -1254,6 +1246,14 @@ void engine_right_long_action() {
             break;
         case STATE_STOPWATCH_DISPLAY:
             stopwatch_reset();
+            break;
+        case STATE_AMBIENT_CREATURE_DISPLAY:
+            if (config_get().ambient_creature == 1) {
+                ambient_ghost_interact();
+            } else {
+                ambient_fish_interact();
+            }
+            engine_reset_auto_cycle();
             break;
         default:
             // Default: clear overrides

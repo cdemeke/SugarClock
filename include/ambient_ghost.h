@@ -8,7 +8,7 @@ void ambient_ghost_init();
 // The caller owns display_show(); this renderer clears the back buffer first.
 void ambient_ghost_render();
 
-// Trigger the ghost's short, silent wave response to the right button.
+// Trigger the ghost's short, silent wave response to a right-button hold.
 void ambient_ghost_interact();
 
 #endif // AMBIENT_GHOST_H
