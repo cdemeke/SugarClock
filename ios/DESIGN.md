@@ -26,3 +26,8 @@ See the [screenshot gallery](../docs/screenshots/README.md), [build instructions
 Opening Wi-Fi does not start a scan. Choose another network opens a dismissible sheet and starts one search; Search again explicitly repeats it. The list uses only results from that sheet’s completed search, omits the connected SSID, and returns the chosen network to the existing credentials and connection-trial form. Closing the sheet cancels its scan task. Manual entry remains available on the Wi-Fi page.
 
 Notifications explains that other apps or automations supply the message text, that this app does not compose messages or mirror phone notifications, and that glucose warnings are configured separately under Alerts. Its controls identify the default display duration and sound for urgent messages. My Clocks says Choose a clock. Help opens with a short SugarClock description and a link to https://sugarclock.com.
+
+
+### Interruptible connection recovery
+
+Five read-only connection attempts remain available. My Clocks permits choosing another saved clock during recovery and offers Stop connecting there; the settings loading row keeps its compact presentation. Switching cancels and awaits the old connection task before reusing the transport, and a selection token makes the latest choice win while cleanup is pending. Stopping disables automatic recovery until an explicit retry or foreground resume. Settings writes, commands and OTA keep exclusive ownership and cannot be interrupted by these controls. Regression tests cover pending connects, stalled hello reads, rapid selections, explicit stop/retry and write/update guards.

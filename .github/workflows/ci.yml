@@ -39,6 +39,8 @@ jobs:
         run: pio run -e esp32dev_ble_coexist_test
       - name: BLE protocol and configuration tests with resolved dependencies
         run: python -m unittest discover -s tests -p "test_ble*.py" -v
+      - name: Fleet server and production firmware config contract
+        run: python -m unittest discover -s tests -p "test_fleet_service.py" -v
       - name: TLS encryption, large transfers, and certificate rejection
         run: python -m unittest discover -s tests -p "test_tls.py" -v
       - name: Verify partitions, versions, rollback, and size limits

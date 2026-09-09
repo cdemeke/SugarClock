@@ -1,6 +1,8 @@
 import base64
 import json
 import os
+import pathlib
+import re
 import subprocess
 import tempfile
 import time
@@ -16,6 +18,7 @@ from fleet.sugarfleet.security import hash_device_credential, verify_device_cred
 from fleet.sugarfleet.util import ApiError, connectivity_state
 from fleet.sugarfleet.validation import (
     COMMAND_TYPES,
+    CONFIG_FIELDS,
     validate_checkin,
     validate_command,
     validate_register,
@@ -49,6 +52,59 @@ class FleetProtocolFixtureTests(unittest.TestCase):
             validate_command("config_patch", {"changes": {"ambient_creature": 2}})
         with self.assertRaisesRegex(ApiError, "default_mode is out of range"):
             validate_command("config_patch", {"changes": {"default_mode": 4}})
+
+    def test_config_allowlist_matches_real_firmware_acceptance(self):
+        source = pathlib.Path(ROOT, "src/fleet_manager.cpp").read_text()
+        function = source[source.index("static bool apply_config_patch("):source.index("static bool handle_command(")]
+        self.assertEqual(set(CONFIG_FIELDS), set(re.findall(r'strcmp\(name, "([a-z_]+)"\)', function)))
+        cases = []
+        for key, (kind, low, high) in CONFIG_FIELDS.items():
+            values = [False, True, 0, 1, "true", None] if kind is bool else [low-1, low, high, high+1, True, "1", 1.5, None]
+            cases += [{key: value} for value in values]
+        cases += [{"brightness": 45, key: value} for key, value in
+                  [("timezone", "UTC0"), ("thresh_low", 70), ("poll_interval_sec", 60), ("poll_interval", 60)]]
+        expected = []
+        for changes in cases:
+            try:
+                validate_command("config_patch", {"changes": changes})
+                expected.append("1")
+            except ApiError:
+                expected.append("0")
+        library = pathlib.Path(ROOT, ".pio/libdeps/esp32dev/ArduinoJson/src")
+        if not library.exists():
+            self.skipTest("Install pinned firmware dependencies for executable contract comparison")
+        with tempfile.TemporaryDirectory() as tmp:
+            harness = pathlib.Path(tmp, "contract.cpp")
+            harness.write_text("""
+#include <iostream>
+#include <string>
+#include <cstring>
+#include "config_manager.h"
+#include "config_patch.h"
+AppConfig active{};
+void config_lock() {}
+void config_unlock() {}
+AppConfig& config_get() { return active; }
+bool settings_apply(const AppConfig& candidate) { active=candidate;return true; }
+""" + function + """
+int main() {
+    std::string line;
+    while(std::getline(std::cin,line)) {
+        active={};active.brightness=77;
+        active.thresh_urgent_low=55;active.thresh_low=70;active.thresh_high=180;active.thresh_urgent_high=250;
+        active.alert_low=70;active.alert_high=250;
+        JsonDocument doc;
+        if(deserializeJson(doc,line)) return 2;
+        bool accepted=apply_config_patch(doc.as<JsonObjectConst>());
+        if(!accepted && active.brightness!=77) return 3;
+        std::cout << accepted << std::endl;
+    }
+}
+""")
+            exe = str(pathlib.Path(tmp, "contract"))
+            subprocess.run(["c++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-Iinclude", "-I"+str(library), str(harness), "src/config_patch.cpp", "-o", exe], cwd=ROOT, check=True)
+            result = subprocess.run([exe], input="\n".join(json.dumps(case) for case in cases), text=True, capture_output=True, check=True)
+            self.assertEqual(result.stdout.splitlines(), expected)
 
     def test_missing_production_secret_fails_closed(self):
         with mock.patch.dict(os.environ, {"FLEET_SECRET_KEY": "", "FLEET_INSECURE_COOKIES": ""}):
@@ -258,6 +314,23 @@ class FleetServiceTests(unittest.TestCase):
         )
         self.assertEqual(secret.status_code, 422)
         self.assertNotIn("must-not-leak", json.dumps(secret.json))
+
+    def test_invalid_mixed_config_patch_is_rejected_before_queueing(self):
+        self.register()
+        headers = self.admin_headers()
+        for changes in [{"brightness": 0}, {"brightness": 45, "timezone": "UTC0"},
+                        {"brightness": 45, "thresh_low": 70},
+                        {"brightness": 45, "poll_interval_sec": 60},
+                        {"brightness": 45, "poll_interval": 60}]:
+            response = self.client.post("/admin/api/devices/1/commands",
+                json={"type": "config_patch", "payload": {"changes": changes}}, headers=headers)
+            self.assertEqual(response.status_code, 400)
+        with self.app.app_context():
+            self.assertEqual(get_db().execute("SELECT count(*) FROM commands").fetchone()[0], 0)
+        response = self.client.post("/admin/api/devices/1/commands",
+            json={"type": "config_patch", "payload": {"changes": {"brightness": 1, "ambient_creature": 1}}}, headers=headers)
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(len(self.checkin().json["commands"]), 1)
 
     def test_admin_ui_renders_device_list_and_detail(self):
         self.register()

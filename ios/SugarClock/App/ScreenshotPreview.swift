@@ -8,7 +8,7 @@ struct ScreenshotPreview:View {
     let screen:String
     var body:some View {
         Group {
-            if screen=="clocks" {MyClocksView()}
+            if ["clocks","clocks-connecting"].contains(screen) {MyClocksView()}
             else {
                 NavigationStack {
                     switch screen {
@@ -114,6 +114,7 @@ struct ScreenshotPreview:View {
         if screen=="checking" {model.previewSave(.checking)}
         if ["checking","quiet","loading","loading-large"].contains(screen) {model.reconnecting=true;model.connectionState="Loading settings…"}
         if ["loading","loading-large"].contains(screen) {model.settings=[:];model.fields=[]}
+        if screen=="clocks-connecting" {model.previewConnection(ready:false);model.busy=true;model.reconnecting=true;model.connectionState="Connecting…"}
         if screen=="offline" {model.message="Move closer and try again."}
         if screen=="operation" {model.busy=true;model.operationTitle="Refreshing settings…"}
         model.updateMessage="Sample state: firmware is up to date."

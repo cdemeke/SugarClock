@@ -45,11 +45,15 @@ struct ClockLibraryView:View {
                             DestinationRow(title:clock.nickname,subtitle:clock.id==model.selected?.id ? model.connectionSummary:"",symbol:"clock",loading:clock.id==model.selected?.id && (model.reconnecting || (model.updatingClock && !model.sessionReady)))
                         }
                         .buttonStyle(.plain)
-                        // Opening the clock already connecting must remain available.
-                        .disabled((model.busy || model.updatingClock) && model.selected?.peripheral != clock.peripheral)
+                        // Read-only recovery can be interrupted by choosing another clock.
+                        .disabled(!model.canChooseAnotherClock && model.selected?.peripheral != clock.peripheral)
                         .contextMenu {Button("Remove clock",role:.destructive) {model.remove(clock)}}
                     }
                 }
+            }
+            if model.reconnecting,!model.updatingClock {
+                Button("Stop connecting") {model.cancelConnection()}
+                    .buttonStyle(SugarButtonStyle(prominent:false))
             }
             NavigationLink(value:ClockRoute.add) {Label("Add clock",systemImage:"plus")}
                 .buttonStyle(SugarButtonStyle(prominent:false))

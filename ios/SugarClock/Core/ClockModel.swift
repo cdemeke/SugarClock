@@ -79,6 +79,7 @@ private struct PendingSave {
     private let retryDelay:UInt64
     private var updateMonitor:Task<Void,Never>?
     private var reconnectTask:Task<Void,Never>?
+    private var selectionRequest=UUID()
     private var healthTask:Task<Void,Never>?
     private var connectionSubscription:AnyCancellable?
     private var radioSubscription:AnyCancellable?
@@ -191,7 +192,16 @@ private struct PendingSave {
     }
     func connect(_ id:UUID) async {
         guard updateMonitor==nil else {return}
-        if selected?.peripheral==id,let task=reconnectTask {await task.value;return}
+        if selected?.peripheral==id,let task=reconnectTask,!task.isCancelled {await task.value;return}
+        guard canChooseAnotherClock else {return}
+        let request=UUID();selectionRequest=request
+        if let task=reconnectTask {
+            // Drain the old read-only session before giving the shared transport
+            // to the next clock. Its cleanup must not close the new connection.
+            automaticReconnect=false;task.cancel();transport.close()
+            await task.value
+            guard selectionRequest==request,foreground,updateMonitor==nil else {return}
+        }
         guard !busy else {return}
         automaticReconnect=true
         if selected?.peripheral != id {
@@ -300,7 +310,13 @@ private struct PendingSave {
         }
     }
     var canSend:Bool {sessionReady && transport.connected && !busy && updateMonitor==nil}
+    var canChooseAnotherClock:Bool {updateMonitor==nil && !updatingClock && (!busy || reconnecting)}
+    func cancelConnection() {
+        guard updateMonitor==nil,reconnectTask != nil else {return}
+        stopReconnecting()
+    }
     func stopReconnecting() {
+        selectionRequest=UUID()
         automaticReconnect=false;reconnectTask?.cancel();updateMonitor?.cancel()
         finishPendingAsUnconfirmed()
         transport.close();client=nil;sessionReady=false

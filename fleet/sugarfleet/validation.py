@@ -37,77 +37,22 @@ PHASE4_PROTECTED_FIELDS = SECRET_CONFIG_FIELDS | {
     "server_url",
 }
 
-# Phase 1 accepts typed, non-secret patches in the queue. Secret replacement and
-# transactional Wi-Fi application intentionally remain disabled until Phase 4.
+# Management protocol 1 deliberately exposes only this cosmetic subset.
+# Keep aligned with apply_config_patch in src/fleet_manager.cpp AND config_patch's
+# wire field table. Connectivity, glucose and scheduling edits remain local.
 CONFIG_FIELDS = {
-    "wifi_ssid": (str, 1, 63),
-    "wifi_security": (int, 0, 1),
-    "wifi_eap_method": (int, 0, 1),
-    "wifi_identity": (str, 0, 127),
-    "wifi_anon_identity": (str, 0, 127),
-    "wifi_validate_ca": (bool, None, None),
-    "data_source": (int, 0, 2),
-    "server_url": (str, 0, 255),
-    "dexcom_us": (bool, None, None),
-    "poll_interval_sec": (int, 15, 3600),
-    "brightness": (int, 0, 255),
+    "brightness": (int, 1, 255),
     "auto_brightness": (bool, None, None),
     "show_delta": (bool, None, None),
     "use_mmol": (bool, None, None),
-    "thresh_urgent_low": (int, 20, 400),
-    "thresh_low": (int, 20, 400),
-    "thresh_high": (int, 20, 400),
-    "thresh_urgent_high": (int, 20, 400),
-    "timezone": (str, 1, 63),
-    "use_24h": (bool, None, None),
     "time_display_enabled": (bool, None, None),
     "default_mode": (int, 0, 3),
     "ambient_enabled": (bool, None, None),
     "ambient_creature": (int, 0, 1),
     "ambient_seasonal": (bool, None, None),
-    "alert_enabled": (bool, None, None),
-    "alert_low": (int, 20, 400),
-    "alert_high": (int, 20, 400),
-    "alert_snooze_min": (int, 1, 1440),
-    "color_urgent_low": (int, 0, 0xFFFFFF),
-    "color_low": (int, 0, 0xFFFFFF),
-    "color_in_range": (int, 0, 0xFFFFFF),
-    "color_high": (int, 0, 0xFFFFFF),
-    "color_urgent_high": (int, 0, 0xFFFFFF),
-    "color_stale": (int, 0, 0xFFFFFF),
-    "color_clock": (int, 0, 0xFFFFFF),
-    "color_weather": (int, 0, 0xFFFFFF),
-    "night_mode_enabled": (bool, None, None),
-    "night_start_hour": (int, 0, 23),
-    "night_end_hour": (int, 0, 23),
-    "night_brightness": (int, 0, 255),
-    "stale_timeout_min": (int, 1, 1440),
-    "weather_enabled": (bool, None, None),
-    "weather_city": (str, 1, 63),
-    "weather_use_f": (bool, None, None),
-    "weather_poll_min": (int, 5, 1440),
-    "date_on_time_screen": (bool, None, None),
-    "date_format": (int, 0, 2),
-    "timer_enabled": (bool, None, None),
-    "timer_work_min": (int, 1, 1440),
-    "timer_break_min": (int, 1, 1440),
-    "timer_long_break_min": (int, 1, 1440),
-    "timer_sessions": (int, 1, 20),
-    "timer_buzzer": (bool, None, None),
-    "stopwatch_enabled": (bool, None, None),
     "notify_enabled": (bool, None, None),
-    "notify_default_duration": (int, 5, 300),
-    "notify_allow_buzzer": (bool, None, None),
-    "sysmon_enabled": (bool, None, None),
-    "sysmon_label": (str, 1, 7),
-    "sysmon_display_mode": (int, 0, 1),
-    "sysmon_warn_pct": (int, 0, 100),
-    "sysmon_crit_pct": (int, 0, 100),
     "auto_cycle_enabled": (bool, None, None),
     "auto_cycle_sec": (int, 3, 300),
-    "countdown_enabled": (bool, None, None),
-    "countdown_name": (str, 0, 15),
-    "countdown_target": (int, 0, 0xFFFFFFFF),
 }
 
 
@@ -176,7 +121,7 @@ def validate_config_patch(changes):
         raise ApiError("invalid_config_patch", "changes must be a non-empty object")
     unknown = sorted(set(changes) - set(CONFIG_FIELDS) - PHASE4_PROTECTED_FIELDS)
     if unknown:
-        raise ApiError("unknown_config_field", "unknown configuration field: " + unknown[0])
+        raise ApiError("unknown_config_field", "configuration field is not supported by fleet management: " + unknown[0])
     protected = sorted(set(changes) & PHASE4_PROTECTED_FIELDS)
     if protected:
         raise ApiError(
