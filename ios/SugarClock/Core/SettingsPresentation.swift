@@ -96,7 +96,7 @@ struct SettingsCategory:Identifiable {
             ("Stopwatch",["stopwatch_enabled"])]),
         .init(id:"countdown",title:"Countdown",subtitle:"Count down to an event.",symbol:"calendar.badge.clock",sections:[
             ("Countdown",["countdown_enabled","countdown_name","countdown_target"])]),
-        .init(id:"notifications",title:"Notifications",subtitle:"Display messages sent by an integration connected to your clock.",symbol:"text.bubble",sections:[
+        .init(id:"notifications",title:"Notifications",subtitle:"Show short messages sent to your clock by another app or automation. This app controls how they appear; it doesn’t create messages or mirror your phone’s notifications. Blood sugar warnings are configured separately in Alerts.",symbol:"text.bubble",sections:[
             ("Notifications",["notify_enabled","notify_default_duration","notify_allow_buzzer"])]),
         .init(id:"system",title:"System Monitor",subtitle:"Requires an integration that sends system data to your clock.",symbol:"desktopcomputer",sections:[
             ("System monitor",["sysmon_enabled","sysmon_label","sysmon_display_mode","sysmon_warn_pct","sysmon_crit_pct"])])

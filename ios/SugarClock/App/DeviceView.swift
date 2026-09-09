@@ -107,7 +107,7 @@ struct AllSettingsView:View {
 }
 
 func label(_ key:String)->String {
-    ["weather_enabled":"Enabled","weather_city":"Location","weather_api_key":"OpenWeather API key","weather_use_f":"Use Fahrenheit","weather_poll_min":"Refresh interval (minutes)","timer_enabled":"Enabled","timer_work_min":"Focus (minutes)","timer_break_min":"Short break (minutes)","timer_long_break_min":"Long break (minutes)","timer_sessions":"Sessions before a long break","timer_buzzer":"Sound","stopwatch_enabled":"Enabled","countdown_enabled":"Enabled","countdown_name":"Event name","countdown_target":"Event date and time","notify_enabled":"Enabled","notify_default_duration":"Display duration (seconds)","notify_allow_buzzer":"Allow sound","sysmon_enabled":"Enabled","sysmon_label":"Label","sysmon_display_mode":"Display style","sysmon_warn_pct":"Warning (%)","sysmon_crit_pct":"Critical (%)","glucose_enabled":"Blood sugar readings","timezone":"Time zone","use_24h":"24-hour time","date_on_time_screen":"Show date","date_format":"Date format","ambient_enabled":"Enabled","ambient_seasonal":"Seasonal surprises","alert_enabled":"Enabled","time_display_enabled":"Enabled","auto_cycle_enabled":"Auto cycle","auto_cycle_sec":"Seconds per screen","alert_low":"Low glucose alert","alert_high":"High glucose alert","alert_snooze_min":"Snooze (minutes)","use_mmol":"Use mmol/L","data_source":"Source","auto_update_hour":"Update time","auto_update_enabled":"Automatic updates","dexcom_us":"Dexcom US server","server_url":"Server URL","auth_token":"Auth token","ambient_creature":"Pet","default_mode":"Default view","wifi_security":"Wi-Fi security","poll_interval":"Poll interval (seconds)","stale_timeout_min":"Stale timeout (minutes)","show_delta":"Show glucose change (delta)","auto_brightness":"Auto brightness","thresh_urgent_low":"Urgent low","thresh_low":"Low","thresh_high":"High","thresh_urgent_high":"Urgent high"][key] ?? key.replacingOccurrences(of:"_",with:" ").capitalized
+    ["weather_enabled":"Enabled","weather_city":"Location","weather_api_key":"OpenWeather API key","weather_use_f":"Use Fahrenheit","weather_poll_min":"Refresh interval (minutes)","timer_enabled":"Enabled","timer_work_min":"Focus (minutes)","timer_break_min":"Short break (minutes)","timer_long_break_min":"Long break (minutes)","timer_sessions":"Sessions before a long break","timer_buzzer":"Sound","stopwatch_enabled":"Enabled","countdown_enabled":"Enabled","countdown_name":"Event name","countdown_target":"Event date and time","notify_enabled":"Enabled","notify_default_duration":"Default duration (seconds)","notify_allow_buzzer":"Sound for urgent messages","sysmon_enabled":"Enabled","sysmon_label":"Label","sysmon_display_mode":"Display style","sysmon_warn_pct":"Warning (%)","sysmon_crit_pct":"Critical (%)","glucose_enabled":"Blood sugar readings","timezone":"Time zone","use_24h":"24-hour time","date_on_time_screen":"Show date","date_format":"Date format","ambient_enabled":"Enabled","ambient_seasonal":"Seasonal surprises","alert_enabled":"Enabled","time_display_enabled":"Enabled","auto_cycle_enabled":"Auto cycle","auto_cycle_sec":"Seconds per screen","alert_low":"Low glucose alert","alert_high":"High glucose alert","alert_snooze_min":"Snooze (minutes)","use_mmol":"Use mmol/L","data_source":"Source","auto_update_hour":"Update time","auto_update_enabled":"Automatic updates","dexcom_us":"Dexcom US server","server_url":"Server URL","auth_token":"Auth token","ambient_creature":"Pet","default_mode":"Default view","wifi_security":"Wi-Fi security","poll_interval":"Poll interval (seconds)","stale_timeout_min":"Stale timeout (minutes)","show_delta":"Show glucose change (delta)","auto_brightness":"Auto brightness","thresh_urgent_low":"Urgent low","thresh_low":"Low","thresh_high":"High","thresh_urgent_high":"Urgent high"][key] ?? key.replacingOccurrences(of:"_",with:" ").capitalized
 }
 
 struct SettingsPage:View {
@@ -351,35 +351,18 @@ struct WiFiView:View {
     @State private var validateCA=false
     @State private var original:[String:Any]=[:]
     @State private var enteredManually=false
-    @State private var attemptedScan=false
-    private var networks:[NearbyNetwork] {NearbyNetwork.sorted(model.networks)}
+    @State private var showingNetworks=false
+    private var currentSSID:String {model.settings["wifi_ssid"] as? String ?? ""}
+    private var wifiConnected:Bool {(model.status["wifi"] as? String)?.uppercased()=="CONNECTED"}
     var body:some View {
         SugarScreen {
             PageHeading(title:"Wi-Fi Configuration",subtitle:"Connect your clock to a 2.4 GHz network.")
-            SugarCard(title:"Nearby networks") {
-                if model.scanningWiFi {
-                    HStack(spacing:8) {SugarSpinner();Text("Finding nearby networks…").font(.subheadline)}
+            SugarCard(title:"Wi-Fi network") {
+                if !currentSSID.isEmpty {
+                    DetailRow(title:wifiConnected ? "Connected to":"Saved network",value:currentSSID)
                 }
-                ForEach(networks) {network in
-                    Button {selectNetwork(network)} label:{
-                        HStack(spacing:12) {
-                            Image(systemName:"wifi").foregroundStyle(SugarTheme.accent)
-                            VStack(alignment:.leading,spacing:4) {
-                                Text(network.ssid).foregroundStyle(SugarTheme.text)
-                                Text(network.signal).font(.caption).foregroundStyle(SugarTheme.secondary)
-                            }
-                            Spacer()
-                            if !network.open {Image(systemName:"lock.fill").foregroundStyle(SugarTheme.secondary).accessibilityLabel(network.enterprise ? "Enterprise network":"Secured network")}
-                            if ssid==network.ssid {Image(systemName:"checkmark").foregroundStyle(SugarTheme.accent).accessibilityLabel("Selected")}
-                        }.frame(minHeight:44).contentShape(Rectangle())
-                    }.buttonStyle(.plain)
-                    Divider()
-                }
-                if !model.wifiScanMessage.isEmpty {Text(model.wifiScanMessage).font(.footnote).foregroundStyle(SugarTheme.secondary)}
-                if networks.isEmpty,!model.scanningWiFi,model.wifiScanMessage.isEmpty {
-                    Text(model.canSend ? "Choose a nearby network or enter a hidden one.":"Connect to your clock to find nearby networks.").font(.footnote).foregroundStyle(SugarTheme.secondary)
-                }
-                Button {Task {await model.scanWiFi()}} label:{Label("Refresh networks",systemImage:"arrow.clockwise")}.buttonStyle(SugarButtonStyle(prominent:false)).disabled(!model.canSend)
+                Button {showingNetworks=true} label:{Label("Choose another network",systemImage:"wifi")}
+                    .buttonStyle(SugarButtonStyle(prominent:false))
                 Button("Other network…") {enteredManually=true;ssid="";password="";secretAction=1}.font(.subheadline)
             }
             SugarCard(title:"Connect to network") {
@@ -388,7 +371,7 @@ struct WiFiView:View {
                 } else if !ssid.isEmpty {
                     DetailRow(title:"Network",value:ssid)
                 } else {
-                    Text("Select a network above.").foregroundStyle(SugarTheme.secondary)
+                    Text("Choose a network or enter its name.").foregroundStyle(SugarTheme.secondary)
                 }
                 Picker("Security",selection:$security) {Text("Personal / open").tag(0);Text("WPA2 Enterprise").tag(1)}.fieldSurface()
                 if security==1 {
@@ -410,13 +393,14 @@ struct WiFiView:View {
         }.navigationTitle("Wi-Fi").onAppear {
             original=model.settings;ssid=original["wifi_ssid"] as? String ?? "";security=original["wifi_security"] as? Int ?? 0;eap=original["wifi_eap_method"] as? Int ?? 0
             identity=original["wifi_identity"] as? String ?? "";anonymous=original["wifi_anon_identity"] as? String ?? "";validateCA=original["wifi_validate_ca"] as? Bool ?? false
-        }.onChange(of:model.canSend,initial:true) {_,ready in
-            if ready,!attemptedScan {
-                attemptedScan=true
-                Task {await model.scanWiFi()}
+        }.sheet(isPresented:$showingNetworks) {
+            NearbyNetworksSheet(currentSSID:wifiConnected ? currentSSID:"") {network in
+                selectNetwork(network)
+                showingNetworks=false
             }
         }.onDisappear {password=""}
     }
+
     private func selectNetwork(_ network:NearbyNetwork) {
         let changed=ssid != network.ssid || security != (network.enterprise ? 1:0)
         ssid=network.ssid;security=network.enterprise ? 1:0;enteredManually=false
@@ -438,6 +422,66 @@ struct WiFiView:View {
         let action:SecretChange=secretAction==0 ? .unchanged:secretAction==1 ? .replace(password):.clear
         action.apply(to:&patch,key:security==1 ? "wifi_eap_password":"wifi_password")
         Task {await model.command("wifi.trial",fields:["patch":patch]);password="";secretAction=0}
+    }
+}
+
+struct NearbyNetworksSheet:View {
+    @EnvironmentObject var model:ClockModel
+    @Environment(\.dismiss) private var dismiss
+    let currentSSID:String
+    let select:(NearbyNetwork)->Void
+    @State private var results:[NearbyNetwork]=[]
+    @State private var searched=false
+    @State private var message=""
+    @State private var searchID=0
+    private var available:[NearbyNetwork] {results.filter {$0.ssid != currentSSID}}
+    var body:some View {
+        NavigationStack {
+            SugarScreen {
+                Text("Choose a 2.4 GHz network for your clock.").font(.subheadline).foregroundStyle(SugarTheme.secondary)
+                SugarCard {
+                    if model.scanningWiFi {
+                        HStack(spacing:8) {SugarSpinner();Text("Finding nearby networks…").font(.subheadline)}
+                    } else {
+                        ForEach(available) {network in
+                            Button {select(network)} label:{
+                                HStack(spacing:12) {
+                                    Image(systemName:"wifi").foregroundStyle(SugarTheme.accent)
+                                    VStack(alignment:.leading,spacing:4) {
+                                        Text(network.ssid).foregroundStyle(SugarTheme.text)
+                                        Text(network.signal).font(.caption).foregroundStyle(SugarTheme.secondary)
+                                    }
+                                    Spacer()
+                                    if !network.open {Image(systemName:"lock.fill").foregroundStyle(SugarTheme.secondary).accessibilityLabel(network.enterprise ? "Enterprise network":"Secured network")}
+                                }.frame(minHeight:44).contentShape(Rectangle())
+                            }.buttonStyle(.plain)
+                            Divider()
+                        }
+                        if !message.isEmpty {
+                            Text(message).font(.subheadline).foregroundStyle(SugarTheme.secondary)
+                        } else if searched,available.isEmpty {
+                            Text("No other networks found. Try again or enter a network name on the Wi-Fi page.").font(.subheadline).foregroundStyle(SugarTheme.secondary)
+                        } else if !model.canSend {
+                            Text("Connect to your clock, then tap Search again.").font(.subheadline).foregroundStyle(SugarTheme.secondary)
+                        }
+                        Button {searchID += 1} label:{Label("Search again",systemImage:"arrow.clockwise")}
+                            .buttonStyle(SugarButtonStyle(prominent:false)).disabled(!model.canSend)
+                    }
+                }
+            }.navigationTitle("Nearby networks")
+                .toolbar {ToolbarItem(placement:.confirmationAction) {Button("Done") {dismiss()}}}
+        }.tint(SugarTheme.accent)
+            .presentationDetents([.medium,.large]).presentationDragIndicator(.visible)
+            .task(id:searchID) {await search()}
+    }
+    private func search() async {
+        results=[];searched=false;message=""
+        guard model.canSend else {return}
+        if await model.scanWiFi() {
+            results=NearbyNetwork.sorted(model.networks);searched=true
+        } else if !Task.isCancelled {
+            message=model.wifiScanMessage
+        }
     }
 }
 

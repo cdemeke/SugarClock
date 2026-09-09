@@ -2,8 +2,6 @@ import SwiftUI
 
 struct CompanionPicker:View {
     @Binding var value:String
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var paused=false
     var minimum=0
     var maximum=1
     var body:some View {
@@ -18,7 +16,7 @@ struct CompanionPicker:View {
                             Image(systemName:selected ? "checkmark.circle.fill":"circle")
                                 .foregroundStyle(selected ? SugarTheme.accent:SugarTheme.secondary)
                         }
-                        PixelPetDisplay(artwork:artwork,paused:paused)
+                        PixelPetDisplay(artwork:artwork)
                     }
                     .padding(12).foregroundStyle(SugarTheme.text)
                     .background(selected ? SugarTheme.accent.opacity(0.08):SugarTheme.input,in:RoundedRectangle(cornerRadius:14))
@@ -31,24 +29,17 @@ struct CompanionPicker:View {
                 .accessibilityAddTraits(selected ? [.isSelected]:[])
                 .accessibilityHint("Select this pet. Save changes to update your clock.")
             }
-            if !reduceMotion {
-                Button {paused.toggle()} label:{Label(paused ? "Play previews":"Pause previews",systemImage:paused ? "play.fill":"pause.fill")}
-                    .font(.footnote).foregroundStyle(SugarTheme.accent)
-            }
-            Text("Sample appearance. Your clock changes when you save.")
-                .font(.footnote).foregroundStyle(SugarTheme.secondary)
         }
     }
 }
 
 private struct PixelPetDisplay:View {
     let artwork:PixelPetArtwork
-    let paused:Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @State private var visible=false
     var body:some View {
-        TimelineView(.animation(minimumInterval:0.1,paused:paused || reduceMotion || scenePhase != .active || !visible)) {timeline in
+        TimelineView(.animation(minimumInterval:0.1,paused:reduceMotion || scenePhase != .active || !visible)) {timeline in
             let frame=reduceMotion ? nil:Int(timeline.date.timeIntervalSinceReferenceDate*10)%720
             let pixels=artwork.pixels(frame:frame)
             Canvas {context,size in

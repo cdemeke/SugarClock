@@ -37,7 +37,7 @@ struct ClockLibraryView:View {
     let openClock:(SavedClock)->Void
     var body:some View {
         SugarScreen {
-            PageHeading(title:"Your SugarClocks",subtitle:"Choose a clock to make it yours.",icon:"BrandLogo")
+            PageHeading(title:"Your SugarClocks",subtitle:"Choose a clock.",icon:"BrandLogo")
             if !model.clocks.isEmpty {
                 SugarCard {
                     ForEach(model.clocks) {clock in
@@ -95,9 +95,13 @@ struct TroubleshootingView:View {
     var body:some View {
         SugarScreen {
             PageHeading(title:"Here to help",subtitle:"Get your SugarClock connected again.",icon:"DiagnosticsIcon")
+            SugarCard(title:"What is SugarClock?") {
+                Text("SugarClock is a smart pixel clock that keeps your blood sugar readings visible at a glance. Connect it to Dexcom or Nightscout, and personalize it with time, weather and Pixel Pets.").font(.subheadline).foregroundStyle(SugarTheme.secondary)
+                Link("Learn more at SugarClock.com",destination:URL(string:"https://sugarclock.com")!)
+            }
             ForEach(topics,id:\.0) {topic in
                 SugarCard(title:topic.0) {Text(topic.1).font(.subheadline).foregroundStyle(SugarTheme.secondary)}
             }
-        }.navigationTitle("Troubleshooting")
+        }.navigationTitle("Help")
     }
 }
