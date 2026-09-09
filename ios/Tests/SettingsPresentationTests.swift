@@ -87,4 +87,37 @@ final class SettingsPresentationTests:XCTestCase {
         XCTAssertTrue(try draft.patch(fields:fields).isEmpty)
         XCTAssertEqual(draft.text["alert_low"],"70")
     }
+    func testServiceAvailabilityDistinguishesUnsupportedUnknownAndDisabled() throws {
+        let weather=try XCTUnwrap(SettingsCategory.all.first {$0.id=="weather"})
+        XCTAssertFalse(weather.supported(by:[["key":"data_source","type":"int"]]))
+        XCTAssertTrue(weather.supported(by:[["key":"weather_enabled","type":"bool"]]))
+        XCTAssertNil(weather.enabled(in:[:]))
+        XCTAssertEqual(weather.enabled(in:["weather_enabled":false]),false)
+        XCTAssertEqual(weather.enabled(in:["weather_enabled":true]),true)
+    }
+    func testLegacyGlucoseAndDisabledGlucoseAlertPresentation() throws {
+        let glucose=try XCTUnwrap(SettingsCategory.all.first {$0.id=="glucose"})
+        let alerts=try XCTUnwrap(SettingsCategory.all.first {$0.id=="alerts"})
+        XCTAssertTrue(glucose.supported(by:[["key":"data_source","type":"int"]]))
+        XCTAssertEqual(glucose.enabled(in:["data_source":1]),true)
+        XCTAssertNil(glucose.enabled(in:[:]))
+        XCTAssertEqual(glucose.enabled(in:["glucose_enabled":false,"data_source":1]),false)
+        XCTAssertEqual(alerts.enabled(in:["glucose_enabled":false,"alert_enabled":true]),false)
+        XCTAssertEqual(alerts.enabled(in:["alert_enabled":true]),true)
+    }
+    func testEnablingServiceKeepsSavedOptionsAndDoesNotChangeConfirmedGrouping() throws {
+        let category=try XCTUnwrap(SettingsCategory.all.first {$0.id=="pomodoro"})
+        let fields:[[String:Any]]=[["key":"timer_enabled","type":"bool"],["key":"timer_work_min","type":"int","min":1,"max":120]]
+        let saved:[String:Any]=["timer_enabled":false,"timer_work_min":35]
+        var draft=SettingsDraft(settings:saved,fields:fields)
+        draft.setBool(true,key:try XCTUnwrap(category.enableKey))
+        XCTAssertEqual(category.enabled(in:saved),false)
+        let patch=try draft.patch(fields:fields)
+        XCTAssertEqual(Set(patch.keys),["timer_enabled"])
+        XCTAssertEqual(patch["timer_enabled"] as? Bool,true)
+        XCTAssertEqual(draft.text["timer_work_min"],"35")
+        let confirmed=saved.merging(patch) {_,new in new}
+        XCTAssertEqual(category.enabled(in:confirmed),true)
+    }
+
 }

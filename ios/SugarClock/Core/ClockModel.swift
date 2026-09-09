@@ -43,7 +43,7 @@ private struct PendingSave {
     var quietReconnect:Bool {reconnecting && hasLoadedSettings}
     var connectionSummary:String {
         if sessionReady {return "Connected"}
-        if quietReconnect {return "Reconnecting quietly"}
+        if quietReconnect {return "Reconnecting"}
         return connectionState
     }
     #if DEBUG
@@ -171,7 +171,7 @@ private struct PendingSave {
                         self.finishPendingAsUnconfirmed()
                         self.connectionState="Couldn't connect"
                         self.message=Self.canRetryConnection(error)
-                            ? "Move closer and try again. Your clock is still saved."
+                            ? "Move closer and try again."
                             : error.localizedDescription
                         return
                     }

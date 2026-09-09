@@ -125,18 +125,23 @@ struct DestinationRow:View {
     let title:String
     let subtitle:String
     let symbol:String
+    var loading=false
     var body:some View {
         HStack(spacing:14) {
             Image(systemName:symbol).font(.title3).foregroundStyle(SugarTheme.accent)
                 .frame(width:42,height:42).background(SugarTheme.accent.opacity(0.09),in:RoundedRectangle(cornerRadius:12)).accessibilityHidden(true)
             VStack(alignment:.leading,spacing:4) {
                 Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(SugarTheme.text)
-                if !subtitle.isEmpty {Text(subtitle).font(.caption).foregroundStyle(SugarTheme.secondary)}
+                if !subtitle.isEmpty {HStack(spacing:6) {if loading {SugarSpinner()};Text(subtitle).font(.caption).foregroundStyle(SugarTheme.secondary)}}
             }
             Spacer(minLength:0)
             Image(systemName:"chevron.right").font(.caption.weight(.semibold)).foregroundStyle(SugarTheme.secondary).accessibilityHidden(true)
         }.frame(minHeight:48).contentShape(Rectangle())
     }
+}
+
+struct SugarSpinner:View {
+    var body:some View {ProgressView().progressViewStyle(.circular).tint(SugarTheme.accent)}
 }
 
 struct OperationFeedback:View {
@@ -147,10 +152,10 @@ struct OperationFeedback:View {
         if model.selected != nil || model.reconnecting {
             HStack(spacing:8) {
                 Group {
-                    if model.reconnecting {
-                        ProgressView().tint(SugarTheme.accent)
+                    if model.reconnecting || (model.updatingClock && !model.sessionReady) {
+                        SugarSpinner()
                     } else {
-                        Image(systemName:model.sessionReady ? "checkmark.circle.fill":"circle.dotted")
+                        Image(systemName:model.sessionReady ? "checkmark.circle.fill":"exclamationmark.circle")
                             .foregroundStyle(model.sessionReady ? SugarTheme.accent:SugarTheme.secondary)
                     }
                 }
@@ -166,12 +171,12 @@ struct OperationFeedback:View {
             if model.hasLoadedSettings,!model.sessionReady {
                 if let refreshed=model.lastSettingsRefresh {
                     (Text("Last synced ") + Text(refreshed,style:.time)).font(.caption).foregroundStyle(SugarTheme.secondary)
-                } else {Text("Showing last loaded settings").font(.caption).foregroundStyle(SugarTheme.secondary)}
+                }
             }
         }
         if model.busy,!model.reconnecting,!model.checkingConnection,!model.scanningWiFi,model.operationTitle != "Saving…" {
             HStack(spacing:8) {
-                ProgressView().tint(SugarTheme.accent)
+                SugarSpinner()
                     .frame(width:statusIconSize,height:statusIconSize).accessibilityHidden(true)
                 Text(model.operationTitle).font(.subheadline).foregroundStyle(SugarTheme.secondary)
                     .fixedSize(horizontal:false,vertical:true)

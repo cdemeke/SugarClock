@@ -25,7 +25,7 @@ struct MyClocksView:View {
                 case .settings(let id):
                     // A clock switch starts asynchronously; never show the previous clock's settings.
                     if model.selected?.peripheral==id {DeviceView()}
-                    else {SugarScreen {ProgressView("Connecting…")}.navigationTitle("SugarClock")}
+                    else {SugarScreen {HStack(spacing:8) {SugarSpinner();Text("Connecting…")}}.navigationTitle("SugarClock")}
                 }
             }
         }.tint(SugarTheme.accent)
@@ -42,7 +42,7 @@ struct ClockLibraryView:View {
                 SugarCard {
                     ForEach(model.clocks) {clock in
                         Button {openClock(clock)} label:{
-                            DestinationRow(title:clock.nickname,subtitle:clock.id==model.selected?.id ? model.connectionSummary:"",symbol:"clock")
+                            DestinationRow(title:clock.nickname,subtitle:clock.id==model.selected?.id ? model.connectionSummary:"",symbol:"clock",loading:clock.id==model.selected?.id && (model.reconnecting || (model.updatingClock && !model.sessionReady)))
                         }
                         .buttonStyle(.plain)
                         // Opening the clock already connecting must remain available.

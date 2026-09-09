@@ -1,31 +1,23 @@
 import SwiftUI
 
-struct SettingsCategory:Identifiable {
-    let id:String
-    let title:String
-    let subtitle:String
-    let symbol:String
-    let sections:[(String,[String])]
-    static let all:[SettingsCategory]=[
-        .init(id:"glucose",title:"Blood Sugar",subtitle:"Source, credentials and glucose ranges",symbol:"drop",sections:[
-            ("Blood sugar readings",["glucose_enabled","alert_enabled","data_source","dexcom_username","dexcom_password","dexcom_us","server_url","auth_token","poll_interval","stale_timeout_min"]),
-            ("Reading display",["show_delta"]),
-            ("Units and ranges",["use_mmol","thresh_urgent_low","thresh_low","thresh_high","thresh_urgent_high"])]),
-        .init(id:"display",title:"Display",subtitle:"Choose how screens cycle",symbol:"sun.max",sections:[
-            ("Screen rotation",["auto_cycle_enabled","auto_cycle_sec"])]),
-        .init(id:"time",title:"Time",subtitle:"Time zone and clock format",symbol:"moon.stars",sections:[
-            ("Time display",["time_display_enabled","timezone","use_24h","date_on_time_screen","date_format"])]),
-        .init(id:"alerts",title:"Alerts",subtitle:"Thresholds and snooze preferences",symbol:"bell",sections:[
-            ("Glucose alerts",["alert_enabled","alert_low","alert_high","alert_snooze_min"])]),
-        .init(id:"companions",title:"Pixel Companions",subtitle:"A little company on your display",symbol:"sparkles",sections:[
-            ("Pixel companions",["ambient_enabled","ambient_creature","ambient_seasonal"])])
-    ]
-}
-
 struct DeviceView:View {
     @EnvironmentObject var model:ClockModel
-    private var everyday:[SettingsCategory] {
-        ["display","time","companions","alerts","glucose"].compactMap {id in SettingsCategory.all.first(where:{$0.id==id})}
+    private var services:[SettingsCategory] {
+        ["glucose","time","companions","weather","pomodoro","stopwatch","countdown","alerts","notifications","system"]
+            .compactMap {id in SettingsCategory.all.first(where:{$0.id==id})}
+            .filter {!model.hasLoadedSettings || $0.supported(by:model.fields)}
+    }
+    private func serviceList(_ title:String,_ items:[SettingsCategory])->some View {
+        Group {
+            if !items.isEmpty {
+                SugarCard(title:title,spacing:8) {
+                    ForEach(items) {category in
+                        NavigationLink {ConfigurationView(category:category)} label:{DestinationRow(title:category.title,subtitle:"",symbol:category.symbol)}.buttonStyle(.plain)
+                        if category.id != items.last?.id {Divider()}
+                    }
+                }
+            }
+        }
     }
     var body:some View {
         SugarScreen {
@@ -34,13 +26,14 @@ struct DeviceView:View {
                 Text(model.selected?.nickname ?? "SugarClock").font(.title2.bold())
             }
             OperationFeedback()
+            if model.hasLoadedSettings {
+                serviceList("Enabled services",services.filter {$0.enabled(in:model.settings)==true})
+                serviceList("More services",services.filter {$0.enabled(in:model.settings)==false})
+                serviceList("Services",services.filter {$0.enabled(in:model.settings)==nil})
+            } else {serviceList("Services",services)}
             SugarCard(spacing:10) {
-                ForEach(everyday) {category in
-                    NavigationLink {ConfigurationView(category:category)} label:{DestinationRow(title:category.title,subtitle:"",symbol:category.symbol)}.buttonStyle(.plain)
-                    if category.id != everyday.last?.id {Divider()}
-                }
-            }
-            SugarCard(spacing:10) {
+                NavigationLink {ConfigurationView(category:SettingsCategory.all.first(where:{$0.id=="display"})!)} label:{DestinationRow(title:"Display",subtitle:"",symbol:"sun.max")}.buttonStyle(.plain)
+                Divider()
                 NavigationLink {WiFiView()} label:{DestinationRow(title:"Wi-Fi",subtitle:model.settings["wifi_ssid"] as? String ?? "",symbol:"wifi")}.buttonStyle(.plain)
                 Divider()
                 NavigationLink {ClockDetailsView()} label:{DestinationRow(title:"Clock settings",subtitle:"",symbol:"gearshape")}.buttonStyle(.plain)
@@ -80,7 +73,7 @@ struct ClockDetailsView:View {
 struct ConfigurationView:View {
     let category:SettingsCategory
     var body:some View {
-        SettingsPage(title:category.title,subtitle:"",sections:category.sections,headerToggleKey:["glucose":"glucose_enabled","time":"time_display_enabled","alerts":"alert_enabled","companions":"ambient_enabled"][category.id])
+        SettingsPage(title:category.title,subtitle:["weather","pomodoro","stopwatch","countdown","notifications","system"].contains(category.id) ? category.subtitle:"",sections:category.sections,headerToggleKey:category.enableKey)
             .navigationTitle(category.title)
     }
 }
@@ -110,7 +103,7 @@ struct AllSettingsView:View {
 }
 
 func label(_ key:String)->String {
-    ["glucose_enabled":"Blood sugar readings","timezone":"Time zone","use_24h":"24-hour time","date_on_time_screen":"Show date","date_format":"Date format","ambient_enabled":"Enabled","ambient_seasonal":"Seasonal surprises","alert_enabled":"Enabled","time_display_enabled":"Enabled","auto_cycle_enabled":"Auto cycle","auto_cycle_sec":"Seconds per screen","alert_low":"Low glucose alert","alert_high":"High glucose alert","alert_snooze_min":"Snooze (minutes)","use_mmol":"Use mmol/L","data_source":"Source","auto_update_hour":"Update time","auto_update_enabled":"Automatic updates","dexcom_us":"Dexcom US server","server_url":"Server URL","auth_token":"Auth token","ambient_creature":"Companion","default_mode":"Default view","wifi_security":"Wi-Fi security","poll_interval":"Poll interval (seconds)","stale_timeout_min":"Stale timeout (minutes)","show_delta":"Show glucose change (delta)","auto_brightness":"Auto brightness","thresh_urgent_low":"Urgent low","thresh_low":"Low","thresh_high":"High","thresh_urgent_high":"Urgent high"][key] ?? key.replacingOccurrences(of:"_",with:" ").capitalized
+    ["weather_enabled":"Enabled","weather_city":"Location","weather_api_key":"OpenWeather API key","weather_use_f":"Use Fahrenheit","weather_poll_min":"Refresh interval (minutes)","timer_enabled":"Enabled","timer_work_min":"Focus (minutes)","timer_break_min":"Short break (minutes)","timer_long_break_min":"Long break (minutes)","timer_sessions":"Sessions before a long break","timer_buzzer":"Sound","stopwatch_enabled":"Enabled","countdown_enabled":"Enabled","countdown_name":"Event name","countdown_target":"Event date and time","notify_enabled":"Enabled","notify_default_duration":"Display duration (seconds)","notify_allow_buzzer":"Allow sound","sysmon_enabled":"Enabled","sysmon_label":"Label","sysmon_display_mode":"Display style","sysmon_warn_pct":"Warning (%)","sysmon_crit_pct":"Critical (%)","glucose_enabled":"Blood sugar readings","timezone":"Time zone","use_24h":"24-hour time","date_on_time_screen":"Show date","date_format":"Date format","ambient_enabled":"Enabled","ambient_seasonal":"Seasonal surprises","alert_enabled":"Enabled","time_display_enabled":"Enabled","auto_cycle_enabled":"Auto cycle","auto_cycle_sec":"Seconds per screen","alert_low":"Low glucose alert","alert_high":"High glucose alert","alert_snooze_min":"Snooze (minutes)","use_mmol":"Use mmol/L","data_source":"Source","auto_update_hour":"Update time","auto_update_enabled":"Automatic updates","dexcom_us":"Dexcom US server","server_url":"Server URL","auth_token":"Auth token","ambient_creature":"Companion","default_mode":"Default view","wifi_security":"Wi-Fi security","poll_interval":"Poll interval (seconds)","stale_timeout_min":"Stale timeout (minutes)","show_delta":"Show glucose change (delta)","auto_brightness":"Auto brightness","thresh_urgent_low":"Urgent low","thresh_low":"Low","thresh_high":"High","thresh_urgent_high":"Urgent high"][key] ?? key.replacingOccurrences(of:"_",with:" ").capitalized
 }
 
 struct SettingsPage:View {
@@ -190,8 +183,7 @@ struct SettingsPage:View {
                 VStack(alignment:.leading,spacing:10) {
                     Button {save()} label:{
                         HStack {
-                            if confirming {ProgressView().tint(SugarTheme.buttonText)}
-                            else if case .saved = receipt?.phase,draft.changed.isEmpty {Image(systemName:"checkmark.circle.fill")}
+                            if case .saved = receipt?.phase,draft.changed.isEmpty {Image(systemName:"checkmark.circle.fill")}
                             Text(saveTitle)
                         }
                     }
@@ -233,9 +225,9 @@ struct SaveConfirmation:View {
     let receipt:SaveReceipt
     var body:some View {
         switch receipt.phase {
-        case .saving:EmptyView()
+        case .saving:HStack(spacing:8) {SugarSpinner();Text("Saving…").font(.footnote).foregroundStyle(SugarTheme.secondary)}
         case .checking:
-            Text("Waiting to verify the saved settings. Your edits are kept.").font(.footnote).foregroundStyle(SugarTheme.secondary)
+            HStack(spacing:8) {SugarSpinner();Text("Checking save…").font(.footnote).foregroundStyle(SugarTheme.secondary)}
         case .saved(let date):
             Label {Text("Last save confirmed at ") + Text(date,style:.time)} icon:{Image(systemName:"checkmark.circle.fill")}
                 .font(.footnote).foregroundStyle(SugarTheme.accent).accessibilityAddTraits(.updatesFrequently)
@@ -259,6 +251,7 @@ struct DraftField:View {
         case "data_source":return [0:"Custom URL / Nightscout",1:"Dexcom Share",2:"Demo (synthetic data)"]
         case "ambient_creature":return [0:"Fish",1:"Ghost"]
         case "default_mode":return [0:"Glucose",1:"Time",2:"Weather",3:"Pixel companion"]
+        case "sysmon_display_mode":return [0:"Text",1:"Bar"]
         case "auto_update_hour":return ClockUpdateTime.choices
         case "date_format":return [0:"M/DD",1:"MMMDD",2:"DD/MM"]
         default:return nil
@@ -279,6 +272,8 @@ struct DraftField:View {
                     }.pickerStyle(.menu).fieldSurface()
                     if draft.secrets[key]==1 {SecureField("Replacement value",text:text).textInputAutocapitalization(.never).autocorrectionDisabled().fieldSurface()}
                     if draft.secrets[key]==2 {Text("This saved value will be cleared when you save.").font(.footnote).foregroundStyle(.red)}
+                } else if key=="countdown_target" {
+                    CountdownDateField(value:text)
                 } else if key=="timezone" {
                     TimeZoneField(value:text)
                 } else if let choices {
@@ -297,6 +292,7 @@ struct DraftField:View {
                     }
                 }
             }
+            if key=="weather_city" {Text("City and country, such as London,GB, or a ZIP code.").font(.footnote).foregroundStyle(SugarTheme.secondary)}
             if key=="auto_update_hour" {Text("Uses your clock’s time zone. Updates may wait until the clock is ready.").font(.footnote).foregroundStyle(SugarTheme.secondary)}
             if key=="auto_brightness" {Text("Adjusts brightness to room lighting. The middle button switches to manual brightness.").font(.caption).foregroundStyle(SugarTheme.secondary)}
             if key=="brightness" {Text("Turn off auto brightness to use a fixed level.").font(.caption).foregroundStyle(SugarTheme.secondary)}
@@ -357,7 +353,7 @@ struct WiFiView:View {
             PageHeading(title:"Wi-Fi Configuration",subtitle:"Connect your clock to a 2.4 GHz network.")
             SugarCard(title:"Nearby networks") {
                 if model.scanningWiFi {
-                    HStack(spacing:8) {ProgressView().tint(SugarTheme.accent);Text("Finding nearby networks…").font(.subheadline)}
+                    HStack(spacing:8) {SugarSpinner();Text("Finding nearby networks…").font(.subheadline)}
                 }
                 ForEach(networks) {network in
                     Button {selectNetwork(network)} label:{
@@ -457,7 +453,7 @@ struct FirmwareView:View {
                 if !model.updateMessage.isEmpty {Text(model.updateMessage).font(.subheadline).foregroundStyle(SugarTheme.secondary)}
                 if let reason=ota["deferral"] as? String,!reason.isEmpty {Text(reason).font(.subheadline).foregroundStyle(.orange)}
                 if let error=ota["error"] as? String,!error.isEmpty {Text(error).font(.subheadline).foregroundStyle(.red)}
-                if let progress=ota["progress"] as? Int,progress>0 {ProgressView(value:Double(progress),total:100).accessibilityLabel("Firmware update progress")}
+                if let progress=ota["progress"] as? Int,progress>0 {ProgressView(value:Double(progress),total:100).tint(SugarTheme.accent).accessibilityLabel("Firmware update progress")}
                 Button {Task {await model.command("ota.check")}} label:{Label("Check for update",systemImage:"arrow.clockwise")}.buttonStyle(SugarButtonStyle()).disabled(!model.canSend)
                 Button("Install signed update") {Task {await model.command("ota.install")}}.buttonStyle(SugarButtonStyle(prominent:false)).disabled(!model.canSend)
             }
@@ -498,5 +494,23 @@ struct TimeZoneField:View {
             Text("For locations not listed. Your existing clock setting is kept until you choose a zone and save.")
                 .font(.footnote).foregroundStyle(SugarTheme.secondary)
         }.font(.footnote)
+    }
+}
+
+struct CountdownDateField:View {
+    @Binding var value:String
+    private var timestamp:Double {Double(value) ?? 0}
+    var body:some View {
+        VStack(alignment:.leading,spacing:10) {
+            if timestamp>0 {
+                DatePicker("Event date and time",selection:Binding(get:{Date(timeIntervalSince1970:timestamp)},set:{value=String(Int($0.timeIntervalSince1970))}),in:Date(timeIntervalSince1970:1)...Date(timeIntervalSince1970:2147483647),displayedComponents:[.date,.hourAndMinute])
+                    .labelsHidden().datePickerStyle(.compact).tint(SugarTheme.accent)
+                Text("Shown in your phone’s time zone.").font(.caption).foregroundStyle(SugarTheme.secondary)
+                Button("Clear date") {value="0"}.font(.subheadline)
+            } else {
+                Button("Choose date and time") {value=String(Int(Date().addingTimeInterval(86400).timeIntervalSince1970))}
+                    .buttonStyle(SugarButtonStyle(prominent:false))
+            }
+        }
     }
 }
