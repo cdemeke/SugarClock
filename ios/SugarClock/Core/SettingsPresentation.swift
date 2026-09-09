@@ -86,8 +86,8 @@ struct SettingsCategory:Identifiable {
             ("Time display",["time_display_enabled","timezone","use_24h","date_on_time_screen","date_format"])]),
         .init(id:"alerts",title:"Alerts",subtitle:"Thresholds and snooze preferences",symbol:"bell",sections:[
             ("Glucose alerts",["alert_enabled","alert_low","alert_high","alert_snooze_min"])]),
-        .init(id:"companions",title:"Pixel Companions",subtitle:"A little company on your display",symbol:"sparkles",sections:[
-            ("Pixel companions",["ambient_enabled","ambient_creature","ambient_seasonal"])]),
+        .init(id:"companions",title:"Pixel Pets",subtitle:"A little company on your display",symbol:"sparkles",sections:[
+            ("Pixel Pets",["ambient_enabled","ambient_creature","ambient_seasonal"])]),
         .init(id:"weather",title:"Weather",subtitle:"Requires an OpenWeather API key and a location.",symbol:"cloud.sun",sections:[
             ("Weather",["weather_enabled","weather_city","weather_api_key","weather_use_f","weather_poll_min"])]),
         .init(id:"pomodoro",title:"Pomodoro",subtitle:"Set your focus and break periods. Use the clock’s buttons to control the timer.",symbol:"timer",sections:[

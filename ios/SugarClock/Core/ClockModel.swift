@@ -75,6 +75,7 @@ private struct PendingSave {
     private var client:ClockClient?
     private let transport:ClockConnectionTransport
     private let preferences:UserDefaults
+    private static let connectionAttemptLimit=5
     private let retryDelay:UInt64
     private var updateMonitor:Task<Void,Never>?
     private var reconnectTask:Task<Void,Never>?
@@ -145,7 +146,7 @@ private struct PendingSave {
                 self.busy=false;self.reconnecting=false;self.reconnectTask=nil
                 if Task.isCancelled {self.startReconnect()}
             }
-            for attempt in 0..<3 {
+            for attempt in 0..<Self.connectionAttemptLimit {
                 do {
                     try Task.checkCancellation()
                     guard self.foreground else {throw CancellationError()}
@@ -166,7 +167,7 @@ private struct PendingSave {
                         return
                     }
                     // Only connection/read operations are retried, never a save or command.
-                    if !Self.canRetryConnection(error) || attempt==2 {
+                    if !Self.canRetryConnection(error) || attempt==Self.connectionAttemptLimit-1 {
                         self.automaticReconnect=false
                         self.finishPendingAsUnconfirmed()
                         self.connectionState="Couldn't connect"

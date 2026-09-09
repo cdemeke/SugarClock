@@ -18,6 +18,7 @@ struct ScreenshotPreview:View {
                     case "companions", "companions-off", "companions-ghost", "companions-large":ConfigurationView(category:SettingsCategory.all[4])
                     case "glucose", "glucose-off":ConfigurationView(category:SettingsCategory.all[0])
                     case "weather", "pomodoro", "stopwatch", "countdown", "notifications", "system":ConfigurationView(category:SettingsCategory.all.first {$0.id==screen}!)
+                    case "clock-settings":ClockDetailsView()
                     case "wifi":WiFiView()
                     case "firmware":FirmwareView()
                     case "update-time":SettingEditor(field:["key":"auto_update_hour","type":"int","min":0,"max":23])

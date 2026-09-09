@@ -3,7 +3,7 @@ import SwiftUI
 struct DeviceView:View {
     @EnvironmentObject var model:ClockModel
     private var services:[SettingsCategory] {
-        ["glucose","time","companions","weather","pomodoro","stopwatch","countdown","alerts","notifications","system"]
+        ["glucose","time","companions","weather","pomodoro","stopwatch","countdown","alerts","notifications"]
             .compactMap {id in SettingsCategory.all.first(where:{$0.id==id})}
             .filter {!model.hasLoadedSettings || $0.supported(by:model.fields)}
     }
@@ -61,6 +61,10 @@ struct ClockDetailsView:View {
                 Divider()
                 NavigationLink {DiagnosticsView()} label:{DestinationRow(title:"Connection & data",subtitle:"",symbol:"heart.text.clipboard")}.buttonStyle(.plain)
                 Divider()
+                if let system=SettingsCategory.all.first(where:{$0.id=="system"}),!model.hasLoadedSettings || system.supported(by:model.fields) {
+                    NavigationLink {ConfigurationView(category:system)} label:{DestinationRow(title:system.title,subtitle:"",symbol:system.symbol)}.buttonStyle(.plain)
+                    Divider()
+                }
                 NavigationLink {AllSettingsView()} label:{DestinationRow(title:"Advanced",subtitle:"",symbol:"slider.horizontal.3")}.buttonStyle(.plain)
                 Divider()
                 NavigationLink {TroubleshootingView()} label:{DestinationRow(title:"Help",subtitle:"",symbol:"questionmark.circle")}.buttonStyle(.plain)
@@ -103,7 +107,7 @@ struct AllSettingsView:View {
 }
 
 func label(_ key:String)->String {
-    ["weather_enabled":"Enabled","weather_city":"Location","weather_api_key":"OpenWeather API key","weather_use_f":"Use Fahrenheit","weather_poll_min":"Refresh interval (minutes)","timer_enabled":"Enabled","timer_work_min":"Focus (minutes)","timer_break_min":"Short break (minutes)","timer_long_break_min":"Long break (minutes)","timer_sessions":"Sessions before a long break","timer_buzzer":"Sound","stopwatch_enabled":"Enabled","countdown_enabled":"Enabled","countdown_name":"Event name","countdown_target":"Event date and time","notify_enabled":"Enabled","notify_default_duration":"Display duration (seconds)","notify_allow_buzzer":"Allow sound","sysmon_enabled":"Enabled","sysmon_label":"Label","sysmon_display_mode":"Display style","sysmon_warn_pct":"Warning (%)","sysmon_crit_pct":"Critical (%)","glucose_enabled":"Blood sugar readings","timezone":"Time zone","use_24h":"24-hour time","date_on_time_screen":"Show date","date_format":"Date format","ambient_enabled":"Enabled","ambient_seasonal":"Seasonal surprises","alert_enabled":"Enabled","time_display_enabled":"Enabled","auto_cycle_enabled":"Auto cycle","auto_cycle_sec":"Seconds per screen","alert_low":"Low glucose alert","alert_high":"High glucose alert","alert_snooze_min":"Snooze (minutes)","use_mmol":"Use mmol/L","data_source":"Source","auto_update_hour":"Update time","auto_update_enabled":"Automatic updates","dexcom_us":"Dexcom US server","server_url":"Server URL","auth_token":"Auth token","ambient_creature":"Companion","default_mode":"Default view","wifi_security":"Wi-Fi security","poll_interval":"Poll interval (seconds)","stale_timeout_min":"Stale timeout (minutes)","show_delta":"Show glucose change (delta)","auto_brightness":"Auto brightness","thresh_urgent_low":"Urgent low","thresh_low":"Low","thresh_high":"High","thresh_urgent_high":"Urgent high"][key] ?? key.replacingOccurrences(of:"_",with:" ").capitalized
+    ["weather_enabled":"Enabled","weather_city":"Location","weather_api_key":"OpenWeather API key","weather_use_f":"Use Fahrenheit","weather_poll_min":"Refresh interval (minutes)","timer_enabled":"Enabled","timer_work_min":"Focus (minutes)","timer_break_min":"Short break (minutes)","timer_long_break_min":"Long break (minutes)","timer_sessions":"Sessions before a long break","timer_buzzer":"Sound","stopwatch_enabled":"Enabled","countdown_enabled":"Enabled","countdown_name":"Event name","countdown_target":"Event date and time","notify_enabled":"Enabled","notify_default_duration":"Display duration (seconds)","notify_allow_buzzer":"Allow sound","sysmon_enabled":"Enabled","sysmon_label":"Label","sysmon_display_mode":"Display style","sysmon_warn_pct":"Warning (%)","sysmon_crit_pct":"Critical (%)","glucose_enabled":"Blood sugar readings","timezone":"Time zone","use_24h":"24-hour time","date_on_time_screen":"Show date","date_format":"Date format","ambient_enabled":"Enabled","ambient_seasonal":"Seasonal surprises","alert_enabled":"Enabled","time_display_enabled":"Enabled","auto_cycle_enabled":"Auto cycle","auto_cycle_sec":"Seconds per screen","alert_low":"Low glucose alert","alert_high":"High glucose alert","alert_snooze_min":"Snooze (minutes)","use_mmol":"Use mmol/L","data_source":"Source","auto_update_hour":"Update time","auto_update_enabled":"Automatic updates","dexcom_us":"Dexcom US server","server_url":"Server URL","auth_token":"Auth token","ambient_creature":"Pet","default_mode":"Default view","wifi_security":"Wi-Fi security","poll_interval":"Poll interval (seconds)","stale_timeout_min":"Stale timeout (minutes)","show_delta":"Show glucose change (delta)","auto_brightness":"Auto brightness","thresh_urgent_low":"Urgent low","thresh_low":"Low","thresh_high":"High","thresh_urgent_high":"Urgent high"][key] ?? key.replacingOccurrences(of:"_",with:" ").capitalized
 }
 
 struct SettingsPage:View {
@@ -249,7 +253,7 @@ struct DraftField:View {
     var choices:[Int:String]? {
         switch key {
         case "data_source":return [0:"Custom URL / Nightscout",1:"Dexcom Share",2:"Demo (synthetic data)"]
-        case "default_mode":return [0:"Glucose",1:"Time",2:"Weather",3:"Pixel companion"]
+        case "default_mode":return [0:"Glucose",1:"Time",2:"Weather",3:"Pixel Pet"]
         case "sysmon_display_mode":return [0:"Text",1:"Bar"]
         case "auto_update_hour":return ClockUpdateTime.choices
         case "date_format":return [0:"M/DD",1:"MMMDD",2:"DD/MM"]

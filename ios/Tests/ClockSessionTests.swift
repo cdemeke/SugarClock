@@ -252,11 +252,20 @@ import Combine
         XCTAssertEqual(model.fields.count,2)
         model.suspend()
     }
+    func testFifthConnectionAttemptCanRecoverWithoutReplayingSaves() async {
+        let (model,radio,_,id)=fixture();radio.failures=4
+        await model.connect(id)
+        XCTAssertEqual(radio.attempts,5)
+        XCTAssertTrue(model.canSend)
+        XCTAssertEqual(model.settings["brightness"] as? Int,77)
+        XCTAssertFalse(radio.operations.contains("settings.patch"))
+        model.suspend()
+    }
     func testTimeoutExhaustionStopsAndExplicitRetryRecovers() async {
         let (model,radio,_,id)=fixture();radio.failures=10
         await model.connect(id)
         try? await Task.sleep(nanoseconds:20_000_000)
-        XCTAssertEqual(radio.attempts,3)
+        XCTAssertEqual(radio.attempts,5)
         XCTAssertFalse(model.busy)
         XCTAssertEqual(model.connectionState,"Couldn't connect")
         XCTAssertEqual(model.clocks.count,1)
