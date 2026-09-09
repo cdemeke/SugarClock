@@ -249,7 +249,6 @@ struct DraftField:View {
     var choices:[Int:String]? {
         switch key {
         case "data_source":return [0:"Custom URL / Nightscout",1:"Dexcom Share",2:"Demo (synthetic data)"]
-        case "ambient_creature":return [0:"Fish",1:"Ghost"]
         case "default_mode":return [0:"Glucose",1:"Time",2:"Weather",3:"Pixel companion"]
         case "sysmon_display_mode":return [0:"Text",1:"Bar"]
         case "auto_update_hour":return ClockUpdateTime.choices
@@ -272,6 +271,8 @@ struct DraftField:View {
                     }.pickerStyle(.menu).fieldSurface()
                     if draft.secrets[key]==1 {SecureField("Replacement value",text:text).textInputAutocapitalization(.never).autocorrectionDisabled().fieldSurface()}
                     if draft.secrets[key]==2 {Text("This saved value will be cleared when you save.").font(.footnote).foregroundStyle(.red)}
+                } else if key=="ambient_creature" {
+                    CompanionPicker(value:text,minimum:field["min"] as? Int ?? 0,maximum:field["max"] as? Int ?? 1)
                 } else if key=="countdown_target" {
                     CountdownDateField(value:text)
                 } else if key=="timezone" {

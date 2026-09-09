@@ -15,7 +15,7 @@ struct ScreenshotPreview:View {
                     case "display", "display-accessibility":ConfigurationView(category:SettingsCategory.all[1])
                     case "time", "time-off", "time-large":ConfigurationView(category:SettingsCategory.all[2])
                     case "alerts", "alerts-off", "alerts-blocked":ConfigurationView(category:SettingsCategory.all[3])
-                    case "companions", "companions-off":ConfigurationView(category:SettingsCategory.all[4])
+                    case "companions", "companions-off", "companions-ghost", "companions-large":ConfigurationView(category:SettingsCategory.all[4])
                     case "glucose", "glucose-off":ConfigurationView(category:SettingsCategory.all[0])
                     case "weather", "pomodoro", "stopwatch", "countdown", "notifications", "system":ConfigurationView(category:SettingsCategory.all.first {$0.id==screen}!)
                     case "wifi":WiFiView()
@@ -30,7 +30,7 @@ struct ScreenshotPreview:View {
             }
         }
         .tint(SugarTheme.accent)
-        .dynamicTypeSize(["time-large","display-accessibility","saved-large","loading-large"].contains(screen) ? .accessibility3:.large)
+        .dynamicTypeSize(["time-large","display-accessibility","saved-large","loading-large","companions-large"].contains(screen) ? .accessibility3:.large)
         .safeAreaInset(edge:.bottom) {
             Label("SCREENSHOT PREVIEW · SAMPLE DATA",systemImage:"photo")
                 .font(.system(size:10,weight:.semibold)).frame(maxWidth:.infinity).padding(10)
@@ -107,6 +107,7 @@ struct ScreenshotPreview:View {
         if screen=="time-off" {model.settings["time_display_enabled"]=false}
         if screen=="alerts-off" {model.settings["alert_enabled"]=false}
         if screen=="companions-off" {model.settings["ambient_enabled"]=false}
+        if screen=="companions-ghost" {model.settings["ambient_creature"]=1}
         model.previewConnection(ready:!["checking","quiet","loading","loading-large","offline"].contains(screen))
         if ["saved","saved-large"].contains(screen) {model.previewSave(.saved(Date()))}
         if screen=="checking" {model.previewSave(.checking)}
