@@ -68,9 +68,6 @@ public struct SettingsDraft:Equatable {
         text[key]=value;mark(key,secretKeys.contains(key) ? (secrets[key] ?? 0) != 0:value != initialText[key])
     }
     public mutating func setBool(_ value:Bool,key:String) {
-        if key=="glucose_enabled",!value,booleans["alert_enabled"] != nil {
-            setBool(false,key:"alert_enabled")
-        }
         if key=="use_mmol",value != usesMMOL {
             for (threshold,original) in originalThresholds {
                 // Preserve exact original mg/dL integers when only units change.
@@ -111,6 +108,12 @@ public struct SettingsDraft:Equatable {
                 guard value.utf8.count<=field["max_length"] as? Int ?? Int.max else {throw DraftError.invalid(key)}
                 result[key]=value
             }
+        }
+        // Cascade only into the submitted patch. Undoing an unsaved Off must not
+        // create a hidden alert edit; confirmed Off readback becomes the new baseline.
+        if result["glucose_enabled"] as? Bool==false,
+           fields.contains(where:{$0["key"] as? String=="alert_enabled"}) {
+            result["alert_enabled"]=false
         }
         return result
     }

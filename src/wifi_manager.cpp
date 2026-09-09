@@ -78,6 +78,7 @@ static char trial_detail[96] = "";
 static WifiScanEntry scan_cache[WIFI_SCAN_MAX];
 static int scan_cache_count = 0;
 static bool scan_running = false;
+static bool scan_failed = false;
 static unsigned long scan_completed_ms = 0;
 
 // ---------------------------------------------------------------------------
@@ -328,6 +329,7 @@ static void trial_begin() {
     if (scan_running) {
         WiFi.scanDelete();
         scan_running = false;
+        scan_failed = true;
     }
     { ConfigGuard guard;
     trial_params = pending_params;
@@ -439,10 +441,12 @@ bool wifi_scan_start() {
     }
     int rc = WiFi.scanNetworks(true /* async */, true /* show hidden */);
     if (rc == WIFI_SCAN_FAILED) {
+        scan_failed = true;
         Serial.println("[WIFI] Scan failed to start");
         return false;
     }
     scan_running = true;
+    scan_failed = false;
     Serial.println("[WIFI] Scan started");
     return true;
 }
@@ -522,6 +526,7 @@ void wifi_loop() {
             scan_collect();
         } else if (rc == WIFI_SCAN_FAILED) {
             scan_running = false;
+            scan_failed = true;
             if (boot_connect_pending && config_has_wifi()) {
                 WifiTrialParams p;
                 params_from_config(p);
@@ -670,6 +675,8 @@ const char* wifi_get_ap_ssid() {
 int wifi_ap_station_count() {
     return portal_up ? (int)WiFi.softAPgetStationNum() : 0;
 }
+
+bool wifi_scan_failed() {return scan_failed;}
 
 bool wifi_scan_in_progress() {
     return scan_running;

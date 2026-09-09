@@ -1,6 +1,7 @@
 #include "web_server.h"
 #include "config_manager.h"
 #include "config_patch.h"
+#include "settings_apply.h"
 #include "wifi_manager.h"
 #include "http_client.h"
 #include "glucose_engine.h"
@@ -282,13 +283,7 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
        strcmp(candidate.wifi_anon_identity,current.wifi_anon_identity) || candidate.wifi_validate_ca!=current.wifi_validate_ca) {
         request->send(409,"application/json","{\"error\":\"use_wifi_trial\"}");return;
     }
-    bool sourceChanged=config_source_changed(config_get(),candidate);
-    config_get()=candidate;
-    if(sourceChanged) http_configuration_changed();
-    if(!config_save()) { request->send(500,"application/json","{\"error\":\"persistence_failed\"}");return; }
-    setenv("TZ",candidate.timezone,1);tzset();
-    engine_rebuild_toggle_order();
-    if(!candidate.auto_brightness) display_set_brightness(candidate.brightness);
+    if(!settings_apply(candidate)) { request->send(500,"application/json","{\"error\":\"persistence_failed\"}");return; }
 
     request->send(200, "application/json", "{\"status\":\"ok\"}");
 }
@@ -635,6 +630,7 @@ static void handle_wifi_scan(AsyncWebServerRequest* request) {
     JsonDocument doc;
     doc["scanning"] = wifi_scan_in_progress();
     doc["age_ms"] = wifi_scan_age_ms();
+    if(wifi_scan_failed()) doc["error"] = "Wi-Fi search failed. Previous results may be out of date.";
 
     JsonArray arr = doc["networks"].to<JsonArray>();
     for (int i = 0; i < wifi_scan_count(); i++) {
@@ -659,7 +655,7 @@ static void handle_wifi_scan_refresh(AsyncWebServerRequest* request) {
     JsonDocument doc;
     doc["started"] = ok;
     doc["scanning"] = wifi_scan_in_progress();
-    if (!ok) doc["error"] = "A scan is already running";
+    if (!ok) doc["error"] = wifi_scan_in_progress() ? "A scan is already running":"Wi-Fi search failed to start";
     String output;
     serializeJson(doc, output);
     request->send(200, "application/json", output);

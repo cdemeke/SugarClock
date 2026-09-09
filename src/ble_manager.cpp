@@ -2,6 +2,7 @@
 #include "ble_protocol.h"
 #include "ble_memory_policy.h"
 #include "config_patch.h"
+#include "settings_apply.h"
 #include "wifi_manager.h"
 #include "ota_manager.h"
 #include "http_client.h"
@@ -175,15 +176,14 @@ void execute(JsonDocument& in,JsonDocument& out) {
   ConfigGuard guard;AppConfig candidate=config_get();JsonObjectConst patch=in["patch"].as<JsonObjectConst>();
   for(JsonPairConst p:patch) if(!strncmp(p.key().c_str(),"wifi_",5)) { out["error"]="use_wifi_trial";return; }
   const char* error=config_patch(candidate,patch);if(error) { out["error"]="validation";out["field"]=error;return; }
-  bool sourceChanged=config_source_changed(config_get(),candidate);
-  config_get()=candidate;if(sourceChanged) http_configuration_changed();if(!config_save()) { out["error"]="persistence_failed";return; }
-
-  engine_rebuild_toggle_order();if(!candidate.auto_brightness) display_set_brightness(candidate.brightness);
-  setenv("TZ",candidate.timezone,1);tzset();out["saved"]=true;
+  if(!settings_apply(candidate)) { out["error"]="persistence_failed";return; }
+  out["saved"]=true;
  } else if(!strcmp(op,"wifi.scan")) {
   if(ota_is_busy()) { out["error"]="busy";return; }
-  wifi_scan_start();out["state"]="queued";
+  if(!wifi_scan_in_progress() && !wifi_scan_start()) {out["error"]="scan_failed";return;}
+  out["state"]="queued";
  } else if(!strcmp(op,"wifi.results")) {
+  if(wifi_scan_failed()) {out["error"]="scan_failed";return;}
   out["scanning"]=wifi_scan_in_progress();auto a=out["networks"].to<JsonArray>();
   for(int i=0;i<wifi_scan_count();++i) { const auto* e=wifi_scan_get(i);auto n=a.add<JsonObject>();n["ssid"]=e->ssid;n["rssi"]=e->rssi;n["enterprise"]=e->enterprise;n["auth"]=e->enc; }
  } else if(!strcmp(op,"wifi.trial")) {

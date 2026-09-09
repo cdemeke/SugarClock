@@ -82,6 +82,7 @@ private struct PendingSave {
     private var connectionSubscription:AnyCancellable?
     private var radioSubscription:AnyCancellable?
     @Published var updateMessage=""
+    @Published private(set) var updatingClock=false
     init(enableBluetooth:Bool=true,loadSaved:Bool=true,transport:ClockConnectionTransport?=nil,
          preferences:UserDefaults = .standard,retryDelay:UInt64=2_000_000_000) {
         bluetooth=BluetoothTransport(enableRadio:enableBluetooth)
@@ -101,7 +102,7 @@ private struct PendingSave {
                 }
             }
         }
-        radioSubscription=bluetooth.$poweredOn.removeDuplicates().sink { [weak self] powered in
+        radioSubscription=self.transport.powerPublisher.dropFirst().removeDuplicates().sink { [weak self] powered in
             Task { @MainActor [weak self] in
                 guard powered,let self,self.foreground,self.automaticReconnect else {return}
                 self.startReconnect()
@@ -110,7 +111,7 @@ private struct PendingSave {
     }
     func remember() {
         if let data=try? JSONEncoder().encode(clocks) {preferences.set(data,forKey:"clocks.v1")}
-        preferences.set(selected?.id,forKey:"clock.selected")
+        preferences.removeObject(forKey:"clock.selected") // Retire the old auto-open preference.
     }
     func resume() {
         foreground=true;automaticReconnect=true
@@ -132,7 +133,7 @@ private struct PendingSave {
         connectionState="Not connected"
     }
     private func startReconnect() {
-        guard foreground,automaticReconnect,!busy,reconnectTask==nil,!sessionReady,
+        guard foreground,automaticReconnect,updateMonitor==nil,!busy,reconnectTask==nil,!sessionReady,
               let selected,transport.isPoweredOn else {return}
         launchConnection(selected.peripheral)
     }
@@ -188,6 +189,7 @@ private struct PendingSave {
         return (error as NSError).domain == CBErrorDomain
     }
     func connect(_ id:UUID) async {
+        guard updateMonitor==nil else {return}
         if selected?.peripheral==id,let task=reconnectTask {await task.value;return}
         guard !busy else {return}
         automaticReconnect=true
@@ -220,7 +222,9 @@ private struct PendingSave {
         if selected?.id != identity {settings=[:];status=[:];fields=[];schemaFirmware=""}
         let saved=clocks.first(where:{$0.id==identity}) ?? SavedClock(id:identity,peripheral:id,nickname:greeting["name"] as? String ?? "SugarClock")
         selected=SavedClock(id:identity,peripheral:id,nickname:saved.nickname)
-        clocks.removeAll(where:{$0.id==identity});clocks.append(selected!);remember()
+        if let index=clocks.firstIndex(where:{$0.id==identity}) {clocks[index]=selected!}
+        else {clocks.append(selected!)}
+        remember()
         client=next;hello=greeting
         // Pairing may need 45 seconds; subsequent reads fail promptly on a stale link.
         next.requestTimeout=15;transport.operationTimeout=15
@@ -302,6 +306,7 @@ private struct PendingSave {
         connectionState="Not connected";message=""
     }
     func retrySelected() async {
+        guard updateMonitor==nil else {return}
         if let task=reconnectTask {task.cancel();transport.close();await task.value}
         if let selected {await connect(selected.peripheral)}
     }
@@ -368,8 +373,9 @@ private struct PendingSave {
         updateMonitor?.cancel()
         if let expected {preferences.set(expected,forKey:"update.expected."+clock.id)}
         updateMessage="Update request accepted. Waiting for the clock; Bluetooth may temporarily disconnect."
+        updatingClock=true
         updateMonitor=Task {
-            defer {self.updateMonitor=nil;self.startReconnect()}
+            defer {self.updateMonitor=nil;self.updatingClock=false;self.startReconnect()}
             let deadline=Date().addingTimeInterval(180)
             while Date()<deadline {
                 try? await Task.sleep(nanoseconds:2_000_000_000)

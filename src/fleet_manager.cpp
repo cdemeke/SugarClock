@@ -3,6 +3,7 @@
 
 #include "config_manager.h"
 #include "config_patch.h"
+#include "settings_apply.h"
 #include "fleet_policy.h"
 #include "network_schedule.h"
 #include "glucose_engine.h"
@@ -343,8 +344,7 @@ static bool apply_config_patch(JsonObjectConst changes) {
     ConfigGuard guard;
     AppConfig candidate=config_get();
     if(config_patch(candidate,changes)) return false;
-    config_get()=candidate;
-    return config_save();
+    return settings_apply(candidate);
 }
 
 static bool handle_command(JsonObjectConst command) {

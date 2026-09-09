@@ -54,7 +54,27 @@ final class SettingsPresentationTests:XCTestCase {
         XCTAssertEqual(patch["glucose_enabled"] as? Bool,false)
         XCTAssertEqual(patch["alert_enabled"] as? Bool,false)
         draft.setBool(true,key:"glucose_enabled")
+        XCTAssertEqual(draft.booleans["alert_enabled"],true)
+        XCTAssertTrue(try draft.patch(fields:fields).isEmpty)
+    }
+    func testConfirmedOffDoesNotRestoreAlertsWhenReadingsAreEnabledAgain() throws {
+        let fields:[[String:Any]]=[["key":"glucose_enabled","type":"bool"],["key":"alert_enabled","type":"bool"]]
+        var draft=SettingsDraft(settings:["glucose_enabled":true,"alert_enabled":true],fields:fields)
+        draft.setBool(false,key:"glucose_enabled")
+        let submitted=draft
+        draft.setBool(true,key:"glucose_enabled") // Edited while Off was awaiting confirmation.
+        draft.confirm(submitted:submitted,settings:["glucose_enabled":false,"alert_enabled":false],fields:fields)
         XCTAssertEqual(draft.booleans["alert_enabled"],false)
+        XCTAssertEqual(Set(try draft.patch(fields:fields).keys),["glucose_enabled"])
+        XCTAssertEqual(try draft.patch(fields:fields)["glucose_enabled"] as? Bool,true)
+    }
+    func testUndoingBloodSugarOffKeepsExplicitAlertEdit() throws {
+        let fields:[[String:Any]]=[["key":"glucose_enabled","type":"bool"],["key":"alert_enabled","type":"bool"]]
+        var draft=SettingsDraft(settings:["glucose_enabled":true,"alert_enabled":true],fields:fields)
+        draft.setBool(false,key:"alert_enabled")
+        draft.setBool(false,key:"glucose_enabled");draft.setBool(true,key:"glucose_enabled")
+        XCTAssertEqual(Set(try draft.patch(fields:fields).keys),["alert_enabled"])
+        XCTAssertEqual(try draft.patch(fields:fields)["alert_enabled"] as? Bool,false)
     }
     func testDisablingSectionPreservesSavedOptions() throws {
         let fields:[[String:Any]]=[["key":"alert_enabled","type":"bool"],["key":"alert_low","type":"int","min":20,"max":600]]

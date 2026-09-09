@@ -46,7 +46,7 @@ struct ClockLibraryView:View {
                         }
                         .buttonStyle(.plain)
                         // Opening the clock already connecting must remain available.
-                        .disabled(model.busy && model.selected?.peripheral != clock.peripheral)
+                        .disabled((model.busy || model.updatingClock) && model.selected?.peripheral != clock.peripheral)
                         .contextMenu {Button("Remove clock",role:.destructive) {model.remove(clock)}}
                     }
                 }
@@ -74,11 +74,11 @@ struct DiscoveryView:View {
                     await model.connect(device.identifier)
                     if model.sessionReady,model.selected?.peripheral==device.identifier {onConnected(device.identifier)}
                 }} label:{DestinationRow(title:device.name ?? "SugarClock",subtitle:"Tap to pair",symbol:"plus.circle")}
-                    .buttonStyle(.plain).disabled(model.busy)
+                    .buttonStyle(.plain).disabled(model.busy || model.updatingClock)
             }
             if newDevices.isEmpty {Text(bluetooth.poweredOn ? "No new clocks nearby":"Turn on Bluetooth to find your clock.").font(.subheadline).foregroundStyle(SugarTheme.secondary)}
             Button {bluetooth.scan()} label:{Label("Search nearby",systemImage:"magnifyingglass")}
-                .buttonStyle(SugarButtonStyle(prominent:false)).disabled(model.busy)
+                .buttonStyle(SugarButtonStyle(prominent:false)).disabled(model.busy || model.updatingClock)
         }.onAppear {if !model.busy {bluetooth.scan()}}
     }
 }

@@ -7,6 +7,7 @@ import Combine
     var connected:Bool {get}
     var isPoweredOn:Bool {get}
     var availabilityMessage:String {get}
+    var powerPublisher:AnyPublisher<Bool,Never> {get}
     var connectionPublisher:AnyPublisher<Bool,Never> {get}
     func connect(id:UUID) async throws
 }
@@ -22,6 +23,7 @@ import Combine
     var isPoweredOn:Bool {poweredOn}
     var availabilityMessage:String {state}
     var connectionPublisher:AnyPublisher<Bool,Never> {$connected.eraseToAnyPublisher()}
+    var powerPublisher:AnyPublisher<Bool,Never> {$poweredOn.eraseToAnyPublisher()}
     var operationTimeout:TimeInterval=45
     private var preparing=false
     private var lifecycle=ConnectionLifecycle()

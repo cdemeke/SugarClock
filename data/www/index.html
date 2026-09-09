@@ -47,6 +47,7 @@
                         <button type="button" class="btn btn-outline btn-sm" id="wifi-refresh-btn" onclick="refreshScan()">Refresh</button>
                     </div>
                     <div class="hint">Scanning borrows the radio for a few seconds, so this page may stall or briefly drop while it runs. If that happens, wait &mdash; it comes back on its own.</div>
+                    <div id="wifi-scan-message" class="hint" role="status"></div>
                     <div id="wifi-list" class="wifi-list">
                         <select id="wifi_network_picker" class="wifi-picker" onchange="selectDiscoveredNetwork()">
                             <option value="">Loading discovered networks…</option>
@@ -1056,6 +1057,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 const response = await fetch('/api/wifi/scan', {cache: 'no-store'});
                 const data = await response.json();
                 renderNetworks(data.networks || []);
+                document.getElementById('wifi-scan-message').textContent = data.error || '';
                 const button = document.getElementById('wifi-refresh-btn');
                 button.disabled = !!data.scanning;
                 button.textContent = data.scanning ? 'Scanning…' : 'Refresh';

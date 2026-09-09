@@ -158,7 +158,7 @@ struct OperationFeedback:View {
                 Text(model.connectionSummary).font(.subheadline).foregroundStyle(SugarTheme.secondary)
                     .fixedSize(horizontal:false,vertical:true)
                 Spacer()
-                if !model.sessionReady,!model.reconnecting {
+                if !model.sessionReady,!model.reconnecting,!model.updatingClock {
                     Button("Retry") {Task {await model.retrySelected()}}.font(.subheadline)
                 }
             }

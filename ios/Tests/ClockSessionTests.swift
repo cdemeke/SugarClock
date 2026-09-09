@@ -5,7 +5,8 @@ import Combine
 @MainActor private final class SessionTransport:ClockConnectionTransport {
     @Published var connected=false
     var connectionPublisher:AnyPublisher<Bool,Never> {$connected.eraseToAnyPublisher()}
-    var isPoweredOn=true
+    @Published var isPoweredOn=true
+    var powerPublisher:AnyPublisher<Bool,Never> {$isPoweredOn.eraseToAnyPublisher()}
     var availabilityMessage="Bluetooth is off"
     var operationTimeout:TimeInterval=45
     var packetLimit=180
@@ -20,6 +21,8 @@ import Combine
     var durable:Bool?=true
     var storedSettings:[String:Any]=["brightness":77,"dexcom_password_configured":true]
 
+    var scanStartFails=false
+    var scanResultsFail=false
     var scanNeverFinishes=false
     var scanResultsReads=0
     var holdConnection=false
@@ -57,9 +60,11 @@ import Combine
             if failSettingsAfterSave,operations.contains("settings.patch") {failSettingsAfterSave=false;throw ClockError.timeout}
             reply["settings"]=storedSettings
             if let durable {reply["saved"]=durable}
-        case "status.get":if failStatus {throw ClockError.timeout};reply["status"]=["data_received":true]
+        case "status.get":if failStatus {throw ClockError.timeout};reply["status"]=["data_received":true,"ota":["state":"idle"]]
         case "schema.get":reply["fields"]=[["key":"brightness","type":"int"],["key":"dexcom_password","type":"secret"]];reply["more"]=false
+        case "wifi.scan":if scanStartFails {reply["error"]="scan_failed"}
         case "wifi.results":
+            if scanResultsFail {reply["error"]="scan_failed"}
             scanResultsReads+=1
             reply["scanning"]=scanNeverFinishes || scanResultsReads<2
             reply["networks"]=[["ssid":"Home","rssi":-40,"auth":3]]
@@ -138,6 +143,57 @@ import Combine
         XCTAssertNil(model.selected)
         XCTAssertEqual(radio.attempts,0)
         model.suspend()
+    }
+    func testReconnectingPreservesClockOrderAndRetiresOldSelectionPreference() async {
+        let (model,radio,defaults,id)=fixture()
+        model.clocks.append(SavedClock(id:"clock-b",peripheral:UUID(),nickname:"Kitchen"))
+        defaults.set("clock-a",forKey:"clock.selected")
+        await model.connect(id)
+        XCTAssertEqual(model.clocks.map(\.id),["clock-a","clock-b"])
+        radio.close();await settle {radio.attempts==2 && model.sessionReady}
+        XCTAssertEqual(model.clocks.map(\.id),["clock-a","clock-b"])
+        XCTAssertNil(defaults.string(forKey:"clock.selected"))
+        let saved=try? JSONDecoder().decode([SavedClock].self,from:defaults.data(forKey:"clocks.v1")!)
+        XCTAssertEqual(saved?.map(\.id),["clock-a","clock-b"])
+        model.suspend()
+    }
+    func testUpdateMonitorOwnsReconnectAcrossRadioResumeAndExplicitSelection() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id)
+        await model.command("ota.check")
+        XCTAssertTrue(model.updatingClock)
+        radio.isPoweredOn=false;radio.close()
+        await settle {!model.sessionReady}
+        radio.isPoweredOn=true
+        model.resume()
+        await model.retrySelected()
+        await model.connect(UUID())
+        try? await Task.sleep(nanoseconds:30_000_000)
+        XCTAssertEqual(radio.attempts,1)
+        XCTAssertEqual(model.selected?.peripheral,id)
+        XCTAssertFalse(model.reconnecting)
+        try? await Task.sleep(nanoseconds:2_100_000_000)
+        await settle {!model.updatingClock}
+        XCTAssertEqual(radio.attempts,2)
+        XCTAssertTrue(model.sessionReady)
+        XCTAssertTrue(model.canSend)
+        model.suspend()
+    }
+    func testWiFiStartAndCompletionFailuresKeepPreviousResultsWithoutReconnecting() async {
+        for failAtStart in [true,false] {
+            let (model,radio,_,id)=fixture()
+            await model.connect(id)
+            model.networks=[["ssid":"Previous"]]
+            radio.scanStartFails=failAtStart;radio.scanResultsFail = !failAtStart
+            let succeeded=await model.scanWiFi(pollDelay:0)
+            XCTAssertFalse(succeeded)
+            XCTAssertEqual(model.networks.first?["ssid"] as? String,"Previous")
+            XCTAssertFalse(model.wifiScanMessage.isEmpty)
+            XCTAssertEqual(radio.scanResultsReads,failAtStart ? 0:1)
+            XCTAssertEqual(radio.attempts,1)
+            XCTAssertTrue(model.canSend)
+            model.suspend()
+        }
     }
     func testWiFiScanWaitsForCompletedResultsWithoutSavingSettings() async {
         let (model,radio,_,id)=fixture()

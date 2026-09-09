@@ -92,11 +92,14 @@ int wifi_ap_station_count();
 
 // --- Scanning (cached; never polled in the background) ---
 
-// Kick off an asynchronous scan. Returns false if one is already running.
+// Kick off an asynchronous scan. Returns false if one is already running or cannot start.
 bool wifi_scan_start();
 
 // True while an async scan is in flight
 bool wifi_scan_in_progress();
+
+// Failed/cancelled latest scan; cached results may still belong to an older scan.
+bool wifi_scan_failed();
 
 // Number of cached results
 int wifi_scan_count();
