@@ -1,4 +1,5 @@
 #include "glucose_engine.h"
+#include "glucose_render.h"
 #include "hardware_pins.h"
 #include "display.h"
 #include "config_manager.h"
@@ -516,32 +517,13 @@ static void render_state(DisplayState state) {
 
             // Delta flash: show delta for a few seconds
             if (delta_flash_active && (millis() - delta_flash_start_ms < DELTA_FLASH_DURATION_MS)) {
-                display_clear();
-                int delta = http_get_delta();
-                char dbuf[8];
-                if (delta >= 0) {
-                    snprintf(dbuf, sizeof(dbuf), "+%d", delta);
-                } else {
-                    snprintf(dbuf, sizeof(dbuf), "%d", delta);
-                }
-                int dlen = strlen(dbuf);
-                int dx = (MATRIX_WIDTH - dlen * 6) / 2;
-                display_draw_text(dbuf, dx, 0, color);
-                display_show();
+                glucose_render_delta_flash(http_get_delta(), color, cfg.use_mmol);
                 break;
             }
             delta_flash_active = false;
 
-            // Normal glucose display
-            display_draw_glucose(reading.glucose, color);
-
-            // Draw trend arrow to the right of the number
-            char buf[8];
-            snprintf(buf, sizeof(buf), "%d", reading.glucose);
-            int text_len = strlen(buf);
-            int total_width = text_len * 6 + 6;
-            int x_start = (MATRIX_WIDTH - total_width) / 2;
-            int arrow_x = x_start + text_len * 6 + 1;
+            // Normal glucose display and shared trend-arrow placement
+            int arrow_x = display_draw_glucose(reading.glucose, color, cfg.use_mmol);
 
             if (reading.trend != TREND_UNKNOWN) {
                 display_draw_trend(reading.trend, arrow_x, 0, color);
@@ -811,18 +793,7 @@ static void render_state(DisplayState state) {
 
                 uint16_t tcolor = is_stale ? color_from_uint32(cfg.color_stale) : themed_glucose_color(reading.glucose, cfg);
 
-                // Draw 5x7 trend arrow at x=1
-                display_draw_trend(reading.trend, 1, 0, tcolor);
-
-                // Draw delta number at x=8
-                int delta = http_get_delta();
-                char dbuf[8];
-                if (delta >= 0) {
-                    snprintf(dbuf, sizeof(dbuf), "+%d", delta);
-                } else {
-                    snprintf(dbuf, sizeof(dbuf), "%d", delta);
-                }
-                display_draw_text(dbuf, 8, 0, tcolor);
+                display_draw_glucose_delta(http_get_delta(), reading.trend, tcolor, cfg.use_mmol);
             }
 
             display_show();
@@ -884,34 +855,7 @@ static void render_state(DisplayState state) {
         }
 
         case STATE_STALE_WARNING: {
-            display_set_brightness(effective_brightness());
-            display_clear();
-
-            const GlucoseReading& reading = http_get_reading();
-            if (!reading.valid) {
-                display_draw_text("---", 7, 0, color_from_uint32(cfg.color_stale));
-                display_show();
-                break;
-            }
-
-            uint16_t stale_color = color_from_uint32(cfg.color_stale);
-
-            // Draw last glucose reading in gray
-            display_draw_glucose(reading.glucose, stale_color);
-
-            // Draw trend arrow to the right of the number in gray
-            char buf[8];
-            snprintf(buf, sizeof(buf), "%d", reading.glucose);
-            int text_len = strlen(buf);
-            int total_width = text_len * 6 + 6;
-            int x_start = (MATRIX_WIDTH - total_width) / 2;
-            int arrow_x = x_start + text_len * 6 + 1;
-
-            if (reading.trend != TREND_UNKNOWN) {
-                display_draw_trend(reading.trend, arrow_x, 0, stale_color);
-            }
-
-            display_show();
+            glucose_render_stale(http_get_reading(), cfg, effective_brightness());
             break;
         }
 

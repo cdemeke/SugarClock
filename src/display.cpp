@@ -1,4 +1,5 @@
 #include "display.h"
+#include "glucose_format.h"
 #include "hardware_pins.h"
 #include "trend_arrows.h"
 
@@ -83,6 +84,11 @@ void display_draw_text(const char* text, int x, int y, uint16_t color) {
     matrix.print(text);
 }
 
+void display_draw_centered_text(const char* text, int y, uint16_t color) {
+    int width = display_text_width(text) - 1;
+    display_draw_text(text, (MATRIX_WIDTH - width) / 2, y, color);
+}
+
 int display_text_width(const char* text) {
     if (!text) return 0;
     // Default Adafruit GFX 5x7 font advances 6px per glyph
@@ -135,26 +141,31 @@ bool display_scroll_text(const char* text, int y, uint16_t color, unsigned int s
     return cycled;
 }
 
-void display_draw_glucose(int value, uint16_t color) {
+int display_draw_glucose(int value, uint16_t color, bool use_mmol) {
     display_clear();
 
     char buf[8];
-    snprintf(buf, sizeof(buf), "%d", value);
-    int len = strlen(buf);
+    format_glucose_value(buf, sizeof(buf), value, use_mmol);
+    // Six pixels per character, plus six for the trend arrow. Both normal
+    // and stale screens use this one layout calculation.
+    int text_width = display_text_width(buf);
+    int x = (MATRIX_WIDTH - text_width - 6) / 2;
+    display_draw_text(buf, x, 0, color);
+    return x + text_width + 1;
+}
 
-    // Each character in default 5x7 font is 6px wide (5 + 1 spacing)
-    // Calculate total width of glucose text
-    int text_width = len * 6;
-
-    // Leave room for trend arrow (6px) on the right
-    // Center the glucose + arrow combination
-    int total_width = text_width + 6; // 6px for arrow area
-    int x = (MATRIX_WIDTH - total_width) / 2;
-    int y = 0; // top-aligned for 5x7 font on 8-row matrix
-
-    matrix.setTextColor(color);
-    matrix.setCursor(x, y);
-    matrix.print(buf);
+void display_draw_glucose_delta(int delta, int trend, uint16_t color, bool use_mmol) {
+    char buf[8];
+    format_glucose_delta(buf, sizeof(buf), delta, use_mmol);
+    // Omit the trailing glyph spacing when fitting and centering, as on pets.
+    int width = display_text_width(buf) - 1;
+    bool show_arrow = width <= MATRIX_WIDTH - 8;
+    if (show_arrow) {
+        display_draw_trend(trend, 1, 0, color);
+        display_draw_text(buf, 8, 0, color);
+    } else {
+        display_draw_centered_text(buf, 0, color);
+    }
 }
 
 void display_draw_trend(int trend, int x, int y, uint16_t color) {
