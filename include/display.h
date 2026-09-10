@@ -33,6 +33,9 @@ void display_draw_glucose_delta(int delta, int trend, uint16_t color, bool use_m
 // Draw general text at position
 void display_draw_text(const char* text, int x, int y, uint16_t color);
 
+// Center visible glyph bounds, excluding the final character's trailing spacing.
+void display_draw_centered_text(const char* text, int y, uint16_t color);
+
 // Draw a trend arrow at the specified position
 // trend: 0=rising_fast, 1=rising, 2=flat, 3=falling, 4=falling_fast
 void display_draw_trend(int trend, int x, int y, uint16_t color);

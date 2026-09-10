@@ -1,6 +1,7 @@
 #include "display.h"
 #include "FastLED_NeoMatrix.h"
 #include "glucose_format.h"
+#include "glucose_render.h"
 #include "hardware_pins.h"
 #include <cassert>
 #include <cstring>
@@ -10,20 +11,6 @@
 
 FakeLEDs FastLED;
 unsigned long millis() { return 0; }
-
-// Compile the real stale-screen case, with only its inputs replaced by fixtures.
-struct GlucoseReading { int glucose, trend; bool valid; };
-struct Config { bool use_mmol; uint32_t color_stale; } cfg;
-GlucoseReading reading_fixture;
-const GlucoseReading& http_get_reading() { return reading_fixture; }
-uint8_t effective_brightness() { return 40; }
-uint16_t color_from_uint32(uint32_t color) { return color; }
-constexpr int STATE_STALE_WARNING = 0, TREND_UNKNOWN = 5;
-void render_stale() {
-    switch (STATE_STALE_WARNING) {
-#include "stale_screen.inc"
-    }
-}
 
 void assert_text(const char* expected, int x) {
     const auto& glyphs = drawing().glyphs;
@@ -48,6 +35,8 @@ void assert_text(const char* expected, int x) {
 
 int main() {
     display_init();
+    AppConfig cfg = {};
+    GlucoseReading reading_fixture = {};
     // Both units, every supported reading, and all five actual trend bitmaps.
     // The six-pixel glyph advance exposes overflow and arrow collisions.
     for (bool mmol : {false, true, false}) {
@@ -63,21 +52,28 @@ int main() {
                 assert_text(expected, x);
                 assert(!drawing().pixels.empty());
 
-                cfg = {mmol, 1};
-                reading_fixture = {mgdl, trend, true};
-                render_stale();
+                cfg.use_mmol = mmol;
+                cfg.color_stale = 0x808080;
+                reading_fixture.glucose = mgdl;
+                reading_fixture.trend = static_cast<TrendType>(trend);
+                reading_fixture.valid = true;
+                const int shows_before = FastLED.shows;
+                glucose_render_stale(reading_fixture, cfg, 37);
+                assert(FastLED.shows == shows_before + 1 && FastLED.brightness == 37);
                 assert_text(expected, x);
                 assert(!drawing().pixels.empty());
             }
         }
     }
     // Invalid stale data remains a placeholder; unknown trends have no arrow.
-    reading_fixture = {180, TREND_UNKNOWN, true};
-    render_stale();
+    reading_fixture.glucose = 180;
+    reading_fixture.trend = TREND_UNKNOWN;
+    reading_fixture.valid = true;
+    glucose_render_stale(reading_fixture, cfg, 37);
     assert_text("180", 4);
     assert(drawing().pixels.empty());
     reading_fixture.valid = false;
-    render_stale();
+    glucose_render_stale(reading_fixture, cfg, 37);
     assert_text("---", 7);
 
     // Four glyphs have 24px advance (23px ink), exactly the old arrow boundary.
@@ -94,6 +90,29 @@ int main() {
             assert_text(mmol ? (sign < 0 ? "-10.0" : "+10.0") :
                               (sign < 0 ? "-1000" : "+1000"), 1);
             assert(drawing().pixels.empty());
+        }
+    }
+    // The linked delta-flash renderer clears old content, uses visible bounds,
+    // emits one frame, and matches the centered trend page for wide deltas.
+    for (bool mmol : {false, true}) {
+        for (int delta : {-600, -180, -18, -1, 0, 1, 18, 180, 600}) {
+            char expected[8];
+            format_glucose_delta(expected, sizeof(expected), delta, mmol);
+            const int width = static_cast<int>(std::strlen(expected)) * 6 - 1;
+            const int x = (MATRIX_WIDTH - width) / 2;
+            display_draw_text("OLD", 0, 0, 1);
+            display_draw_trend(TREND_FLAT, 1, 0, 1);
+            const int shows_before = FastLED.shows;
+            glucose_render_delta_flash(delta, 1, mmol);
+            assert(FastLED.shows == shows_before + 1);
+            assert_text(expected, x);
+            assert(drawing().pixels.empty());
+            if (width > MATRIX_WIDTH - 8) {
+                display_clear();
+                display_draw_glucose_delta(delta, TREND_FLAT, 1, mmol);
+                assert_text(expected, x);
+                assert(drawing().pixels.empty());
+            }
         }
     }
     // Compare formatted readings and signed deltas against independent rounding.

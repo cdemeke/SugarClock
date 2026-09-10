@@ -84,6 +84,11 @@ void display_draw_text(const char* text, int x, int y, uint16_t color) {
     matrix.print(text);
 }
 
+void display_draw_centered_text(const char* text, int y, uint16_t color) {
+    int width = display_text_width(text) - 1;
+    display_draw_text(text, (MATRIX_WIDTH - width) / 2, y, color);
+}
+
 int display_text_width(const char* text) {
     if (!text) return 0;
     // Default Adafruit GFX 5x7 font advances 6px per glyph
@@ -155,8 +160,12 @@ void display_draw_glucose_delta(int delta, int trend, uint16_t color, bool use_m
     // Omit the trailing glyph spacing when fitting and centering, as on pets.
     int width = display_text_width(buf) - 1;
     bool show_arrow = width <= MATRIX_WIDTH - 8;
-    if (show_arrow) display_draw_trend(trend, 1, 0, color);
-    display_draw_text(buf, show_arrow ? 8 : (MATRIX_WIDTH - width) / 2, 0, color);
+    if (show_arrow) {
+        display_draw_trend(trend, 1, 0, color);
+        display_draw_text(buf, 8, 0, color);
+    } else {
+        display_draw_centered_text(buf, 0, color);
+    }
 }
 
 void display_draw_trend(int trend, int x, int y, uint16_t color) {
