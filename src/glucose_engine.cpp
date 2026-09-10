@@ -1,5 +1,4 @@
 #include "glucose_engine.h"
-#include "glucose_format.h"
 #include "hardware_pins.h"
 #include "display.h"
 #include "config_manager.h"
@@ -533,7 +532,11 @@ static void render_state(DisplayState state) {
                 display_clear();
                 int delta = http_get_delta();
                 char dbuf[8];
-                format_glucose(dbuf, sizeof(dbuf), delta, cfg.use_mmol, true);
+                if (delta >= 0) {
+                    snprintf(dbuf, sizeof(dbuf), "+%d", delta);
+                } else {
+                    snprintf(dbuf, sizeof(dbuf), "%d", delta);
+                }
                 int dlen = strlen(dbuf);
                 int dx = (MATRIX_WIDTH - dlen * 6) / 2;
                 display_draw_text(dbuf, dx, 0, color);
@@ -543,11 +546,11 @@ static void render_state(DisplayState state) {
             delta_flash_active = false;
 
             // Normal glucose display
-            display_draw_glucose(reading.glucose, color, cfg.use_mmol);
+            display_draw_glucose(reading.glucose, color);
 
             // Draw trend arrow to the right of the number
             char buf[8];
-            format_glucose(buf, sizeof(buf), reading.glucose, cfg.use_mmol);
+            snprintf(buf, sizeof(buf), "%d", reading.glucose);
             int text_len = strlen(buf);
             int total_width = text_len * 6 + 6;
             int x_start = (MATRIX_WIDTH - total_width) / 2;
@@ -821,15 +824,18 @@ static void render_state(DisplayState state) {
 
                 uint16_t tcolor = is_stale ? color_from_uint32(cfg.color_stale) : themed_glucose_color(reading.glucose, cfg);
 
-                // Keep the complete signed delta visible, including large mmol
-                // changes that need the full width instead of a separate arrow.
+                // Draw 5x7 trend arrow at x=1
+                display_draw_trend(reading.trend, 1, 0, tcolor);
+
+                // Draw delta number at x=8
                 int delta = http_get_delta();
                 char dbuf[8];
-                format_glucose(dbuf, sizeof(dbuf), delta, cfg.use_mmol, true);
-                int width=display_text_width(dbuf);
-                bool show_arrow=width<=MATRIX_WIDTH-8;
-                if (show_arrow) display_draw_trend(reading.trend, 1, 0, tcolor);
-                display_draw_text(dbuf, show_arrow ? 8 : (MATRIX_WIDTH-width)/2, 0, tcolor);
+                if (delta >= 0) {
+                    snprintf(dbuf, sizeof(dbuf), "+%d", delta);
+                } else {
+                    snprintf(dbuf, sizeof(dbuf), "%d", delta);
+                }
+                display_draw_text(dbuf, 8, 0, tcolor);
             }
 
             display_show();

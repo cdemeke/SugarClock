@@ -1,5 +1,4 @@
 #include "ambient_ghost.h"
-#include "glucose_format.h"
 
 #include "config_manager.h"
 #include "display.h"
@@ -271,7 +270,7 @@ static void draw_urgent_number(GlucoseEffect effect) {
         : cfg.color_urgent_high;
 
     char number[8];
-    format_glucose(number, sizeof(number), reading.glucose, cfg.use_mmol);
+    snprintf(number, sizeof(number), "%d", reading.glucose);
     int width = display_text_width(number) - 1;
     int x = (32 - width) / 2;
     display_draw_text(number, x, 0, packed_color(packed));

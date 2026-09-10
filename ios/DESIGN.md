@@ -33,8 +33,8 @@ Notifications is omitted from the native app, including All Settings. Firmware n
 Five read-only connection attempts remain available. My Clocks permits choosing another saved clock during recovery and offers Stop connecting there; the settings loading row keeps its compact presentation. Switching cancels and awaits the old connection task before reusing the transport, and a selection token makes the latest choice win while cleanup is pending. Stopping disables automatic recovery until an explicit retry or foreground resume. Settings writes, commands and OTA keep exclusive ownership and cannot be interrupted by these controls. Regression tests cover pending connects, stalled hello reads, rapid selections, explicit stop/retry and write/update guards.
 
 
-### Build 16 cleanup and mmol/L firmware correction
+### Build 16 cleanup
 
 Notifications is removed from the native service catalog, device page and All Settings. The inactive-service heading is Additional services. Glucose alerts is the final section in Blood Sugar, with a header toggle and thresholds/snooze controls shown only when enabled; all changes share the existing confirmed-save flow. Preview routes use stable category IDs, and alert previews start at the bottom of the production page.
 
-Validation: all 66 Swift tests and the complete simulator build pass. Labeled screenshots verify the service list and integrated alerts with the switch on and off. The signed Release archive for 1.0.0 (16) uploaded successfully to App Store Connect. Firmware 0.3.3 fixes displayed glucose units independently of the app; see the review correction notes for display coverage and physical qualification.
+Validation: all 66 Swift tests and the complete simulator build pass. Labeled screenshots verify the service list and integrated alerts with the switch on and off. The signed Release archive for 1.0.0 (16) uploaded successfully to App Store Connect. The independent firmware mmol/L display fix has moved to [PR #32](https://github.com/cdemeke/SugarClock/pull/32). The previously installed combined 0.3.3 test build contains that fix; this iOS branch no longer does.

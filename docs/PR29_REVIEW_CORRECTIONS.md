@@ -37,9 +37,6 @@ Both findings were confirmed against ESPAsyncWebServer 3.6.0: its body callback 
 - The previous handlers reproduce a global-buffer-overflow under AddressSanitizer with the reported input. The corrected handlers pass the same regression, and all 62 repository Python tests pass.
 - The normal firmware build passes at 1,588,144 bytes. Static RAM falls from 93,544 to 88,424 bytes (5,120 bytes recovered); active requests allocate their bounded buffers from the heap. Malformed uploads are tested on the host, not on the owner's clock. This correction does not flash the clock or publish an iOS build.
 
+## Separate glucose-units fix
 
-## Firmware 0.3.3: apply the saved glucose display units
-
-The clock reported `use_mmol: true`, but its display paths always printed the original mg/dL integers. A shared formatter now honors the saved unit preference on the main glucose display, delta flash, trend-page delta and both Pixel Pets' urgent number display. It rounds mmol/L to one decimal using integer arithmetic (for example, 180 mg/dL displays as 10.0 mmol/L). Raw readings, stored thresholds, colors and alert comparisons remain in mg/dL. Number and arrow positioning uses the formatted text; an unusually wide signed delta gets the full trend-page width so digits are not clipped.
-
-All 62 firmware host tests pass. Tests exercise the actual main renderer in both units and back again, every integer reading/delta from -600 to 600, signed zero and bounded output for extreme integers. The normal firmware builds at 1,588,960 bytes. A full USB backup was validated before replacing only the active application; upload hashing matched and the first 64 KiB containing boot metadata, settings and bonds remained byte-for-byte identical. The clock booted as 0.3.3. The owner still needs to visually confirm the displayed decimal reading and unit switches on the physical clock.
+The mmol/L display correction and its focused tests are maintained in [PR #32](https://github.com/cdemeke/SugarClock/pull/32), based directly on `main`. They are excluded from this PR, along with the combined test build’s 0.3.3 version bump. The owner’s already-installed combined 0.3.3 firmware is unchanged by this branch split. All 62 repository host tests pass after extraction.
