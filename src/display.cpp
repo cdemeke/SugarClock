@@ -1,4 +1,5 @@
 #include "display.h"
+#include "glucose_format.h"
 #include "hardware_pins.h"
 #include "trend_arrows.h"
 
@@ -135,11 +136,11 @@ bool display_scroll_text(const char* text, int y, uint16_t color, unsigned int s
     return cycled;
 }
 
-void display_draw_glucose(int value, uint16_t color) {
+void display_draw_glucose(int value, uint16_t color, bool use_mmol) {
     display_clear();
 
     char buf[8];
-    snprintf(buf, sizeof(buf), "%d", value);
+    format_glucose(buf, sizeof(buf), value, use_mmol);
     int len = strlen(buf);
 
     // Each character in default 5x7 font is 6px wide (5 + 1 spacing)
