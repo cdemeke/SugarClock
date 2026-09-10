@@ -271,7 +271,7 @@ static void draw_urgent_number(GlucoseEffect effect) {
         : cfg.color_urgent_high;
 
     char number[8];
-    format_glucose(number, sizeof(number), reading.glucose, cfg.use_mmol);
+    format_glucose_value(number, sizeof(number), reading.glucose, cfg.use_mmol);
     int width = display_text_width(number) - 1;
     int x = (32 - width) / 2;
     display_draw_text(number, x, 0, packed_color(packed));

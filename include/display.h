@@ -24,7 +24,11 @@ void display_set_transition_level(uint8_t level);
 
 // Draw glucose value centered on matrix with specified color
 // color is a 16-bit RGB565 color for GFX compatibility
-void display_draw_glucose(int value, uint16_t color, bool use_mmol=false);
+// Returns the trend-arrow x position; callers must explicitly supply units.
+int display_draw_glucose(int value, uint16_t color, bool use_mmol);
+
+// Draw the trend-page delta, omitting the arrow when the text needs its space.
+void display_draw_glucose_delta(int delta, int trend, uint16_t color, bool use_mmol);
 
 // Draw general text at position
 void display_draw_text(const char* text, int x, int y, uint16_t color);
