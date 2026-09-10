@@ -353,12 +353,13 @@
                         <select id="data_source" onchange="toggleSource()">
                             <option value="0">Custom URL</option>
                             <option value="1">Dexcom Share</option>
+                            <option value="3">FreeStyle Libre (LibreLinkUp)</option>
                             <option value="2">Demo Mode (no real data)</option>
                         </select>
                     </div>
 
                     <div id="demo-fields" style="display:none;">
-                        <div class="hint">Demo mode shows a fake glucose value that gently fluctuates in the 80&ndash;100 range. No WiFi or CGM connection is needed &mdash; great for recording videos or giving demos.</div>
+                        <div class="form-group"><div class="hint">Demo mode shows a fake glucose value that gently fluctuates in the 80&ndash;100 range. No WiFi or CGM connection is needed &mdash; great for recording videos or giving demos.</div></div>
                     </div>
 
                     <div id="custom-fields">
@@ -395,6 +396,25 @@
                                 <option value="1">US (share2.dexcom.com)</option>
                                 <option value="0">International (shareous1.dexcom.com)</option>
                             </select>
+                        </div>
+                    </div>
+
+                    <div id="libre-fields" style="display:none;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>LibreLinkUp Email</label>
+                                <input type="text" id="libre_email" maxlength="63" inputmode="email" autocomplete="off" autocapitalize="off" spellcheck="false">
+                            </div>
+                            <div class="form-group">
+                                <label>LibreLinkUp Password</label>
+                                <div class="pw-wrap">
+                                    <input type="password" id="libre_password" maxlength="63" autocomplete="off">
+                                    <button type="button" class="pw-toggle" onclick="togglePw('libre_password')">&#128065;</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <div class="hint">Use your LibreLinkUp login, not LibreLink or LibreView. In the Libre app, go to Connected Apps &rarr; LibreLinkUp and invite this email, then sign in to LibreLinkUp once to accept the terms. Region is detected automatically.</div>
                         </div>
                     </div>
 
@@ -918,6 +938,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             const src = document.getElementById('data_source').value;
             document.getElementById('custom-fields').style.display = src === '0' ? 'block' : 'none';
             document.getElementById('dexcom-fields').style.display = src === '1' ? 'block' : 'none';
+            document.getElementById('libre-fields').style.display = src === '3' ? 'block' : 'none';
             document.getElementById('demo-fields').style.display = src === '2' ? 'block' : 'none';
         }
 
@@ -1308,6 +1329,9 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 document.getElementById('dexcom_username').value = c.dexcom_username || '';
                 document.getElementById('dexcom_password').value = c.dexcom_password || '';
                 document.getElementById('dexcom_us').value = c.dexcom_us ? '1' : '0';
+                document.getElementById('libre_email').value = c.libre_email || '';
+                document.getElementById('libre_password').value = '';
+                document.getElementById('libre_password').placeholder = c.has_libre_password ? 'Saved \u2014 leave blank to keep' : '';
                 document.getElementById('poll_interval').value = c.poll_interval;
                 document.getElementById('stale_timeout').value = c.stale_timeout_min || 20;
                 toggleSource();
@@ -1438,6 +1462,8 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 dexcom_username: document.getElementById('dexcom_username').value,
                 dexcom_password: document.getElementById('dexcom_password').value,
                 dexcom_us: document.getElementById('dexcom_us').value === '1',
+                libre_email: document.getElementById('libre_email').value.trim(),
+                libre_password: document.getElementById('libre_password').value,
                 poll_interval: poll,
                 stale_timeout_min: parseInt(document.getElementById('stale_timeout').value),
                 brightness: brightnessDeviceValue,

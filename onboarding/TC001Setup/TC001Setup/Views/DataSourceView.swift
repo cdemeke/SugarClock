@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Step 5: Glucose data source configuration.
 ///
-/// The user picks Dexcom Share, Nightscout, or a custom URL
+/// The user picks Dexcom Share, FreeStyle Libre, Nightscout, or a custom URL
 /// and provides the necessary credentials.
 struct DataSourceView: View {
 
@@ -37,6 +37,8 @@ struct DataSourceView: View {
                     switch state.glucoseSource {
                     case .dexcom:
                         dexcomFields
+                    case .libre:
+                        libreFields
                     case .nightscout:
                         nightscoutFields
                     case .customURL:
@@ -88,6 +90,41 @@ struct DataSourceView: View {
                 .pickerStyle(.radioGroup)
                 .labelsHidden()
                 Text("Select OUS if your Dexcom account is outside the United States.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+    }
+
+    // MARK: - FreeStyle Libre
+
+    private var libreFields: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            GroupBox {
+                VStack(alignment: .leading, spacing: 4) {
+                    Label("FreeStyle Libre", systemImage: "waveform.path.ecg")
+                        .font(.subheadline.bold())
+                    Text("Uses LibreLinkUp to fetch glucose values from Libre 2, 2 Plus, 3 and 3 Plus sensors. In the FreeStyle Libre app, go to Connected Apps → LibreLinkUp and invite an email, then sign in to the LibreLinkUp app once to accept the terms.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("LibreLinkUp Email")
+                    .font(.subheadline.bold())
+                TextField("email", text: $state.libreEmail)
+                    .textFieldStyle(.roundedBorder)
+                    .textContentType(.username)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("LibreLinkUp Password")
+                    .font(.subheadline.bold())
+                SecureField("password", text: $state.librePassword)
+                    .textFieldStyle(.roundedBorder)
+                Text("Use the LibreLinkUp login, not your LibreLink or LibreView one. Your region is detected automatically.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }

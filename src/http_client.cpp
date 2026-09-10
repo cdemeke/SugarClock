@@ -1,6 +1,7 @@
 #include "http_client.h"
 #include "config_manager.h"
 #include "wifi_manager.h"
+#include "libre_client.h"
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
@@ -318,6 +319,38 @@ static bool dexcom_fetch_glucose() {
     return false;
 }
 
+// FreeStyle Libre: fetch latest reading via LibreLinkUp
+static bool libre_fetch_glucose() {
+    LibreReading reading;
+    bool ok = libre_fetch(reading);
+
+    last_response_code = libre_last_http_code();
+    strncpy(last_response_body, libre_last_message(), sizeof(last_response_body) - 1);
+    last_response_body[sizeof(last_response_body) - 1] = '\0';
+
+    if (!ok) {
+        failure_count++;
+        return false;
+    }
+
+    current_reading.glucose = reading.glucose;
+    current_reading.trend = reading.trend;
+    current_reading.timestamp = reading.timestamp;
+    current_reading.received_at_ms = millis();
+    current_reading.force_mode = -1;
+    current_reading.message[0] = '\0';
+    current_reading.valid = true;
+
+    record_reading(current_reading.glucose, current_reading.timestamp);
+    failure_count = 0;
+    ever_received = true;
+    last_success_ms = millis();
+    Serial.printf("[LIBRE] Glucose: %d, Trend: %s\n",
+                  current_reading.glucose,
+                  TREND_NAMES[current_reading.trend]);
+    return true;
+}
+
 // Generic URL fetch (original behavior)
 static void generic_fetch() {
     AppConfig& cfg = config_get();
@@ -440,6 +473,7 @@ void http_init() {
     last_poll_ms = 0;
     last_success_ms = 0;
     dexcom_session_id[0] = '\0';
+    libre_reset_session();
 
     // Reset history
     history_write_idx = 0;
@@ -477,6 +511,8 @@ void http_loop() {
 
     if (cfg.data_source == 1) {
         dexcom_fetch_glucose();
+    } else if (cfg.data_source == 3) {
+        libre_fetch_glucose();
     } else {
         generic_fetch();
     }
@@ -530,6 +566,9 @@ bool http_force_fetch() {
 
     if (cfg.data_source == 1) {
         return dexcom_fetch_glucose();
+    } else if (cfg.data_source == 3) {
+        libre_reset_session();  // user-initiated test: log in fresh, skipping any backoff
+        return libre_fetch_glucose();
     } else {
         generic_fetch();
         return current_reading.valid;

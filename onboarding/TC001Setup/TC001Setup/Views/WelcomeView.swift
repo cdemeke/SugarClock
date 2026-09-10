@@ -36,7 +36,7 @@ struct WelcomeView: View {
 
                 expectRow(icon: "cable.connector", title: "Connect your device", detail: "Plug your SugarClock into your Mac via USB")
                 expectRow(icon: "wifi", title: "Choose your WiFi network", detail: "So your device can go online")
-                expectRow(icon: "heart.text.square", title: "Set up your glucose source", detail: "Dexcom Share, Nightscout, or a custom URL")
+                expectRow(icon: "heart.text.square", title: "Set up your glucose source", detail: "Dexcom Share, FreeStyle Libre, Nightscout, or a custom URL")
                 expectRow(icon: "arrow.down.circle", title: "Install", detail: "We'll put everything on your device in one step")
             }
 

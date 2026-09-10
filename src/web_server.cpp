@@ -3,6 +3,7 @@
 #include "companion.h"
 #include "wifi_manager.h"
 #include "http_client.h"
+#include "libre_client.h"
 #include "glucose_engine.h"
 #include "time_engine.h"
 #include "sensors.h"
@@ -164,6 +165,9 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     doc["dexcom_username"] = cfg.dexcom_username;
     doc["has_dexcom_password"] = strlen(cfg.dexcom_password) > 0;
     doc["dexcom_us"] = cfg.dexcom_us;
+    doc["libre_email"] = cfg.libre_email;
+    doc["has_libre_password"] = strlen(cfg.libre_password) > 0;
+    doc["libre_region"] = cfg.libre_region;
     doc["poll_interval"] = cfg.poll_interval_sec;
     doc["brightness"] = cfg.brightness;
     doc["auto_brightness"] = cfg.auto_brightness;
@@ -348,6 +352,24 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     }
     if (doc["dexcom_us"].is<bool>()) {
         cfg.dexcom_us = doc["dexcom_us"].as<bool>();
+    }
+    bool libre_changed = false;
+    if (doc["libre_email"].is<const char*>()) {
+        const char* email = doc["libre_email"];
+        if (strcmp(email, cfg.libre_email) != 0) {
+            strncpy(cfg.libre_email, email, sizeof(cfg.libre_email) - 1);
+            cfg.libre_email[sizeof(cfg.libre_email) - 1] = '\0';
+            cfg.libre_region[0] = '\0';  // a different account may live in another region
+            libre_changed = true;
+        }
+    }
+    if (doc["libre_password"].is<const char*>() && strlen(doc["libre_password"] | "") > 0) {
+        const char* password = doc["libre_password"];
+        if (strcmp(password, cfg.libre_password) != 0) {
+            strncpy(cfg.libre_password, password, sizeof(cfg.libre_password) - 1);
+            cfg.libre_password[sizeof(cfg.libre_password) - 1] = '\0';
+            libre_changed = true;
+        }
     }
     if (doc["poll_interval"].is<int>()) {
         cfg.poll_interval_sec = max(15, doc["poll_interval"].as<int>());
@@ -577,6 +599,7 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
 
     config_save();
     engine_rebuild_toggle_order();
+    if (libre_changed) libre_reset_session();
 
     // Apply brightness immediately
     if (!cfg.auto_brightness) {

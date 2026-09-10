@@ -19,7 +19,7 @@
 
 ## What is SugarClock?
 
-SugarClock is free, open-source firmware that turns the [Ulanzi TC001 Smart Pixel Clock](https://amzn.to/4rrqbjz) into a dedicated CGM (continuous glucose monitor) display. It connects to **Dexcom Share** or **Nightscout** over WiFi and shows your current glucose reading in big, color-coded numbers on an LED matrix.
+SugarClock is free, open-source firmware that turns the [Ulanzi TC001 Smart Pixel Clock](https://amzn.to/4rrqbjz) into a dedicated CGM (continuous glucose monitor) display. It connects to **Dexcom Share**, **FreeStyle Libre** (via LibreLinkUp), or **Nightscout** over WiFi and shows your current glucose reading in big, color-coded numbers on an LED matrix.
 
 **Cost:** ~$40 one-time for the clock. The software is free. No subscriptions.
 
@@ -27,7 +27,7 @@ SugarClock is free, open-source firmware that turns the [Ulanzi TC001 Smart Pixe
 
 - **Live glucose display** — Large color-coded numbers (green = in range, orange = high/low, red = urgent)
 - **Trend arrows** — See which direction your glucose is heading
-- **Dexcom Share & Nightscout** — Works with Dexcom CGMs directly, or any Nightscout-compatible setup
+- **Dexcom, Libre & Nightscout** — Works with Dexcom and FreeStyle Libre 2/3 CGMs directly, or any Nightscout-compatible setup
 - **Audible alerts** — Buzzer for high/low glucose with snooze button
 - **Auto brightness** — Built-in light sensor adjusts to your room
 - **Night mode** — Dims automatically during sleeping hours
@@ -44,7 +44,7 @@ SugarClock is free, open-source firmware that turns the [Ulanzi TC001 Smart Pixe
 | USB-C data cable | Usually included with the clock |
 | A Mac (or any computer) | Mac has a one-click installer; Windows/Linux can use the command line |
 | WiFi (2.4 GHz) | The clock connects to your home WiFi |
-| Dexcom account or Nightscout URL | Your glucose data source |
+| Dexcom account, LibreLinkUp account, or Nightscout URL | Your glucose data source |
 
 ## Quick Start (Mac)
 
@@ -62,7 +62,7 @@ Open **SugarClock Setup** and follow the on-screen steps. The app will walk you 
 
 1. **Detect your clock** over USB
 2. **Pick your WiFi network** from a list
-3. **Connect your glucose source** (Dexcom Share, Nightscout, or custom URL)
+3. **Connect your glucose source** (Dexcom Share, FreeStyle Libre, Nightscout, or custom URL)
 4. **Set your preferences** (units, alerts, brightness, timezone)
 5. **Flash the firmware** — the app installs everything onto the clock automatically
 
@@ -122,7 +122,7 @@ Companion integrations: see the [configuration API and legacy-field migration no
 | Clock not detected via USB | Use a data cable (not charge-only), connect directly (no hub), install CH340 driver |
 | Upload fails | Hold middle button while plugging in USB to enter flash mode |
 | `NO WIFI` on display | Check SSID/password, make sure it's a 2.4 GHz network |
-| `NO DATA` on display | Check Dexcom credentials or server URL on the config page |
+| `NO DATA` on display | Check Dexcom/LibreLinkUp credentials or server URL on the config page |
 
 See the **[Help & FAQ](https://sugarclock.com/support.html)** for more.
 
@@ -140,6 +140,7 @@ esptool.py -p /dev/cu.usbserial-* -b 460800 write_flash 0x0 tc001_factory_backup
 
 - [AWTRIX3](https://blueforcer.github.io/awtrix3/#/) — LED matrix firmware for the TC001 that inspired this project
 - [pydexcom](https://github.com/gagebenne/pydexcom) — Dexcom Share API reference
+- [nightscout-librelink-up](https://github.com/timoschlueter/nightscout-librelink-up) — LibreLinkUp API reference
 - [OpenWeatherMap](https://openweathermap.org/) — Free weather API
 
 ## License

@@ -20,7 +20,7 @@ struct AppConfig {
     char wifi_anon_identity[128];  // optional outer identity
     bool wifi_validate_ca;         // default false; only meaningful with /wifi_ca.pem present
 
-    // Data source: 0=custom URL, 1=Dexcom Share, 2=Demo (synthetic data)
+    // Data source: 0=custom URL, 1=Dexcom Share, 2=Demo (synthetic data), 3=FreeStyle Libre
     int data_source;
 
     // Custom server
@@ -31,6 +31,11 @@ struct AppConfig {
     char dexcom_username[64];
     char dexcom_password[64];
     bool dexcom_us;            // true=US (share2), false=international (shareous1)
+
+    // FreeStyle Libre (LibreLinkUp follower account)
+    char libre_email[64];
+    char libre_password[64];
+    char libre_region[8];      // auto-detected from login redirect, e.g. "us"; "" = unknown
 
     int poll_interval_sec;     // default 60, min 15
 
@@ -159,6 +164,9 @@ bool config_has_server();
 
 // Check if Dexcom Share is configured
 bool config_has_dexcom();
+
+// Check if FreeStyle Libre (LibreLinkUp) is configured
+bool config_has_libre();
 
 // True when the saved network is configured as WPA2-Enterprise
 bool config_has_enterprise();
