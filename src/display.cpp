@@ -19,6 +19,8 @@ static FastLED_NeoMatrix matrix(
 
 static uint8_t current_brightness = 40;
 static uint8_t transition_level = 255;
+static bool composing_frame = false;
+static bool frame_pending = false;
 
 void display_init() {
     FastLED.addLeds<WS2812B, PIN_MATRIX_DATA, GRB>(leds, MATRIX_NUM_LEDS);
@@ -39,7 +41,24 @@ void display_clear() {
     matrix.fillScreen(0);
 }
 
+void display_begin_frame() {
+    composing_frame = true;
+    frame_pending = false;
+}
+
+void display_end_frame() {
+    composing_frame = false;
+    if (frame_pending) {
+        frame_pending = false;
+        display_show();
+    }
+}
+
 void display_show() {
+    // Normal, OTA and pairing renderers share one framebuffer. Sending each
+    // intermediate image makes the LEDs alternate even within a single loop.
+    if (composing_frame) {frame_pending = true;return;}
+
     uint8_t output_brightness = (uint8_t)(((uint16_t)current_brightness *
         transition_level + 127) / 255);
     FastLED.show(output_brightness);

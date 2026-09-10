@@ -32,15 +32,11 @@ final class ProcessRunner {
 
             // Use /bin/zsh -l -c to get a login shell so PATH includes Homebrew, etc.
             process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-            let fullCommand: String
-            if arguments.isEmpty {
-                fullCommand = command
-            } else {
-                let escapedArgs = arguments.map { arg in
-                    "'\(arg.replacingOccurrences(of: "'", with: "'\\''"))'"
-                }
-                fullCommand = "\(command) \(escapedArgs.joined(separator: " "))"
-            }
+            // Bundle paths contain spaces ("SugarClock Setup.app"). Quote the
+            // executable exactly like every argument; never interpret it as code.
+            let fullCommand = ([command] + arguments).map { value in
+                "'\(value.replacingOccurrences(of: "'", with: "'\\''"))'"
+            }.joined(separator: " ")
             process.arguments = ["-l", "-c", fullCommand]
 
             if let wd = workingDirectory {

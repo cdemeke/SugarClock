@@ -8,7 +8,7 @@ void ambient_fish_init();
 // The caller owns display_show(); this renderer clears the back buffer first.
 void ambient_fish_render();
 
-// Trigger the fish's short, silent bubble-and-tail response to the right button.
+// Trigger the fish's short, silent bubble-and-tail response to a right-button hold.
 void ambient_fish_interact();
 
 #endif // AMBIENT_FISH_H

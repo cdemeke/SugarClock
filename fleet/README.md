@@ -77,3 +77,12 @@ The lookup uses the HTTPS `ipwho.is` endpoint. Only city, region, and country co
 Run all host tests with `python -m unittest discover -s tests -v` after installing `fleet/requirements.txt`.
 
 Before each deployment, stop writes briefly and copy the SQLite database plus its WAL files from the named volume to encrypted storage. After deployment, require the container health check to pass, confirm `/healthz`, sign in through GitHub, verify the expected fleet count, and exercise one canary check-in before reopening enrollment or issuing commands.
+
+
+### Remote configuration scope (management protocol 1)
+
+The queue accepts only the device's current remote subset: `brightness` (1–255), `auto_brightness`, `show_delta`, `use_mmol`, `time_display_enabled`, `default_mode` (0–3), `ambient_enabled`, `ambient_creature` (0–1), `ambient_seasonal`, `notify_enabled`, `auto_cycle_enabled`, and `auto_cycle_sec` (3–300). Switches are JSON booleans. Unsupported fields reject the entire request before a command is inserted; valid fields are not silently split out of a mixed patch.
+
+Glucose thresholds, timezone and polling interval are not supported through `config_patch`; configure them locally. The local wire key is `poll_interval`; `poll_interval_sec` is a C++ member name, not a wire alias. Neither is accepted in fleet config patches. Secret/connectivity protection remains in place. Previously queued unsupported commands are not rewritten and may still fail on the device.
+
+The contract regression compares server validation with the real firmware fleet gate and `config_patch` for every supported field's types and boundaries. CI runs it again after firmware dependencies are installed.

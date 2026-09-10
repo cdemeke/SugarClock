@@ -82,10 +82,10 @@ void engine_reset_auto_cycle();
 void engine_show_connection_info();
 void engine_dismiss_connection_info();
 
-// Context-sensitive right button action
+// Advance to the next screen, or start/pause the timer or stopwatch.
 void engine_right_button_action();
 
-// Context-sensitive right long-press action
+// Interact with a Pixel Pet, reset a timer/stopwatch, or clear overrides.
 void engine_right_long_action();
 
 // Snooze buzzer alerts (called from button press)

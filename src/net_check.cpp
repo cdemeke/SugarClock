@@ -1,4 +1,6 @@
 #include "net_check.h"
+#include "http_client.h"
+#include "ble_manager.h"
 #include "config_manager.h"
 #include "wifi_manager.h"
 
@@ -56,12 +58,12 @@ static void resolve_data_host() {
     if (url[0] == '\0') return;
     const char* p = strstr(url, "://");
     p = p ? p + 3 : url;
-    const char* at = strchr(p, '@');
-    const char* slash = strchr(p, '/');
-    if (at && (!slash || at < slash)) p = at + 1;
+    size_t authority_len=strcspn(p,"/?#");
+    const char* at=static_cast<const char*>(memchr(p,'@',authority_len));
+    if(at) p=at+1;
 
     size_t i = 0;
-    while (p[i] && p[i] != '/' && p[i] != ':' && i < sizeof(data_host) - 1) {
+    while (p[i] && p[i] != '/' && p[i] != ':' && p[i] != '?' && p[i] != '#' && i < sizeof(data_host) - 1) {
         data_host[i] = p[i];
         i++;
     }
@@ -188,7 +190,14 @@ void netcheck_loop() {
             step = (res_dns == NC_OK) ? STEP_DATA : STEP_DONE;
             break;
         case STEP_DATA:
-            res_data = probe_data() ? NC_OK : NC_FAIL;
+            // An HTTP response already proves provider reachability, including
+            // an authentication rejection. Avoid a redundant TLS handshake.
+            if(http_get_last_response_code()>0) res_data=NC_OK;
+            else {
+                if(!ble_acquire_network()) return;
+                res_data = probe_data() ? NC_OK : NC_FAIL;
+                ble_release_network();
+            }
             step = STEP_NTP;
             break;
         case STEP_NTP:

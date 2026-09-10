@@ -47,6 +47,7 @@
                         <button type="button" class="btn btn-outline btn-sm" id="wifi-refresh-btn" onclick="refreshScan()">Refresh</button>
                     </div>
                     <div class="hint">Scanning borrows the radio for a few seconds, so this page may stall or briefly drop while it runs. If that happens, wait &mdash; it comes back on its own.</div>
+                    <div id="wifi-scan-message" class="hint" role="status"></div>
                     <div id="wifi-list" class="wifi-list">
                         <select id="wifi_network_picker" class="wifi-picker" onchange="selectDiscoveredNetwork()">
                             <option value="">Loading discovered networks…</option>
@@ -1056,6 +1057,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 const response = await fetch('/api/wifi/scan', {cache: 'no-store'});
                 const data = await response.json();
                 renderNetworks(data.networks || []);
+                document.getElementById('wifi-scan-message').textContent = data.error || '';
                 const button = document.getElementById('wifi-refresh-btn');
                 button.disabled = !!data.scanning;
                 button.textContent = data.scanning ? 'Scanning…' : 'Refresh';
@@ -1255,7 +1257,8 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 setCaState(c.has_wifi_ca);
                 onSecurityChange();
                 document.getElementById('data_source').value = c.data_source || 0;
-                document.getElementById('server_url').value = c.server_url || '';
+                document.getElementById('server_url').value = '';
+                document.getElementById('server_url').placeholder = c.has_server_url ? 'Configured — leave blank to keep' : 'https://example.com/api/glucose';
                 document.getElementById('auth_token').value = c.auth_token || '';
                 document.getElementById('dexcom_username').value = c.dexcom_username || '';
                 document.getElementById('dexcom_password').value = c.dexcom_password || '';
@@ -1520,7 +1523,17 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             res.textContent = '';
             try {
                 const r = await fetch('/api/test/glucose', { method: 'POST' });
-                const d = await r.json();
+                let d = await r.json();
+                if (d.queued) {
+                    const generation = d.after_generation;
+                    let completed = false;
+                    for (let attempt = 0; attempt < 60; attempt++) {
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        d = await (await fetch('/api/test/glucose')).json();
+                        if (d.generation > generation) { completed = true; break; }
+                    }
+                    if (!completed) throw new Error('Timed out waiting for the provider');
+                }
                 if (d.ok) {
                     res.textContent = 'Glucose: ' + d.glucose + ' mg/dL, Trend: ' + d.trend;
                     res.className = 'test-result test-success';

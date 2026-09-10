@@ -90,6 +90,13 @@ You may need the [CH340 USB driver](https://sparks.gogo.co.nz/ch340.html) on Win
 
 </details>
 
+## Clock Buttons
+
+- **Tap right:** next screen. On the timer or stopwatch, starts or pauses it.
+- **Tap left:** previous screen.
+- **Tap middle:** cycle brightness.
+- **Hold right on a Pixel Pet for one second:** the ghost waves or the fish reacts. Release and hold again to repeat.
+
 ## Firmware Updates
 
 Version 0.2.0 is the one-time OTA bootstrap release. Install it once over USB so the new
@@ -143,3 +150,13 @@ esptool.py -p /dev/cu.usbserial-* -b 460800 write_flash 0x0 tc001_factory_backup
 ## License
 
 MIT
+
+
+## iPhone companion (firmware 0.3.0 / protocol 1)
+
+The native [iOS companion source and build instructions](ios/README.md) support BLE
+pairing, saved clocks, settings, clock-side Wi-Fi trials and existing signed Wi-Fi OTA.
+See the [protocol specification](protocol/SUGARCLOCK_BLE_V1.md),
+[preservation migration paths](docs/BLE_MIGRATION.md), and
+[physical acceptance checklist](docs/BLE_ACCEPTANCE.md). Hardware qualification and
+Apple signing remain required before distribution; no release is published by this change.

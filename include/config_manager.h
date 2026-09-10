@@ -135,19 +135,30 @@ struct AppConfig {
 
     // Config validity marker
     uint32_t magic;            // 0xGLUC to verify config is initialized
+
+    // Appended to preserve the previous redo-journal layout.
+    bool glucose_enabled; // stop readings and glucose alerts when false
 };
 
 // Initialize config manager - loads from NVS or writes defaults
 void config_init();
 
 // Save current config to NVS
-void config_save();
+bool config_save();
+
+// Serialize short configuration transactions; never hold across network I/O.
+void config_lock();
+void config_unlock();
+struct ConfigGuard { ConfigGuard() { config_lock(); } ~ConfigGuard() { config_unlock(); } };
 
 // Reset to factory defaults
 void config_reset();
+bool config_bond_reset_pending();
+void config_bond_reset_finished();
 
 // Get reference to current config (mutable)
 AppConfig& config_get();
+AppConfig config_snapshot();
 
 // Check if config has WiFi credentials set
 bool config_has_wifi();
@@ -163,6 +174,7 @@ bool config_has_enterprise();
 
 // True after defaults or saved Preferences have been loaded successfully.
 bool config_is_loaded();
+bool config_is_durable();
 
 // --- 802.1X CA certificate, stored on LittleFS at /wifi_ca.pem ---
 
