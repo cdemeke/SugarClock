@@ -52,11 +52,13 @@ struct AppConfig {
     bool time_display_enabled; // include the time screen in navigation/auto-cycle
 
     // Display mode
-    int default_mode;          // 0=glucose, 1=time, 2=weather, 3=ambient creature
+    int default_mode;          // 0=glucose, 1=time, 2=weather, 3=pixel companion
 
-    // Ambient creature display
-    bool ambient_enabled;      // include the ambient creature in navigation/auto-cycle, default false
-    int ambient_creature;      // 0=fish, 1=ghost; default fish
+    // Pixel companion display
+    bool ambient_enabled;      // include the companion in navigation/auto-cycle, default false
+    int ambient_character;     // 0=Pip, 1=Boo, 2=Mochi, 3=Sprout, 4=Pebble, 5=Inky, 6=Maple; default Pip
+    int ambient_style;         // 0=companion + text, 1=companion + icon, 2=centered companion
+    bool ambient_use_glucose_colors; // use configured glucose colors for status, default false
     bool ambient_seasonal;     // Halloween/New Year surprises, default true
 
     // Alerts (buzzer on PIN 15)
