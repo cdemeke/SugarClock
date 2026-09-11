@@ -58,6 +58,7 @@ struct AppConfig {
     bool ambient_enabled;      // include the companion in navigation/auto-cycle, default false
     int ambient_character;     // 0=Pip, 1=Boo, 2=Mochi, 3=Sprout, 4=Pebble, 5=Inky, 6=Maple; default Pip
     int ambient_style;         // 0=companion + text, 1=companion + icon, 2=centered companion
+    bool ambient_use_glucose_colors; // use configured glucose colors for status, default false
     bool ambient_seasonal;     // Halloween/New Year surprises, default true
 
     // Alerts (buzzer on PIN 15)

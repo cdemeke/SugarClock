@@ -91,12 +91,17 @@
         }
         return pixels;
     }
-    function draw(canvas,id,ms,mood,style=0,range=0) {
+    function resolveColor(key, colors) {
+        const setting={a:'color_low',i:'color_in_range',r:'color_high'}[key];
+        if(colors && colors.ambient_use_glucose_colors && setting && /^#[0-9a-f]{6}$/i.test(colors[setting])) return colors[setting];
+        return palette[key]||'#07090d';
+    }
+    function draw(canvas,id,ms,mood,style=0,range=0,colors=null) {
         const ctx=canvas.getContext('2d');if(!ctx)return;
         ctx.imageSmoothingEnabled=false;
         frame(id,ms,mood==='sleepy',mood==='happy',style,range).forEach((row,y)=>row.forEach((c,x)=>{
-            ctx.fillStyle=palette[c]||'#07090d';ctx.fillRect(x,y,1,1);
+            ctx.fillStyle=resolveColor(c,colors);ctx.fillRect(x,y,1,1);
         }));
     }
-    scope.PixelCompanions={names,palette,valid,validStyle,frame,draw};
+    scope.PixelCompanions={names,palette,valid,validStyle,frame,resolveColor,draw};
 })(globalThis);

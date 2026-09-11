@@ -62,6 +62,7 @@ CONFIG_FIELDS = {
     "use_24h": (bool, None, None),
     "time_display_enabled": (bool, None, None),
     "default_mode": (int, 0, 3),
+    "ambient_use_glucose_colors": (bool, None, None),
     "ambient_style": (int, 0, 2),
     "ambient_creature": (int, 0, 1),
     "ambient_character": (int, 0, 6),

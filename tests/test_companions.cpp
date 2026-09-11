@@ -1,4 +1,5 @@
 #include "companion.h"
+#include "glucose_format.h"
 #include "ambient_fish.h"
 #include "config_manager.h"
 #include "display.h"
@@ -63,13 +64,14 @@ int main(int argc, char**) {
         cfg.ambient_character = id;
         ambient_fish_init(); reading.valid = true; reading.glucose = 120;
         ambient_fish_render(); assert(pixel_count > 20 && text[0] == 0);
-        for (int glucose : {60, 69, 251, 300}) {
+        for (int glucose : {60, 69, 251, 253, 262, 271, 280, 289, 300}) {
             reading.glucose = glucose;
             ambient_fish_interact(); ambient_fish_render();
             char expected[16]; snprintf(expected, sizeof(expected), "%d", glucose);
             assert(pixel_count == 0); assert(strcmp(text, expected) == 0);
             cfg.use_mmol = true; ambient_fish_render();
-            snprintf(expected, sizeof(expected), "%.1f", glucose / 18.018f);
+            format_glucose_value(expected, sizeof(expected), glucose, true);
+            if (glucose == 253) assert(strcmp(text, "14.1") == 0);
             assert(pixel_count == 0 && strcmp(text, expected) == 0);
             cfg.use_mmol = false;
         }
@@ -89,6 +91,24 @@ int main(int argc, char**) {
         memcpy(sleepy, screen, sizeof(screen));
         ambient_fish_init(); ambient_fish_render();
         assert(memcmp(sleepy, screen, sizeof(screen)) == 0);
+        // Custom range colors reach the hardware pixels without recoloring pets.
+        hour = 10; cfg.color_low = 0x1234ef; cfg.color_in_range = 0xefcd12; cfg.color_high = 0x6543ab;
+        for (bool custom : {false, true}) {
+            cfg.ambient_use_glucose_colors = custom;
+            for (int range = 0; range < 3; ++range) {
+                reading.glucose = range == 1 ? 75 : range == 2 ? 200 : 120;
+                ambient_fish_init(); ambient_fish_render();
+                char frame[8][32]; companion_frame(id, 0, false, false, frame, style, range);
+                for (int y=0; y<8; ++y) for(int x=0; x<32; ++x) {
+                    char key = frame[y][x];
+                    if(key!='a' && key!='i' && key!='r') continue;
+                    uint32_t packed = custom ? (key=='a'?cfg.color_low:key=='i'?cfg.color_in_range:cfg.color_high) : companion_color(key);
+                    assert(screen[y][x] == display_color(packed>>16,packed>>8,packed));
+                }
+            }
+        }
+        cfg.ambient_use_glucose_colors = false;
+        reading.glucose = 120;
         // Animated frames remain bounded across poses and millis rollover.
         for (uint32_t ms : {0u, 100u, 4030u, 0xfffffff0u}) {
             for (int mood = 0; mood < 3; ++mood) {

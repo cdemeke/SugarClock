@@ -63,6 +63,7 @@ static void config_set_defaults() {
     config.ambient_enabled = false;
     config.ambient_character = COMPANION_FISH;
     config.ambient_style = COMPANION_TEXT;
+    config.ambient_use_glucose_colors = false;
     config.ambient_seasonal = true;
 
     // Alerts
@@ -267,6 +268,7 @@ void config_init() {
         config.ambient_enabled = prefs.getBool("amb_en", prefs.getBool("fish_en", previous_ambient_enabled));
         config.ambient_seasonal = prefs.getBool("amb_season", prefs.getBool("fish_season", previous_ambient_seasonal));
         config.ambient_character = companion_or_default(prefs.getInt("pal_type", prefs.getInt("amb_kind", COMPANION_FISH)));
+        config.ambient_use_glucose_colors = prefs.getBool("pal_colors", false);
         config.ambient_style = companion_style_or_default(prefs.getInt("pal_style", COMPANION_TEXT));
 
         // Alerts
@@ -406,6 +408,7 @@ void config_save() {
     prefs.putInt("pal_type", config.ambient_character);
     config.ambient_style = companion_style_or_default(config.ambient_style);
     prefs.putInt("pal_style", config.ambient_style);
+    prefs.putBool("pal_colors", config.ambient_use_glucose_colors);
     prefs.putBool("amb_season", config.ambient_seasonal);
 
     // Alerts

@@ -179,6 +179,7 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     doc["ambient_creature"] = cfg.ambient_character == COMPANION_GHOST ? 1 : 0;
     doc["ambient_character"] = cfg.ambient_character;
     doc["ambient_style"] = cfg.ambient_style;
+    doc["ambient_use_glucose_colors"] = cfg.ambient_use_glucose_colors;
     doc["ambient_seasonal"] = cfg.ambient_seasonal;
 
     // Alerts
@@ -287,6 +288,12 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
         return;
     }
 
+    if (doc.as<JsonObjectConst>().containsKey("ambient_use_glucose_colors") &&
+        !doc["ambient_use_glucose_colors"].is<bool>()) {
+        request->send(400, "application/json", "{\"error\":\"Invalid companion color setting\"}");
+        return;
+    }
+
     AppConfig& cfg = config_get();
 
     if (doc["wifi_ssid"].is<const char*>()) {
@@ -381,6 +388,9 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     }
     if (doc["ambient_enabled"].is<bool>()) {
         cfg.ambient_enabled = doc["ambient_enabled"].as<bool>();
+    }
+    if (doc["ambient_use_glucose_colors"].is<bool>()) {
+        cfg.ambient_use_glucose_colors = doc["ambient_use_glucose_colors"].as<bool>();
     }
     if (doc["ambient_style"].is<int>()) {
         cfg.ambient_style = doc["ambient_style"].as<int>();

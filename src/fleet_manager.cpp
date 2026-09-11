@@ -330,6 +330,7 @@ static bool apply_config_patch(JsonObjectConst changes) {
             (strcmp(name, "use_mmol") == 0 && value.is<bool>()) ||
             (strcmp(name, "time_display_enabled") == 0 && value.is<bool>()) ||
             (strcmp(name, "default_mode") == 0 && value.is<int>() && value.as<int>() >= 0 && value.as<int>() <= 3) ||
+            (strcmp(name, "ambient_use_glucose_colors") == 0 && value.is<bool>()) ||
             (strcmp(name, "ambient_style") == 0 && value.is<int>() && companion_style_valid(value.as<int>())) ||
             (strcmp(name, "ambient_creature") == 0 && value.is<int>() && value.as<int>() >= 0 && value.as<int>() <= 1) ||
             (strcmp(name, "ambient_character") == 0 && value.is<int>() && companion_valid(value.as<int>())) ||
@@ -350,6 +351,7 @@ static bool apply_config_patch(JsonObjectConst changes) {
         else if (strcmp(name, "use_mmol") == 0 && value.is<bool>()) cfg.use_mmol = value.as<bool>();
         else if (strcmp(name, "time_display_enabled") == 0 && value.is<bool>()) cfg.time_display_enabled = value.as<bool>();
         else if (strcmp(name, "default_mode") == 0) cfg.default_mode = value.as<int>();
+        else if (strcmp(name, "ambient_use_glucose_colors") == 0) cfg.ambient_use_glucose_colors = value.as<bool>();
         else if (strcmp(name, "ambient_style") == 0) cfg.ambient_style = value.as<int>();
         else if (strcmp(name, "ambient_creature") == 0 && !changes.containsKey("ambient_character")) cfg.ambient_character = value.as<int>();
         else if (strcmp(name, "ambient_character") == 0) cfg.ambient_character = value.as<int>();

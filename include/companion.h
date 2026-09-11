@@ -41,6 +41,17 @@ inline uint32_t companion_color(char key) {
     }
 }
 
+// Only status pixels use configured colors; character artwork stays unchanged.
+inline uint32_t companion_resolve_color(char key, bool use_glucose_colors,
+                                        uint32_t low, uint32_t in_range, uint32_t high) {
+    if (use_glucose_colors) {
+        if (key == 'a') return low;
+        if (key == 'i') return in_range;
+        if (key == 'r') return high;
+    }
+    return companion_color(key);
+}
+
 // Pure renderer shared by firmware and the parity-tested web preview. Draw the
 // pet in a local 14-column area, then center its actual silhouette in its region.
 inline void companion_frame(int id, uint32_t ms, bool sleepy, bool happy, char (&pixels)[8][32],

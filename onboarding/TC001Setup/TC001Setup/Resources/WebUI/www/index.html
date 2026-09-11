@@ -187,7 +187,7 @@
                             <option value="0">mg/dL</option>
                             <option value="1">mmol/L</option>
                         </select>
-                        <div class="hint">mmol/L values are converted from mg/dL (divided by 18.018)</div>
+                        <div class="hint">mmol/L values are converted from mg/dL (divided by 18)</div>
                     </div>
                 </div>
 
@@ -259,7 +259,7 @@
                     </div>
                     <div class="card-details collapsed" id="ambient-details">
                         <p class="ambient-description">
-                            Choose a friend that wiggles, naps, and reacts to the time of day. Press the clock's right button while your companion is showing for a little hello. Every companion stays silent.
+                            Choose a friend that wiggles, naps, and reacts to the time of day. When glucose is in range, press the clock's right button for a little hello. Every companion stays silent.
                         </p>
                         <div class="form-group">
                             <label for="ambient_character">Choose your companion</label>
@@ -294,6 +294,13 @@
                                 <div class="hint">Preview only; uses your saved glucose thresholds on the clock.</div>
                             </div>
                         </div>
+                        <div class="toggle-row">
+                            <div>
+                                <label for="ambient_use_glucose_colors">Use my glucose colors</label>
+                                <div class="hint">Use the colors chosen under Blood Sugar for the range text and icon. Off keeps red LOW/HIGH and green OK.</div>
+                            </div>
+                            <input type="checkbox" id="ambient_use_glucose_colors">
+                        </div>
                         <div class="ambient-preview-shell">
                             <div class="ambient-preview-meta">
                                 <span id="ambient-preview-name">Pip the goldfish</span>
@@ -309,7 +316,7 @@
                             <button type="button" class="btn btn-outline" data-companion-mood="happy" aria-pressed="false">Say hello</button>
                             <button type="button" class="btn btn-outline" id="ambient-preview-pause" aria-pressed="false">Pause preview</button>
                         </div>
-                        <div class="hint ambient-preview-caption">Preview only. Save settings to apply your companion to the clock.</div>
+                        <div class="hint ambient-preview-caption">Preview only. Sleepy and Say hello apply only in range. Save settings to apply your companion to the clock.</div>
                         <div class="toggle-row ambient-seasonal-row">
                             <div>
                                 <label for="ambient_seasonal">Seasonal surprises</label>
@@ -318,7 +325,7 @@
                             <input type="checkbox" id="ambient_seasonal" checked>
                         </div>
                         <div class="ambient-note">
-                            Your companion uses your glucose thresholds to choose its pose and range label or icon: red for low, green for in range, and red for high. Low and high poses stay awake during rest hours. Urgent-low and urgent-high readings replace the entire companion screen with the glucose number, in every display style. Stale or missing data keeps the warning screen.
+                            Your companion uses your glucose thresholds to choose its pose and range label or icon: red for low/high and green for in range by default, or your glucose colors when enabled. Low and high poses stay awake during rest hours. Urgent-low and urgent-high readings replace the entire companion screen with the glucose number, in every display style. Stale or missing data keeps the warning screen.
                         </div>
                     </div>
                 </div>
@@ -941,14 +948,19 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             const style = Number(document.getElementById('ambient_style').value);
             const range = Number(document.getElementById('companion-preview-range').value);
             canvas.setAttribute('aria-label', name + ' preview: ' + ['in range', 'low', 'high'][range]);
+            const customColors = document.getElementById('ambient_use_glucose_colors').checked;
+            const colors = {ambient_use_glucose_colors: customColors};
+            ['low','in_range','high'].forEach(key => colors['color_'+key] = document.getElementById('color_'+key).value);
             document.getElementById('ambient-style-hint').textContent = [
-                'Red LOW, green OK, red HIGH.',
-                'Lit marker: bottom = low (red), middle = in range (green), top = high (red).',
+                customColors ? 'LOW / OK / HIGH use your Blood Sugar colors.' : 'Red LOW, green OK, red HIGH.',
+                customColors ? 'Bottom = low, middle = in range, top = high, using your Blood Sugar colors.' : 'Lit marker: bottom = low (red), middle = in range (green), top = high (red).',
                 'Your pet stays centered, with no range text or icon.'
             ][style];
             document.getElementById('ambient-preview-name').textContent = name;
-            PixelCompanions.draw(canvas, id, companionPreviewMs, companionPreviewMood, style, range);
+            if (range !== 0) companionPreviewMood = 'awake';
+            PixelCompanions.draw(canvas, id, companionPreviewMs, companionPreviewMood, style, range, colors);
             document.querySelectorAll('[data-companion-mood]').forEach(button => {
+                button.disabled = range !== 0 && button.dataset.companionMood !== 'awake';
                 button.setAttribute('aria-pressed', String(button.dataset.companionMood === companionPreviewMood));
             });
             const pause = document.getElementById('ambient-preview-pause');
@@ -1286,6 +1298,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 document.getElementById('ambient_enabled').checked = c.ambient_enabled || false;
                 document.getElementById('ambient_seasonal').checked = c.ambient_seasonal !== false;
                 document.getElementById('ambient_character').value = PixelCompanions.valid(c.ambient_character) ? c.ambient_character : 0;
+                document.getElementById('ambient_use_glucose_colors').checked = c.ambient_use_glucose_colors === true;
                 document.getElementById('ambient_style').value = PixelCompanions.validStyle(c.ambient_style) ? c.ambient_style : 0;
                 drawCompanionPreview();
                 updateAmbientDisplaySetting();
@@ -1306,6 +1319,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 if (c.color_high) document.getElementById('color_high').value = c.color_high;
                 if (c.color_urgent_high) document.getElementById('color_urgent_high').value = c.color_urgent_high;
                 if (c.color_stale) document.getElementById('color_stale').value = c.color_stale;
+                drawCompanionPreview();
                 ['urgent_low','low','in_range','high','urgent_high','stale'].forEach(k => {
                     const inp = document.getElementById('color_' + k);
                     const hex = document.getElementById('hex_' + k);
@@ -1413,6 +1427,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 ambient_enabled: document.getElementById('ambient_enabled').checked,
                 ambient_seasonal: document.getElementById('ambient_seasonal').checked,
                 ambient_character: Number(document.getElementById('ambient_character').value),
+                ambient_use_glucose_colors: document.getElementById('ambient_use_glucose_colors').checked,
                 ambient_style: Number(document.getElementById('ambient_style').value),
                 thresh_urgent_low: parseInt(document.getElementById('thresh_urgent_low').value),
                 thresh_low: parseInt(document.getElementById('thresh_low').value),
@@ -1654,7 +1669,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
         document.getElementById('ambient_enabled')
             .addEventListener('change', updateAmbientDisplaySetting);
         updateAmbientDisplaySetting();
-        ['ambient_character', 'ambient_style', 'companion-preview-range'].forEach(id => {
+        ['ambient_character', 'ambient_style', 'ambient_use_glucose_colors', 'companion-preview-range'].forEach(id => {
             document.getElementById(id).addEventListener('change', () => {
                 companionPreviewMs = 0;
                 drawCompanionPreview();
@@ -1681,6 +1696,10 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             companionPreviewMs += 100;
             drawCompanionPreview();
         }, 100);
+
+        ['color_low','color_in_range','color_high'].forEach(id => {
+            document.getElementById(id).addEventListener('input', drawCompanionPreview);
+        });
 
         loadConfig();
         loadWifiScan();
