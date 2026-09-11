@@ -51,9 +51,9 @@ class FleetProtocolFixtureTests(unittest.TestCase):
             validate_command("config_patch", {"changes": {"default_mode": 4}})
 
     def test_companion_selection_is_validated(self):
-        for character in range(4):
+        for character in range(7):
             validate_command("config_patch", {"changes": {"ambient_character": character}})
-        for character in (-1, 4, True, "1", 1.5, None):
+        for character in (-1, 7, True, "1", 1.5, None):
             with self.assertRaises(ApiError):
                 validate_command("config_patch", {"changes": {"ambient_character": character}})
 

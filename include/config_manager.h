@@ -56,7 +56,7 @@ struct AppConfig {
 
     // Pixel companion display
     bool ambient_enabled;      // include the companion in navigation/auto-cycle, default false
-    int ambient_character;     // 0=Pip, 1=Boo, 2=Mochi, 3=Sprout; default Pip
+    int ambient_character;     // 0=Pip, 1=Boo, 2=Mochi, 3=Sprout, 4=Pebble, 5=Inky, 6=Maple; default Pip
     int ambient_style;         // 0=companion + text, 1=companion + icon, 2=centered companion
     bool ambient_seasonal;     // Halloween/New Year surprises, default true
 

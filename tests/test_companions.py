@@ -30,7 +30,7 @@ class CompanionTests(unittest.TestCase):
         script = '''
 require(process.argv[1]);
 for(let style=0;style<3;style++)for(let range=0;range<3;range++)
-for(let id=0;id<4;id++)for(let mood=0;mood<3;mood++)for(let ms=0;ms<15000;ms+=100)
+for(let id=0;id<PixelCompanions.names.length;id++)for(let mood=0;mood<3;mood++)for(let ms=0;ms<15000;ms+=100)
     console.log(PixelCompanions.frame(id,ms,mood===1,mood===2,style,range).flat().join(''));
 '''
         preview = subprocess.check_output(['node', '-e', script, str(ROOT / 'data/www/companions.js')], text=True)

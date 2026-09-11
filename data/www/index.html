@@ -268,6 +268,9 @@
                                 <option value="1">Boo &mdash; Ghost</option>
                                 <option value="2">Mochi &mdash; Axolotl</option>
                                 <option value="3">Sprout &mdash; Dinosaur</option>
+                                <option value="4">Pebble &mdash; Turtle</option>
+                                <option value="5">Inky &mdash; Octopus</option>
+                                <option value="6">Maple &mdash; Red panda</option>
                             </select>
                             <div class="hint">Your choice is remembered when the clock restarts.</div>
                         </div>
@@ -279,7 +282,7 @@
                                     <option value="1">Companion + range icon</option>
                                     <option value="2">Companion only (centered)</option>
                                 </select>
-                                <div class="hint" id="ambient-style-hint">Orange LOW, green OK, red HIGH.</div>
+                                <div class="hint" id="ambient-style-hint">Red LOW, green OK, red HIGH.</div>
                             </div>
                             <div class="form-group">
                                 <label for="companion-preview-range">Preview glucose range</label>
@@ -315,7 +318,7 @@
                             <input type="checkbox" id="ambient_seasonal" checked>
                         </div>
                         <div class="ambient-note">
-                            Your companion uses your glucose thresholds to choose its pose and range label or icon: orange for low, green for in range, and red for high. Low and high poses stay awake during rest hours. Urgent-low and urgent-high readings replace the entire companion screen with the glucose number, in every display style. Stale or missing data keeps the warning screen.
+                            Your companion uses your glucose thresholds to choose its pose and range label or icon: red for low, green for in range, and red for high. Low and high poses stay awake during rest hours. Urgent-low and urgent-high readings replace the entire companion screen with the glucose number, in every display style. Stale or missing data keeps the warning screen.
                         </div>
                     </div>
                 </div>
@@ -939,8 +942,8 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             const range = Number(document.getElementById('companion-preview-range').value);
             canvas.setAttribute('aria-label', name + ' preview: ' + ['in range', 'low', 'high'][range]);
             document.getElementById('ambient-style-hint').textContent = [
-                'Orange LOW, green OK, red HIGH.',
-                'Lit marker: bottom = low (orange), middle = in range (green), top = high (red).',
+                'Red LOW, green OK, red HIGH.',
+                'Lit marker: bottom = low (red), middle = in range (green), top = high (red).',
                 'Your pet stays centered, with no range text or icon.'
             ][style];
             document.getElementById('ambient-preview-name').textContent = name;

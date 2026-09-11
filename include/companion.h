@@ -6,7 +6,7 @@
 #include <initializer_list>
 
 // Persisted IDs: keep Pip at zero for upgrades from Ambient Fish.
-enum Companion { COMPANION_FISH, COMPANION_GHOST, COMPANION_AXOLOTL, COMPANION_DINO, COMPANION_COUNT };
+enum Companion { COMPANION_FISH, COMPANION_GHOST, COMPANION_AXOLOTL, COMPANION_DINO, COMPANION_TURTLE, COMPANION_OCTOPUS, COMPANION_RED_PANDA, COMPANION_COUNT };
 inline bool companion_valid(int id) { return id >= 0 && id < COMPANION_COUNT; }
 inline int companion_or_default(int id) { return companion_valid(id) ? id : COMPANION_FISH; }
 
@@ -17,7 +17,7 @@ inline int companion_style_or_default(int style) { return companion_style_valid(
 
 inline uint32_t companion_color(char key) {
     switch (key) {
-        case 'a': return 0xf6a644; // low: orange
+        case 'a': return 0xf06460; // low: red
         case 'r': return 0xf06460; // high: red
         case 'i': return 0x94e6a1; // in range: green
         case 'u': return 0x263b32; // unlit range marker
@@ -33,6 +33,9 @@ inline uint32_t companion_color(char key) {
         case 'L': return 0x94e6a1;
         case 'D': return 0x50ad7c;
         case 'H': return 0xff83ac;
+        case 'C': return 0xfff1d7; // cream cheeks
+        case 'V': return 0xc997ff; // octopus
+        case 'T': return 0x8f5c47; // red panda feet
         case 'B': return 0x74bfdc;
         default: return 0;
     }
@@ -50,6 +53,23 @@ inline void companion_frame(int id, uint32_t ms, bool sleepy, bool happy, char (
         {"............","......LLLLL.",".....LLLELLL",".....LLLLLLL","L...DLLLL...","LL.DLLLLLL..",".LLLLLYL....","...LL.LL...."},
         {"............","............","......LLLLL.",".....LLLELLL","L...DLLLLLLL","LLLDLLLLL...","..LLLYLLLL..","...LL.LL...."},
         {"......LLLLL.",".....LLLELLL",".....LLLLLLL","....DLLLL...","L..DLLLLLL..","LL.LLLYL....",".LLLLLLL....","....L..L...."}
+    };
+    static const char* const newcomers[3][3][8] = {
+        {
+            {"..............","....LLLL......","...LDLLDL.....","..LDDLDDDL.LL.","..LDLLLDLL.LEL",".LLLLLLLLLLLL.","...L....L.....","..LL...LL....."},
+            {"..............","..............","....LLLL......","...LDLLDL.....","..LDDLDDDL....",".LLLLLLLLLLEL.","...L....L.....","..LL...LL....."},
+            {"..............","....LLLL..LL..","...LDLLDL.LEL.","..LDDLDDDLLLL.","..LDLLLDLL.L..",".LLLLLLLLLLL..","...L....L.....","...LL...LL...."}
+        },
+        {
+            {"....VVVV......","...VVVVVV.....","..VVVVVVVV....","..VCEVVCEV....","..VVVVVVVV....","...VVVVVV.....","..VV.VV.VV....",".VV..VV..VV..."},
+            {"..............","....VVVV......","...VVVVVV.....","..VVVVVVVV....","..VCEVVCEV....","..VVVVVVVV....","...VVVVVV.....","..VV.VV.VV...."},
+            {"....VVVV......","...VVVVVV.....","..VVVVVVVV....","..VCEVVCEV....","V.VVVVVVVV.V..","VV.VVVVVV.VV..","..VV.VV.VV....",".VV..VV..VV..."}
+        },
+        {
+            {".O...O........",".OCCCO........","OOOOOOO.......","OCECECO....OO.","OCCYCCO...OYY.",".OOOOO...YYOO.",".TTTTT.OOYY...",".TT.TT.OO....."},
+            {"..............",".O...O........",".OCCCO........","OOOOOOO.......","OCECECO.......","OCCYCCO....OO.",".OOOOO.OOYYOO.",".TT.TT.YYOO..."},
+            {".O...O.....OO.",".OCCCO....OYY.","OOOOOOO...YYO.","OCECECO...OO..","OCCYCCO..YY...","OOOOOOO..OO...",".TTTTT.OO.....",".TT.TT.OO....."}
+        }
     };
     id = companion_or_default(id);
     style = companion_style_or_default(style);
@@ -91,7 +111,7 @@ inline void companion_frame(int id, uint32_t ms, bool sleepy, bool happy, char (
             if (phase) { put(3,0,'.'); put(11,0,'.'); }
         } else if (phase) { put(3,0,'.'); put(11,0,'.'); put(2,1,'G'); put(12,1,'G'); }
         if (sleepy) for (int x : {5, 9}) { put(x, sy+3, 'P'); put(x, sy+4, 'E'); }
-    } else {
+    } else if (id == COMPANION_DINO) {
         sprite(dino[range], 8, 1, 0);
         if (phase) {
             if (range == COMPANION_LOW) { put(1,4,'.'); put(1,5,'L'); put(2,5,'.'); put(2,6,'L'); }
@@ -99,6 +119,24 @@ inline void companion_frame(int id, uint32_t ms, bool sleepy, bool happy, char (
             else { put(5,7,'.'); put(8,7,'.'); put(6,7,'L'); put(9,7,'L'); }
         }
         if (sleepy) { put(9,2,'L'); put(9,3,'E'); }
+    } else {
+        sprite(newcomers[id - COMPANION_TURTLE][range], 8, 0, 0);
+        if (id == COMPANION_TURTLE) {
+            if (phase) { put(2,7,'.'); put(7,7,'.'); put(4,7,'L'); put(9,7,'L'); }
+            if (sleepy) { put(12,4,'L'); put(12,5,'E'); }
+            if (happy) { put(10,6,'L'); put(11,phase?5:6,'L'); }
+        } else if (id == COMPANION_OCTOPUS) {
+            if (phase) {
+                put(1,7,'.'); put(10,7,'.'); put(3,7,'V'); put(8,7,'V');
+                if (range == COMPANION_LOW) { put(2,7,'.'); put(9,7,'.'); }
+            }
+            if (sleepy) for (int x : {4,8}) { put(x,3,'V'); put(x,4,'E'); }
+            if (happy) { put(0,4,'V'); put(11,4,'V'); put(1,phase?3:5,'V'); put(10,phase?3:5,'V'); }
+        } else {
+            if (phase) { put(7,7,'.'); put(8,7,'.'); put(9,7,'O'); put(10,6,'Y'); }
+            if (sleepy) for (int x : {2,4}) { put(x,3,'C'); put(x,4,'E'); }
+            if (happy) { put(0,phase?4:5,'O'); put(6,phase?4:5,'O'); }
+        }
     }
     int left=14, right=-1;
     for (int y=0; y<8; ++y) for (int x=0; x<14; ++x) if (pet[y][x] != '.') {

@@ -1,9 +1,9 @@
 // Pixel-for-pixel parity with include/companion.h is verified in test_companions.py.
 (function(scope) {
     'use strict';
-    const names=['Pip the goldfish','Boo the ghost','Mochi the axolotl','Sprout the dinosaur'];
-    const palette={a:'#f6a644',r:'#f06460',i:'#94e6a1',u:'#263b32',W:'#d1fff1',M:'#86dfd1',S:'#4b9d9d',E:'#0b1725',O:'#ff9d48',Y:'#ffd47c',R:'#e57439',P:'#ffc8d9',G:'#ec779e',L:'#94e6a1',D:'#50ad7c',H:'#ff83ac',B:'#74bfdc'};
-    const valid=id=>Number.isInteger(id)&&id>=0&&id<4;
+    const names=['Pip the goldfish','Boo the ghost','Mochi the axolotl','Sprout the dinosaur','Pebble the turtle','Inky the octopus','Maple the red panda'];
+    const palette={a:'#f06460',r:'#f06460',i:'#94e6a1',u:'#263b32',W:'#d1fff1',M:'#86dfd1',S:'#4b9d9d',E:'#0b1725',O:'#ff9d48',Y:'#ffd47c',R:'#e57439',P:'#ffc8d9',G:'#ec779e',L:'#94e6a1',D:'#50ad7c',H:'#ff83ac',B:'#74bfdc',C:'#fff1d7',V:'#c997ff',T:'#8f5c47'};
+    const valid=id=>Number.isInteger(id)&&id>=0&&id<names.length;
     const validStyle=style=>Number.isInteger(style)&&style>=0&&style<3;
     const fish=['.....YY......','....OOOOO..Y.','..YOOOOOOOYY.','.OOOEOOOOOYYY','..OOOOOOOOYY.','...RRRORR..Y.','......Y......'];
     const ghost=['...WWW...','..WWWWW..','.WWWWWWW.','.WEWWEWW.','.WWWWWWW.','.MWWEWWM.','.MM.M.MM.'];
@@ -14,6 +14,7 @@
         ['............','............','......LLLLL.','.....LLLELLL','L...DLLLLLLL','LLLDLLLLL...','..LLLYLLLL..','...LL.LL....'],
         ['......LLLLL.','.....LLLELLL','.....LLLLLLL','....DLLLL...','L..DLLLLLL..','LL.LLLYL....','.LLLLLLL....','....L..L....']
     ];
+    const newcomers=[[["..............","....LLLL......","...LDLLDL.....","..LDDLDDDL.LL.","..LDLLLDLL.LEL",".LLLLLLLLLLLL.","...L....L.....","..LL...LL....."],["..............","..............","....LLLL......","...LDLLDL.....","..LDDLDDDL....",".LLLLLLLLLLEL.","...L....L.....","..LL...LL....."],["..............","....LLLL..LL..","...LDLLDL.LEL.","..LDDLDDDLLLL.","..LDLLLDLL.L..",".LLLLLLLLLLL..","...L....L.....","...LL...LL...."]],[["....VVVV......","...VVVVVV.....","..VVVVVVVV....","..VCEVVCEV....","..VVVVVVVV....","...VVVVVV.....","..VV.VV.VV....",".VV..VV..VV..."],["..............","....VVVV......","...VVVVVV.....","..VVVVVVVV....","..VCEVVCEV....","..VVVVVVVV....","...VVVVVV.....","..VV.VV.VV...."],["....VVVV......","...VVVVVV.....","..VVVVVVVV....","..VCEVVCEV....","V.VVVVVVVV.V..","VV.VVVVVV.VV..","..VV.VV.VV....",".VV..VV..VV..."]],[[".O...O........",".OCCCO........","OOOOOOO.......","OCECECO....OO.","OCCYCCO...OYY.",".OOOOO...YYOO.",".TTTTT.OOYY...",".TT.TT.OO....."],["..............",".O...O........",".OCCCO........","OOOOOOO.......","OCECECO.......","OCCYCCO....OO.",".OOOOO.OOYYOO.",".TT.TT.YYOO..."],[".O...O.....OO.",".OCCCO....OYY.","OOOOOOO...YYO.","OCECECO...OO..","OCCYCCO..YY...","OOOOOOO..OO...",".TTTTT.OO.....",".TT.TT.OO....."]]];
     const font={L:['100','100','100','100','111'],O:['111','101','101','101','111'],W:['101','101','101','111','101'],K:['101','101','110','101','101'],H:['101','101','111','101','101'],I:['111','010','010','010','111'],G:['111','100','101','101','111']};
     // Styles: 0=text, 1=range icon, 2=centered pet. Ranges: 0=in range, 1=low, 2=high.
     function frame(id,ms,sleepy,happy,style=0,range=0) {
@@ -51,7 +52,7 @@
                 if(phase){put(3,0,'.');put(11,0,'.');}
             }else if(phase){put(3,0,'.');put(11,0,'.');put(2,1,'G');put(12,1,'G');}
             if(sleepy)for(const x of [5,9]){put(x,sy+3,'P');put(x,sy+4,'E');}
-        }else{
+        }else if(id===3){
             sprite(dino[range],1,0);
             if(phase){
                 if(range===1){put(1,4,'.');put(1,5,'L');put(2,5,'.');put(2,6,'L');}
@@ -59,6 +60,21 @@
                 else{put(5,7,'.');put(8,7,'.');put(6,7,'L');put(9,7,'L');}
             }
             if(sleepy){put(9,2,'L');put(9,3,'E');}
+        }else{
+            sprite(newcomers[id-4][range],0,0);
+            if(id===4){
+                if(phase){put(2,7,'.');put(7,7,'.');put(4,7,'L');put(9,7,'L');}
+                if(sleepy){put(12,4,'L');put(12,5,'E');}
+                if(happy){put(10,6,'L');put(11,phase?5:6,'L');}
+            }else if(id===5){
+                if(phase){put(1,7,'.');put(10,7,'.');put(3,7,'V');put(8,7,'V');if(range===1){put(2,7,'.');put(9,7,'.');}}
+                if(sleepy)for(const x of [4,8]){put(x,3,'V');put(x,4,'E');}
+                if(happy){put(0,4,'V');put(11,4,'V');put(1,phase?3:5,'V');put(10,phase?3:5,'V');}
+            }else{
+                if(phase){put(7,7,'.');put(8,7,'.');put(9,7,'O');put(10,6,'Y');}
+                if(sleepy)for(const x of [2,4]){put(x,3,'C');put(x,4,'E');}
+                if(happy){put(0,phase?4:5,'O');put(6,phase?4:5,'O');}
+            }
         }
         let left=14,right=-1;
         pet.forEach(row=>row.forEach((c,x)=>{if(c!=='.'){left=Math.min(left,x);right=Math.max(right,x);}}));

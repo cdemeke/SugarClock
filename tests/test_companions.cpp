@@ -42,7 +42,7 @@ void display_draw_text(const char* value, int, int, uint16_t) { snprintf(text, s
 int main(int argc, char**) {
     if (argc > 1) {
         for (int style = 0; style < 3; ++style) for (int range = 0; range < 3; ++range)
-        for (int id = 0; id < 4; ++id) for (int mood = 0; mood < 3; ++mood)
+        for (int id = 0; id < COMPANION_COUNT; ++id) for (int mood = 0; mood < 3; ++mood)
             for (uint32_t ms = 0; ms < 15000; ms += 100) {
                 char pixels[8][32]; companion_frame(id, ms, mood == 1, mood == 2, pixels, style, range);
                 fwrite(pixels, 1, sizeof(pixels), stdout); putchar('\n');
@@ -50,15 +50,15 @@ int main(int argc, char**) {
         return 0;
     }
     assert(companion_or_default(-1) == COMPANION_FISH);
-    assert(companion_or_default(4) == COMPANION_FISH);
+    assert(companion_or_default(COMPANION_COUNT) == COMPANION_FISH);
     assert(companion_style_or_default(-1) == COMPANION_TEXT);
     assert(companion_style_or_default(3) == COMPANION_TEXT);
-    assert(companion_color('a') == 0xf6a644);
+    assert(companion_color('a') == 0xf06460);
     assert(companion_color('r') == 0xf06460);
     cfg.data_source = 2; cfg.thresh_urgent_low = 70; cfg.thresh_low = 80;
     cfg.thresh_high = 180; cfg.thresh_urgent_high = 250;
     cfg.ambient_seasonal = true;
-    for (int style = 0; style < 3; ++style) for (int id = 0; id < 4; ++id) {
+    for (int style = 0; style < 3; ++style) for (int id = 0; id < COMPANION_COUNT; ++id) {
         cfg.ambient_style = style;
         cfg.ambient_character = id;
         ambient_fish_init(); reading.valid = true; reading.glucose = 120;
@@ -107,7 +107,7 @@ int main(int argc, char**) {
         ever_received = true; cfg.data_source = 2;
         cfg.ambient_seasonal = true; hour = 10;
     }
-    for (int style=0; style<3; ++style) for (int id=0; id<4; ++id) for (int range=0; range<3; ++range) {
+    for (int style=0; style<3; ++style) for (int id=0; id<COMPANION_COUNT; ++id) for (int range=0; range<3; ++range) {
         char initial[8][32]; companion_frame(id,0,false,false,initial,style,range);
         for (uint32_t ms=0; ms<10000; ms+=100) {
             char pixels[8][32]; companion_frame(id,ms,false,false,pixels,style,range);
