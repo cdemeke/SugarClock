@@ -957,11 +957,11 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 'Your pet stays centered, with no range text or icon.'
             ][style];
             document.getElementById('ambient-preview-name').textContent = name;
-            if (range !== 0) companionPreviewMood = 'awake';
-            PixelCompanions.draw(canvas, id, companionPreviewMs, companionPreviewMood, style, range, colors);
+            const displayedMood = range === 0 ? companionPreviewMood : 'awake';
+            PixelCompanions.draw(canvas, id, companionPreviewMs, displayedMood, style, range, colors);
             document.querySelectorAll('[data-companion-mood]').forEach(button => {
                 button.disabled = range !== 0 && button.dataset.companionMood !== 'awake';
-                button.setAttribute('aria-pressed', String(button.dataset.companionMood === companionPreviewMood));
+                button.setAttribute('aria-pressed', String(button.dataset.companionMood === displayedMood));
             });
             const pause = document.getElementById('ambient-preview-pause');
             pause.textContent = companionPreviewPlaying ? 'Pause preview' : 'Play preview';

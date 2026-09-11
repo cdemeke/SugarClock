@@ -113,6 +113,8 @@ USB flashing remains the recovery path. See [INSTALL.md](INSTALL.md) for the non
 bootstrap migration and recovery commands. Maintainers should follow
 [docs/OTA_SIGNING.md](docs/OTA_SIGNING.md) for release signing and key rotation.
 
+Companion integrations: see the [configuration API and legacy-field migration notes](docs/companion-api.md).
+
 ## Troubleshooting
 
 | Problem | Solution |
