@@ -27,6 +27,10 @@ struct GlucoseHistoryEntry {
 // Initialize HTTP polling client
 void http_init();
 
+// Clear values/history when changing the person displayed, without lifting
+// the Libre account's retry limits.
+void http_clear_readings();
+
 // Non-blocking polling loop
 void http_loop();
 

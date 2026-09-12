@@ -163,6 +163,8 @@ static void handle_wifi_settings(const uint8_t* data, uint8_t len) {
         cfg.libre_email[0] = '\0';
         cfg.libre_password[0] = '\0';
         cfg.libre_region[0] = '\0';
+        cfg.libre_patient_id[0] = '\0';
+        cfg.libre_patient_name[0] = '\0';
         cfg.data_source = 0;
         config_save();
 

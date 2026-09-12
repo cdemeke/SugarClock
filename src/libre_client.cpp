@@ -1,4 +1,6 @@
 #include "libre_client.h"
+#include "libre_session.h"
+#include "libre_trusted_roots.h"
 #include "config_manager.h"
 #include "time_engine.h"
 #include <WiFiClientSecure.h>
@@ -7,6 +9,8 @@
 #include <Arduino.h>
 #include <time.h>
 #include <stdarg.h>
+#include <atomic>
+#include <memory>
 #include "mbedtls/md.h"
 
 // LibreLinkUp rejects clients that report an outdated app version (status 920).
@@ -17,21 +21,17 @@
 #define LLU_DEFAULT_HOST  "api.libreview.io"
 #define LLU_STATUS_OK            0
 #define LLU_STATUS_NEEDS_ACTION  4     // terms of use / privacy policy / verify email
-#define LLU_SESSION_LIFETIME_MS  (24UL * 3600000UL)  // re-login daily
-#define LLU_MAX_READING_AGE_SEC  (10 * 60)          // same 10-minute window as Dexcom
-#define LLU_BACKOFF_MIN_MS       (5UL * 60000UL)
-#define LLU_BACKOFF_MAX_MS       (60UL * 60000UL)
-
-enum LoginResult { LOGIN_OK, LOGIN_TRANSIENT, LOGIN_REJECTED };
 
 static char auth_token[1024] = "";
 static char account_id[65] = "";   // sha256(user.id) as hex, sent as "account-id"
-static unsigned long session_time_ms = 0;
 
-// Rejected logins (bad password, unaccepted terms) back off so we don't hammer
-// Abbott's auth endpoint every poll and risk an account lockout.
-static unsigned long login_backoff_ms = 0;
-static unsigned long login_failed_at_ms = 0;
+static LibreSession session;
+static std::atomic<bool> fetch_active{false};
+static std::atomic<bool> reset_pending{false};
+static LibrePatient patients[LIBRE_MAX_PATIENTS];
+static size_t patient_count = 0;
+static char patient_account[64] = "";
+static portMUX_TYPE patient_lock = portMUX_INITIALIZER_UNLOCKED;
 
 static int last_http_code = 0;
 static char last_message[160] = "";
@@ -65,51 +65,21 @@ static void sha256_hex(const char* in, char out[65]) {
     }
 }
 
-// LibreLinkUp TrendArrow: 1=SingleDown 2=FortyFiveDown 3=Flat 4=FortyFiveUp 5=SingleUp.
-// Libre has no double arrows, so its steepest arrows map to our "fast" arrows.
-static TrendType map_trend(int arrow) {
-    switch (arrow) {
-        case 1: return TREND_FALLING_FAST;
-        case 2: return TREND_FALLING;
-        case 3: return TREND_FLAT;
-        case 4: return TREND_RISING;
-        case 5: return TREND_RISING_FAST;
-        default: return TREND_UNKNOWN;
-    }
-}
-
-// Days since 1970-01-01 for a proleptic Gregorian date (Howard Hinnant's algorithm)
-static long days_from_civil(int y, int m, int d) {
-    y -= m <= 2;
-    long era = (y >= 0 ? y : y - 399) / 400;
-    long yoe = y - era * 400;
-    long doy = (153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1;
-    long doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    return era * 146097 + doe - 719468;
-}
-
-// Parse FactoryTimestamp ("9/10/2026 6:40:00 PM", always UTC) to epoch seconds
-static unsigned long parse_timestamp(const char* s) {
-    int mo, d, y, h, mi, se;
-    char ampm[3] = "";
-    if (sscanf(s, "%d/%d/%d %d:%d:%d %2s", &mo, &d, &y, &h, &mi, &se, ampm) < 6) {
-        return 0;
-    }
-    if ((ampm[0] == 'P' || ampm[0] == 'p') && h < 12) h += 12;
-    if ((ampm[0] == 'A' || ampm[0] == 'a') && h == 12) h = 0;
-    return (unsigned long)(days_from_civil(y, mo, d) * 86400L + h * 3600L + mi * 60L + se);
-}
-
 // Perform a LibreLinkUp request against the configured region. body == nullptr → GET.
-static int llu_request(const char* path, const char* body, String& response, bool authed) {
+// On a connection failure, tls_error receives mbedtls' reason (e.g. a rejected certificate).
+static int llu_request(const char* path, const char* body, String& response, bool authed,
+                       char* tls_error, size_t tls_error_size) {
     AppConfig& cfg = config_get();
     char host[48];
     host_for_region(cfg.libre_region, host, sizeof(host));
     char url[128];
     snprintf(url, sizeof(url), "https://%s%s", host, path);
+    tls_error[0] = '\0';
 
+    // Credentials and readings only go to a server whose certificate chains to
+    // a pinned root and matches the hostname; never setInsecure() here.
     WiFiClientSecure client;
-    client.setInsecure();
+    client.setCACert(LIBRE_TRUSTED_ROOTS_PEM);
     client.setTimeout(15);
 
     HTTPClient http;
@@ -132,195 +102,299 @@ static int llu_request(const char* path, const char* body, String& response, boo
     }
 
     int code = body ? http.POST(body) : http.GET();
-    response = (code > 0) ? http.getString() : String();
+    if (code > 0) {
+        response = http.getString();
+    } else {
+        response = String();
+        client.lastError(tls_error, tls_error_size);
+    }
     http.end();
 
     last_http_code = code;
     return code;
 }
 
-static LoginResult llu_login() {
-    AppConfig& cfg = config_get();
+static void set_connection_error(const char* what, int code, const char* tls_error) {
+    if (code < 0 && tls_error[0]) {
+        set_message("%s: secure connection failed (%s)", what, tls_error);
+    } else {
+        set_message("%s: HTTP %d", what, code);
+    }
+}
 
-    JsonDocument req;
-    req["email"] = cfg.libre_email;
-    req["password"] = cfg.libre_password;
-    String body;
-    serializeJson(req, body);
+// HTTP implementation of the LibreLinkUp transport used by LibreSession
+class HttpLibreTransport : public LibreTransport {
+public:
+    bool saw_empty = false;  // nobody shares with the account (message already set)
 
-    JsonDocument filter;
-    filter["status"] = true;
-    filter["error"]["message"] = true;
-    filter["data"]["redirect"] = true;
-    filter["data"]["region"] = true;
-    filter["data"]["step"]["type"] = true;
-    filter["data"]["minimumVersion"] = true;
-    filter["data"]["authTicket"]["token"] = true;
-    filter["data"]["user"]["id"] = true;
+    LibreAuthResult login() override {
+        AppConfig& cfg = config_get();
 
-    // Login at the saved region (or the global host), following one region redirect
-    for (int attempt = 0; attempt < 2; attempt++) {
-        Serial.printf("[LIBRE] Logging in (region: %s)...\n",
-                      cfg.libre_region[0] ? cfg.libre_region : "auto");
+        JsonDocument req;
+        req["email"] = cfg.libre_email;
+        req["password"] = cfg.libre_password;
+        String body;
+        serializeJson(req, body);
 
+        JsonDocument filter;
+        filter["status"] = true;
+        filter["error"]["message"] = true;
+        filter["data"]["redirect"] = true;
+        filter["data"]["region"] = true;
+        filter["data"]["step"]["type"] = true;
+        filter["data"]["minimumVersion"] = true;
+        filter["data"]["authTicket"]["token"] = true;
+        filter["data"]["user"]["id"] = true;
+
+        auth_token[0] = '\0';
+
+        // Login at the saved region (or the global host), following one region redirect
+        for (int attempt = 0; attempt < 2; attempt++) {
+            Serial.printf("[LIBRE] Logging in (region: %s)...\n",
+                          cfg.libre_region[0] ? cfg.libre_region : "auto");
+
+            String resp;
+            char tls_error[96];
+            int code = llu_request("/llu/auth/login", body.c_str(), resp, false,
+                                   tls_error, sizeof(tls_error));
+            if (reset_pending.load()) {
+                set_message("Libre settings changed; retry with the saved account");
+                return LIBRE_AUTH_TRANSIENT;
+            }
+            if (code == 401 || code == 403 || code == 429) {
+                set_message("Login rejected: HTTP %d", code);
+                return LIBRE_AUTH_REJECTED;
+            }
+            if (code != HTTP_CODE_OK) {
+                set_connection_error("Login failed", code, tls_error);
+                return LIBRE_AUTH_TRANSIENT;
+            }
+
+            JsonDocument doc;
+            if (deserializeJson(doc, resp, DeserializationOption::Filter(filter))) {
+                set_message("Login: unexpected response");
+                return LIBRE_AUTH_TRANSIENT;
+            }
+
+            int status = doc["status"] | -1;
+            JsonObject data = doc["data"];
+
+            if (data["redirect"] | false) {
+                // Region codes are short lowercase identifiers ("us", "eu2", ...)
+                const char* region = data["region"] | "";
+                char clean[sizeof(cfg.libre_region)] = "";
+                size_t n = 0;
+                for (const char* p = region; *p && n < sizeof(clean) - 1; p++) {
+                    if (isalnum((unsigned char)*p)) clean[n++] = tolower((unsigned char)*p);
+                }
+                clean[n] = '\0';
+                if (n == 0 || strcmp(clean, cfg.libre_region) == 0) {
+                    set_message("Login: bad region redirect '%s'", region);
+                    return LIBRE_AUTH_TRANSIENT;
+                }
+                Serial.printf("[LIBRE] Redirected to region '%s'\n", clean);
+                strncpy(cfg.libre_region, clean, sizeof(cfg.libre_region) - 1);
+                config_save();
+                continue;
+            }
+
+            if (status == LLU_STATUS_NEEDS_ACTION) {
+                set_message("Open the LibreLinkUp app and accept the %s",
+                            data["step"]["type"] | "terms");
+                return LIBRE_AUTH_REJECTED;
+            }
+            if (data["minimumVersion"].is<const char*>()) {
+                set_message("LibreLinkUp requires app version %s - firmware update needed",
+                            data["minimumVersion"].as<const char*>());
+                return LIBRE_AUTH_REJECTED;
+            }
+            if (status != LLU_STATUS_OK) {
+                set_message("Login failed (status %d): %s", status,
+                            doc["error"]["message"] | "check email and password");
+                return LIBRE_AUTH_REJECTED;
+            }
+
+            const char* token = data["authTicket"]["token"] | "";
+            const char* user_id = data["user"]["id"] | "";
+            if (!token[0] || !user_id[0] || strlen(token) >= sizeof(auth_token)) {
+                set_message("Login: missing or oversized auth ticket");
+                return LIBRE_AUTH_TRANSIENT;
+            }
+
+            strncpy(auth_token, token, sizeof(auth_token) - 1);
+            auth_token[sizeof(auth_token) - 1] = '\0';
+            sha256_hex(user_id, account_id);
+            Serial.println("[LIBRE] Login OK");
+            return LIBRE_AUTH_OK;
+        }
+
+        set_message("Login: too many region redirects");
+        return LIBRE_AUTH_TRANSIENT;
+    }
+
+    LibreReadResult read_latest(LibreRawReading& out) override {
         String resp;
-        int code = llu_request("/llu/auth/login", body.c_str(), resp, false);
-        if (code == 401 || code == 403 || code == 429) {
-            set_message("Login rejected: HTTP %d", code);
-            return LOGIN_REJECTED;
+        char tls_error[96];
+        int code = llu_request("/llu/connections", nullptr, resp, true,
+                               tls_error, sizeof(tls_error));
+        if (reset_pending.load()) {
+            set_message("Libre settings changed; retry with the saved account");
+            return LIBRE_READ_TRANSIENT;
+        }
+        if (code == 401 || code == 403) {
+            set_message("Connections refused: HTTP %d", code);
+            return LIBRE_READ_UNAUTHORIZED;
+        }
+        if (code == 429) {
+            set_message("Connections rate limited: HTTP 429");
+            return LIBRE_READ_REJECTED;
         }
         if (code != HTTP_CODE_OK) {
-            set_message("Login failed: HTTP %d", code);
-            return LOGIN_TRANSIENT;
+            set_connection_error("Connections failed", code, tls_error);
+            return LIBRE_READ_TRANSIENT;
         }
+
+        JsonDocument filter;
+        filter["status"] = true;
+        filter["data"][0]["patientId"] = true;
+        filter["data"][0]["firstName"] = true;
+        filter["data"][0]["lastName"] = true;
+        filter["data"][0]["glucoseMeasurement"]["ValueInMgPerDl"] = true;
+        filter["data"][0]["glucoseMeasurement"]["TrendArrow"] = true;
+        filter["data"][0]["glucoseMeasurement"]["FactoryTimestamp"] = true;
 
         JsonDocument doc;
         if (deserializeJson(doc, resp, DeserializationOption::Filter(filter))) {
-            set_message("Login: unexpected response");
-            return LOGIN_TRANSIENT;
+            set_message("Connections: unexpected response");
+            return LIBRE_READ_TRANSIENT;
         }
 
         int status = doc["status"] | -1;
-        JsonObject data = doc["data"];
-
-        if (data["redirect"] | false) {
-            // Region codes are short lowercase identifiers ("us", "eu2", ...)
-            const char* region = data["region"] | "";
-            char clean[sizeof(cfg.libre_region)] = "";
-            size_t n = 0;
-            for (const char* p = region; *p && n < sizeof(clean) - 1; p++) {
-                if (isalnum((unsigned char)*p)) clean[n++] = tolower((unsigned char)*p);
-            }
-            clean[n] = '\0';
-            if (n == 0 || strcmp(clean, cfg.libre_region) == 0) {
-                set_message("Login: bad region redirect '%s'", region);
-                return LOGIN_TRANSIENT;
-            }
-            Serial.printf("[LIBRE] Redirected to region '%s'\n", clean);
-            strncpy(cfg.libre_region, clean, sizeof(cfg.libre_region) - 1);
-            config_save();
-            continue;
-        }
-
-        if (status == LLU_STATUS_NEEDS_ACTION) {
-            set_message("Open the LibreLinkUp app and accept the %s",
-                        data["step"]["type"] | "terms");
-            return LOGIN_REJECTED;
-        }
-        if (data["minimumVersion"].is<const char*>()) {
-            set_message("LibreLinkUp requires app version %s - firmware update needed",
-                        data["minimumVersion"].as<const char*>());
-            return LOGIN_REJECTED;
-        }
         if (status != LLU_STATUS_OK) {
-            set_message("Login failed (status %d): %s", status,
-                        doc["error"]["message"] | "check email and password");
-            return LOGIN_REJECTED;
+            set_message("Connections refused (status %d)", status);
+            return LIBRE_READ_UNAUTHORIZED;
         }
 
-        const char* token = data["authTicket"]["token"] | "";
-        const char* user_id = data["user"]["id"] | "";
-        if (!token[0] || !user_id[0] || strlen(token) >= sizeof(auth_token)) {
-            set_message("Login: missing or oversized auth ticket");
-            return LOGIN_TRANSIENT;
+        JsonArray conns = doc["data"].as<JsonArray>();
+        AppConfig& cfg = config_get();
+        std::unique_ptr<LibrePatient[]> available(new LibrePatient[LIBRE_MAX_PATIENTS]());
+        if (conns.size() > LIBRE_MAX_PATIENTS) {
+            set_message("Too many Libre connections; use a follower account with fewer people");
+            saw_empty = true;
+            return LIBRE_READ_EMPTY;
+        }
+        size_t count = 0;
+        for (JsonObject conn : conns) {
+            const char* id = conn["patientId"] | "";
+            if (strlen(id) >= sizeof(available[count].id)) {
+                set_message("Libre returned an invalid person ID");
+                saw_empty = true;
+                return LIBRE_READ_EMPTY;
+            }
+            strcpy(available[count].id, id);
+            snprintf(available[count].name, sizeof(available[count].name), "%s %s",
+                     conn["firstName"] | "", conn["lastName"] | "");
+            count++;
+        }
+        portENTER_CRITICAL(&patient_lock);
+        memcpy(patients, available.get(), sizeof(patients));
+        patient_count = count;
+        strncpy(patient_account, cfg.libre_email, sizeof(patient_account) - 1);
+        portEXIT_CRITICAL(&patient_lock);
+
+        if (conns.size() == 0) {
+            set_message("No one is sharing with this LibreLinkUp account");
+            saw_empty = true;
+            return LIBRE_READ_EMPTY;
+        }
+        int selected = libre_patient_index(available.get(), count, cfg.libre_patient_id);
+        if (selected < 0) {
+            if (selected == LIBRE_PATIENT_AMBIGUOUS) {
+                set_message("Multiple people share with this account; select a person in Settings and save");
+            } else if (selected == LIBRE_PATIENT_MISSING) {
+                set_message("The saved person is no longer sharing; check LibreLinkUp or select a person in Settings");
+            } else {
+                set_message("Libre returned missing or duplicate person IDs");
+            }
+            saw_empty = true;
+            return LIBRE_READ_EMPTY;
+        }
+        if (strcmp(cfg.libre_patient_id, available[selected].id) != 0 ||
+            strcmp(cfg.libre_patient_name, available[selected].name) != 0) {
+            strcpy(cfg.libre_patient_id, available[selected].id);
+            strcpy(cfg.libre_patient_name, available[selected].name);
+            config_save();
         }
 
-        strncpy(auth_token, token, sizeof(auth_token) - 1);
-        auth_token[sizeof(auth_token) - 1] = '\0';
-        sha256_hex(user_id, account_id);
-        session_time_ms = millis();
-        Serial.println("[LIBRE] Login OK");
-        return LOGIN_OK;
+        JsonObject gm = conns[selected]["glucoseMeasurement"];
+        out.glucose = (int)lroundf(gm["ValueInMgPerDl"] | 0.0f);
+        out.trend_arrow = gm["TrendArrow"] | 0;
+        const char* timestamp = gm["FactoryTimestamp"] | "";
+        // Do not turn an unrecognized long value into a valid-looking prefix.
+        if (strlen(timestamp) >= sizeof(out.factory_timestamp)) out.factory_timestamp[0] = '\0';
+        else strcpy(out.factory_timestamp, timestamp);
+        return LIBRE_READ_OK;
     }
+};
 
-    set_message("Login: too many region redirects");
-    return LOGIN_TRANSIENT;
-}
+bool libre_fetch(LibreReading& out, bool* attempted) {
+    if (attempted) *attempted = false;
+    // Web tests and the main loop may run on different tasks. Only one may
+    // consume the retry gate or use the transport at a time.
+    if (fetch_active.exchange(true)) {
+        last_http_code = 429;
+        set_message("A Libre request is already in progress; try again shortly");
+        return false;
+    }
+    struct Release {
+        ~Release() { fetch_active.store(false); }
+    } release;
+    if (reset_pending.exchange(false)) {
+        session.reset();
+        auth_token[0] = '\0';
+        account_id[0] = '\0';
+    }
+    HttpLibreTransport transport;
+    bool synced = time_is_network_synced();
+    LibreResult r = session.fetch(transport, millis(), synced, synced ? (uint32_t)time(nullptr) : 0);
+    if (attempted) *attempted = r.status != LIBRE_FETCH_BACKOFF && r.status != LIBRE_FETCH_CLOCK_UNSYNCED;
+    if (reset_pending.load()) return false; // discard an in-flight old-account reading
 
-bool libre_fetch(LibreReading& out) {
-    bool need_login = auth_token[0] == '\0' ||
-                      millis() - session_time_ms > LLU_SESSION_LIFETIME_MS;
-
-    if (need_login) {
-        if (login_backoff_ms > 0 && millis() - login_failed_at_ms < login_backoff_ms) {
-            unsigned long wait_s = (login_backoff_ms - (millis() - login_failed_at_ms)) / 1000;
-            Serial.printf("[LIBRE] Login backoff, retry in %lus: %s\n", wait_s, last_message);
+    switch (r.status) {
+        case LIBRE_FETCH_OK:
+            out.glucose = r.glucose;
+            out.trend = r.trend;
+            out.timestamp = r.timestamp;
+            out.age_sec = r.age_sec;
+            set_message("OK: %d mg/dL, arrow %s, %lus old", r.glucose, TREND_NAMES[r.trend],
+                        (unsigned long)r.age_sec);
+            return true;
+        case LIBRE_FETCH_CLOCK_UNSYNCED:
+            last_http_code = 0;
+            set_message("Waiting for network time before reading Libre data");
             return false;
-        }
-
-        auth_token[0] = '\0';
-        LoginResult result = llu_login();
-        if (result == LOGIN_REJECTED) {
-            login_backoff_ms = login_backoff_ms == 0
-                ? LLU_BACKOFF_MIN_MS
-                : min(login_backoff_ms * 2, LLU_BACKOFF_MAX_MS);
-            login_failed_at_ms = millis();
-        }
-        if (result != LOGIN_OK) return false;
-        login_backoff_ms = 0;
-    }
-
-    String resp;
-    int code = llu_request("/llu/connections", nullptr, resp, true);
-    if (code == 401 || code == 403) {
-        auth_token[0] = '\0';
-        set_message("Session expired, will log in again");
-        return false;
-    }
-    if (code != HTTP_CODE_OK) {
-        set_message("Connections failed: HTTP %d", code);
-        return false;
-    }
-
-    JsonDocument filter;
-    filter["status"] = true;
-    filter["data"][0]["glucoseMeasurement"]["ValueInMgPerDl"] = true;
-    filter["data"][0]["glucoseMeasurement"]["TrendArrow"] = true;
-    filter["data"][0]["glucoseMeasurement"]["FactoryTimestamp"] = true;
-
-    JsonDocument doc;
-    if (deserializeJson(doc, resp, DeserializationOption::Filter(filter))) {
-        set_message("Connections: unexpected response");
-        return false;
-    }
-
-    int status = doc["status"] | -1;
-    if (status != LLU_STATUS_OK) {
-        auth_token[0] = '\0';
-        set_message("Connections failed (status %d), will log in again", status);
-        return false;
-    }
-
-    JsonArray conns = doc["data"].as<JsonArray>();
-    if (conns.size() == 0) {
-        set_message("No one is sharing with this LibreLinkUp account");
-        return false;
-    }
-    if (conns.size() > 1) {
-        Serial.printf("[LIBRE] %d connections, using the first\n", (int)conns.size());
-    }
-
-    JsonObject gm = conns[0]["glucoseMeasurement"];
-    int glucose = (int)lroundf(gm["ValueInMgPerDl"] | 0.0f);
-    if (glucose <= 0) {
-        set_message("No glucose value yet (sensor warming up?)");
-        return false;
-    }
-
-    unsigned long ts = parse_timestamp(gm["FactoryTimestamp"] | "");
-    if (ts > 0 && time_is_available()) {
-        long age = (long)time(nullptr) - (long)ts;
-        if (age > LLU_MAX_READING_AGE_SEC) {
-            set_message("Latest Libre reading is %ld min old", age / 60);
+        case LIBRE_FETCH_BACKOFF:
+            last_http_code = 429;
+            set_message("Libre retry paused; try again in %lu seconds",
+                        (unsigned long)((r.retry_in_ms + 999) / 1000));
             return false;
-        }
+        case LIBRE_FETCH_REJECTED:
+            Serial.printf("[LIBRE] Rejected, retrying in %lu min\n",
+                          (unsigned long)(r.retry_in_ms / 60000));
+            return false;
+        case LIBRE_FETCH_STALE:
+            set_message("Latest Libre reading is %lu min old", (unsigned long)(r.age_sec / 60));
+            return false;
+        case LIBRE_FETCH_BAD_TIMESTAMP:
+            set_message("Libre reading has an invalid timestamp");
+            return false;
+        case LIBRE_FETCH_NO_DATA:
+            if (!transport.saw_empty) set_message("No glucose value yet (sensor warming up?)");
+            return false;
+        case LIBRE_FETCH_TRANSIENT:
+            return false;  // transport already recorded the reason
     }
-
-    out.glucose = glucose;
-    out.trend = map_trend(gm["TrendArrow"] | 0);
-    out.timestamp = ts;
-    set_message("OK: %d mg/dL, arrow %d", glucose, gm["TrendArrow"] | 0);
-    return true;
+    return false;
 }
 
 void libre_api_host(char* out, size_t n) {
@@ -328,11 +402,16 @@ void libre_api_host(char* out, size_t n) {
 }
 
 void libre_reset_session() {
-    auth_token[0] = '\0';
-    account_id[0] = '\0';
-    session_time_ms = 0;
-    login_backoff_ms = 0;
-    login_failed_at_ms = 0;
+    reset_pending.store(true);
+}
+
+size_t libre_get_patients(LibrePatient* out, size_t capacity) {
+    portENTER_CRITICAL(&patient_lock);
+    size_t count = strcmp(patient_account, config_get().libre_email) == 0
+        ? min(capacity, patient_count) : 0;
+    memcpy(out, patients, count * sizeof(LibrePatient));
+    portEXIT_CRITICAL(&patient_lock);
+    return count;
 }
 
 int libre_last_http_code() {

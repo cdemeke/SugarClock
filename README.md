@@ -46,6 +46,21 @@ SugarClock is free, open-source firmware that turns the [Ulanzi TC001 Smart Pixe
 | WiFi (2.4 GHz) | The clock connects to your home WiFi |
 | Dexcom account, LibreLinkUp account, or Nightscout URL | Your glucose data source |
 
+### FreeStyle Libre setup
+
+Use a LibreLinkUp follower account, save its credentials in Settings, then use
+**Test Connection** to load the people sharing with it. A single person is saved
+automatically. If several people share, choose **Person to display** and save.
+The clock remembers the person's ID across restarts and stops accepting readings
+if that person stops sharing; it never substitutes another person. Changing the
+Libre email clears the saved person and detected region, including during Mac setup.
+
+Libre readings require synchronized network time and a valid sensor timestamp
+no more than ten minutes old. Test Connection follows the same retry limits as
+automatic polling: requests are at least 15 seconds apart, and authorization
+rejections back off from five minutes to one hour. A network error during a retry
+preserves that cooldown. Saving changed credentials allows a new attempt.
+
 ## Quick Start (Mac)
 
 ### 1. Download the installer

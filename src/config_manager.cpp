@@ -207,8 +207,8 @@ static void config_check_littlefs_overlay() {
         const char* srv = doc["dexcom_server"];
         config.dexcom_us = (strcmp(srv, "US") == 0);
     }
-    if (doc["libre_email"].is<const char*>())    strncpy(config.libre_email, doc["libre_email"], sizeof(config.libre_email) - 1);
-    if (doc["libre_password"].is<const char*>()) strncpy(config.libre_password, doc["libre_password"], sizeof(config.libre_password) - 1);
+    config_update_libre_credentials(config, doc["libre_email"] | (const char*)nullptr,
+                                   doc["libre_password"] | (const char*)nullptr);
     if (doc["server_url"].is<const char*>())     strncpy(config.server_url, doc["server_url"], sizeof(config.server_url));
     if (doc["auth_token"].is<const char*>())     strncpy(config.auth_token, doc["auth_token"], sizeof(config.auth_token));
     if (doc["timezone"].is<const char*>())       strncpy(config.timezone, doc["timezone"], sizeof(config.timezone));
@@ -257,6 +257,8 @@ void config_init() {
         prefs.getString("llu_email", config.libre_email, sizeof(config.libre_email));
         prefs.getString("llu_pass", config.libre_password, sizeof(config.libre_password));
         prefs.getString("llu_region", config.libre_region, sizeof(config.libre_region));
+        prefs.getString("llu_patient", config.libre_patient_id, sizeof(config.libre_patient_id));
+        prefs.getString("llu_name", config.libre_patient_name, sizeof(config.libre_patient_name));
         config.poll_interval_sec = prefs.getInt("poll_int", 60);
         config.brightness = prefs.getUChar("brightness", 40);
         config.auto_brightness = prefs.getBool("auto_brt", true);
@@ -403,6 +405,8 @@ void config_save() {
     prefs.putString("llu_email", config.libre_email);
     prefs.putString("llu_pass", config.libre_password);
     prefs.putString("llu_region", config.libre_region);
+    prefs.putString("llu_patient", config.libre_patient_id);
+    prefs.putString("llu_name", config.libre_patient_name);
     prefs.putInt("poll_int", config.poll_interval_sec);
     prefs.putUChar("brightness", config.brightness);
     prefs.putBool("auto_brt", config.auto_brightness);

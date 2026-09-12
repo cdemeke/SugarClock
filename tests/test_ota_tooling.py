@@ -208,7 +208,10 @@ class HostCppLogicTests(unittest.TestCase):
                 os.path.join(ROOT, "tests", "test_host_logic.cpp"),
                 os.path.join(ROOT, "src", "semver.cpp"),
                 os.path.join(ROOT, "src", "ota_policy.cpp"),
-                os.path.join(ROOT, "src", "fleet_policy.cpp"), "-o", binary,
+                os.path.join(ROOT, "src", "fleet_policy.cpp"),
+                os.path.join(ROOT, "src", "libre_session.cpp"),
+                os.path.join(ROOT, "src", "libre_config.cpp"),
+                os.path.join(ROOT, "src", "libre_patient.cpp"), "-o", binary,
             ], check=True)
             subprocess.run([binary], check=True)
 

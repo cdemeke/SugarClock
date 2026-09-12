@@ -36,6 +36,8 @@ struct AppConfig {
     char libre_email[64];
     char libre_password[64];
     char libre_region[8];      // auto-detected from login redirect, e.g. "us"; "" = unknown
+    char libre_patient_id[64]; // stable LibreLinkUp patientId, never an array index
+    char libre_patient_name[128];
 
     int poll_interval_sec;     // default 60, min 15
 
@@ -167,6 +169,10 @@ bool config_has_dexcom();
 
 // Check if FreeStyle Libre (LibreLinkUp) is configured
 bool config_has_libre();
+
+// Shared by the web API and installer overlay. nullptr leaves a field alone;
+// an empty password keeps the saved secret. Email changes clear account caches.
+bool config_update_libre_credentials(AppConfig& cfg, const char* email, const char* password);
 
 // True when the saved network is configured as WPA2-Enterprise
 bool config_has_enterprise();

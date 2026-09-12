@@ -124,7 +124,7 @@ struct DataSourceView: View {
                     .font(.subheadline.bold())
                 SecureField("password", text: $state.librePassword)
                     .textFieldStyle(.roundedBorder)
-                Text("Use the LibreLinkUp login, not your LibreLink or LibreView one. Your region is detected automatically.")
+                Text("Use the LibreLinkUp login, not your LibreLink or LibreView one. Your region is detected automatically. If multiple people share with this account, choose the person in the clock's web Settings after setup.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }

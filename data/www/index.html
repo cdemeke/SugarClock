@@ -414,6 +414,11 @@
                             </div>
                         </div>
                         <div class="form-group">
+                            <label for="libre_patient_id">Person to display</label>
+                            <select id="libre_patient_id"><option value="">Save and test to load people</option></select>
+                            <div class="hint">With multiple people sharing, choose one here and save. The clock remembers that person and will never switch automatically.</div>
+                        </div>
+                        <div class="form-group">
                             <div class="hint">Use your LibreLinkUp login, not LibreLink or LibreView. In the Libre app, go to Connected Apps &rarr; LibreLinkUp and invite this email, then sign in to LibreLinkUp once to accept the terms. Region is detected automatically.</div>
                         </div>
                     </div>
@@ -934,6 +939,22 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             inp.type = inp.type === 'password' ? 'text' : 'password';
         }
 
+        let librePeopleEmail = '';
+        function updateLibrePeople(c) {
+            const select = document.getElementById('libre_patient_id');
+            select.replaceChildren();
+            const people = c.libre_patients || [];
+            select.add(new Option(people.length ? 'Choose a person' : 'Save and test to load people', ''));
+            people.forEach(p => select.add(new Option(p.name.trim() || p.id, p.id)));
+            if (c.libre_patient_id && !people.some(p => p.id === c.libre_patient_id)) {
+                select.add(new Option((c.libre_patient_name || 'Saved person') + ' (saved)', c.libre_patient_id));
+            }
+            select.value = c.libre_patient_id || '';
+        }
+        document.getElementById('libre_email').addEventListener('input', () => {
+            if (document.getElementById('libre_email').value.trim() !== librePeopleEmail) updateLibrePeople({});
+        });
+
         function toggleSource() {
             const src = document.getElementById('data_source').value;
             document.getElementById('custom-fields').style.display = src === '0' ? 'block' : 'none';
@@ -1330,6 +1351,8 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 document.getElementById('dexcom_password').value = c.dexcom_password || '';
                 document.getElementById('dexcom_us').value = c.dexcom_us ? '1' : '0';
                 document.getElementById('libre_email').value = c.libre_email || '';
+                librePeopleEmail = c.libre_email || '';
+                updateLibrePeople(c);
                 document.getElementById('libre_password').value = '';
                 document.getElementById('libre_password').placeholder = c.has_libre_password ? 'Saved \u2014 leave blank to keep' : '';
                 document.getElementById('poll_interval').value = c.poll_interval;
@@ -1464,6 +1487,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 dexcom_us: document.getElementById('dexcom_us').value === '1',
                 libre_email: document.getElementById('libre_email').value.trim(),
                 libre_password: document.getElementById('libre_password').value,
+                libre_patient_id: document.getElementById('libre_patient_id').value,
                 poll_interval: poll,
                 stale_timeout_min: parseInt(document.getElementById('stale_timeout').value),
                 brightness: brightnessDeviceValue,
@@ -1588,6 +1612,12 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             try {
                 const r = await fetch('/api/test/glucose', { method: 'POST' });
                 const d = await r.json();
+                if (document.getElementById('data_source').value === '3') {
+                    const configResponse = await fetch('/api/config');
+                    const saved = await configResponse.json();
+                    librePeopleEmail = saved.libre_email || '';
+                    if (document.getElementById('libre_email').value.trim() === librePeopleEmail) updateLibrePeople(saved);
+                }
                 if (d.ok) {
                     res.textContent = 'Glucose: ' + d.glucose + ' mg/dL, Trend: ' + d.trend;
                     res.className = 'test-result test-success';

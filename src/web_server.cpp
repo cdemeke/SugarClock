@@ -141,6 +141,20 @@ static void handle_status(AsyncWebServerRequest* request) {
     request->send(200, "application/json", output);
 }
 
+static void add_libre_people(JsonDocument& doc) {
+    const AppConfig& cfg = config_get();
+    doc["libre_patient_id"] = cfg.libre_patient_id;
+    doc["libre_patient_name"] = cfg.libre_patient_name;
+    LibrePatient people[LIBRE_MAX_PATIENTS];
+    size_t count = libre_get_patients(people, LIBRE_MAX_PATIENTS);
+    JsonArray list = doc["libre_patients"].to<JsonArray>();
+    for (size_t i = 0; i < count; ++i) {
+        JsonObject person = list.add<JsonObject>();
+        person["id"] = people[i].id;
+        person["name"] = people[i].name;
+    }
+}
+
 // GET /api/config
 static void handle_get_config(AsyncWebServerRequest* request) {
     AppConfig& cfg = config_get();
@@ -168,6 +182,7 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     doc["libre_email"] = cfg.libre_email;
     doc["has_libre_password"] = strlen(cfg.libre_password) > 0;
     doc["libre_region"] = cfg.libre_region;
+    add_libre_people(doc);
     doc["poll_interval"] = cfg.poll_interval_sec;
     doc["brightness"] = cfg.brightness;
     doc["auto_brightness"] = cfg.auto_brightness;
@@ -301,6 +316,22 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     }
 
     AppConfig& cfg = config_get();
+    const char* requested_person = doc["libre_patient_id"] | "";
+    const char* requested_email = doc["libre_email"] | cfg.libre_email;
+    LibrePatient selected_person = {};
+    // Validate before applying any settings. Never accept an arbitrary ID or
+    // carry an old account's selection into a newly supplied account.
+    if (strcmp(requested_email, cfg.libre_email) == 0 && requested_person[0] &&
+        strcmp(requested_person, cfg.libre_patient_id) != 0) {
+        LibrePatient people[LIBRE_MAX_PATIENTS];
+        size_t count = libre_get_patients(people, LIBRE_MAX_PATIENTS);
+        int index = libre_patient_index(people, count, requested_person);
+        if (index < 0) {
+            request->send(400, "application/json", "{\"error\":\"Test the Libre connection, then select a person from the list\"}");
+            return;
+        }
+        selected_person = people[index];
+    }
 
     if (doc["wifi_ssid"].is<const char*>()) {
         strncpy(cfg.wifi_ssid, doc["wifi_ssid"] | "", sizeof(cfg.wifi_ssid) - 1);
@@ -353,23 +384,15 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     if (doc["dexcom_us"].is<bool>()) {
         cfg.dexcom_us = doc["dexcom_us"].as<bool>();
     }
-    bool libre_changed = false;
-    if (doc["libre_email"].is<const char*>()) {
-        const char* email = doc["libre_email"];
-        if (strcmp(email, cfg.libre_email) != 0) {
-            strncpy(cfg.libre_email, email, sizeof(cfg.libre_email) - 1);
-            cfg.libre_email[sizeof(cfg.libre_email) - 1] = '\0';
-            cfg.libre_region[0] = '\0';  // a different account may live in another region
-            libre_changed = true;
-        }
-    }
-    if (doc["libre_password"].is<const char*>() && strlen(doc["libre_password"] | "") > 0) {
-        const char* password = doc["libre_password"];
-        if (strcmp(password, cfg.libre_password) != 0) {
-            strncpy(cfg.libre_password, password, sizeof(cfg.libre_password) - 1);
-            cfg.libre_password[sizeof(cfg.libre_password) - 1] = '\0';
-            libre_changed = true;
-        }
+    char previous_email[sizeof(cfg.libre_email)];
+    strcpy(previous_email, cfg.libre_email);
+    bool libre_changed = config_update_libre_credentials(
+        cfg, doc["libre_email"] | (const char*)nullptr, doc["libre_password"] | (const char*)nullptr);
+    bool libre_person_changed = strcmp(previous_email, cfg.libre_email) != 0;
+    if (!libre_person_changed && selected_person.id[0]) {
+        strcpy(cfg.libre_patient_id, selected_person.id);
+        strcpy(cfg.libre_patient_name, selected_person.name);
+        libre_person_changed = true;
     }
     if (doc["poll_interval"].is<int>()) {
         cfg.poll_interval_sec = max(15, doc["poll_interval"].as<int>());
@@ -600,6 +623,7 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     config_save();
     engine_rebuild_toggle_order();
     if (libre_changed) libre_reset_session();
+    if (libre_person_changed && cfg.data_source == 3) http_clear_readings();
 
     // Apply brightness immediately
     if (!cfg.auto_brightness) {
@@ -975,6 +999,7 @@ static void handle_test_glucose(AsyncWebServerRequest* request) {
     bool ok = http_force_fetch();
     JsonDocument doc;
     doc["ok"] = ok;
+    if (cfg.data_source == 3) add_libre_people(doc);
     doc["http_code"] = http_get_last_response_code();
 
     if (ok) {
@@ -1001,7 +1026,7 @@ static void handle_test_glucose(AsyncWebServerRequest* request) {
 
     String output;
     serializeJson(doc, output);
-    request->send(ok ? 200 : 502, "application/json", output);
+    request->send(ok ? 200 : (http_get_last_response_code() == 429 ? 429 : 502), "application/json", output);
 }
 
 // POST /api/display/next
