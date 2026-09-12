@@ -34,5 +34,5 @@ The `?v=toast-icons-1` stylesheet suffix is removed. The existing no-cache polic
 - Browser checks cover mmol/L and mg/dL, signed deltas, delayed configuration responses, changing unit preferences, invalid readings, and enabled-only dashboard links.
 - Brightness form tests cover unchanged-value preservation, manual selection, restoring automatic mode, and omission of hidden alarm/startup settings.
 - Browser follow-up checks cover a visible, named glucose section while another display is selected, zero delta, stale/missing/unavailable readings, conditional frames, and desktop/mobile layout without overflow.
-- Firmware builds successfully at 1,417,088 bytes (77.2% of the OTA slot).
+- Firmware builds successfully at 1,417,104 bytes (77.2% of the OTA slot).
 - Device and Mac setup-app web assets remain byte-for-byte synchronized.

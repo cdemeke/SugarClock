@@ -117,7 +117,7 @@
     <script>
         const trendMap = {'RisingFast':'\u2191\u2191','Rising':'\u2191','Flat':'\u2192','Falling':'\u2193','FallingFast':'\u2193\u2193','Unknown':'?'};
         const colorMap = {'red':'color-red','orange':'color-orange','green':'color-green','gray':'color-gray'};
-        const modeNames = {GLUCOSE:'Blood Sugar',TREND:'Trend',TIME:'Clock',WEATHER:'Weather',AMBIENT_FISH:'Display Pet',TIMER:'Pomodoro Timer',STOPWATCH:'Stopwatch',SYSMON:'System Monitor',COUNTDOWN:'Countdown',NOTIFY:'Notification',MESSAGE:'Message',STALE:'Stale reading',NO_DATA:'No data',NO_WIFI:'No Wi-Fi',NO_CFG:'Setup needed',NET_LIMITED:'Limited network',SETUP_AP:'Setup mode',BOOT:'Starting up'};
+        const modeNames = {GLUCOSE:'Blood Sugar',TREND:'Trend',TIME:'Clock',WEATHER:'Weather',AMBIENT_CREATURE:'Display Pet',AMBIENT_FISH:'Display Pet',TIMER:'Pomodoro Timer',STOPWATCH:'Stopwatch',SYSMON:'System Monitor',COUNTDOWN:'Countdown',NOTIFY:'Notification',MESSAGE:'Message',STALE:'Stale reading',NO_DATA:'No data',NO_WIFI:'No Wi-Fi',NO_CFG:'Setup needed',NET_LIMITED:'Limited network',SETUP_AP:'Setup mode',BOOT:'Starting up'};
 
         function fmtUp(s){const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60);if(d>0)return d+'d '+h+'h';if(h>0)return h+'h '+m+'m';return m+'m';}
         function fmtAge(s){if(s<0)return'No data';if(s<60)return s+'s ago';if(s<3600)return Math.floor(s/60)+'m '+s%60+'s ago';return Math.floor(s/3600)+'h ago';}
