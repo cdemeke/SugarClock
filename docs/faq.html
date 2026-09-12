@@ -22,8 +22,8 @@
   <link rel="manifest" href="site.webmanifest">
   <meta name="theme-color" content="#fff7cc">
   <script src="https://unpkg.com/feather-icons"></script>
-  <script src="js/analytics-config.js"></script>
-  <script src="js/analytics.js"></script>
+  <script defer src="js/analytics-config.js"></script>
+  <script defer src="js/analytics.js"></script>
 </head>
 
 <body>
@@ -56,6 +56,7 @@
         <div class="faq-accordion fade-up delay-1">
           <h3 class="faq-group-title">General</h3>
 
+          <!-- Keep data-question-id stable when editing the displayed question. -->
           <div class="faq-item">
             <button class="faq-question" type="button" data-question-id="what-exactly-is-sugarclock">
               <span>What exactly is SugarClock?</span>

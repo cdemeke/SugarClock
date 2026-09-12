@@ -8,7 +8,7 @@ Edit `js/analytics-config.js` with the **public project token** (`phc_…`) from
 
 US Cloud uses `https://us.i.posthog.com` and asset host `https://us-assets.i.posthog.com`. EU Cloud uses `https://eu.i.posthog.com` and `https://eu-assets.i.posthog.com`. For self-hosting, configure both ingestion and SDK asset hosts. Production hosts are explicitly allowed; add a preview hostname locally only when testing with a separate test project.
 
-Configuration follows [PostHog's JavaScript SDK documentation](https://posthog.com/docs/libraries/js/config). We disable autocapture, replay, profiles, surveys, exception capture, heatmaps, and performance capture. Anonymous IDs persist in localStorage. SDK URL properties have query strings/fragments stripped before sending, and campaign/referrer persistence is disabled. No input values, FAQ text, device identifiers, glucose readings, or credentials are explicitly collected.
+Configuration follows [PostHog's JavaScript SDK documentation](https://posthog.com/docs/libraries/js/config). We disable autocapture, replay, profiles, surveys, exception capture, heatmaps, and performance capture. Anonymous IDs persist in localStorage. SDK URL/referrer properties (including initial and session-entry keys in `properties`, `$set`, and `$set_once`, including nested person maps) have query strings/fragments stripped before sending, and campaign/referrer persistence is disabled. No input values, FAQ text, device identifiers, glucose readings, or credentials are explicitly collected.
 
 ## Event contract (schema_version = 2)
 
@@ -30,7 +30,7 @@ Every event includes `page` (home/faq), `web_serial_supported`, and `secure_cont
 
 A browser installer click is **not a flash start or success**. The former `firmware_flash_started` event overstated intent. ESP Web Tools v10 does not expose a documented install lifecycle on its install button; this integration does not inspect its private dialog internals. Download and video events similarly measure requests, not completion. Navigation is never delayed; events during SDK loading are buffered (up to 100), but very early exits, blockers, or network failures may lose events.
 
-Add `data-track-event` to clickable markup and optional `data-track-location`, `data-track-vendor`, `data-track-method`, or `data-track-video-id`. Other attributes and DOM text are not collected. Keep names and properties static. FAQ IDs should remain stable when question wording changes.
+Add `data-track-event` to clickable markup and optional `data-track-location`, `data-track-vendor`, `data-track-method`. The demo event reads the same `data-video-id` used for playback. Other attributes and DOM text are not collected. Keep names and properties static. FAQ IDs should remain stable when question wording changes.
 
 ## Suggested PostHog insights
 
@@ -41,6 +41,12 @@ Add `data-track-event` to clickable markup and optional `data-track-location`, `
 
 ## Validate before merging
 
-Run `node --test tests/test_site_analytics.cjs` from the repository root. Configure a test project and allow a local hostname, serve `docs` with `python3 -m http.server --directory docs 8000`, then check PostHog live events while opening both pages, clicking each CTA, opening/closing FAQs, and scrolling through sections. Expect one pageview per load and one section event per section per load. Verify nested icon clicks and keyboard activation. Block the SDK request and confirm navigation, video, FAQs, and the installer remain usable. Restore production config before committing.
+Run `node --test tests/test_site_analytics.cjs` from the repository root; the dedicated `site` CI job also runs this suite with Node 22. Both analytics scripts are deferred in document order, keeping configuration in one shared file without blocking parsing. Configure a test project and allow a local hostname, serve `docs` with `python3 -m http.server --directory docs 8000`, then check PostHog live events while opening both pages, clicking each CTA, opening/closing FAQs, and scrolling through sections. Expect one pageview per load and one section event per section per load. Verify nested icon clicks and keyboard activation. Block the SDK request and confirm navigation, video, FAQs, and the installer remain usable. Restore production config before committing.
 
 The project token and US region have been configured. Live browser ingestion still needs verification before merging. Existing anonymous Mixpanel IDs are not transferred, so visitor counts restart at migration.
+
+### URL payload verification
+
+SDK source review confirms that `capture` can attach top-level `$set_once` before `before_send`. In the reviewed SDK, automatic initial/session person properties are skipped when person processing is disabled; sanitization nevertheless covers these maps defensively. Regression tests include `$session_entry_url`, `$initial_current_url`, and session referrers in all supported maps. This source review and synthetic payload coverage do not replace a live ingestion check.
+
+Before merging, use a synthetic landing URL such as `?privacy_probe=test-only#test-only` in the browser test above. Inspect the actual event in PostHog's event debugger, including `$set_once` and initial/session URL fields, and confirm that neither sentinel reaches any URL property. Do not put real sensitive data in the test URL.

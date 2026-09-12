@@ -3,7 +3,7 @@
   "use strict";
   var config = window.SUGARCLOCK_ANALYTICS;
   if (!config || !/^phc_/.test(config.token) ||
-      config.enabledHosts.indexOf(window.location.hostname) === -1) return;
+      (config.enabledHosts || []).indexOf(window.location.hostname) === -1) return;
 
   var queue = [];
   var client;
@@ -46,14 +46,25 @@
         save_referrer: false,
         before_send: function (event) {
           if (!event) return event;
-          var props = event.properties || {};
-          ["$current_url", "$referrer", "$initial_current_url", "$initial_referrer"].forEach(function (key) {
-            if (!props[key]) return;
-            try {
-              var url = new URL(props[key]);
-              props[key] = url.origin + url.pathname;
-            } catch (_) { delete props[key]; }
-          });
+          // SDK attribution can live on the event or in person-property maps.
+          // Cover current, initial, and session-entry URLs in every location.
+          function sanitize(props) {
+            if (!props || typeof props !== "object") return;
+            Object.keys(props).forEach(function (key) {
+              if (!/^\$.*(?:url|referrer)$/.test(key) || !props[key]) return;
+              try {
+                var url = new URL(props[key]);
+                props[key] = url.origin + url.pathname;
+              } catch (_) { delete props[key]; }
+            });
+          }
+          sanitize(event.properties);
+          sanitize(event.$set);
+          sanitize(event.$set_once);
+          if (event.properties) {
+            sanitize(event.properties.$set);
+            sanitize(event.properties.$set_once);
+          }
           return event;
         },
         loaded: function (sdk) {
@@ -74,10 +85,13 @@
     if (!el) return;
     var props = {};
     // Only static, declared properties; never capture DOM text or input values.
-    ["location", "vendor", "method", "video-id"].forEach(function (key) {
+    ["location", "vendor", "method"].forEach(function (key) {
       var value = el.getAttribute("data-track-" + key);
       if (value) props[key.replace(/-/g, "_")] = value;
     });
+    if (el.getAttribute("data-track-event") === "demo_video_requested") {
+      props.video_id = el.getAttribute("data-video-id");
+    }
     track(el.getAttribute("data-track-event"), props);
   }, true);
 
@@ -85,8 +99,9 @@
     document.querySelectorAll(".faq-question").forEach(function (button) {
       button.addEventListener("click", function () {
         // Capture phase reads state before the site's accordion toggles it.
-        if (!button.closest(".faq-item").classList.contains("active")) {
-          track("faq_answer_opened", { question_id: button.getAttribute("data-question-id") });
+        var questionId = button.getAttribute("data-question-id");
+        if (questionId && !button.closest(".faq-item").classList.contains("active")) {
+          track("faq_answer_opened", { question_id: questionId });
         }
       }, true);
     });
