@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SugarClock - Dashboard</title>
-    <link rel="stylesheet" href="style.css?v=nav-flat-2">
+    <link rel="stylesheet" href="style.css?v=toast-icons-1">
     <script>if(localStorage.getItem('theme')==='dark')document.documentElement.setAttribute('data-theme','dark');</script>
 </head>
 <body class="app-shell-page">
@@ -21,7 +21,7 @@
             <a class="sidebar-link active" href="/display.html"><img class="nav-image-icon" src="/dashboard-icon.png" alt="">Dashboard</a>
             <details class="sidebar-config">
                 <summary><img class="nav-image-icon" src="/configuration-icon.png" alt="">Configuration<svg class="nav-icon chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg></summary>
-                <div class="side-subnav"><a class="subnav-link" href="/#glucose">Blood Sugar</a><a class="subnav-link" href="/#display">Display</a><a class="subnav-link" href="/#time">Time &amp; timers</a><a class="subnav-link" href="/#weather">Weather</a><a class="subnav-link" href="/#connection">Wi-Fi</a><a class="subnav-link" href="/#integrations">Integrations</a><a class="subnav-link" href="/#danger">Reset device</a></div>
+                <div class="side-subnav"><a class="subnav-link" href="/#glucose">Blood Sugar</a><a class="subnav-link" href="/#display">Display</a><a class="subnav-link" href="/#ambient">Display Pet</a><a class="subnav-link" href="/#time">Time &amp; timers</a><a class="subnav-link" href="/#weather">Weather</a><a class="subnav-link" href="/#connection">Wi-Fi</a><a class="subnav-link" href="/#integrations">Integrations</a><a class="subnav-link" href="/#danger">Reset device</a></div>
             </details>
             <a class="sidebar-link" href="/debug.html"><img class="nav-image-icon" src="/diagnostics-icon.png" alt="">Diagnostics</a>
             <a class="sidebar-link" href="/device.html"><svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><rect x="5" y="5" width="10" height="10" rx="2"/><path d="M8 2v3M12 2v3M8 15v3M12 15v3M2 8h3M15 8h3M2 12h3M15 12h3"/></svg>Device</a>
@@ -93,7 +93,7 @@
             <div class="capability-grid" id="capability-grid">
                 <a class="capability-link" data-capability="time_display_enabled" href="/#time" hidden><span class="capability-dot"></span><span><strong>Clock &amp; date</strong><small>Edit time settings</small></span><span aria-hidden="true">&rarr;</span></a>
                 <a class="capability-link" data-capability="weather_enabled" href="/#weather" hidden><span class="capability-dot"></span><span><strong>Weather</strong><small>Edit weather settings</small></span><span aria-hidden="true">&rarr;</span></a>
-                <a class="capability-link" data-capability="ambient_enabled" href="/#display" hidden><span class="capability-dot"></span><span><strong>Ambient Creature</strong><small>Edit display settings</small></span><span aria-hidden="true">&rarr;</span></a>
+                <a class="capability-link" data-capability="ambient_enabled" href="/#ambient" hidden><span class="capability-dot"></span><span><strong>Display Pet</strong><small>Edit pet settings</small></span><span aria-hidden="true">&rarr;</span></a>
                 <a class="capability-link" data-capability="timer_enabled" href="/#time" hidden><span class="capability-dot"></span><span><strong>Pomodoro Timer</strong><small>Edit timer settings</small></span><span aria-hidden="true">&rarr;</span></a>
                 <a class="capability-link" data-capability="stopwatch_enabled" href="/#time" hidden><span class="capability-dot"></span><span><strong>Stopwatch</strong><small>Edit stopwatch settings</small></span><span aria-hidden="true">&rarr;</span></a>
                 <a class="capability-link" data-capability="countdown_enabled" href="/#time" hidden><span class="capability-dot"></span><span><strong>Countdown</strong><small>Edit countdown settings</small></span><span aria-hidden="true">&rarr;</span></a>
@@ -108,7 +108,7 @@
     <script>
         const trendMap = {'RisingFast':'\u2191\u2191','Rising':'\u2191','Flat':'\u2192','Falling':'\u2193','FallingFast':'\u2193\u2193','Unknown':'?'};
         const colorMap = {'red':'color-red','orange':'color-orange','green':'color-green','gray':'color-gray'};
-        const modeNames = {GLUCOSE:'Blood Sugar',TREND:'Trend',TIME:'Clock',WEATHER:'Weather',AMBIENT_FISH:'Ambient Creature',TIMER:'Pomodoro Timer',STOPWATCH:'Stopwatch',SYSMON:'System Monitor',COUNTDOWN:'Countdown',NOTIFY:'Notification',MESSAGE:'Message',STALE:'Stale reading',NO_DATA:'No data',NO_WIFI:'No Wi-Fi',NO_CFG:'Setup needed',NET_LIMITED:'Limited network',SETUP_AP:'Setup mode',BOOT:'Starting up'};
+        const modeNames = {GLUCOSE:'Blood Sugar',TREND:'Trend',TIME:'Clock',WEATHER:'Weather',AMBIENT_FISH:'Display Pet',TIMER:'Pomodoro Timer',STOPWATCH:'Stopwatch',SYSMON:'System Monitor',COUNTDOWN:'Countdown',NOTIFY:'Notification',MESSAGE:'Message',STALE:'Stale reading',NO_DATA:'No data',NO_WIFI:'No Wi-Fi',NO_CFG:'Setup needed',NET_LIMITED:'Limited network',SETUP_AP:'Setup mode',BOOT:'Starting up'};
 
         function fmtUp(s){const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60);if(d>0)return d+'d '+h+'h';if(h>0)return h+'h '+m+'m';return m+'m';}
         function fmtAge(s){if(s<0)return'No data';if(s<60)return s+'s ago';if(s<3600)return Math.floor(s/60)+'m '+s%60+'s ago';return Math.floor(s/3600)+'h ago';}
