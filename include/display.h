@@ -12,6 +12,14 @@ void display_clear();
 // Push buffer to LEDs
 void display_show();
 
+// Last fully rendered frame, in logical left-to-right RGB order (not LED wiring order).
+// Full color for browser readability; hardware brightness remains device-only.
+struct DisplayFrame {
+    uint8_t rgb[32 * 8 * 3];
+    uint32_t sequence;
+};
+void display_copy_frame(DisplayFrame& frame);
+
 // Set brightness (0-255)
 void display_set_brightness(uint8_t brightness);
 

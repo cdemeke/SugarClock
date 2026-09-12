@@ -20,6 +20,20 @@ static FastLED_NeoMatrix matrix(
 
 static uint8_t current_brightness = 40;
 static uint8_t transition_level = 255;
+static DisplayFrame published_frame = {};
+#ifdef ARDUINO_ARCH_ESP32
+static portMUX_TYPE frame_mux = portMUX_INITIALIZER_UNLOCKED;
+#endif
+
+void display_copy_frame(DisplayFrame& frame) {
+#ifdef ARDUINO_ARCH_ESP32
+    portENTER_CRITICAL(&frame_mux);
+#endif
+    frame = published_frame;
+#ifdef ARDUINO_ARCH_ESP32
+    portEXIT_CRITICAL(&frame_mux);
+#endif
+}
 
 void display_init() {
     FastLED.addLeds<WS2812B, PIN_MATRIX_DATA, GRB>(leds, MATRIX_NUM_LEDS);
@@ -44,6 +58,26 @@ void display_show() {
     uint8_t output_brightness = (uint8_t)(((uint16_t)current_brightness *
         transition_level + 127) / 255);
     FastLED.show(output_brightness);
+    static_assert(MATRIX_WIDTH == 32 && MATRIX_HEIGHT == 8, "Update DisplayFrame dimensions");
+    DisplayFrame next = {};
+    for (int y = 0; y < MATRIX_HEIGHT; ++y) {
+        for (int x = 0; x < MATRIX_WIDTH; ++x) {
+            const CRGB& pixel = leds[y * MATRIX_WIDTH + ((y & 1) ? MATRIX_WIDTH - 1 - x : x)];
+            const int offset = (y * MATRIX_WIDTH + x) * 3;
+            next.rgb[offset] = pixel.r;
+            next.rgb[offset + 1] = pixel.g;
+            next.rgb[offset + 2] = pixel.b;
+        }
+    }
+    // The HTTP task copies only completed frames; never a partially drawn buffer.
+#ifdef ARDUINO_ARCH_ESP32
+    portENTER_CRITICAL(&frame_mux);
+#endif
+    next.sequence = published_frame.sequence + 1;
+    published_frame = next;
+#ifdef ARDUINO_ARCH_ESP32
+    portEXIT_CRITICAL(&frame_mux);
+#endif
 }
 
 void display_set_brightness(uint8_t brightness) {

@@ -19,6 +19,13 @@ class Elements(HTMLParser):
 
 
 class ConfigurationUITests(unittest.TestCase):
+    def test_hints_are_styled_outside_form_groups(self):
+        css = (WEB / 'style.css').read_text()
+        rule = re.search(r'^\.hint\s*\{([^}]+)\}', css, re.MULTILINE).group(1)
+        self.assertIn('font-size: 12px', rule)
+        self.assertIn('color: var(--text-secondary)', rule)
+        self.assertIn('line-height: 1.4', rule)
+
     def test_page_ids_and_script_targets(self):
         for page in WEB.glob('*.html'):
             with self.subTest(page=page.name):

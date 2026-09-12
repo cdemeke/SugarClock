@@ -595,6 +595,19 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     request->send(200, "application/json", "{\"status\":\"ok\"}");
 }
 
+// GET /api/display/frame: a compact 32 x 8 RGB snapshot, not simulated status text.
+static void handle_display_frame(AsyncWebServerRequest* request) {
+    DisplayFrame frame;
+    display_copy_frame(frame);
+    AsyncResponseStream* response = request->beginResponseStream("application/octet-stream", sizeof(frame.rgb));
+    response->addHeader("Cache-Control", "no-store");
+    response->addHeader("X-Display-Sequence", String(frame.sequence));
+    response->addHeader("X-Display-Mode", engine_state_name(engine_get_state()));
+    // The stream owns the copy until the asynchronous response finishes.
+    response->write(frame.rgb, sizeof(frame.rgb));
+    request->send(response);
+}
+
 // GET /api/debug
 static void handle_debug(AsyncWebServerRequest* request) {
     JsonDocument doc;
@@ -1182,6 +1195,7 @@ void webserver_init() {
 
     // API routes
     server.on("/api/status", HTTP_GET, handle_status);
+    server.on("/api/display/frame", HTTP_GET, handle_display_frame);
     server.on("/api/config", HTTP_GET, handle_get_config);
     server.on("/api/debug", HTTP_GET, handle_debug);
     server.on("/api/history", HTTP_GET, handle_history);

@@ -43,7 +43,13 @@
             <div class="clock-display-heading">
                 <span class="clock-display-kicker">Live view</span>
             </div>
-            <div class="glucose-hero">
+            <div class="live-matrix-shell">
+                <div class="ambient-matrix live-matrix">
+                    <canvas id="live-display" width="32" height="8" role="img" aria-label="Connecting to the clock's display"></canvas>
+                </div>
+                <div class="hint live-frame-status" id="live-frame-status" role="status">Connecting to live display…</div>
+            </div>
+            <div class="glucose-hero visually-hidden" aria-label="Latest blood sugar reading">
                 <div class="reading">
                     <span class="value" id="glucose-value">---</span>
                     <span class="trend" id="trend-arrow"></span>
@@ -106,6 +112,7 @@
     </main>
 
     <script src="glucose-format.js"></script>
+    <script src="live-display.js"></script>
     <script>
         const trendMap = {'RisingFast':'\u2191\u2191','Rising':'\u2191','Flat':'\u2192','Falling':'\u2193','FallingFast':'\u2193\u2193','Unknown':'?'};
         const colorMap = {'red':'color-red','orange':'color-orange','green':'color-green','gray':'color-gray'};
@@ -114,6 +121,15 @@
         function fmtUp(s){const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60);if(d>0)return d+'d '+h+'h';if(h>0)return h+'h '+m+'m';return m+'m';}
         function fmtAge(s){if(s<0)return'No data';if(s<60)return s+'s ago';if(s<3600)return Math.floor(s/60)+'m '+s%60+'s ago';return Math.floor(s/3600)+'h ago';}
         function friendlyMode(mode){return modeNames[mode]||String(mode||'--').replaceAll('_',' ');}
+
+        const liveDisplay=startLiveDisplay({
+            canvas:document.getElementById('live-display'),
+            status:document.getElementById('live-frame-status'),
+            onMode(mode){
+                document.getElementById('display-state').textContent=friendlyMode(mode);
+                document.getElementById('live-display').setAttribute('aria-label','Clock display: '+friendlyMode(mode));
+            }
+        });
 
         let readingUnits = null;
         let latestReading = null;
@@ -138,7 +154,6 @@
                 if(typeof d.use_mmol==='boolean')readingUnits=d.use_mmol;
                 renderReading();
                 document.getElementById('data-age').textContent=fmtAge(d.data_age_sec);
-                document.getElementById('display-state').textContent=friendlyMode(d.state);
                 const we=document.getElementById('wifi-status');we.textContent=d.wifi_connected?'Connected':'Disconnected';we.style.color=d.wifi_connected?'var(--green)':'var(--red)';
                 document.getElementById('wifi-rssi').textContent=d.wifi_rssi+' dBm';
                 document.getElementById('failure-count').textContent=d.failure_count;
@@ -176,7 +191,7 @@
                 if(!response.ok)throw new Error(result.error||'Unable to change display');
                 if(result.mode)document.getElementById('display-state').textContent=friendlyMode(result.mode);
                 status.textContent=result.message||'Clock display changed';
-                setTimeout(refresh,700);
+                setTimeout(()=>{refresh();liveDisplay.refresh();},200);
             }catch(e){status.textContent=e.message||'Unable to change display';}
             finally{buttons.forEach(button=>button.disabled=false);}
         }

@@ -35,6 +35,40 @@ void assert_text(const char* expected, int x) {
 
 int main() {
     display_init();
+    // The browser sees completed RGB frames in logical order, not serpentine wiring.
+    DisplayFrame initial;
+    display_copy_frame(initial);
+    for (int y = 0; y < MATRIX_HEIGHT; ++y) {
+        for (int x = 0; x < MATRIX_WIDTH; ++x) {
+            auto& pixel = FastLED.pixels[y * MATRIX_WIDTH + x];
+            pixel.r = x;
+            pixel.g = y;
+            pixel.b = 123;
+        }
+    }
+    display_set_brightness(10);
+    display_show();
+    DisplayFrame published;
+    display_copy_frame(published);
+    assert(published.sequence == initial.sequence + 1);
+    for (int y = 0; y < MATRIX_HEIGHT; ++y) {
+        for (int x = 0; x < MATRIX_WIDTH; ++x) {
+            const int offset = (y * MATRIX_WIDTH + x) * 3;
+            assert(published.rgb[offset] == ((y & 1) ? MATRIX_WIDTH - 1 - x : x));
+            assert(published.rgb[offset + 1] == y);
+            assert(published.rgb[offset + 2] == 123);
+        }
+    }
+    display_clear();
+    DisplayFrame not_yet_shown;
+    display_copy_frame(not_yet_shown);
+    assert(std::memcmp(published.rgb, not_yet_shown.rgb, sizeof(published.rgb)) == 0);
+    assert(published.sequence == not_yet_shown.sequence);
+    display_show();
+    display_copy_frame(not_yet_shown);
+    for (uint8_t channel : not_yet_shown.rgb) assert(channel == 0);
+    assert(not_yet_shown.sequence == published.sequence + 1);
+
     AppConfig cfg = {};
     GlucoseReading reading_fixture = {};
     // Both units, every supported reading, and all five actual trend bitmaps.

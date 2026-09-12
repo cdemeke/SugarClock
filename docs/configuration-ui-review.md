@@ -2,6 +2,12 @@
 
 ## Dashboard units
 
+The visible Live view now uses `/api/display/frame`, a 768-byte RGB snapshot of the last rendered 32 × 8 LED frame. Previous/next, physical button presses and auto-cycle are reflected automatically. Logical row order is restored from the serpentine wiring; frame publication/copy is protected across render and HTTP tasks. Browser rendering uses full-color pixels for readability, not the physical LED brightness/power calibration. The screen-reader glucose summary retains the correct value/delta conversion below.
+
+The browser polls at most four times per second with one request in flight, stops while hidden, times out failed requests and shows an explicit disconnected state before retrying. The local staging server proxies this read-only frame endpoint too. Frame bytes are owned by the asynchronous response, not a temporary stack pointer.
+
+All `.hint` helper text, including text outside form groups, now uses the same compact 12px, muted style.
+
 Device APIs continue returning glucose and delta in mg/dL. `/api/status` now also includes `use_mmol`, so the dashboard formats a reading and its unit together without racing a separate configuration request. Older firmware falls back to the saved configuration. Both the reading and signed delta use the same /18 conversion and one-decimal rounding as `include/glucose_format.h`. Invalid readings do not leave a stale delta visible.
 
 ## Intentional simplifications
@@ -22,8 +28,8 @@ The `?v=toast-icons-1` stylesheet suffix is removed. The existing no-cache polic
 
 ## Verification
 
-- 54 host tests pass, including 4,404 value/delta formatting comparisons against the firmware and lossless, deterministic compression selection.
+- 56 host tests pass, including 4,404 value/delta formatting comparisons against the firmware, lossless compression selection, completed-frame/serpentine mapping checks, polling/visibility/recovery checks and global hint styling.
 - Browser checks cover mmol/L and mg/dL, signed deltas, delayed configuration responses, changing unit preferences, invalid readings, and enabled-only dashboard links.
 - Brightness form tests cover unchanged-value preservation, manual selection, restoring automatic mode, and omission of hidden alarm/startup settings.
-- Firmware builds successfully at 1,413,104 bytes (77.0% of the OTA slot).
+- Firmware builds successfully at 1,415,792 bytes (77.2% of the OTA slot).
 - Device and Mac setup-app web assets remain byte-for-byte synchronized.
