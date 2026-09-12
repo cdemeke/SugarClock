@@ -1,0 +1,46 @@
+# Marketing site analytics
+
+The public homepage and FAQ use PostHog. Device dashboards and credentials are outside this integration. Mixpanel has been removed; historical Mixpanel data is not migrated.
+
+## Activate
+
+Edit `js/analytics-config.js` with the **public project token** (`phc_…`) from PostHog project settings. Never use a personal API key. The configured production project is **Default project (334814), US Cloud**, verified in PostHog project settings. Setting the token to an empty string disables all analytics requests.
+
+US Cloud uses `https://us.i.posthog.com` and asset host `https://us-assets.i.posthog.com`. EU Cloud uses `https://eu.i.posthog.com` and `https://eu-assets.i.posthog.com`. For self-hosting, configure both ingestion and SDK asset hosts. Production hosts are explicitly allowed; add a preview hostname locally only when testing with a separate test project.
+
+Configuration follows [PostHog's JavaScript SDK documentation](https://posthog.com/docs/libraries/js/config). We disable autocapture, replay, profiles, surveys, exception capture, heatmaps, and performance capture. Anonymous IDs persist in localStorage. SDK URL properties have query strings/fragments stripped before sending, and campaign/referrer persistence is disabled. No input values, FAQ text, device identifiers, glucose readings, or credentials are explicitly collected.
+
+## Event contract (schema_version = 2)
+
+Every event includes `page` (home/faq), `web_serial_supported`, and `secure_context`, plus PostHog's standard browser/session metadata.
+
+| Event | Meaning / additional properties |
+| --- | --- |
+| `$pageview` | Once per page load; replaces Mixpanel `page_viewed` |
+| `section_viewed` | First intersection of 15% of why/process/install per page load; `section` |
+| `install_cta_clicked` | Link to install section; `location` |
+| `firmware_install_clicked` | Browser install button click; `method=web` |
+| `installer_download_clicked` | Click to releases page from Mac app CTA; `method=mac`, `location` |
+| `purchase_link_clicked` | Hardware vendor link; `vendor` |
+| `demo_video_requested` | Demo thumbnail click; `video_id`; replaces `youtube_video_played` |
+| `github_viewed` | Repository link; `location` |
+| `faq_link_clicked` | FAQ link; `location` |
+| `faq_answer_opened` | Each closed-to-open action; stable `question_id` |
+| `support_link_clicked` | Issue tracker link; `location` |
+
+A browser installer click is **not a flash start or success**. The former `firmware_flash_started` event overstated intent. ESP Web Tools v10 does not expose a documented install lifecycle on its install button; this integration does not inspect its private dialog internals. Download and video events similarly measure requests, not completion. Navigation is never delayed; events during SDK loading are buffered (up to 100), but very early exits, blockers, or network failures may lose events.
+
+Add `data-track-event` to clickable markup and optional `data-track-location`, `data-track-vendor`, `data-track-method`, or `data-track-video-id`. Other attributes and DOM text are not collected. Keep names and properties static. FAQ IDs should remain stable when question wording changes.
+
+## Suggested PostHog insights
+
+- Funnel: `$pageview` → `section_viewed` filtered to install → `firmware_install_clicked`; break down by Web Serial support.
+- Separate funnel for `installer_download_clicked`, since it measures a different installation route.
+- CTA clicks by location; purchase clicks by vendor; popular FAQ answers by question_id.
+- Browser install intent / unique homepage visitors. Do not label this an installation success rate.
+
+## Validate before merging
+
+Run `node --test tests/test_site_analytics.cjs` from the repository root. Configure a test project and allow a local hostname, serve `docs` with `python3 -m http.server --directory docs 8000`, then check PostHog live events while opening both pages, clicking each CTA, opening/closing FAQs, and scrolling through sections. Expect one pageview per load and one section event per section per load. Verify nested icon clicks and keyboard activation. Block the SDK request and confirm navigation, video, FAQs, and the installer remain usable. Restore production config before committing.
+
+The project token and US region have been configured. Live browser ingestion still needs verification before merging. Existing anonymous Mixpanel IDs are not transferred, so visitor counts restart at migration.

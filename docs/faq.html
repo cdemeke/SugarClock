@@ -22,6 +22,7 @@
   <link rel="manifest" href="site.webmanifest">
   <meta name="theme-color" content="#fff7cc">
   <script src="https://unpkg.com/feather-icons"></script>
+  <script src="js/analytics-config.js"></script>
   <script src="js/analytics.js"></script>
 </head>
 
@@ -36,11 +37,11 @@
       <ul class="nav-links">
         <li><a href="index.html#why">Why</a></li>
         <li><a href="index.html#process">Process</a></li>
-        <li><a href="faq.html">FAQ</a></li>
+        <li><a href="faq.html" data-track-event="faq_link_clicked" data-track-location="navigation">FAQ</a></li>
       </ul>
 
       <div class="nav-actions">
-        <a href="index.html#install" class="btn btn-sm">Install Now</a>
+        <a href="index.html#install" class="btn btn-sm" data-track-event="install_cta_clicked" data-track-location="navigation">Install Now</a>
       </div>
     </div>
   </nav>
@@ -56,7 +57,7 @@
           <h3 class="faq-group-title">General</h3>
 
           <div class="faq-item">
-            <button class="faq-question" type="button">
+            <button class="faq-question" type="button" data-question-id="what-exactly-is-sugarclock">
               <span>What exactly is SugarClock?</span>
               <i data-feather="chevron-down"></i>
             </button>
@@ -68,7 +69,7 @@
           </div>
 
           <div class="faq-item">
-            <button class="faq-question" type="button">
+            <button class="faq-question" type="button" data-question-id="is-this-a-medical-device">
               <span>Is this a medical device?</span>
               <i data-feather="chevron-down"></i>
             </button>
@@ -80,7 +81,7 @@
           </div>
 
           <div class="faq-item">
-            <button class="faq-question" type="button">
+            <button class="faq-question" type="button" data-question-id="which-cgms-does-it-work-with">
               <span>Which CGMs does it work with?</span>
               <i data-feather="chevron-down"></i>
             </button>
@@ -94,7 +95,7 @@
           <h3 class="faq-group-title">Installation</h3>
 
           <div class="faq-item">
-            <button class="faq-question" type="button">
+            <button class="faq-question" type="button" data-question-id="do-i-need-to-know-how-to-code">
               <span>Do I need to know how to code?</span>
               <i data-feather="chevron-down"></i>
             </button>
@@ -105,7 +106,7 @@
           </div>
 
           <div class="faq-item">
-            <button class="faq-question" type="button">
+            <button class="faq-question" type="button" data-question-id="what-if-setup-fails">
               <span>What if setup fails?</span>
               <i data-feather="chevron-down"></i>
             </button>
@@ -116,7 +117,7 @@
           </div>
 
           <div class="faq-item" id="factory-restore">
-            <button class="faq-question" type="button">
+            <button class="faq-question" type="button" data-question-id="can-i-restore-the-original-clock-software">
               <span>Can I restore the original clock software?</span>
               <i data-feather="chevron-down"></i>
             </button>
@@ -127,7 +128,7 @@
           </div>
 
           <div class="faq-item">
-            <button class="faq-question" type="button">
+            <button class="faq-question" type="button" data-question-id="can-sugarclock-connect-to-school-or-wpa2-enterprise-wi-fi">
               <span>Can SugarClock connect to school or WPA2-Enterprise Wi-Fi?</span>
               <i data-feather="chevron-down"></i>
             </button>
@@ -149,7 +150,7 @@
           <h3 class="faq-group-title">Technical</h3>
 
           <div class="faq-item">
-            <button class="faq-question" type="button">
+            <button class="faq-question" type="button" data-question-id="does-it-have-a-battery">
               <span>Does it have a battery?</span>
               <i data-feather="chevron-down"></i>
             </button>
@@ -160,7 +161,7 @@
           </div>
 
           <div class="faq-item">
-            <button class="faq-question" type="button">
+            <button class="faq-question" type="button" data-question-id="is-my-glucose-data-private">
               <span>Is my glucose data private?</span>
               <i data-feather="chevron-down"></i>
             </button>
@@ -171,7 +172,7 @@
           </div>
 
           <div class="faq-item">
-            <button class="faq-question" type="button">
+            <button class="faq-question" type="button" data-question-id="how-do-i-find-the-clock-s-ip-address">
               <span>How do I find the clock's IP address?</span>
               <i data-feather="chevron-down"></i>
             </button>
@@ -198,9 +199,9 @@
         <div class="footer-links">
           <h4>Links</h4>
           <ul>
-            <li><a href="index.html#install">Install</a></li>
-            <li><a href="https://github.com/cdemeke/SugarClock/issues" target="_blank" rel="noopener">Issue Tracker</a></li>
-            <li><a href="https://github.com/cdemeke/SugarClock" target="_blank" rel="noopener">Source Code</a></li>
+            <li><a href="index.html#install" data-track-event="install_cta_clicked" data-track-location="footer">Install</a></li>
+            <li><a href="https://github.com/cdemeke/SugarClock/issues" target="_blank" rel="noopener" data-track-event="support_link_clicked" data-track-location="footer">Issue Tracker</a></li>
+            <li><a href="https://github.com/cdemeke/SugarClock" target="_blank" rel="noopener" data-track-event="github_viewed" data-track-location="footer">Source Code</a></li>
           </ul>
         </div>
         <div class="footer-links">
