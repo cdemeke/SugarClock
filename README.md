@@ -63,6 +63,8 @@ Open **SugarClock Setup** and follow the on-screen steps. The app will walk you 
 1. **Detect your clock** over USB
 2. **Pick your WiFi network** from a list
 3. **Connect your glucose source** (Dexcom Share, Nightscout, or custom URL)
+
+For Nightscout setup, authentication options, and the test plan, see [Nightscout support](docs/NIGHTSCOUT_SUPPORT.md).
 4. **Set your preferences** (units, alerts, brightness, timezone)
 5. **Flash the firmware** — the app installs everything onto the clock automatically
 

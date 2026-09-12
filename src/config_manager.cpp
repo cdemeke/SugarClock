@@ -31,6 +31,9 @@ static void config_set_defaults() {
     // Custom server
     config.server_url[0] = '\0';
     config.auth_token[0] = '\0';
+    config.ns_url[0] = '\0';
+    config.ns_auth_mode = 0;
+    config.ns_credential[0] = '\0';
 
     // Dexcom Share
     config.dexcom_username[0] = '\0';
@@ -204,6 +207,9 @@ static void config_check_littlefs_overlay() {
     }
     if (doc["server_url"].is<const char*>())     strncpy(config.server_url, doc["server_url"], sizeof(config.server_url));
     if (doc["auth_token"].is<const char*>())     strncpy(config.auth_token, doc["auth_token"], sizeof(config.auth_token));
+    if (doc["ns_url"].is<const char*>()) snprintf(config.ns_url, sizeof(config.ns_url), "%s", doc["ns_url"].as<const char*>());
+    if (doc["ns_auth_mode"].is<int>()) config.ns_auth_mode = doc["ns_auth_mode"];
+    if (doc["ns_credential"].is<const char*>()) snprintf(config.ns_credential, sizeof(config.ns_credential), "%s", doc["ns_credential"].as<const char*>());
     if (doc["timezone"].is<const char*>())       strncpy(config.timezone, doc["timezone"], sizeof(config.timezone));
     if (doc["time_display_enabled"].is<bool>()) config.time_display_enabled = doc["time_display_enabled"];
     if (doc["use_mmol"].is<bool>())              config.use_mmol = doc["use_mmol"];
@@ -244,6 +250,9 @@ void config_init() {
         config.data_source = prefs.getInt("data_src", 0);
         prefs.getString("server_url", config.server_url, sizeof(config.server_url));
         prefs.getString("auth_token", config.auth_token, sizeof(config.auth_token));
+        prefs.getString("ns_url", config.ns_url, sizeof(config.ns_url));
+        config.ns_auth_mode = prefs.getInt("ns_auth", 0);
+        prefs.getString("ns_cred", config.ns_credential, sizeof(config.ns_credential));
         prefs.getString("dex_user", config.dexcom_username, sizeof(config.dexcom_username));
         prefs.getString("dex_pass", config.dexcom_password, sizeof(config.dexcom_password));
         config.dexcom_us = prefs.getBool("dex_us", true);
@@ -387,6 +396,9 @@ void config_save() {
     prefs.putInt("data_src", config.data_source);
     prefs.putString("server_url", config.server_url);
     prefs.putString("auth_token", config.auth_token);
+    prefs.putString("ns_url", config.ns_url);
+    prefs.putInt("ns_auth", config.ns_auth_mode);
+    prefs.putString("ns_cred", config.ns_credential);
     prefs.putString("dex_user", config.dexcom_username);
     prefs.putString("dex_pass", config.dexcom_password);
     prefs.putBool("dex_us", config.dexcom_us);
@@ -504,6 +516,8 @@ bool config_has_wifi() {
 bool config_has_server() {
     if (config.data_source == 2) return true;  // demo mode needs no config
     if (config.data_source == 1) return config_has_dexcom();
+    if (config.data_source == 4) return config.ns_url[0] != '\0';
+    if (config.data_source == 3) return false; // Libre support is delivered separately.
     return strlen(config.server_url) > 0;
 }
 

@@ -52,7 +52,7 @@ static void resolve_data_host() {
     }
 
     // Custom URL / Nightscout: strip scheme, path, port and credentials
-    const char* url = cfg.server_url;
+    const char* url = cfg.data_source == 4 ? cfg.ns_url : cfg.server_url;
     if (url[0] == '\0') return;
     const char* p = strstr(url, "://");
     p = p ? p + 3 : url;

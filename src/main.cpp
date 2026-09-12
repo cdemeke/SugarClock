@@ -18,6 +18,7 @@
 #include "countdown_engine.h"
 #include "improv_serial.h"
 #include "net_check.h"
+#include "net_task.h"
 #include "ota_manager.h"
 #include "fleet_manager.h"
 
@@ -111,6 +112,10 @@ void setup() {
     esp_task_wdt_init(WDT_TIMEOUT_SEC, true);
     esp_task_wdt_add(NULL); // add current task
 
+    // 15. Start background network task (glucose + weather fetches run on
+    // core 0 so they never block rendering/buttons on this task)
+    net_task_start();
+
     Serial.println("[BOOT] Setup complete");
     Serial.printf("[BOOT] Free heap: %d bytes\n", ESP.getFreeHeap());
 }
@@ -136,11 +141,7 @@ void loop() {
         webserver_started = true;
     }
 
-    // 2. HTTP polling
-    http_loop();
-
-    // 2b. Weather polling
-    weather_loop();
+    // (HTTP + weather polling run on the background network task)
 
     // 3. Time management
     time_loop();

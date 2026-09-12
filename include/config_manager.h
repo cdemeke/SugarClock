@@ -20,12 +20,17 @@ struct AppConfig {
     char wifi_anon_identity[128];  // optional outer identity
     bool wifi_validate_ca;         // default false; only meaningful with /wifi_ca.pem present
 
-    // Data source: 0=custom URL, 1=Dexcom Share, 2=Demo (synthetic data)
+    // Data source: 0=custom URL, 1=Dexcom Share, 2=Demo, 3=reserved for Libre, 4=Nightscout
     int data_source;
 
     // Custom server
     char server_url[256];
     char auth_token[256];
+
+    // Nightscout settings are independent of the custom URL source.
+    char ns_url[256];
+    int ns_auth_mode;          // 0=public, 1=access token, 2=API secret
+    char ns_credential[256];
 
     // Dexcom Share
     char dexcom_username[64];
