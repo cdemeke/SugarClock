@@ -27,7 +27,7 @@ void libre_api_host(char* out, size_t n);
 void libre_reset_session();
 
 // Cached people from the most recent connections response for this account.
-size_t libre_get_patients(LibrePatient* out, size_t capacity);
+LibrePatients libre_get_patients();
 
 // HTTP code of the last request (-1 = connection failure)
 int libre_last_http_code();

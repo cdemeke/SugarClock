@@ -204,7 +204,7 @@ class HostCppLogicTests(unittest.TestCase):
             binary = os.path.join(temp, "host-tests")
             compiler = os.environ.get("CXX", "c++")
             subprocess.run([
-                compiler, "-std=c++11", "-I", os.path.join(ROOT, "include"),
+                compiler, "-std=c++11", "-pthread", "-I", os.path.join(ROOT, "include"),
                 os.path.join(ROOT, "tests", "test_host_logic.cpp"),
                 os.path.join(ROOT, "src", "semver.cpp"),
                 os.path.join(ROOT, "src", "ota_policy.cpp"),

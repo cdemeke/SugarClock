@@ -8,6 +8,7 @@
 
 #include <assert.h>
 #include <string.h>
+#include <thread>
 
 // Fake LibreLinkUp server for driving LibreSession through whole poll cycles
 struct FakeLibre : public LibreTransport {
@@ -276,6 +277,88 @@ static void test_libre_manual_tests_and_transient_backoff() {
     }
 }
 
+static void test_libre_patient_snapshot_lifetime() {
+    LibrePatientCache cache;
+    auto single = std::make_shared<LibrePatientSnapshot>("first@example.com", 1);
+    strcpy(single->people[0].id, "person-a");
+    strcpy(single->people[0].name, "Alice");
+    cache.publish(single);
+    LibrePatients reader = cache.get("first@example.com");
+    assert(reader && reader->people.size() == 1);
+    assert(!cache.get("other@example.com"));
+
+    auto replacement = std::make_shared<LibrePatientSnapshot>("second@example.com", 2);
+    strcpy(replacement->people[0].id, "person-b");
+    strcpy(replacement->people[1].id, "person-c");
+    cache.publish(replacement);
+    assert(!cache.get("first@example.com"));
+    assert(cache.get("second@example.com")->people.size() == 2);
+    // A web response can finish using its retained snapshot after replacement.
+    assert(strcmp(reader->people[0].name, "Alice") == 0);
+    cache.clear(); // rejected/oversized/empty response invalidates future reads
+    assert(!cache.get("second@example.com"));
+    assert(strcmp(reader->people[0].id, "person-a") == 0);
+
+    std::thread publisher([&cache]() {
+        for (int i = 0; i < 2000; ++i) {
+            auto next = std::make_shared<LibrePatientSnapshot>("shared@example.com", 2);
+            strcpy(next->people[0].id, i % 2 ? "odd" : "even");
+            strcpy(next->people[1].id, next->people[0].id);
+            cache.publish(next);
+            if (i % 3 == 0) cache.clear();
+        }
+    });
+    auto read = [&cache]() {
+        for (int i = 0; i < 2000; ++i) {
+            LibrePatients current = cache.get("shared@example.com");
+            if (current) {
+                assert(current->people.size() == 2);
+                assert(strcmp(current->people[0].id, current->people[1].id) == 0);
+            }
+        }
+    };
+    std::thread reader1(read), reader2(read);
+    publisher.join(); reader1.join(); reader2.join();
+}
+
+static void test_libre_account_action_cooldown() {
+    FakeLibre server; LibreSession session;
+    server.login_result = LIBRE_AUTH_NEEDS_ACTION;
+    // An hour of unaccepted terms never escalates the five-minute cooldown.
+    for (uint32_t t = 0; t < 60 * MIN_MS; t += 5 * MIN_MS) {
+        LibreResult r = session.fetch(server, t, true, LIBRE_TS);
+        assert(r.status == LIBRE_FETCH_NEEDS_ACTION && r.account_action_required);
+        assert(r.retry_in_ms == 5 * MIN_MS);
+        for (uint32_t elapsed = 100; elapsed < 5 * MIN_MS; elapsed += 1000) {
+            r = session.fetch(server, t + elapsed, true, LIBRE_TS);
+            assert(r.status == LIBRE_FETCH_BACKOFF && r.account_action_required);
+        }
+    }
+    assert(server.logins == 12 && server.reads == 0);
+    assert(session.consecutive_rejections() == 0);
+
+    // Terms accepted in the app: recover without changing credentials/resetting.
+    server.login_result = LIBRE_AUTH_OK;
+    assert(session.fetch(server, 60 * MIN_MS, true, LIBRE_TS).status == LIBRE_FETCH_OK);
+    assert(server.logins == 13 && server.reads == 1);
+
+    // A new invalid-password failure still follows exponential backoff.
+    server.unauthorized_reads_left = 1;
+    server.login_result = LIBRE_AUTH_REJECTED;
+    assert(session.fetch(server, 61 * MIN_MS, true, LIBRE_TS).retry_in_ms == 5 * MIN_MS);
+    assert(session.fetch(server, 66 * MIN_MS, true, LIBRE_TS).retry_in_ms == 10 * MIN_MS);
+
+    // A transient failure while waiting for action preserves the fixed gate.
+    session.reset();
+    server.login_result = LIBRE_AUTH_NEEDS_ACTION;
+    session.fetch(server, 0, true, LIBRE_TS);
+    server.login_result = LIBRE_AUTH_TRANSIENT;
+    assert(session.fetch(server, 5 * MIN_MS, true, LIBRE_TS).status == LIBRE_FETCH_TRANSIENT);
+    assert(session.fetch(server, 6 * MIN_MS, true, LIBRE_TS).status == LIBRE_FETCH_BACKOFF);
+    server.login_result = LIBRE_AUTH_OK;
+    assert(session.fetch(server, 10 * MIN_MS, true, LIBRE_TS).status == LIBRE_FETCH_OK);
+}
+
 int main() {
     DoubleClickDetector single_click(350);
     assert(single_click.on_press(100) == DOUBLE_CLICK_NONE);
@@ -357,5 +440,7 @@ int main() {
     test_libre_authorization_failures_back_off();
     test_libre_person_binding_and_account_changes();
     test_libre_manual_tests_and_transient_backoff();
+    test_libre_patient_snapshot_lifetime();
+    test_libre_account_action_cooldown();
     return 0;
 }

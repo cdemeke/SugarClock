@@ -23,6 +23,8 @@ static int last_response_code = 0;
 static char last_response_body[512] = "";
 static bool ever_received = false;
 static unsigned long last_poll_ms = 0;
+// Same wraparound/pre-boot semantics as GlucoseReading::received_at_ms.
+// ever_received distinguishes an empty history; timestamp zero is valid.
 static unsigned long last_success_ms = 0;
 static volatile bool http_paused = false;
 
@@ -550,7 +552,7 @@ bool http_has_ever_received() {
 }
 
 unsigned long http_time_since_last_reading() {
-    if (!ever_received || last_success_ms == 0) {
+    if (!ever_received) {
         return ULONG_MAX;
     }
     return millis() - last_success_ms;

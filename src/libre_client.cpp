@@ -28,10 +28,7 @@ static char account_id[65] = "";   // sha256(user.id) as hex, sent as "account-i
 static LibreSession session;
 static std::atomic<bool> fetch_active{false};
 static std::atomic<bool> reset_pending{false};
-static LibrePatient patients[LIBRE_MAX_PATIENTS];
-static size_t patient_count = 0;
-static char patient_account[64] = "";
-static portMUX_TYPE patient_lock = portMUX_INITIALIZER_UNLOCKED;
+static LibrePatientCache patient_cache;
 
 static int last_http_code = 0;
 static char last_message[160] = "";
@@ -68,10 +65,9 @@ static void sha256_hex(const char* in, char out[65]) {
 // Perform a LibreLinkUp request against the configured region. body == nullptr → GET.
 // On a connection failure, tls_error receives mbedtls' reason (e.g. a rejected certificate).
 static int llu_request(const char* path, const char* body, String& response, bool authed,
-                       char* tls_error, size_t tls_error_size) {
-    AppConfig& cfg = config_get();
+                       char* tls_error, size_t tls_error_size, const char* region) {
     char host[48];
-    host_for_region(cfg.libre_region, host, sizeof(host));
+    host_for_region(region, host, sizeof(host));
     char url[128];
     snprintf(url, sizeof(url), "https://%s%s", host, path);
     tls_error[0] = '\0';
@@ -124,7 +120,16 @@ static void set_connection_error(const char* what, int code, const char* tls_err
 
 // HTTP implementation of the LibreLinkUp transport used by LibreSession
 class HttpLibreTransport : public LibreTransport {
+    char region_[8] = "";
+    bool config_dirty_ = false;
 public:
+    HttpLibreTransport() {
+        strncpy(region_, config_get().libre_region, sizeof(region_) - 1);
+    }
+    void save_config_if_changed() {
+        if (config_dirty_ && !reset_pending.load()) config_save();
+        config_dirty_ = false;
+    }
     bool saw_empty = false;  // nobody shares with the account (message already set)
 
     LibreAuthResult login() override {
@@ -151,12 +156,12 @@ public:
         // Login at the saved region (or the global host), following one region redirect
         for (int attempt = 0; attempt < 2; attempt++) {
             Serial.printf("[LIBRE] Logging in (region: %s)...\n",
-                          cfg.libre_region[0] ? cfg.libre_region : "auto");
+                          region_[0] ? region_ : "auto");
 
             String resp;
             char tls_error[96];
             int code = llu_request("/llu/auth/login", body.c_str(), resp, false,
-                                   tls_error, sizeof(tls_error));
+                                   tls_error, sizeof(tls_error), region_);
             if (reset_pending.load()) {
                 set_message("Libre settings changed; retry with the saved account");
                 return LIBRE_AUTH_TRANSIENT;
@@ -188,20 +193,20 @@ public:
                     if (isalnum((unsigned char)*p)) clean[n++] = tolower((unsigned char)*p);
                 }
                 clean[n] = '\0';
-                if (n == 0 || strcmp(clean, cfg.libre_region) == 0) {
+                if (n == 0 || strcmp(clean, region_) == 0) {
                     set_message("Login: bad region redirect '%s'", region);
                     return LIBRE_AUTH_TRANSIENT;
                 }
                 Serial.printf("[LIBRE] Redirected to region '%s'\n", clean);
-                strncpy(cfg.libre_region, clean, sizeof(cfg.libre_region) - 1);
-                config_save();
+                // Keep redirects local until a login at that host succeeds.
+                strcpy(region_, clean);
                 continue;
             }
 
             if (status == LLU_STATUS_NEEDS_ACTION) {
                 set_message("Open the LibreLinkUp app and accept the %s",
                             data["step"]["type"] | "terms");
-                return LIBRE_AUTH_REJECTED;
+                return LIBRE_AUTH_NEEDS_ACTION;
             }
             if (data["minimumVersion"].is<const char*>()) {
                 set_message("LibreLinkUp requires app version %s - firmware update needed",
@@ -224,6 +229,10 @@ public:
             strncpy(auth_token, token, sizeof(auth_token) - 1);
             auth_token[sizeof(auth_token) - 1] = '\0';
             sha256_hex(user_id, account_id);
+            if (strcmp(cfg.libre_region, region_) != 0) {
+                strcpy(cfg.libre_region, region_);
+                config_dirty_ = true;
+            }
             Serial.println("[LIBRE] Login OK");
             return LIBRE_AUTH_OK;
         }
@@ -236,7 +245,7 @@ public:
         String resp;
         char tls_error[96];
         int code = llu_request("/llu/connections", nullptr, resp, true,
-                               tls_error, sizeof(tls_error));
+                               tls_error, sizeof(tls_error), region_);
         if (reset_pending.load()) {
             set_message("Libre settings changed; retry with the saved account");
             return LIBRE_READ_TRANSIENT;
@@ -277,16 +286,19 @@ public:
 
         JsonArray conns = doc["data"].as<JsonArray>();
         AppConfig& cfg = config_get();
-        std::unique_ptr<LibrePatient[]> available(new LibrePatient[LIBRE_MAX_PATIENTS]());
         if (conns.size() > LIBRE_MAX_PATIENTS) {
+            patient_cache.clear();
             set_message("Too many Libre connections; use a follower account with fewer people");
             saw_empty = true;
             return LIBRE_READ_EMPTY;
         }
+        auto snapshot = std::make_shared<LibrePatientSnapshot>(cfg.libre_email, conns.size());
+        auto& available = snapshot->people;
         size_t count = 0;
         for (JsonObject conn : conns) {
             const char* id = conn["patientId"] | "";
             if (strlen(id) >= sizeof(available[count].id)) {
+                patient_cache.clear();
                 set_message("Libre returned an invalid person ID");
                 saw_empty = true;
                 return LIBRE_READ_EMPTY;
@@ -296,18 +308,15 @@ public:
                      conn["firstName"] | "", conn["lastName"] | "");
             count++;
         }
-        portENTER_CRITICAL(&patient_lock);
-        memcpy(patients, available.get(), sizeof(patients));
-        patient_count = count;
-        strncpy(patient_account, cfg.libre_email, sizeof(patient_account) - 1);
-        portEXIT_CRITICAL(&patient_lock);
-
         if (conns.size() == 0) {
+            patient_cache.clear();
             set_message("No one is sharing with this LibreLinkUp account");
             saw_empty = true;
             return LIBRE_READ_EMPTY;
         }
-        int selected = libre_patient_index(available.get(), count, cfg.libre_patient_id);
+        int selected = libre_patient_index(available.data(), count, cfg.libre_patient_id);
+        if (selected == LIBRE_PATIENT_INVALID) patient_cache.clear();
+        else patient_cache.publish(snapshot);
         if (selected < 0) {
             if (selected == LIBRE_PATIENT_AMBIGUOUS) {
                 set_message("Multiple people share with this account; select a person in Settings and save");
@@ -323,7 +332,7 @@ public:
             strcmp(cfg.libre_patient_name, available[selected].name) != 0) {
             strcpy(cfg.libre_patient_id, available[selected].id);
             strcpy(cfg.libre_patient_name, available[selected].name);
-            config_save();
+            config_dirty_ = true;
         }
 
         JsonObject gm = conns[selected]["glucoseMeasurement"];
@@ -359,6 +368,9 @@ bool libre_fetch(LibreReading& out, bool* attempted) {
     LibreResult r = session.fetch(transport, millis(), synced, synced ? (uint32_t)time(nullptr) : 0);
     if (attempted) *attempted = r.status != LIBRE_FETCH_BACKOFF && r.status != LIBRE_FETCH_CLOCK_UNSYNCED;
     if (reset_pending.load()) return false; // discard an in-flight old-account reading
+    // Coalesce a successful region redirect and first person binding into one
+    // NVS write. Failed logins never persist their speculative redirect.
+    transport.save_config_if_changed();
 
     switch (r.status) {
         case LIBRE_FETCH_OK:
@@ -375,9 +387,13 @@ bool libre_fetch(LibreReading& out, bool* attempted) {
             return false;
         case LIBRE_FETCH_BACKOFF:
             last_http_code = 429;
-            set_message("Libre retry paused; try again in %lu seconds",
+            set_message(r.account_action_required
+                            ? "Complete the required action in LibreLinkUp; retry in %lu seconds"
+                            : "Libre retry paused; try again in %lu seconds",
                         (unsigned long)((r.retry_in_ms + 999) / 1000));
             return false;
+        case LIBRE_FETCH_NEEDS_ACTION:
+            return false; // Keep the specific action reported by the login.
         case LIBRE_FETCH_REJECTED:
             Serial.printf("[LIBRE] Rejected, retrying in %lu min\n",
                           (unsigned long)(r.retry_in_ms / 60000));
@@ -405,13 +421,8 @@ void libre_reset_session() {
     reset_pending.store(true);
 }
 
-size_t libre_get_patients(LibrePatient* out, size_t capacity) {
-    portENTER_CRITICAL(&patient_lock);
-    size_t count = strcmp(patient_account, config_get().libre_email) == 0
-        ? min(capacity, patient_count) : 0;
-    memcpy(out, patients, count * sizeof(LibrePatient));
-    portEXIT_CRITICAL(&patient_lock);
-    return count;
+LibrePatients libre_get_patients() {
+    return patient_cache.get(config_get().libre_email);
 }
 
 int libre_last_http_code() {

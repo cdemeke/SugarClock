@@ -23,6 +23,8 @@ uint32_t libre_parse_timestamp(const char* s) {
     int mo, d, y, h, mi, se;
     char ampm[3] = "";
     int consumed = 0;
+    // %n records the consumed length but does not count as an assigned field:
+    // six numbers, plus one optional AM/PM token, means fields is 6 or 7.
     int fields = sscanf(s, "%d/%d/%d %d:%d:%d %n%2s%n",
                         &mo, &d, &y, &h, &mi, &se, &consumed, ampm, &consumed);
     if (fields < 6) return 0;
@@ -50,6 +52,8 @@ uint32_t libre_parse_timestamp(const char* s) {
 
 // LibreLinkUp TrendArrow: 1=SingleDown 2=FortyFiveDown 3=Flat 4=FortyFiveUp 5=SingleUp.
 // Libre has no double arrows, so its steepest arrows map to our "fast" arrows.
+// These source-specific numeric IDs intentionally differ from Dexcom's named
+// SingleUp/SingleDown handling in http_client.cpp; do not share that name parser.
 TrendType libre_map_trend(int arrow) {
     switch (arrow) {
         case 1: return TREND_FALLING_FAST;
@@ -85,9 +89,11 @@ void LibreSession::reset() {
     rejected_at_ms_ = 0;
     attempted_ = false;
     attempted_at_ms_ = 0;
+    awaiting_action_ = false;
 }
 
 uint32_t LibreSession::backoff_ms() const {
+    if (awaiting_action_) return LIBRE_ACCOUNT_ACTION_RETRY_MS;
     if (rejections_ == 0) return 0;
     uint32_t ms = LIBRE_BACKOFF_MIN_MS;
     for (unsigned i = 1; i < rejections_ && ms < LIBRE_BACKOFF_MAX_MS; i++) ms *= 2;
@@ -95,12 +101,26 @@ uint32_t LibreSession::backoff_ms() const {
 }
 
 LibreResult LibreSession::reject(uint32_t now_ms) {
+    awaiting_action_ = false;
     rejections_++;
     rejected_at_ms_ = now_ms;
     LibreResult result = LibreResult();
     result.status = LIBRE_FETCH_REJECTED;
     result.trend = TREND_UNKNOWN;
     result.retry_in_ms = backoff_ms();
+    return result;
+}
+
+LibreResult LibreSession::needs_action(uint32_t now_ms) {
+    has_token_ = false;
+    awaiting_action_ = true;
+    rejections_ = 0;
+    rejected_at_ms_ = now_ms;
+    LibreResult result = LibreResult();
+    result.status = LIBRE_FETCH_NEEDS_ACTION;
+    result.trend = TREND_UNKNOWN;
+    result.retry_in_ms = LIBRE_ACCOUNT_ACTION_RETRY_MS;
+    result.account_action_required = true;
     return result;
 }
 
@@ -116,12 +136,13 @@ LibreResult LibreSession::fetch(LibreTransport& transport, uint32_t now_ms,
         return result;
     }
 
-    if (rejections_ > 0) {
+    if (rejections_ > 0 || awaiting_action_) {
         uint32_t elapsed = now_ms - rejected_at_ms_;
         uint32_t wait = backoff_ms();
         if (elapsed < wait) {
             result.status = LIBRE_FETCH_BACKOFF;
             result.retry_in_ms = wait - elapsed;
+            result.account_action_required = awaiting_action_;
             return result;
         }
     }
@@ -137,12 +158,13 @@ LibreResult LibreSession::fetch(LibreTransport& transport, uint32_t now_ms,
     attempted_at_ms_ = now_ms;
     // An allowed retry consumes the rejection window even if it times out.
     // Keep the rejection count until an authorized read proves recovery.
-    if (rejections_ > 0) rejected_at_ms_ = now_ms;
+    if (rejections_ > 0 || awaiting_action_) rejected_at_ms_ = now_ms;
 
     bool logged_in_this_poll = false;
     if (!has_token_ || now_ms - token_ms_ >= LIBRE_SESSION_LIFETIME_MS) {
         has_token_ = false;
         LibreAuthResult auth = transport.login();
+        if (auth == LIBRE_AUTH_NEEDS_ACTION) return needs_action(now_ms);
         if (auth == LIBRE_AUTH_REJECTED) return reject(now_ms);
         if (auth == LIBRE_AUTH_TRANSIENT) {
             result.status = LIBRE_FETCH_TRANSIENT;
@@ -161,6 +183,7 @@ LibreResult LibreSession::fetch(LibreTransport& transport, uint32_t now_ms,
     if (read == LIBRE_READ_UNAUTHORIZED && !logged_in_this_poll) {
         has_token_ = false;
         LibreAuthResult auth = transport.login();
+        if (auth == LIBRE_AUTH_NEEDS_ACTION) return needs_action(now_ms);
         if (auth == LIBRE_AUTH_REJECTED) return reject(now_ms);
         if (auth == LIBRE_AUTH_TRANSIENT) {
             result.status = LIBRE_FETCH_TRANSIENT;
@@ -188,6 +211,7 @@ LibreResult LibreSession::fetch(LibreTransport& transport, uint32_t now_ms,
 
     // An authorized read proves the account and token work
     rejections_ = 0;
+    awaiting_action_ = false;
 
     if (read == LIBRE_READ_EMPTY || raw.glucose <= 0) {
         result.status = LIBRE_FETCH_NO_DATA;
@@ -206,8 +230,10 @@ LibreResult LibreSession::fetch(LibreTransport& transport, uint32_t now_ms,
             result.status = LIBRE_FETCH_STALE;
             break;
         case LIBRE_BAD_TIMESTAMP:
-        case LIBRE_CLOCK_UNSYNCED:
             result.status = LIBRE_FETCH_BAD_TIMESTAMP;
+            break;
+        case LIBRE_CLOCK_UNSYNCED:
+            result.status = LIBRE_FETCH_CLOCK_UNSYNCED;
             break;
     }
     return result;

@@ -145,13 +145,14 @@ static void add_libre_people(JsonDocument& doc) {
     const AppConfig& cfg = config_get();
     doc["libre_patient_id"] = cfg.libre_patient_id;
     doc["libre_patient_name"] = cfg.libre_patient_name;
-    LibrePatient people[LIBRE_MAX_PATIENTS];
-    size_t count = libre_get_patients(people, LIBRE_MAX_PATIENTS);
+    LibrePatients snapshot = libre_get_patients();
     JsonArray list = doc["libre_patients"].to<JsonArray>();
-    for (size_t i = 0; i < count; ++i) {
+    if (!snapshot) return;
+    for (const LibrePatient& entry : snapshot->people) {
         JsonObject person = list.add<JsonObject>();
-        person["id"] = people[i].id;
-        person["name"] = people[i].name;
+        // Explicit string copies: JSON serialization outlives this snapshot.
+        person["id"] = String(entry.id);
+        person["name"] = String(entry.name);
     }
 }
 
@@ -323,14 +324,14 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     // carry an old account's selection into a newly supplied account.
     if (strcmp(requested_email, cfg.libre_email) == 0 && requested_person[0] &&
         strcmp(requested_person, cfg.libre_patient_id) != 0) {
-        LibrePatient people[LIBRE_MAX_PATIENTS];
-        size_t count = libre_get_patients(people, LIBRE_MAX_PATIENTS);
-        int index = libre_patient_index(people, count, requested_person);
+        LibrePatients snapshot = libre_get_patients();
+        int index = snapshot ? libre_patient_index(snapshot->people.data(), snapshot->people.size(), requested_person)
+                             : LIBRE_PATIENT_MISSING;
         if (index < 0) {
             request->send(400, "application/json", "{\"error\":\"Test the Libre connection, then select a person from the list\"}");
             return;
         }
-        selected_person = people[index];
+        selected_person = snapshot->people[index];
     }
 
     if (doc["wifi_ssid"].is<const char*>()) {

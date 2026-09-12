@@ -11,7 +11,10 @@ struct GlucoseReading {
     char message[128];          // optional message from server
     int force_mode;             // -1 = no override, else DisplayState value
     unsigned long timestamp;    // server timestamp (epoch seconds)
-    unsigned long received_at_ms; // millis() when received
+    // millis() time corresponding to the reading. Libre subtracts sensor age,
+    // so this may wrap to a pre-boot value (and zero is valid). Compute age only
+    // with unsigned subtraction: millis() - received_at_ms, never by ordering.
+    unsigned long received_at_ms;
     bool valid;                 // true if successfully parsed
 };
 

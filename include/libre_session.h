@@ -15,11 +15,13 @@
 #define LIBRE_BACKOFF_MIN_MS       (5UL * 60000UL)
 #define LIBRE_BACKOFF_MAX_MS       (60UL * 60000UL)
 #define LIBRE_MIN_REQUEST_INTERVAL_MS 15000UL
+#define LIBRE_ACCOUNT_ACTION_RETRY_MS (5UL * 60000UL)
 
 enum LibreAuthResult {
     LIBRE_AUTH_OK,
     LIBRE_AUTH_TRANSIENT,   // network/server trouble; retry at the next poll
-    LIBRE_AUTH_REJECTED     // bad credentials, unaccepted terms, rate limited
+    LIBRE_AUTH_REJECTED,    // bad credentials or rate limited
+    LIBRE_AUTH_NEEDS_ACTION // terms/privacy/email action in LibreLinkUp
 };
 
 enum LibreReadResult {
@@ -57,6 +59,7 @@ enum LibreFetchStatus {
     LIBRE_FETCH_CLOCK_UNSYNCED,  // no request made
     LIBRE_FETCH_BACKOFF,         // no request made; see retry_in_ms
     LIBRE_FETCH_REJECTED,        // auth refused or rate limited; backoff started
+    LIBRE_FETCH_NEEDS_ACTION,    // retry after a fixed account-action cooldown
     LIBRE_FETCH_TRANSIENT,
     LIBRE_FETCH_NO_DATA,
     LIBRE_FETCH_BAD_TIMESTAMP,
@@ -70,6 +73,7 @@ struct LibreResult {
     uint32_t timestamp;      // reading epoch seconds (UTC)
     uint32_t age_sec;        // valid for OK and STALE
     uint32_t retry_in_ms;    // valid for BACKOFF and REJECTED
+    bool account_action_required;
 };
 
 class LibreSession {
@@ -90,6 +94,7 @@ public:
 private:
     uint32_t backoff_ms() const;
     LibreResult reject(uint32_t now_ms);
+    LibreResult needs_action(uint32_t now_ms);
 
     bool has_token_;
     uint32_t token_ms_;
@@ -97,6 +102,7 @@ private:
     uint32_t rejected_at_ms_;
     bool attempted_;
     uint32_t attempted_at_ms_;
+    bool awaiting_action_;
 };
 
 // Parse FactoryTimestamp to epoch seconds; 0 when malformed or out of range
