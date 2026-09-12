@@ -46,6 +46,20 @@ class TrustedRootTests(unittest.TestCase):
 
 
 class WebAssetTests(unittest.TestCase):
+    def test_compression_is_used_only_when_smaller(self):
+        for name in os.listdir(web_assets.DATA_WWW_DIR):
+            with self.subTest(asset=name):
+                with open(os.path.join(web_assets.DATA_WWW_DIR, name), 'rb') as stream:
+                    original = stream.read()
+                payload, encoding = web_assets.encode_asset(original)
+                self.assertLessEqual(len(payload), len(original))
+                decoded = web_assets.gzip.decompress(payload) if encoding else payload
+                self.assertEqual(original, decoded)
+                self.assertEqual((payload, encoding), web_assets.encode_asset(original))
+
+    def test_small_binary_assets_remain_uncompressed(self):
+        self.assertEqual((b'\x89PNG\r\n\x1a\n', None), web_assets.encode_asset(b'\x89PNG\r\n\x1a\n'))
+
     def test_gzip_header_is_cross_platform_deterministic(self):
         payload = b"SugarClock embedded web asset"
         compressed = web_assets.deterministic_gzip(payload)

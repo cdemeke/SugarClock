@@ -21,6 +21,7 @@
 #include "ota_manager.h"
 
 #include <ESPAsyncWebServer.h>
+#include <WebResponseImpl.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
 #include <Arduino.h>
@@ -77,6 +78,7 @@ static void handle_status(AsyncWebServerRequest* request) {
 
     // Glucose color info
     AppConfig& cfg = config_get();
+    doc["use_mmol"] = cfg.use_mmol;
     unsigned long age = http_time_since_last_reading();
     unsigned long stale_ms = (unsigned long)cfg.stale_timeout_min * 60UL * 1000UL;
     int failures = http_get_failure_count();
@@ -592,6 +594,54 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     }
 
     request->send(200, "application/json", "{\"status\":\"ok\"}");
+}
+
+static String frame_etag(uint32_t epoch, uint32_t sequence) {
+    char value[48];
+    snprintf(value, sizeof(value), "\"frame-%08lx-%lu\"", (unsigned long)epoch, (unsigned long)sequence);
+    return String(value);
+}
+
+// Own pixels inside the response object: no growable 768-byte String and no
+// reference to a render buffer that might be reused before TCP finishes sending.
+class DisplayFrameResponse final : public AsyncAbstractResponse {
+    DisplayFrame frame_;
+    size_t offset_ = 0;
+public:
+    explicit DisplayFrameResponse(uint32_t epoch) {
+        display_copy_frame(frame_);
+        _code = 200;
+        _contentType = "application/octet-stream";
+        _contentLength = sizeof(frame_.rgb);
+        addHeader("ETag", frame_etag(epoch, frame_.sequence));
+        addHeader("X-Display-Sequence", String(frame_.sequence));
+    }
+    bool _sourceValid() const override { return true; }
+    size_t _fillBuffer(uint8_t* buffer, size_t max_len) override {
+        const size_t remaining = sizeof(frame_.rgb) - offset_;
+        const size_t count = max_len < remaining ? max_len : remaining;
+        memcpy(buffer, frame_.rgb + offset_, count);
+        offset_ += count;
+        return count;
+    }
+};
+
+// GET /api/display/frame: renew demand before checking the conditional ETag.
+static void handle_display_frame(AsyncWebServerRequest* request) {
+    const DisplayFrameStatus frame = display_request_frame();
+    AsyncWebServerResponse* response;
+    if (!frame.ready) {
+        response = request->beginResponse(204); // Render loop will capture a fresh frame shortly.
+    } else if (request->header("If-None-Match") == frame_etag(frame.epoch, frame.sequence)) {
+        response = request->beginResponse(304);
+        response->addHeader("ETag", frame_etag(frame.epoch, frame.sequence));
+        response->addHeader("X-Display-Sequence", String(frame.sequence));
+    } else {
+        response = new DisplayFrameResponse(frame.epoch);
+    }
+    response->addHeader("Cache-Control", "no-store");
+    response->addHeader("X-Display-Mode", engine_state_name(engine_get_state()));
+    request->send(response);
 }
 
 // GET /api/debug
@@ -1172,7 +1222,7 @@ void webserver_init() {
         server.on(asset->path, HTTP_GET, [asset](AsyncWebServerRequest* request) {
             AsyncWebServerResponse* response = request->beginResponse(
                 200, asset->mime_type, asset->data, asset->size);
-            response->addHeader("Content-Encoding", "gzip");
+            if (asset->content_encoding) response->addHeader("Content-Encoding", asset->content_encoding);
             response->addHeader("Cache-Control", "no-cache");
             response->addHeader("ETag", asset->etag);
             request->send(response);
@@ -1181,6 +1231,7 @@ void webserver_init() {
 
     // API routes
     server.on("/api/status", HTTP_GET, handle_status);
+    server.on("/api/display/frame", HTTP_GET, handle_display_frame);
     server.on("/api/config", HTTP_GET, handle_get_config);
     server.on("/api/debug", HTTP_GET, handle_debug);
     server.on("/api/history", HTTP_GET, handle_history);

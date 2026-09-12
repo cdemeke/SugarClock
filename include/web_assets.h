@@ -10,6 +10,7 @@ struct WebAsset {
     size_t size;
     const char* mime_type;
     const char* etag;
+    const char* content_encoding;
 };
 
 const WebAsset* find_web_asset(const char* path);

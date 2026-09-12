@@ -7,20 +7,21 @@
     <link rel="stylesheet" href="style.css">
     <script>if(localStorage.getItem('theme')==='dark')document.documentElement.setAttribute('data-theme','dark');</script>
 </head>
-<body>
-    <nav class="topnav">
-        <div class="topnav-inner">
-            <a href="/" class="brand"><div class="brand-icon">G</div><span>SugarClock</span></a>
-            <ul class="topnav-links">
-                <li><a href="/display.html">Dashboard</a></li>
-                <li><a href="/">Config</a></li>
-                <li><a href="/debug.html">Debug</a></li>
-                <li><a href="/device.html" class="active">Device</a></li>
-            </ul>
-            <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">&#9790;</button>
-        </div>
-    </nav>
+<body class="app-shell-page">
+    <button class="mobile-nav-toggle" type="button" onclick="setNavOpen(true)" aria-label="Open navigation"><svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14"/></svg> Menu</button>
+    <button class="sidebar-scrim" type="button" onclick="setNavOpen(false)" aria-label="Close navigation"></button>
+    <aside class="sidebar" aria-label="Main navigation">
+        <div class="sidebar-header"><a href="/" class="brand"><img class="brand-logo" src="/logo.png" alt="SugarClock logo"><span class="brand-copy"><span class="brand-name">SugarClock</span><span class="brand-device">Device control</span></span></a><button class="sidebar-close" type="button" onclick="setNavOpen(false)" aria-label="Close navigation">&times;</button></div>
+        <nav class="sidebar-nav">
+            <a class="sidebar-link" href="/display.html"><img class="nav-image-icon" src="/dashboard-icon.png" alt="">Dashboard</a>
+            <details class="sidebar-config"><summary><img class="nav-image-icon" src="/configuration-icon.png" alt="">Configuration<svg class="nav-icon chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg></summary><div class="side-subnav"><a class="subnav-link" href="/#glucose">Blood Sugar</a><a class="subnav-link" href="/#display">Display</a><a class="subnav-link" href="/#ambient">Display Pet</a><a class="subnav-link" href="/#time">Time &amp; timers</a><a class="subnav-link" href="/#weather">Weather</a><a class="subnav-link" href="/#connection">Wi-Fi</a><a class="subnav-link" href="/#integrations">Integrations</a><a class="subnav-link" href="/#danger">Reset device</a></div></details>
+            <a class="sidebar-link" href="/debug.html"><img class="nav-image-icon" src="/diagnostics-icon.png" alt="">Diagnostics</a>
+            <a class="sidebar-link active" href="/device.html"><svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><rect x="5" y="5" width="10" height="10" rx="2"/><path d="M8 2v3M12 2v3M8 15v3M12 15v3M2 8h3M15 8h3M2 12h3M15 12h3"/></svg>Device</a>
+        </nav>
+        <div class="sidebar-footer"><button class="theme-toggle" type="button" onclick="toggleTheme()" title="Toggle color mode"><span class="theme-icon" aria-hidden="true">&#9790;</span><span class="theme-label">Switch to dark mode</span></button><div class="sidebar-footer-note">Connected to <a href="https://sugarclock.com" target="_blank" rel="noopener">SugarClock</a></div></div>
+    </aside>
 
+    <main class="app-main">
     <div class="page">
         <div class="page-header">
             <h1>Device Info</h1>
@@ -62,6 +63,34 @@
         </div>
 
         <div class="card">
+            <h2>Firmware Updates</h2>
+            <p style="font-size:13px;color:var(--text-secondary);margin:-8px 0 16px;">
+                Updates are signed, downloaded over secure HTTPS, and installed into a backup slot. The clock may restart briefly after verification.
+            </p>
+            <div class="status-row"><span class="status-label">Installed</span><span class="status-value" id="ota-current">--</span></div>
+            <div class="status-row"><span class="status-label">Available</span><span class="status-value" id="ota-available">--</span></div>
+            <div class="status-row"><span class="status-label">Status</span><span class="status-value" id="ota-state">--</span></div>
+            <div class="status-row"><span class="status-label">Last check</span><span class="status-value" id="ota-last-check">Never</span></div>
+            <div id="ota-error" style="display:none;color:var(--red);font-size:13px;margin:10px 0;"></div>
+            <div style="height:8px;background:var(--input-bg);border-radius:5px;overflow:hidden;margin:14px 0 18px;">
+                <div id="ota-progress" style="height:100%;width:0;background:var(--accent);transition:width .2s;"></div>
+            </div>
+            <div class="toggle-row">
+                <label for="ota-auto">Install stable updates automatically</label>
+                <input type="checkbox" id="ota-auto" checked>
+            </div>
+            <div class="form-group" style="max-width:220px;margin-top:12px;">
+                <label for="ota-hour">Nightly install hour</label>
+                <select id="ota-hour"></select>
+                <div class="hint">Local time; automatic installs are deferred when the clock is busy or unsafe.</div>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-outline" id="ota-check-btn">Check now</button>
+                <button class="btn btn-primary" id="ota-install-btn" style="display:none;">Install now</button>
+            </div>
+        </div>
+
+        <div class="card">
             <h2>Button Controls</h2>
             <p style="font-size:13px; color:var(--text-secondary); margin:-8px 0 16px;">
                 Physical button actions on the SugarClock device.
@@ -92,6 +121,7 @@
             </div>
         </div>
     </div>
+    </main>
 
     <div class="toast" id="toast"></div>
 
@@ -99,6 +129,34 @@
         function showToast(m,t){const e=document.getElementById('toast');e.textContent=m;e.className='toast show '+(t==='error'?'toast-error':'toast-success');setTimeout(()=>e.className='toast',3000);}
         function fB(b){if(b>1048576)return(b/1048576).toFixed(1)+' MB';if(b>1024)return(b/1024).toFixed(1)+' KB';return b+' B';}
         function fU(s){const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60);let p=[];if(d)p.push(d+'d');if(h)p.push(h+'h');p.push(m+'m');return p.join(' ');}
+        function otaLabel(s){return String(s||'unknown').replaceAll('_',' ');}
+        const hourSelect=document.getElementById('ota-hour');
+        for(let h=0;h<24;h++){const o=document.createElement('option');o.value=h;o.textContent=(h===0?'12':h>12?h-12:h)+(h<12?' AM':' PM');hourSelect.appendChild(o);}
+
+        async function loadOta(){
+            try{
+                const r=await fetch('/api/ota/status'),o=await r.json();
+                document.getElementById('fw-version').textContent='v'+o.current_version;
+                document.getElementById('ota-current').textContent='v'+o.current_version;
+                document.getElementById('ota-available').textContent=o.available_version?'v'+o.available_version:'None';
+                document.getElementById('ota-state').textContent=otaLabel(o.state);
+                document.getElementById('ota-last-check').textContent=o.last_check?new Date(o.last_check*1000).toLocaleString():'Never';
+                document.getElementById('ota-progress').style.width=(o.progress||0)+'%';
+                const err=document.getElementById('ota-error'),message=o.safety_reason||o.last_error||'';
+                err.textContent=message?otaLabel(message):'';err.style.display=message?'block':'none';
+                document.getElementById('ota-auto').checked=!!o.auto_update_enabled;
+                hourSelect.value=String(o.auto_update_hour);
+                const busy=['checking','downloading','verifying','pending_reboot'].includes(o.state);
+                document.getElementById('ota-check-btn').disabled=busy;
+                const install=document.getElementById('ota-install-btn');
+                install.style.display=o.available_version?'inline-flex':'none';install.disabled=busy;
+            }catch(e){}
+        }
+
+        async function otaAction(path){
+            try{const r=await fetch(path,{method:'POST'}),body=await r.json();if(!r.ok)throw new Error(body.reason||body.error||'Request failed');showToast('Update request queued');loadOta();}
+            catch(e){showToast(otaLabel(e.message),'error');loadOta();}
+        }
 
         async function load(){
             try{const[sr,dr]=await Promise.all([fetch('/api/status'),fetch('/api/debug')]);const s=await sr.json(),d=await dr.json();
@@ -107,21 +165,30 @@
             document.getElementById('fs-used').textContent=d.fs_used?fB(d.fs_used):'--';document.getElementById('fs-total').textContent=d.fs_total?fB(d.fs_total):'--';
             document.getElementById('bat-v').textContent=d.battery_voltage.toFixed(2)+'V';document.getElementById('bat-pct').textContent=d.battery_percent+'%';
             document.getElementById('uptime').textContent=fU(d.uptime_sec);
+            if(s.firmware_version)document.getElementById('fw-version').textContent='v'+s.firmware_version;
             }catch(e){}
         }
 
+        document.getElementById('ota-check-btn').addEventListener('click',()=>otaAction('/api/ota/check'));
+        document.getElementById('ota-install-btn').addEventListener('click',()=>{if(confirm('Install the verified update now? The clock will restart briefly.'))otaAction('/api/ota/install');});
+        async function saveOtaSettings(){try{const r=await fetch('/api/ota/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({auto_update_enabled:document.getElementById('ota-auto').checked,auto_update_hour:Number(hourSelect.value)})});if(!r.ok)throw new Error();showToast('Update schedule saved');}catch(e){showToast('Failed to save update schedule','error');}}
+        document.getElementById('ota-auto').addEventListener('change',saveOtaSettings);
+        hourSelect.addEventListener('change',saveOtaSettings);
         document.getElementById('restart-btn').addEventListener('click',async()=>{if(!confirm('Restart?'))return;try{await fetch('/api/restart',{method:'POST'});showToast('Restarting...');}catch(e){showToast('Failed','error');}});
         document.getElementById('reset-btn').addEventListener('click',async()=>{if(!confirm('Factory reset? All settings erased.'))return;try{await fetch('/api/factory-reset',{method:'POST'});showToast('Resetting...');}catch(e){showToast('Failed','error');}});
         load();
+        loadOta();setInterval(loadOta,2000);
 
         function toggleTheme(){
             const d=document.documentElement;
             const dark=d.getAttribute('data-theme')==='dark';
             if(dark){d.removeAttribute('data-theme');localStorage.removeItem('theme');}
             else{d.setAttribute('data-theme','dark');localStorage.setItem('theme','dark');}
-            document.querySelector('.theme-toggle').innerHTML=dark?'&#9790;':'&#9728;';
+            syncThemeButton();
         }
-        if(localStorage.getItem('theme')==='dark')document.querySelector('.theme-toggle').innerHTML='&#9728;';
+        function syncThemeButton(){const dark=document.documentElement.getAttribute('data-theme')==='dark';document.querySelector('.theme-icon').innerHTML=dark?'&#9728;':'&#9790;';document.querySelector('.theme-label').textContent=dark?'Switch to light mode':'Switch to dark mode';}
+        syncThemeButton();
+        function setNavOpen(open){document.body.classList.toggle('nav-open',open);}
     </script>
 </body>
 </html>

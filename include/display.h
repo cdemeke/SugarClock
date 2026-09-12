@@ -12,6 +12,22 @@ void display_clear();
 // Push buffer to LEDs
 void display_show();
 
+// Last fully rendered frame, in logical left-to-right RGB order (not LED wiring order).
+// Full color for browser readability; hardware brightness remains device-only.
+struct DisplayFrame {
+    uint8_t rgb[32 * 8 * 3];
+    uint32_t sequence;
+};
+void display_copy_frame(DisplayFrame& frame);
+struct DisplayFrameStatus {
+    bool ready;
+    uint32_t sequence;
+    uint32_t epoch;
+};
+// Renews a five-second viewing lease. First request after idle returns not-ready
+// until the render task publishes a fresh frame. Does not copy pixel data.
+DisplayFrameStatus display_request_frame();
+
 // Set brightness (0-255)
 void display_set_brightness(uint8_t brightness);
 
