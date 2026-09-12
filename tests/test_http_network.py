@@ -13,7 +13,8 @@ class HttpNetworkTests(unittest.TestCase):
             executable = str(Path(tmp) / "http-network")
             subprocess.run([
                 os.environ.get("CXX", "c++"), "-std=c++11", "-Wall", "-Wextra", "-Werror",
-                "-pthread", "-I", str(ROOT / "tests/http_network_stubs"),
+                # The shared arrow header also defines renderer-only tables.
+                "-Wno-error=unused-variable", "-pthread", "-I", str(ROOT / "tests/http_network_stubs"),
                 "-I", str(ROOT / "include"), str(ROOT / "tests/test_http_network.cpp"),
                 "-o", executable,
             ], check=True)

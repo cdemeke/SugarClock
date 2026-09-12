@@ -24,7 +24,9 @@ keyUsage = critical,digitalSignature,keyEncipherment,keyCertSign
                     '-config', str(config), '-keyout', str(directory / 'test.key'),
                     '-out', str(directory / 'test.crt')], check=True,
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    # The non-root Nightscout container must read this disposable synthetic key.
+    # mktemp directories begin as 0700; the non-root container must traverse
+    # this dedicated synthetic-TLS directory and read the disposable test key.
+    directory.chmod(0o755)
     (directory / 'test.key').chmod(0o644)
     return directory
 
