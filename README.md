@@ -60,9 +60,10 @@ no more than ten minutes old. Test Connection follows the same retry limits as
 automatic polling: requests are at least 15 seconds apart, and authorization
 rejections back off from five minutes to one hour. A network error during a retry
 preserves that cooldown. Saving changed credentials allows a new attempt.
-Requests to accept terms, privacy policies, or verify an account use a fixed
-five-minute cooldown rather than escalating to one hour. After completing the
-action in LibreLinkUp, test again once that cooldown expires.
+Requests to accept terms, privacy policies, or verify an account retry every
+five minutes for the first hour, then back off to 10, 20, 40, and at most 60
+minutes. After completing the action in LibreLinkUp, test again once the current
+cooldown expires; Test uses the same retry limit as automatic polling.
 
 ## Quick Start (Mac)
 

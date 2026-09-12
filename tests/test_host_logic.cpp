@@ -9,6 +9,7 @@
 #include <assert.h>
 #include <string.h>
 #include <thread>
+#include <future>
 
 // Fake LibreLinkUp server for driving LibreSession through whole poll cycles
 struct FakeLibre : public LibreTransport {
@@ -229,6 +230,66 @@ static void test_libre_person_binding_and_account_changes() {
     assert(!config_update_libre_credentials(cfg, nullptr, nullptr));
 }
 
+static void test_libre_discovery_during_account_change() {
+    AppConfig cfg = {};
+    config_update_libre_credentials(cfg, "old@example.com", "password");
+    std::promise<void> fetch_started, settings_saved;
+    auto started = fetch_started.get_future();
+    auto saved = settings_saved.get_future();
+    std::thread poll([&]() {
+        LibreConfigSnapshot original(cfg);
+        fetch_started.set_value();
+        // The response for the old account arrives after settings were saved.
+        saved.wait();
+        assert(!config_apply_libre_discovery(cfg, original, "us", "old-person", "Old Person"));
+    });
+    started.wait();
+    config_update_libre_credentials(cfg, "new@example.com", "new-password");
+    settings_saved.set_value();
+    poll.join();
+    assert(strcmp(cfg.libre_email, "new@example.com") == 0);
+    assert(!cfg.libre_region[0] && !cfg.libre_patient_id[0] && !cfg.libre_patient_name[0]);
+
+    // The new account can still auto-bind, with one combined region/person save.
+    LibreConfigSnapshot current(cfg);
+    assert(config_apply_libre_discovery(cfg, current, "eu2", "new-person", "New Person"));
+    LibreConfigSnapshot bound(cfg);
+    assert(!config_apply_libre_discovery(cfg, bound, "eu2", "new-person", "New Person"));
+    assert(strcmp(cfg.libre_patient_id, "new-person") == 0);
+
+    // Explicit selection and password changes also invalidate pending discovery.
+    {
+        LibreConfigLock lock(config_libre_mutex());
+        strcpy(cfg.libre_patient_id, "chosen-person");
+        strcpy(cfg.libre_patient_name, "Chosen Person");
+    }
+    assert(!config_apply_libre_discovery(cfg, bound, "us", "new-person", "Outdated Name"));
+    LibreConfigSnapshot selected(cfg);
+    config_update_libre_credentials(cfg, nullptr, "changed-password");
+    assert(!config_apply_libre_discovery(cfg, selected, "us", "old-person", "Old Person"));
+    assert(strcmp(cfg.libre_region, "eu2") == 0);
+    assert(strcmp(cfg.libre_patient_id, "chosen-person") == 0);
+
+    // Concurrent NVS-style snapshots never see mixed account/person fields.
+    std::thread writer([&]() {
+        for (int i = 0; i < 2000; ++i) {
+            LibreConfigLock lock(config_libre_mutex());
+            const char* account = i % 2 ? "a@example.com" : "b@example.com";
+            config_update_libre_credentials(cfg, account, "password");
+            LibreConfigSnapshot before(cfg);
+            config_apply_libre_discovery(cfg, before, "us", account, account);
+        }
+    });
+    for (int i = 0; i < 2000; ++i) {
+        LibreConfigSnapshot snapshot(cfg);
+        if (strcmp(snapshot.email, "new@example.com") != 0) {
+            assert(strcmp(snapshot.email, snapshot.patient_id) == 0);
+            assert(strcmp(snapshot.email, snapshot.patient_name) == 0);
+        }
+    }
+    writer.join();
+}
+
 static void test_libre_manual_tests_and_transient_backoff() {
     {   // Test and scheduled polls share this gate: repeated clicks cannot log in.
         FakeLibre server; LibreSession session;
@@ -324,7 +385,7 @@ static void test_libre_patient_snapshot_lifetime() {
 static void test_libre_account_action_cooldown() {
     FakeLibre server; LibreSession session;
     server.login_result = LIBRE_AUTH_NEEDS_ACTION;
-    // An hour of unaccepted terms never escalates the five-minute cooldown.
+    // Keep the first hour responsive while sharing the gate with Test clicks.
     for (uint32_t t = 0; t < 60 * MIN_MS; t += 5 * MIN_MS) {
         LibreResult r = session.fetch(server, t, true, LIBRE_TS);
         assert(r.status == LIBRE_FETCH_NEEDS_ACTION && r.account_action_required);
@@ -357,6 +418,34 @@ static void test_libre_account_action_cooldown() {
     assert(session.fetch(server, 6 * MIN_MS, true, LIBRE_TS).status == LIBRE_FETCH_BACKOFF);
     server.login_result = LIBRE_AUTH_OK;
     assert(session.fetch(server, 10 * MIN_MS, true, LIBRE_TS).status == LIBRE_FETCH_OK);
+
+    // Abandoned accounts escalate after the first hour, including across wrap.
+    session.reset();
+    server.login_result = LIBRE_AUTH_NEEDS_ACTION;
+    const uint32_t start = UINT32_MAX - 2 * MIN_MS;
+    for (uint32_t minutes = 0; minutes < 60; minutes += 5) {
+        assert(session.fetch(server, start + minutes * MIN_MS, true, LIBRE_TS).retry_in_ms == 5 * MIN_MS);
+    }
+    const uint32_t times[] = {60, 70, 90, 130, 190};
+    const uint32_t waits[] = {10, 20, 40, 60, 60};
+    for (unsigned i = 0; i < 5; ++i) {
+        LibreResult r = session.fetch(server, start + times[i] * MIN_MS, true, LIBRE_TS);
+        assert(r.status == LIBRE_FETCH_NEEDS_ACTION && r.retry_in_ms == waits[i] * MIN_MS);
+        int logins = server.logins;
+        r = session.fetch(server, start + (times[i] + 1) * MIN_MS, true, LIBRE_TS);
+        assert(r.status == LIBRE_FETCH_BACKOFF && r.account_action_required);
+        assert(r.retry_in_ms == (waits[i] - 1) * MIN_MS && server.logins == logins);
+    }
+    // Network failures cannot reopen the gate or discard its escalation.
+    server.login_result = LIBRE_AUTH_TRANSIENT;
+    assert(session.fetch(server, start + 250 * MIN_MS, true, LIBRE_TS).status == LIBRE_FETCH_TRANSIENT);
+    assert(session.fetch(server, start + 255 * MIN_MS, true, LIBRE_TS).retry_in_ms == 55 * MIN_MS);
+    server.login_result = LIBRE_AUTH_OK;
+    assert(session.fetch(server, start + 310 * MIN_MS, true, LIBRE_TS).status == LIBRE_FETCH_OK);
+    // After recovery, a later action starts a fresh five-minute grace period.
+    server.unauthorized_reads_left = 1;
+    server.login_result = LIBRE_AUTH_NEEDS_ACTION;
+    assert(session.fetch(server, start + 311 * MIN_MS, true, LIBRE_TS).retry_in_ms == 5 * MIN_MS);
 }
 
 int main() {
@@ -439,6 +528,7 @@ int main() {
     test_libre_stale_readings_are_never_fresh();
     test_libre_authorization_failures_back_off();
     test_libre_person_binding_and_account_changes();
+    test_libre_discovery_during_account_change();
     test_libre_manual_tests_and_transient_backoff();
     test_libre_patient_snapshot_lifetime();
     test_libre_account_action_cooldown();

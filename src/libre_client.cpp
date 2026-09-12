@@ -120,24 +120,33 @@ static void set_connection_error(const char* what, int code, const char* tls_err
 
 // HTTP implementation of the LibreLinkUp transport used by LibreSession
 class HttpLibreTransport : public LibreTransport {
+    LibreConfigSnapshot original_;
     char region_[8] = "";
+    LibrePatient patient_ = {};
     bool config_dirty_ = false;
 public:
-    HttpLibreTransport() {
-        strncpy(region_, config_get().libre_region, sizeof(region_) - 1);
+    HttpLibreTransport() : original_(config_get()) {
+        strcpy(region_, original_.region);
+        strcpy(patient_.id, original_.patient_id);
+        strcpy(patient_.name, original_.patient_name);
     }
-    void save_config_if_changed() {
-        if (config_dirty_ && !reset_pending.load()) config_save();
-        config_dirty_ = false;
+    bool save_config_if_changed() {
+        // Settings edits and unrelated NVS saves use the same lock. Validate
+        // and commit together: a late response must never pair an old person
+        // with new credentials, even before reset_pending has been set.
+        LibreConfigLock lock(config_libre_mutex());
+        AppConfig& cfg = config_get();
+        if (reset_pending.load() || !original_.matches(cfg)) return false;
+        if (config_dirty_ && config_apply_libre_discovery(
+                cfg, original_, region_, patient_.id, patient_.name)) config_save();
+        return true;
     }
     bool saw_empty = false;  // nobody shares with the account (message already set)
 
     LibreAuthResult login() override {
-        AppConfig& cfg = config_get();
-
         JsonDocument req;
-        req["email"] = cfg.libre_email;
-        req["password"] = cfg.libre_password;
+        req["email"] = original_.email;
+        req["password"] = original_.password;
         String body;
         serializeJson(req, body);
 
@@ -187,7 +196,7 @@ public:
             if (data["redirect"] | false) {
                 // Region codes are short lowercase identifiers ("us", "eu2", ...)
                 const char* region = data["region"] | "";
-                char clean[sizeof(cfg.libre_region)] = "";
+                char clean[sizeof(region_)] = "";
                 size_t n = 0;
                 for (const char* p = region; *p && n < sizeof(clean) - 1; p++) {
                     if (isalnum((unsigned char)*p)) clean[n++] = tolower((unsigned char)*p);
@@ -229,10 +238,7 @@ public:
             strncpy(auth_token, token, sizeof(auth_token) - 1);
             auth_token[sizeof(auth_token) - 1] = '\0';
             sha256_hex(user_id, account_id);
-            if (strcmp(cfg.libre_region, region_) != 0) {
-                strcpy(cfg.libre_region, region_);
-                config_dirty_ = true;
-            }
+            config_dirty_ = true;
             Serial.println("[LIBRE] Login OK");
             return LIBRE_AUTH_OK;
         }
@@ -285,14 +291,13 @@ public:
         }
 
         JsonArray conns = doc["data"].as<JsonArray>();
-        AppConfig& cfg = config_get();
         if (conns.size() > LIBRE_MAX_PATIENTS) {
             patient_cache.clear();
             set_message("Too many Libre connections; use a follower account with fewer people");
             saw_empty = true;
             return LIBRE_READ_EMPTY;
         }
-        auto snapshot = std::make_shared<LibrePatientSnapshot>(cfg.libre_email, conns.size());
+        auto snapshot = std::make_shared<LibrePatientSnapshot>(original_.email, conns.size());
         auto& available = snapshot->people;
         size_t count = 0;
         for (JsonObject conn : conns) {
@@ -314,7 +319,7 @@ public:
             saw_empty = true;
             return LIBRE_READ_EMPTY;
         }
-        int selected = libre_patient_index(available.data(), count, cfg.libre_patient_id);
+        int selected = libre_patient_index(available.data(), count, original_.patient_id);
         if (selected == LIBRE_PATIENT_INVALID) patient_cache.clear();
         else patient_cache.publish(snapshot);
         if (selected < 0) {
@@ -328,12 +333,8 @@ public:
             saw_empty = true;
             return LIBRE_READ_EMPTY;
         }
-        if (strcmp(cfg.libre_patient_id, available[selected].id) != 0 ||
-            strcmp(cfg.libre_patient_name, available[selected].name) != 0) {
-            strcpy(cfg.libre_patient_id, available[selected].id);
-            strcpy(cfg.libre_patient_name, available[selected].name);
-            config_dirty_ = true;
-        }
+        patient_ = available[selected];
+        config_dirty_ = true;
 
         JsonObject gm = conns[selected]["glucoseMeasurement"];
         out.glucose = (int)lroundf(gm["ValueInMgPerDl"] | 0.0f);
@@ -370,7 +371,7 @@ bool libre_fetch(LibreReading& out, bool* attempted) {
     if (reset_pending.load()) return false; // discard an in-flight old-account reading
     // Coalesce a successful region redirect and first person binding into one
     // NVS write. Failed logins never persist their speculative redirect.
-    transport.save_config_if_changed();
+    if (!transport.save_config_if_changed()) return false;
 
     switch (r.status) {
         case LIBRE_FETCH_OK:
@@ -414,6 +415,7 @@ bool libre_fetch(LibreReading& out, bool* attempted) {
 }
 
 void libre_api_host(char* out, size_t n) {
+    LibreConfigLock lock(config_libre_mutex());
     host_for_region(config_get().libre_region, out, n);
 }
 
@@ -422,6 +424,7 @@ void libre_reset_session() {
 }
 
 LibrePatients libre_get_patients() {
+    LibreConfigLock lock(config_libre_mutex());
     return patient_cache.get(config_get().libre_email);
 }
 

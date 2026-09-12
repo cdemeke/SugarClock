@@ -90,10 +90,12 @@ void LibreSession::reset() {
     attempted_ = false;
     attempted_at_ms_ = 0;
     awaiting_action_ = false;
+    action_waited_ms_ = 0;
+    action_retry_ms_ = LIBRE_ACCOUNT_ACTION_RETRY_MS;
 }
 
 uint32_t LibreSession::backoff_ms() const {
-    if (awaiting_action_) return LIBRE_ACCOUNT_ACTION_RETRY_MS;
+    if (awaiting_action_) return action_retry_ms_;
     if (rejections_ == 0) return 0;
     uint32_t ms = LIBRE_BACKOFF_MIN_MS;
     for (unsigned i = 1; i < rejections_ && ms < LIBRE_BACKOFF_MAX_MS; i++) ms *= 2;
@@ -113,13 +115,17 @@ LibreResult LibreSession::reject(uint32_t now_ms) {
 
 LibreResult LibreSession::needs_action(uint32_t now_ms) {
     has_token_ = false;
+    if (!awaiting_action_) {
+        action_waited_ms_ = 0;
+        action_retry_ms_ = LIBRE_ACCOUNT_ACTION_RETRY_MS;
+    }
     awaiting_action_ = true;
     rejections_ = 0;
     rejected_at_ms_ = now_ms;
     LibreResult result = LibreResult();
     result.status = LIBRE_FETCH_NEEDS_ACTION;
     result.trend = TREND_UNKNOWN;
-    result.retry_in_ms = LIBRE_ACCOUNT_ACTION_RETRY_MS;
+    result.retry_in_ms = action_retry_ms_;
     result.account_action_required = true;
     return result;
 }
@@ -144,6 +150,18 @@ LibreResult LibreSession::fetch(LibreTransport& transport, uint32_t now_ms,
             result.retry_in_ms = wait - elapsed;
             result.account_action_required = awaiting_action_;
             return result;
+        }
+        if (awaiting_action_) {
+            // Count time at allowed retries, saturating before addition so a
+            // long-abandoned clock cannot wrap back into the grace period.
+            if (elapsed >= LIBRE_ACCOUNT_ACTION_GRACE_MS - action_waited_ms_)
+                action_waited_ms_ = LIBRE_ACCOUNT_ACTION_GRACE_MS;
+            else action_waited_ms_ += elapsed;
+            if (action_waited_ms_ >= LIBRE_ACCOUNT_ACTION_GRACE_MS) {
+                action_retry_ms_ *= 2;
+                if (action_retry_ms_ > LIBRE_BACKOFF_MAX_MS)
+                    action_retry_ms_ = LIBRE_BACKOFF_MAX_MS;
+            }
         }
     }
 

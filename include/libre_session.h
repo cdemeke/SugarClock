@@ -16,6 +16,7 @@
 #define LIBRE_BACKOFF_MAX_MS       (60UL * 60000UL)
 #define LIBRE_MIN_REQUEST_INTERVAL_MS 15000UL
 #define LIBRE_ACCOUNT_ACTION_RETRY_MS (5UL * 60000UL)
+#define LIBRE_ACCOUNT_ACTION_GRACE_MS (60UL * 60000UL)
 
 enum LibreAuthResult {
     LIBRE_AUTH_OK,
@@ -59,7 +60,7 @@ enum LibreFetchStatus {
     LIBRE_FETCH_CLOCK_UNSYNCED,  // no request made
     LIBRE_FETCH_BACKOFF,         // no request made; see retry_in_ms
     LIBRE_FETCH_REJECTED,        // auth refused or rate limited; backoff started
-    LIBRE_FETCH_NEEDS_ACTION,    // retry after a fixed account-action cooldown
+    LIBRE_FETCH_NEEDS_ACTION,    // five-minute retries, escalating after an hour
     LIBRE_FETCH_TRANSIENT,
     LIBRE_FETCH_NO_DATA,
     LIBRE_FETCH_BAD_TIMESTAMP,
@@ -103,6 +104,8 @@ private:
     bool attempted_;
     uint32_t attempted_at_ms_;
     bool awaiting_action_;
+    uint32_t action_waited_ms_; // saturates at the grace period; safe across millis wrap
+    uint32_t action_retry_ms_;
 };
 
 // Parse FactoryTimestamp to epoch seconds; 0 when malformed or out of range

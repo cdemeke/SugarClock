@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <mutex>
 
 // Application configuration stored in NVS
 struct AppConfig {
@@ -173,6 +174,27 @@ bool config_has_libre();
 // Shared by the web API and installer overlay. nullptr leaves a field alone;
 // an empty password keeps the saved secret. Email changes clear account caches.
 bool config_update_libre_credentials(AppConfig& cfg, const char* email, const char* password);
+
+// Libre identity writers, snapshot readers, and NVS saves share this lock.
+// Recursive so a settings transaction can call the credential helper/save.+// Never hold it during an HTTP request.
+std::recursive_mutex& config_libre_mutex();
+using LibreConfigLock = std::lock_guard<std::recursive_mutex>;
+
+struct LibreConfigSnapshot {
+    char email[64];
+    char password[64];
+    char region[8];
+    char patient_id[64];
+    char patient_name[128];
+    explicit LibreConfigSnapshot(const AppConfig& cfg);
+    bool matches(const AppConfig& cfg) const;
+};
+
+// Apply only to the identity captured before the fetch. Caller holds the lock
+// through config_save() so no unrelated save can persist a mixed identity.
+bool config_apply_libre_discovery(AppConfig& cfg, const LibreConfigSnapshot& expected,
+                                  const char* region, const char* patient_id,
+                                  const char* patient_name);
 
 // True when the saved network is configured as WPA2-Enterprise
 bool config_has_enterprise();

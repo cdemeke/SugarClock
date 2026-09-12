@@ -387,6 +387,7 @@ void config_init() {
 }
 
 void config_save() {
+    LibreConfigLock lock(config_libre_mutex());
     prefs.putUInt("magic", CONFIG_MAGIC);
     prefs.putString("wifi_ssid", config.wifi_ssid);
     prefs.putString("wifi_pass", config.wifi_password);
@@ -504,6 +505,7 @@ void config_save() {
 }
 
 void config_reset() {
+    LibreConfigLock lock(config_libre_mutex());
     Serial.println("[CONFIG] Factory reset");
     prefs.clear();
     config_set_defaults();
@@ -530,6 +532,7 @@ bool config_has_dexcom() {
 }
 
 bool config_has_libre() {
+    LibreConfigLock lock(config_libre_mutex());
     return strlen(config.libre_email) > 0 && strlen(config.libre_password) > 0;
 }
 

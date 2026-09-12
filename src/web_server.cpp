@@ -142,9 +142,10 @@ static void handle_status(AsyncWebServerRequest* request) {
 }
 
 static void add_libre_people(JsonDocument& doc) {
+    LibreConfigLock lock(config_libre_mutex());
     const AppConfig& cfg = config_get();
-    doc["libre_patient_id"] = cfg.libre_patient_id;
-    doc["libre_patient_name"] = cfg.libre_patient_name;
+    doc["libre_patient_id"] = String(cfg.libre_patient_id);
+    doc["libre_patient_name"] = String(cfg.libre_patient_name);
     LibrePatients snapshot = libre_get_patients();
     JsonArray list = doc["libre_patients"].to<JsonArray>();
     if (!snapshot) return;
@@ -158,6 +159,7 @@ static void add_libre_people(JsonDocument& doc) {
 
 // GET /api/config
 static void handle_get_config(AsyncWebServerRequest* request) {
+    LibreConfigLock lock(config_libre_mutex());
     AppConfig& cfg = config_get();
     JsonDocument doc;
 
@@ -317,6 +319,7 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     }
 
     AppConfig& cfg = config_get();
+    std::unique_lock<std::recursive_mutex> lock(config_libre_mutex());
     const char* requested_person = doc["libre_patient_id"] | "";
     const char* requested_email = doc["libre_email"] | cfg.libre_email;
     LibrePatient selected_person = {};
@@ -625,6 +628,7 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     engine_rebuild_toggle_order();
     if (libre_changed) libre_reset_session();
     if (libre_person_changed && cfg.data_source == 3) http_clear_readings();
+    lock.unlock();
 
     // Apply brightness immediately
     if (!cfg.auto_brightness) {
