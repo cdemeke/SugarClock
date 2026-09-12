@@ -23,7 +23,8 @@
   <meta name="theme-color" content="#fff7cc">
   <script src="https://unpkg.com/feather-icons"></script>
   <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
-  <script src="js/analytics.js"></script>
+  <script defer src="js/analytics-config.js"></script>
+  <script defer src="js/analytics.js"></script>
 </head>
 
 <body>
@@ -37,11 +38,11 @@
       <ul class="nav-links">
         <li><a href="#why">Why</a></li>
         <li><a href="#process">Process</a></li>
-        <li><a href="faq.html">FAQ</a></li>
+        <li><a href="faq.html" data-track-event="faq_link_clicked" data-track-location="navigation">FAQ</a></li>
       </ul>
 
       <div class="nav-actions">
-        <a href="#install" class="btn btn-sm">Install Now</a>
+        <a href="#install" class="btn btn-sm" data-track-event="install_cta_clicked" data-track-location="navigation">Install Now</a>
       </div>
     </div>
   </nav>
@@ -65,14 +66,14 @@
 
         <div class="hero-stack">
           <div class="hero-actions">
-            <a href="#install" class="btn btn-primary">Install Now</a>
+            <a href="#install" class="btn btn-primary" data-track-event="install_cta_clicked" data-track-location="hero">Install Now</a>
             <a href="https://github.com/cdemeke/SugarClock" class="btn btn-secondary" target="_blank"
               rel="noopener" data-track-event="github_viewed" data-track-location="hero"><i data-feather="github" aria-hidden="true"></i>View on GitHub</a>
           </div>
 
           <figure class="hero-photo-wrap">
             <button class="youtube-facade" type="button" data-video-id="vfTbYTnHQdA"
-              data-track-event="youtube_video_played"
+              data-track-event="demo_video_requested"
               aria-label="Play video: SugarClock demo">
               <img src="https://img.youtube.com/vi/vfTbYTnHQdA/maxresdefault.jpg"
                 alt="SugarClock demo video thumbnail" loading="lazy">
@@ -123,7 +124,7 @@
               <tr>
                 <td>Hard to inspect <span class="detail">You cannot always see what runs on the device.</span></td>
                 <td class="highlight-col"><strong>Hackable</strong> <span class="detail"><a href="https://github.com/cdemeke/SugarClock"
-                    target="_blank" rel="noopener">Read the source</a> and make it yours.</span></td>
+                    target="_blank" rel="noopener" data-track-event="github_viewed" data-track-location="comparison">Read the source</a> and make it yours.</span></td>
               </tr>
             </tbody>
           </table>
@@ -163,7 +164,7 @@
             <i data-feather="download-cloud"></i>
             <h3>Install SugarClock directly from your browser</h3>
             <p>Click Install and follow the guided prompts. No terminal or coding.</p>
-            <a href="#install" class="card-link">Go to install</a>
+            <a href="#install" class="card-link" data-track-event="install_cta_clicked" data-track-location="process">Go to install</a>
           </article>
 
           <article class="process-card">
@@ -217,7 +218,7 @@
 
             <div class="install-button-wrap">
               <a href="https://github.com/cdemeke/SugarClock/releases/latest" target="_blank" rel="noopener"
-                class="btn btn-lg">
+                class="btn btn-lg" data-track-event="installer_download_clicked" data-track-location="install" data-track-method="mac">
                 <i data-feather="download"></i>
                 Download Mac App
               </a>
@@ -256,7 +257,7 @@
 
             <div class="install-button-wrap">
               <esp-web-install-button id="install-btn" manifest="manifest.json">
-                <button class="btn btn-lg" type="button" slot="activate">
+                <button class="btn btn-lg" type="button" slot="activate" data-track-event="firmware_install_clicked" data-track-method="web">
                   <i data-feather="zap"></i>
                   Install SugarClock
                 </button>
@@ -276,8 +277,8 @@
         <h2>Keep your number in sight.</h2>
         <p>Give yourself and your family a dedicated display for the number you check all day.</p>
         <div class="cta-actions">
-          <a href="#install" class="btn btn-primary">Install SugarClock</a>
-          <a href="faq.html" class="btn btn-secondary">Read FAQ</a>
+          <a href="#install" class="btn btn-primary" data-track-event="install_cta_clicked" data-track-location="bottom_cta">Install SugarClock</a>
+          <a href="faq.html" class="btn btn-secondary" data-track-event="faq_link_clicked" data-track-location="bottom_cta">Read FAQ</a>
         </div>
       </div>
     </section>
@@ -296,9 +297,9 @@
         <div class="footer-links">
           <h4>Links</h4>
           <ul>
-            <li><a href="faq.html">FAQ</a></li>
-            <li><a href="https://github.com/cdemeke/SugarClock/issues" target="_blank" rel="noopener">Issue Tracker</a></li>
-            <li><a href="https://github.com/cdemeke/SugarClock" target="_blank" rel="noopener">Source Code</a></li>
+            <li><a href="faq.html" data-track-event="faq_link_clicked" data-track-location="footer">FAQ</a></li>
+            <li><a href="https://github.com/cdemeke/SugarClock/issues" target="_blank" rel="noopener" data-track-event="support_link_clicked" data-track-location="footer">Issue Tracker</a></li>
+            <li><a href="https://github.com/cdemeke/SugarClock" target="_blank" rel="noopener" data-track-event="github_viewed" data-track-location="footer">Source Code</a></li>
           </ul>
         </div>
         <div class="footer-links">

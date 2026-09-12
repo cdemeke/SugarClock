@@ -1,150 +1,123 @@
-// SugarClock marketing site analytics (Mixpanel).
-//
-// Tracking plan:
-//   page_viewed            - fires once per page load
-//   firmware_flash_started - value moment: visitor clicks the browser-based
-//                            "Install SugarClock" (esp-web-tools) button
-//   Delegated link events, declared in the markup via data-track-event:
-//     youtube_video_played  - clicking the demo video thumbnail
-//     github_viewed         - clicking a "View on GitHub" link (data-track-location)
-//     purchase_link_clicked - clicking a buy link  (data-track-vendor: amazon|ulanzi)
-//
-// To track a new element, add data-track-event="event_name" (plus any
-// data-track-<prop>="value") to it in the HTML - no JS change needed.
-//
-// No login exists on this site, so no identify()/reset() and no profiles are
-// created for anonymous visitors. Event names are static snake_case.
-
+// Public marketing site only. See ../ANALYTICS.md for event definitions.
 (function () {
-  var MIXPANEL_TOKEN = "50eac6b8979ab86a5efef68b5396f1e7";
+  "use strict";
+  var config = window.SUGARCLOCK_ANALYTICS;
+  if (!config || !/^phc_/.test(config.token) ||
+      (config.enabledHosts || []).indexOf(window.location.hostname) === -1) return;
 
-  // Official Mixpanel browser loader snippet (mixpanel-2-latest).
-  (function (f, b) {
-    if (!b.__SV) {
-      var e, g, i, h;
-      window.mixpanel = b;
-      b._i = [];
-      b.init = function (e, f, c) {
-        function g(a, d) {
-          var b = d.split(".");
-          2 == b.length && ((a = a[b[0]]), (d = b[1]));
-          a[d] = function () {
-            a.push([d].concat(Array.prototype.slice.call(arguments, 0)));
-          };
-        }
-        var a = b;
-        "undefined" !== typeof c ? (a = b[c] = []) : (c = "mixpanel");
-        a.people = a.people || [];
-        a.toString = function (a) {
-          var d = "mixpanel";
-          "mixpanel" !== c && (d += "." + c);
-          a || (d += " (stub)");
-          return d;
-        };
-        a.people.toString = function () {
-          return a.toString(1) + ".people (stub)";
-        };
-        i =
-          "disable time_event track track_pageview track_links track_forms track_with_groups add_group set_group remove_group register register_once alias unregister identify name_tag set_config reset opt_in_tracking opt_out_tracking has_opted_in_tracking has_opted_out_tracking clear_opt_in_out_tracking start_batch_senders people.set people.set_once people.unset people.increment people.append people.union people.track_charge people.clear_charges people.delete_user people.remove".split(
-            " "
-          );
-        for (h = 0; h < i.length; h++) g(a, i[h]);
-        var j = "set set_once union unset remove delete".split(" ");
-        a.get_group = function () {
-          function b(c) {
-            d[c] = function () {
-              call2_args = arguments;
-              call2 = [c].concat(Array.prototype.slice.call(call2_args, 0));
-              a.push([e, call2]);
-            };
-          }
-          for (
-            var d = {}, e = ["get_group"].concat(Array.prototype.slice.call(arguments, 0)), c = 0;
-            c < j.length;
-            c++
-          )
-            b(j[c]);
-          return d;
-        };
-        b._i.push([e, f, c]);
-      };
-      b.__SV = 1.2;
-      e = f.createElement("script");
-      e.type = "text/javascript";
-      e.async = !0;
-      e.src =
-        "undefined" !== typeof MIXPANEL_CUSTOM_LIB_URL
-          ? MIXPANEL_CUSTOM_LIB_URL
-          : "file:" === f.location.protocol && "//cdn.mxpnl.com/libs/mixpanel-2-latest.min.js".match(/^\/\//)
-          ? "https://cdn.mxpnl.com/libs/mixpanel-2-latest.min.js"
-          : "//cdn.mxpnl.com/libs/mixpanel-2-latest.min.js";
-      g = f.getElementsByTagName("script")[0];
-      g.parentNode.insertBefore(e, g);
-    }
-  })(document, window.mixpanel || []);
-
-  mixpanel.init(MIXPANEL_TOKEN, {
-    persistence: "localStorage",
-    // We fire page_viewed manually below so we control the properties.
-    track_pageview: false,
-  });
-
-  // Derive a stable, static page name from the path (no dynamic event names).
-  function pageName() {
-    var p = window.location.pathname;
-    if (/faq\.html$/.test(p)) return "faq";
-    if (p === "/" || /index\.html$/.test(p)) return "home";
-    return "other";
+  var queue = [];
+  var client;
+  var failed = false;
+  var page = /faq\.html$/.test(location.pathname) ? "faq" : "home";
+  function track(event, properties) {
+    var props = Object.assign({
+      page: page,
+      schema_version: 2,
+      web_serial_supported: "serial" in navigator,
+      secure_context: window.isSecureContext,
+    }, properties);
+    try {
+      if (client) client.capture(event, props);
+      else if (!failed && queue.length < 100) queue.push([event, props]);
+    } catch (_) { /* Analytics must never break site interactions. */ }
   }
 
-  mixpanel.track("page_viewed", {
-    page: pageName(),
-    page_title: document.title,
-  });
-
-  // Value moment: browser-based firmware flash. The esp-web-install-button
-  // component wraps the visible activate button, so a delegated click on the
-  // component captures the intent to flash.
-  function wireFlashButton() {
-    var installBtn = document.getElementById("install-btn");
-    if (!installBtn) return;
-    installBtn.addEventListener("click", function () {
-      mixpanel.track("firmware_flash_started", {
-        page: pageName(),
-        method: "web",
+  var script = document.createElement("script");
+  script.async = true;
+  script.src = config.assetHost + "/static/array.js";
+  script.onerror = function () { failed = true; queue = []; };
+  script.onload = function () {
+    try {
+      window.posthog.init(config.token, {
+        api_host: config.apiHost,
+        autocapture: false,
+        capture_pageview: false,
+        capture_pageleave: false,
+        capture_dead_clicks: false,
+        capture_exceptions: false,
+        capture_performance: false,
+        capture_heatmaps: false,
+        disable_session_recording: true,
+        disable_surveys: true,
+        person_profiles: "never",
+        persistence: "localStorage",
+        // Do not persist campaign or referring URL parameters.
+        save_campaign_params: false,
+        save_referrer: false,
+        before_send: function (event) {
+          if (!event) return event;
+          // SDK attribution can live on the event or in person-property maps.
+          // Cover current, initial, and session-entry URLs in every location.
+          function sanitize(props) {
+            if (!props || typeof props !== "object") return;
+            Object.keys(props).forEach(function (key) {
+              if (!/^\$.*(?:url|referrer)$/.test(key) || !props[key]) return;
+              try {
+                var url = new URL(props[key]);
+                props[key] = url.origin + url.pathname;
+              } catch (_) { delete props[key]; }
+            });
+          }
+          sanitize(event.properties);
+          sanitize(event.$set);
+          sanitize(event.$set_once);
+          if (event.properties) {
+            sanitize(event.properties.$set);
+            sanitize(event.properties.$set_once);
+          }
+          return event;
+        },
+        loaded: function (sdk) {
+          client = sdk;
+          queue.splice(0).forEach(function (entry) {
+            try { sdk.capture(entry[0], entry[1]); } catch (_) {}
+          });
+        },
       });
+    } catch (_) { script.onerror(); }
+  };
+  document.head.appendChild(script);
+  track("$pageview");
+
+  document.addEventListener("click", function (event) {
+    var target = event.target;
+    var el = target.closest && target.closest("[data-track-event]");
+    if (!el) return;
+    var props = {};
+    // Only static, declared properties; never capture DOM text or input values.
+    ["location", "vendor", "method"].forEach(function (key) {
+      var value = el.getAttribute("data-track-" + key);
+      if (value) props[key.replace(/-/g, "_")] = value;
+    });
+    if (el.getAttribute("data-track-event") === "demo_video_requested") {
+      var videoId = el.getAttribute("data-video-id");
+      if (videoId) props.video_id = videoId;
+    }
+    track(el.getAttribute("data-track-event"), props);
+  }, true);
+
+  function wirePage() {
+    document.querySelectorAll(".faq-question").forEach(function (button) {
+      button.addEventListener("click", function () {
+        // Capture phase reads state before the site's accordion toggles it.
+        var questionId = button.getAttribute("data-question-id");
+        if (questionId && !button.closest(".faq-item").classList.contains("active")) {
+          track("faq_answer_opened", { question_id: questionId });
+        }
+      }, true);
+    });
+    if (!("IntersectionObserver" in window)) return;
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        track("section_viewed", { section: entry.target.id });
+        observer.unobserve(entry.target);
+      });
+    }, { threshold: 0.15 });
+    document.querySelectorAll("#why, #process, #install").forEach(function (el) {
+      observer.observe(el);
     });
   }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", wireFlashButton);
-  } else {
-    wireFlashButton();
-  }
-
-  // Generic delegated tracking for elements declaring data-track-event.
-  // Any additional data-track-<name> attributes become event properties
-  // (kebab-case name -> snake_case property). Runs in the capture phase so
-  // the event is recorded even for links that navigate.
-  function trackProps(el) {
-    var props = { page: pageName() };
-    for (var i = 0; i < el.attributes.length; i++) {
-      var attr = el.attributes[i];
-      if (attr.name.indexOf("data-track-") === 0 && attr.name !== "data-track-event") {
-        var key = attr.name.slice("data-track-".length).replace(/-/g, "_");
-        props[key] = attr.value;
-      }
-    }
-    return props;
-  }
-
-  document.addEventListener(
-    "click",
-    function (e) {
-      var el = e.target.closest && e.target.closest("[data-track-event]");
-      if (!el) return;
-      mixpanel.track(el.getAttribute("data-track-event"), trackProps(el));
-    },
-    true
-  );
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wirePage);
+  else wirePage();
 })();
