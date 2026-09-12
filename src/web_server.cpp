@@ -3,6 +3,7 @@
 #include "companion.h"
 #include "wifi_manager.h"
 #include "http_client.h"
+#include "libre_client.h"
 #include "glucose_engine.h"
 #include "time_engine.h"
 #include "sensors.h"
@@ -140,8 +141,25 @@ static void handle_status(AsyncWebServerRequest* request) {
     request->send(200, "application/json", output);
 }
 
+static void add_libre_people(JsonDocument& doc) {
+    LibreConfigLock lock(config_libre_mutex());
+    const AppConfig& cfg = config_get();
+    doc["libre_patient_id"] = String(cfg.libre_patient_id);
+    doc["libre_patient_name"] = String(cfg.libre_patient_name);
+    LibrePatients snapshot = libre_get_patients();
+    JsonArray list = doc["libre_patients"].to<JsonArray>();
+    if (!snapshot) return;
+    for (const LibrePatient& entry : snapshot->people) {
+        JsonObject person = list.add<JsonObject>();
+        // Explicit string copies: JSON serialization outlives this snapshot.
+        person["id"] = String(entry.id);
+        person["name"] = String(entry.name);
+    }
+}
+
 // GET /api/config
 static void handle_get_config(AsyncWebServerRequest* request) {
+    LibreConfigLock lock(config_libre_mutex());
     AppConfig& cfg = config_get();
     JsonDocument doc;
 
@@ -164,6 +182,10 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     doc["dexcom_username"] = cfg.dexcom_username;
     doc["has_dexcom_password"] = strlen(cfg.dexcom_password) > 0;
     doc["dexcom_us"] = cfg.dexcom_us;
+    doc["libre_email"] = cfg.libre_email;
+    doc["has_libre_password"] = strlen(cfg.libre_password) > 0;
+    doc["libre_region"] = cfg.libre_region;
+    add_libre_people(doc);
     doc["poll_interval"] = cfg.poll_interval_sec;
     doc["brightness"] = cfg.brightness;
     doc["auto_brightness"] = cfg.auto_brightness;
@@ -297,6 +319,23 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     }
 
     AppConfig& cfg = config_get();
+    std::unique_lock<std::recursive_mutex> lock(config_libre_mutex());
+    const char* requested_person = doc["libre_patient_id"] | "";
+    const char* requested_email = doc["libre_email"] | cfg.libre_email;
+    LibrePatient selected_person = {};
+    // Validate before applying any settings. Never accept an arbitrary ID or
+    // carry an old account's selection into a newly supplied account.
+    if (strcmp(requested_email, cfg.libre_email) == 0 && requested_person[0] &&
+        strcmp(requested_person, cfg.libre_patient_id) != 0) {
+        LibrePatients snapshot = libre_get_patients();
+        int index = snapshot ? libre_patient_index(snapshot->people.data(), snapshot->people.size(), requested_person)
+                             : LIBRE_PATIENT_MISSING;
+        if (index < 0) {
+            request->send(400, "application/json", "{\"error\":\"Test the Libre connection, then select a person from the list\"}");
+            return;
+        }
+        selected_person = snapshot->people[index];
+    }
 
     if (doc["wifi_ssid"].is<const char*>()) {
         strncpy(cfg.wifi_ssid, doc["wifi_ssid"] | "", sizeof(cfg.wifi_ssid) - 1);
@@ -348,6 +387,16 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     }
     if (doc["dexcom_us"].is<bool>()) {
         cfg.dexcom_us = doc["dexcom_us"].as<bool>();
+    }
+    char previous_email[sizeof(cfg.libre_email)];
+    strcpy(previous_email, cfg.libre_email);
+    bool libre_changed = config_update_libre_credentials(
+        cfg, doc["libre_email"] | (const char*)nullptr, doc["libre_password"] | (const char*)nullptr);
+    bool libre_person_changed = strcmp(previous_email, cfg.libre_email) != 0;
+    if (!libre_person_changed && selected_person.id[0]) {
+        strcpy(cfg.libre_patient_id, selected_person.id);
+        strcpy(cfg.libre_patient_name, selected_person.name);
+        libre_person_changed = true;
     }
     if (doc["poll_interval"].is<int>()) {
         cfg.poll_interval_sec = max(15, doc["poll_interval"].as<int>());
@@ -577,6 +626,9 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
 
     config_save();
     engine_rebuild_toggle_order();
+    if (libre_changed) libre_reset_session();
+    if (libre_person_changed && cfg.data_source == 3) http_clear_readings();
+    lock.unlock();
 
     // Apply brightness immediately
     if (!cfg.auto_brightness) {
@@ -952,6 +1004,7 @@ static void handle_test_glucose(AsyncWebServerRequest* request) {
     bool ok = http_force_fetch();
     JsonDocument doc;
     doc["ok"] = ok;
+    if (cfg.data_source == 3) add_libre_people(doc);
     doc["http_code"] = http_get_last_response_code();
 
     if (ok) {
@@ -978,7 +1031,7 @@ static void handle_test_glucose(AsyncWebServerRequest* request) {
 
     String output;
     serializeJson(doc, output);
-    request->send(ok ? 200 : 502, "application/json", output);
+    request->send(ok ? 200 : (http_get_last_response_code() == 429 ? 429 : 502), "application/json", output);
 }
 
 // POST /api/display/next

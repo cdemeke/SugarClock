@@ -144,6 +144,7 @@ static void handle_wifi_settings(const uint8_t* data, uint8_t len) {
         // Save WiFi credentials and clear any old glucose source config.
         // This ensures the device shows "Visit <IP> to setup" after a
         // web flash instead of "STALE" from leftover server URLs.
+        LibreConfigLock lock(config_libre_mutex());
         AppConfig& cfg = config_get();
         strncpy(cfg.wifi_ssid, ssid, sizeof(cfg.wifi_ssid) - 1);
         cfg.wifi_ssid[sizeof(cfg.wifi_ssid) - 1] = '\0';
@@ -160,6 +161,11 @@ static void handle_wifi_settings(const uint8_t* data, uint8_t len) {
         cfg.server_url[0] = '\0';
         cfg.dexcom_username[0] = '\0';
         cfg.dexcom_password[0] = '\0';
+        cfg.libre_email[0] = '\0';
+        cfg.libre_password[0] = '\0';
+        cfg.libre_region[0] = '\0';
+        cfg.libre_patient_id[0] = '\0';
+        cfg.libre_patient_name[0] = '\0';
         cfg.data_source = 0;
         config_save();
 

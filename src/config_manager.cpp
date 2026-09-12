@@ -37,6 +37,11 @@ static void config_set_defaults() {
     config.dexcom_password[0] = '\0';
     config.dexcom_us = true;
 
+    // FreeStyle Libre
+    config.libre_email[0] = '\0';
+    config.libre_password[0] = '\0';
+    config.libre_region[0] = '\0';
+
     config.poll_interval_sec = 60;
 
     // Display
@@ -202,6 +207,8 @@ static void config_check_littlefs_overlay() {
         const char* srv = doc["dexcom_server"];
         config.dexcom_us = (strcmp(srv, "US") == 0);
     }
+    config_update_libre_credentials(config, doc["libre_email"] | (const char*)nullptr,
+                                   doc["libre_password"] | (const char*)nullptr);
     if (doc["server_url"].is<const char*>())     strncpy(config.server_url, doc["server_url"], sizeof(config.server_url));
     if (doc["auth_token"].is<const char*>())     strncpy(config.auth_token, doc["auth_token"], sizeof(config.auth_token));
     if (doc["timezone"].is<const char*>())       strncpy(config.timezone, doc["timezone"], sizeof(config.timezone));
@@ -247,6 +254,11 @@ void config_init() {
         prefs.getString("dex_user", config.dexcom_username, sizeof(config.dexcom_username));
         prefs.getString("dex_pass", config.dexcom_password, sizeof(config.dexcom_password));
         config.dexcom_us = prefs.getBool("dex_us", true);
+        prefs.getString("llu_email", config.libre_email, sizeof(config.libre_email));
+        prefs.getString("llu_pass", config.libre_password, sizeof(config.libre_password));
+        prefs.getString("llu_region", config.libre_region, sizeof(config.libre_region));
+        prefs.getString("llu_patient", config.libre_patient_id, sizeof(config.libre_patient_id));
+        prefs.getString("llu_name", config.libre_patient_name, sizeof(config.libre_patient_name));
         config.poll_interval_sec = prefs.getInt("poll_int", 60);
         config.brightness = prefs.getUChar("brightness", 40);
         config.auto_brightness = prefs.getBool("auto_brt", true);
@@ -375,6 +387,7 @@ void config_init() {
 }
 
 void config_save() {
+    LibreConfigLock lock(config_libre_mutex());
     prefs.putUInt("magic", CONFIG_MAGIC);
     prefs.putString("wifi_ssid", config.wifi_ssid);
     prefs.putString("wifi_pass", config.wifi_password);
@@ -390,6 +403,11 @@ void config_save() {
     prefs.putString("dex_user", config.dexcom_username);
     prefs.putString("dex_pass", config.dexcom_password);
     prefs.putBool("dex_us", config.dexcom_us);
+    prefs.putString("llu_email", config.libre_email);
+    prefs.putString("llu_pass", config.libre_password);
+    prefs.putString("llu_region", config.libre_region);
+    prefs.putString("llu_patient", config.libre_patient_id);
+    prefs.putString("llu_name", config.libre_patient_name);
     prefs.putInt("poll_int", config.poll_interval_sec);
     prefs.putUChar("brightness", config.brightness);
     prefs.putBool("auto_brt", config.auto_brightness);
@@ -487,6 +505,7 @@ void config_save() {
 }
 
 void config_reset() {
+    LibreConfigLock lock(config_libre_mutex());
     Serial.println("[CONFIG] Factory reset");
     prefs.clear();
     config_set_defaults();
@@ -504,11 +523,17 @@ bool config_has_wifi() {
 bool config_has_server() {
     if (config.data_source == 2) return true;  // demo mode needs no config
     if (config.data_source == 1) return config_has_dexcom();
+    if (config.data_source == 3) return config_has_libre();
     return strlen(config.server_url) > 0;
 }
 
 bool config_has_dexcom() {
     return strlen(config.dexcom_username) > 0 && strlen(config.dexcom_password) > 0;
+}
+
+bool config_has_libre() {
+    LibreConfigLock lock(config_libre_mutex());
+    return strlen(config.libre_email) > 0 && strlen(config.libre_password) > 0;
 }
 
 bool config_has_enterprise() {

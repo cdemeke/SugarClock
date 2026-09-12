@@ -1,5 +1,6 @@
 #include "net_check.h"
 #include "config_manager.h"
+#include "libre_client.h"
 #include "wifi_manager.h"
 
 #include <WiFi.h>
@@ -48,6 +49,10 @@ static void resolve_data_host() {
     if (cfg.data_source == 1) {
         strncpy(data_host, cfg.dexcom_us ? "share2.dexcom.com" : "shareous1.dexcom.com",
                 sizeof(data_host) - 1);
+        return;
+    }
+    if (cfg.data_source == 3) {
+        libre_api_host(data_host, sizeof(data_host));
         return;
     }
 

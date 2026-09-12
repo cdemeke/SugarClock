@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <mutex>
 
 // Application configuration stored in NVS
 struct AppConfig {
@@ -20,7 +21,7 @@ struct AppConfig {
     char wifi_anon_identity[128];  // optional outer identity
     bool wifi_validate_ca;         // default false; only meaningful with /wifi_ca.pem present
 
-    // Data source: 0=custom URL, 1=Dexcom Share, 2=Demo (synthetic data)
+    // Data source: 0=custom URL, 1=Dexcom Share, 2=Demo (synthetic data), 3=FreeStyle Libre
     int data_source;
 
     // Custom server
@@ -31,6 +32,13 @@ struct AppConfig {
     char dexcom_username[64];
     char dexcom_password[64];
     bool dexcom_us;            // true=US (share2), false=international (shareous1)
+
+    // FreeStyle Libre (LibreLinkUp follower account)
+    char libre_email[64];
+    char libre_password[64];
+    char libre_region[8];      // auto-detected from login redirect, e.g. "us"; "" = unknown
+    char libre_patient_id[64]; // stable LibreLinkUp patientId, never an array index
+    char libre_patient_name[128];
 
     int poll_interval_sec;     // default 60, min 15
 
@@ -159,6 +167,34 @@ bool config_has_server();
 
 // Check if Dexcom Share is configured
 bool config_has_dexcom();
+
+// Check if FreeStyle Libre (LibreLinkUp) is configured
+bool config_has_libre();
+
+// Shared by the web API and installer overlay. nullptr leaves a field alone;
+// an empty password keeps the saved secret. Email changes clear account caches.
+bool config_update_libre_credentials(AppConfig& cfg, const char* email, const char* password);
+
+// Libre identity writers, snapshot readers, and NVS saves share this lock.
+// Recursive so a settings transaction can call the credential helper/save.+// Never hold it during an HTTP request.
+std::recursive_mutex& config_libre_mutex();
+using LibreConfigLock = std::lock_guard<std::recursive_mutex>;
+
+struct LibreConfigSnapshot {
+    char email[64];
+    char password[64];
+    char region[8];
+    char patient_id[64];
+    char patient_name[128];
+    explicit LibreConfigSnapshot(const AppConfig& cfg);
+    bool matches(const AppConfig& cfg) const;
+};
+
+// Apply only to the identity captured before the fetch. Caller holds the lock
+// through config_save() so no unrelated save can persist a mixed identity.
+bool config_apply_libre_discovery(AppConfig& cfg, const LibreConfigSnapshot& expected,
+                                  const char* region, const char* patient_id,
+                                  const char* patient_name);
 
 // True when the saved network is configured as WPA2-Enterprise
 bool config_has_enterprise();
