@@ -20,7 +20,13 @@ static FastLED_NeoMatrix matrix(
 
 static uint8_t current_brightness = 40;
 static uint8_t transition_level = 255;
-static DisplayFrame published_frame = {};
+static DisplayFrame frame_buffers[2];
+static uint8_t published_index = 0;
+static bool viewer_requested = false;
+static bool frame_ready = false;
+static uint32_t last_frame_request_ms = 0;
+static uint32_t last_frame_publish_ms = 0;
+static uint32_t frame_epoch = 1;
 #ifdef ARDUINO_ARCH_ESP32
 static portMUX_TYPE frame_mux = portMUX_INITIALIZER_UNLOCKED;
 #endif
@@ -29,13 +35,31 @@ void display_copy_frame(DisplayFrame& frame) {
 #ifdef ARDUINO_ARCH_ESP32
     portENTER_CRITICAL(&frame_mux);
 #endif
-    frame = published_frame;
+    frame = frame_buffers[published_index];
 #ifdef ARDUINO_ARCH_ESP32
     portEXIT_CRITICAL(&frame_mux);
 #endif
 }
 
+DisplayFrameStatus display_request_frame() {
+    const uint32_t now = static_cast<uint32_t>(millis());
+#ifdef ARDUINO_ARCH_ESP32
+    portENTER_CRITICAL(&frame_mux);
+#endif
+    if (!viewer_requested || uint32_t(now - last_frame_request_ms) > 5000) frame_ready = false;
+    viewer_requested = true;
+    last_frame_request_ms = now;
+    const DisplayFrameStatus status = {frame_ready, frame_buffers[published_index].sequence, frame_epoch};
+#ifdef ARDUINO_ARCH_ESP32
+    portEXIT_CRITICAL(&frame_mux);
+#endif
+    return status;
+}
+
 void display_init() {
+#ifdef ARDUINO_ARCH_ESP32
+    frame_epoch = esp_random(); // ETags must not collide across device reboots.
+#endif
     FastLED.addLeds<WS2812B, PIN_MATRIX_DATA, GRB>(leds, MATRIX_NUM_LEDS);
     // Keep FastLED's global brightness stable. Per-frame output scaling in
     // display_show() avoids rapid global brightness writes, which can produce
@@ -59,7 +83,21 @@ void display_show() {
         transition_level + 127) / 255);
     FastLED.show(output_brightness);
     static_assert(MATRIX_WIDTH == 32 && MATRIX_HEIGHT == 8, "Update DisplayFrame dimensions");
-    DisplayFrame next = {};
+    const uint32_t now = static_cast<uint32_t>(millis());
+#ifdef ARDUINO_ARCH_ESP32
+    portENTER_CRITICAL(&frame_mux);
+#endif
+    const bool capture = viewer_requested && uint32_t(now - last_frame_request_ms) <= 5000 &&
+        (!frame_ready || uint32_t(now - last_frame_publish_ms) >= 250);
+#ifdef ARDUINO_ARCH_ESP32
+    portEXIT_CRITICAL(&frame_mux);
+#endif
+    if (!capture) return;
+
+    // Only the render task writes. Readers copy the published buffer under the
+    // lock, while the renderer fills the other static buffer without clearing it.
+    const uint8_t next_index = 1 - published_index;
+    DisplayFrame& next = frame_buffers[next_index];
     for (int y = 0; y < MATRIX_HEIGHT; ++y) {
         for (int x = 0; x < MATRIX_WIDTH; ++x) {
             const CRGB& pixel = leds[y * MATRIX_WIDTH + ((y & 1) ? MATRIX_WIDTH - 1 - x : x)];
@@ -69,12 +107,14 @@ void display_show() {
             next.rgb[offset + 2] = pixel.b;
         }
     }
-    // The HTTP task copies only completed frames; never a partially drawn buffer.
+    const bool changed = memcmp(next.rgb, frame_buffers[published_index].rgb, sizeof(next.rgb)) != 0;
 #ifdef ARDUINO_ARCH_ESP32
     portENTER_CRITICAL(&frame_mux);
 #endif
-    next.sequence = published_frame.sequence + 1;
-    published_frame = next;
+    next.sequence = frame_buffers[published_index].sequence + ((!frame_ready || changed) ? 1 : 0);
+    published_index = next_index;
+    frame_ready = true;
+    last_frame_publish_ms = now;
 #ifdef ARDUINO_ARCH_ESP32
     portEXIT_CRITICAL(&frame_mux);
 #endif

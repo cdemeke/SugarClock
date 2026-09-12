@@ -10,7 +10,8 @@
 #include <initializer_list>
 
 FakeLEDs FastLED;
-unsigned long millis() { return 0; }
+static uint32_t fake_ms = 0;
+unsigned long millis() { return fake_ms; }
 
 void assert_text(const char* expected, int x) {
     const auto& glyphs = drawing().glyphs;
@@ -35,39 +36,61 @@ void assert_text(const char* expected, int x) {
 
 int main() {
     display_init();
-    // The browser sees completed RGB frames in logical order, not serpentine wiring.
+    // No subscriber: drawing the real output must not publish a browser frame.
     DisplayFrame initial;
     display_copy_frame(initial);
-    for (int y = 0; y < MATRIX_HEIGHT; ++y) {
-        for (int x = 0; x < MATRIX_WIDTH; ++x) {
-            auto& pixel = FastLED.pixels[y * MATRIX_WIDTH + x];
-            pixel.r = x;
-            pixel.g = y;
-            pixel.b = 123;
-        }
-    }
+    display_draw_pixel(3, 1, display_color(255, 0, 0));
+    display_draw_pixel(1, 0, display_color(0, 255, 0));
+    display_draw_pixel(31, 7, display_color(0, 0, 255));
+    assert(FastLED.pixels[60].r == 255); // Hardware address of logical (3, 1).
     display_set_brightness(10);
     display_show();
     DisplayFrame published;
     display_copy_frame(published);
+    assert(published.sequence == initial.sequence);
+    assert(!display_request_frame().ready);
+    display_show();
+    display_copy_frame(published);
     assert(published.sequence == initial.sequence + 1);
-    for (int y = 0; y < MATRIX_HEIGHT; ++y) {
-        for (int x = 0; x < MATRIX_WIDTH; ++x) {
-            const int offset = (y * MATRIX_WIDTH + x) * 3;
-            assert(published.rgb[offset] == ((y & 1) ? MATRIX_WIDTH - 1 - x : x));
-            assert(published.rgb[offset + 1] == y);
-            assert(published.rgb[offset + 2] == 123);
-        }
+    // Assert logical coordinates, not the inverse-mapping implementation.
+    for (int pixel = 0; pixel < 256; ++pixel) {
+        assert(published.rgb[pixel * 3] == (pixel == 35 ? 255 : 0));
+        assert(published.rgb[pixel * 3 + 1] == (pixel == 1 ? 255 : 0));
+        assert(published.rgb[pixel * 3 + 2] == (pixel == 255 ? 255 : 0));
     }
+    fake_ms = 250;
+    display_show(); // Same pixels: conditional sequence must stay unchanged.
+    assert(display_request_frame().sequence == published.sequence);
     display_clear();
     DisplayFrame not_yet_shown;
     display_copy_frame(not_yet_shown);
     assert(std::memcmp(published.rgb, not_yet_shown.rgb, sizeof(published.rgb)) == 0);
     assert(published.sequence == not_yet_shown.sequence);
+    fake_ms = 499;
+    display_show(); // Rate limited even though pixels changed.
+    display_copy_frame(not_yet_shown);
+    assert(not_yet_shown.sequence == published.sequence);
+    fake_ms = 500;
     display_show();
     display_copy_frame(not_yet_shown);
     for (uint8_t channel : not_yet_shown.rgb) assert(channel == 0);
     assert(not_yet_shown.sequence == published.sequence + 1);
+    fake_ms = 5251; // Last request was at 250: the five-second lease expired.
+    display_draw_pixel(3, 1, display_color(255, 0, 0));
+    display_show();
+    display_copy_frame(published);
+    assert(published.sequence == not_yet_shown.sequence);
+    assert(!display_request_frame().ready); // Do not serve the stale idle frame.
+    display_show();
+    assert(display_request_frame().ready);
+    assert(display_request_frame().sequence == published.sequence + 1);
+    fake_ms = UINT32_MAX - 10;
+    assert(!display_request_frame().ready);
+    display_show();
+    fake_ms = 15; // Lease remains valid across millis() wraparound.
+    assert(display_request_frame().ready);
+    fake_ms = 6000; // Disable capture for the remaining rendering tests.
+    display_clear();
 
     AppConfig cfg = {};
     GlucoseReading reading_fixture = {};

@@ -12,11 +12,11 @@ class LiveDisplayTests(unittest.TestCase):
         script = r'''
 const assert = require('node:assert/strict');
 const events = new Map(), timers = new Map();
-let timerId = 0, requests = 0, resolveFetch, painted, mode;
+let timerId = 0, requests = 0, resolveFetch, painted, mode, requestHeaders;
 global.document = {hidden:false, addEventListener:(k,v)=>events.set(k,v), removeEventListener:k=>events.delete(k)};
 global.setTimeout = (fn,delay) => {timers.set(++timerId,{fn,delay});return timerId;};
 global.clearTimeout = id => timers.delete(id);
-global.fetch = () => {requests++;return new Promise(resolve=>resolveFetch=resolve);};
+global.fetch = (_url, options) => {requestHeaders=options.headers;requests++;return new Promise(resolve=>resolveFetch=resolve);};
 const context = {createImageData:()=>({data:new Uint8ClampedArray(1024)}), putImageData:image=>painted=image.data.slice()};
 const canvas = {getContext:()=>context,dataset:{},setAttribute:()=>{}};
 const status = {};
@@ -37,6 +37,14 @@ require(process.argv[1]);
  assert.ok([...timers.values()].some(t=>t.delay===1500));
  const pending=client.refresh();resolveFetch(response(768));await pending;
  assert.equal(status.textContent,'Live from your clock');
+ const originalPixels=painted;
+ const conditional=client.refresh();
+ assert.equal(requestHeaders['If-None-Match'],'7');
+ resolveFetch({status:304,ok:false,headers:{get:()=> 'TIME'},arrayBuffer:()=>{throw Error('304 body must not be read');}});
+ await conditional;assert.equal(painted,originalPixels);
+ assert.equal(status.textContent,'Live from your clock');
+ const fresh=client.refresh();resolveFetch({status:204,ok:true});await fresh;
+ assert.ok(status.textContent.includes('Waiting'));assert.equal(painted,originalPixels);
  client.stop();assert.equal(timers.size,0);assert.equal(events.size,0);
 })().catch(error=>{console.error(error);process.exit(1)});
 '''

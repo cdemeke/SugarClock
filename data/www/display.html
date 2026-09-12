@@ -49,15 +49,16 @@
                 </div>
                 <div class="hint live-frame-status" id="live-frame-status" role="status">Connecting to live display…</div>
             </div>
-            <div class="glucose-hero visually-hidden" aria-label="Latest blood sugar reading">
+            <section class="glucose-summary" aria-labelledby="glucose-summary-heading">
+                <h2 id="glucose-summary-heading">Latest blood sugar</h2>
                 <div class="reading">
                     <span class="value" id="glucose-value">---</span>
                     <span class="trend" id="trend-arrow"></span>
                     <span class="unit" id="unit-label">mg/dL</span>
                 </div>
                 <div class="delta" id="delta-display"></div>
-                <div class="meta" id="data-age">--</div>
-            </div>
+                <div class="meta" id="data-age">Waiting for reading…</div>
+            </section>
             <div class="display-controls">
                 <strong class="display-current-mode" id="display-state">--</strong>
                 <div class="display-nav-actions" aria-label="Change SugarClock display">
@@ -142,18 +143,22 @@
             gv.textContent=valid?GlucoseFormat.value(d.glucose,readingUnits):'---';
             ta.textContent=valid?(trendMap[d.trend]||'?'):'';
             const cc=d?(colorMap[d.color]||''):'';gv.className='value '+cc;ta.className='trend '+cc;
-            if(valid&&Number.isFinite(d.delta)&&d.delta!==0){dd.textContent=GlucoseFormat.value(d.delta,readingUnits,true)+' '+unit;dd.className='delta '+(d.delta>0?'delta-positive':'delta-negative');}else{dd.textContent='';dd.className='delta';}
+            if(valid&&Number.isFinite(d.delta)){dd.textContent=GlucoseFormat.value(d.delta,readingUnits,true)+' '+unit;dd.className='delta '+(d.delta>0?'delta-positive':d.delta<0?'delta-negative':'delta-neutral');}else{dd.textContent='';dd.className='delta';}
+            const age=document.getElementById('data-age');
+            age.textContent=!d?'Reading unavailable':!d.valid?'No glucose reading':
+                !Number.isFinite(d.data_age_sec)||d.data_age_sec<0?'Reading age unavailable':
+                (d.color==='gray'?'Stale reading · ':'Updated ')+fmtAge(d.data_age_sec);
         }
 
         async function refresh(){
             try{
                 const sr=await fetch('/api/status');
+                if(!sr.ok)throw new Error('Status unavailable');
                 const d=await sr.json();
                 latestReading=d;
                 // Status carries its own units preference so readings and labels stay atomic.
                 if(typeof d.use_mmol==='boolean')readingUnits=d.use_mmol;
                 renderReading();
-                document.getElementById('data-age').textContent=fmtAge(d.data_age_sec);
                 const we=document.getElementById('wifi-status');we.textContent=d.wifi_connected?'Connected':'Disconnected';we.style.color=d.wifi_connected?'var(--green)':'var(--red)';
                 document.getElementById('wifi-rssi').textContent=d.wifi_rssi+' dBm';
                 document.getElementById('failure-count').textContent=d.failure_count;

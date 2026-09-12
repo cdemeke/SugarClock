@@ -629,6 +629,22 @@ body {
 }
 
 /* ---- Stat Cards ---- */
+.glucose-summary {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    padding: 12px 20px 18px;
+    text-align: center;
+}
+.glucose-summary h2 { width: 100%; margin: 0 0 2px; font-size: 12px; font-weight: 500; color: var(--text-secondary); border: 0; padding: 0; }
+.glucose-summary .reading { display: flex; align-items: baseline; gap: 6px; }
+.glucose-summary .value { font-size: 32px; font-weight: 650; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.glucose-summary .trend { font-size: 20px; }
+.glucose-summary .unit, .glucose-summary .meta { font-size: 12px; color: var(--text-secondary); }
+.glucose-summary .delta { font-size: 14px; font-variant-numeric: tabular-nums; }
+
 .stat-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
