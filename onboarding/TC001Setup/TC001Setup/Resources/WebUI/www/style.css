@@ -1668,7 +1668,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     display: none;
 }
 
-/* ---- Ambient Fish ---- */
+/* ---- Pixel Companion ---- */
 .ambient-card {
     overflow: hidden;
     border-color: color-mix(in srgb, var(--orange) 28%, var(--border));
@@ -1729,12 +1729,13 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
         0 2px 8px rgba(0, 0, 0, 0.35);
     line-height: 0;
     margin: 0 auto;
-    max-width: 528px;
+    max-width: 784px;
     overflow: hidden;
     padding: 3px;
 }
 
-#ambient-fish-preview {
+/* Keep the 32 x 8 matrix proportional regardless of the selected pet or canvas ID. */
+.ambient-matrix canvas {
     aspect-ratio: 4 / 1;
     display: block;
     height: auto;
@@ -1832,3 +1833,9 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     line-height: 1;
     white-space: nowrap;
 }
+
+/* Companion preview actions wrap on small screens. */
+.ambient-preview-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.ambient-preview-controls .btn { min-height: 44px; padding: 8px 12px; font-size: 12px; }
+.ambient-preview-controls [aria-pressed="true"] { background: var(--text); color: var(--card); border-color: var(--text); }
+.ambient-preview-caption { margin: 8px 0 18px; }
