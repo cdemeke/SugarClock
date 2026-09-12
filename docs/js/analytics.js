@@ -90,7 +90,8 @@
       if (value) props[key.replace(/-/g, "_")] = value;
     });
     if (el.getAttribute("data-track-event") === "demo_video_requested") {
-      props.video_id = el.getAttribute("data-video-id");
+      var videoId = el.getAttribute("data-video-id");
+      if (videoId) props.video_id = videoId;
     }
     track(el.getAttribute("data-track-event"), props);
   }, true);

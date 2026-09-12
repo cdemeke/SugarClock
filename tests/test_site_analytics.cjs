@@ -3,13 +3,13 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const source = fs.readFileSync('docs/js/analytics.js', 'utf8');
-function boot({ token = 'phc_test', hostname = 'sugarclock.com', enabledHosts = ['sugarclock.com'] } = {}) {
+function boot({ token = 'phc_test', hostname = 'sugarclock.com', enabledHosts = ['sugarclock.com'], readyState = 'loading', querySelectorAll = () => [] } = {}) {
   const events = [], listeners = {}, scripts = [], observed = [];
   let options, observerCallback;
   const document = {
-    readyState: 'loading', head: { appendChild: s => scripts.push(s) },
+    readyState, head: { appendChild: s => scripts.push(s) },
     createElement: () => ({}), addEventListener: (e, cb) => listeners[e] = cb,
-    querySelectorAll: () => [],
+    querySelectorAll,
   };
   const window = {
     SUGARCLOCK_ANALYTICS: { token, enabledHosts, assetHost: 'https://us-assets.i.posthog.com', apiHost: 'https://us.i.posthog.com' },
@@ -20,7 +20,7 @@ function boot({ token = 'phc_test', hostname = 'sugarclock.com', enabledHosts = 
   vm.runInNewContext(source, { window, document, location: window.location, navigator: { serial: {} }, URL,
     IntersectionObserver: function(cb) { observerCallback = cb; this.observe = e => observed.push(e); this.unobserve = () => {}; },
   });
-  return { events, listeners, scripts, document, load: () => scripts[0].onload(), options: () => options };
+  return { events, listeners, scripts, document, observed, intersect: entries => observerCallback(entries), load: () => scripts[0].onload(), options: () => options };
 }
 test('disabled without token or on preview hosts', () => {
   assert.equal(boot({token: ''}).scripts.length, 0);
@@ -36,6 +36,7 @@ test('queues early clicks and emits one native pageview with explicit capture co
   assert.equal(b.options().autocapture, false);
   assert.equal(b.options().disable_session_recording, true);
   assert.equal(b.options().person_profiles, 'never');
+  assert.equal(b.options().save_campaign_params, false);
 });
 test('strips query strings and fragments from SDK URL properties', () => {
   const b = boot(); b.load();
@@ -103,4 +104,36 @@ test('video event uses the same video ID as playback', () => {
     'data-track-event': 'demo_video_requested', 'data-video-id': 'single-source',
   })[k]})}});
   assert.equal(b.events[1][1].video_id, 'single-source');
+});
+
+test('wires immediately when deferred scripts run after parsing', () => {
+  let faqClick;
+  const section = {id: 'install'};
+  const button = {
+    addEventListener: (event, callback) => { faqClick = callback; },
+    closest: () => ({classList: {contains: () => false}}),
+    getAttribute: () => 'hardware',
+  };
+  const b = boot({
+    readyState: 'interactive',
+    querySelectorAll: selector => selector === '.faq-question' ? [button] : [section],
+  });
+  assert.equal(b.listeners.DOMContentLoaded, undefined);
+  assert.equal(typeof faqClick, 'function');
+  assert.deepEqual(b.observed, [section]);
+  b.load();
+  assert.deepEqual(b.events.map(e => e[0]), ['$pageview']);
+  faqClick();
+  b.intersect([{isIntersecting: true, target: section}]);
+  assert.deepEqual(b.events.map(e => e[0]), ['$pageview', 'faq_answer_opened', 'section_viewed']);
+  assert.equal(b.events[1][1].question_id, 'hardware');
+  assert.equal(b.events[2][1].section, 'install');
+});
+test('video event omits a missing playback ID', () => {
+  const b = boot(); b.load();
+  b.listeners.click({target: {closest: () => ({getAttribute: key =>
+    key === 'data-track-event' ? 'demo_video_requested' : null
+  })}});
+  assert.equal(b.events[1][0], 'demo_video_requested');
+  assert.equal(Object.hasOwn(b.events[1][1], 'video_id'), false);
 });
