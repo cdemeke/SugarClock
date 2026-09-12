@@ -33,6 +33,10 @@ def deterministic_gzip(data):
     compressed[9] = 255
     return bytes(compressed)
 
+def encode_asset(data):
+    compressed = deterministic_gzip(data)
+    return (compressed, "gzip") if len(compressed) < len(data) else (data, None)
+
 def generate_web_assets():
     if not os.path.exists(DATA_WWW_DIR):
         print(f"Warning: {DATA_WWW_DIR} does not exist.")
@@ -54,16 +58,17 @@ def generate_web_assets():
             # mtime=0 makes identical source assets produce byte-identical
             # firmware. SHA-256 is also used for the cache tag so MD5 is not
             # present anywhere in the OTA implementation.
-            gz_data = deterministic_gzip(raw_data)
-            etag = hashlib.sha256(gz_data).hexdigest()[:16]
-            ident = "asset_" + sanitize_ident(rel_path.lstrip("/")) + "_gz"
+            payload, encoding = encode_asset(raw_data)
+            etag = hashlib.sha256(payload).hexdigest()[:16]
+            ident = "asset_" + sanitize_ident(rel_path.lstrip("/")) + "_data"
 
             assets.append({
                 "rel_path": rel_path,
                 "ident": ident,
                 "mime": mime,
                 "raw_size": len(raw_data),
-                "gz_data": gz_data,
+                "data": payload,
+                "encoding": encoding,
                 "etag": etag
             })
 
@@ -80,6 +85,7 @@ struct WebAsset {
     size_t size;
     const char* mime_type;
     const char* etag;
+    const char* content_encoding;
 };
 
 const WebAsset* find_web_asset(const char* path);
@@ -95,13 +101,13 @@ const WebAsset* get_web_asset_at(size_t index);
         '#include <pgmspace.h>',
         '#include <string.h>',
         '',
-        '// Generated gzipped web assets',
+        '// Generated web assets; gzip only when smaller than the original',
     ]
 
     for a in assets:
-        cpp_lines.append(f'// {a["rel_path"]} (raw {a["raw_size"]} bytes, gzip {len(a["gz_data"])} bytes)')
+        cpp_lines.append(f'// {a["rel_path"]} (raw {a["raw_size"]} bytes, stored {len(a["data"])} bytes, {a["encoding"] or "identity"})')
         cpp_lines.append(f'static const uint8_t {a["ident"]}[] PROGMEM = {{')
-        bytes_hex = [f'0x{b:02x}' for b in a["gz_data"]]
+        bytes_hex = [f'0x{b:02x}' for b in a["data"]]
         for i in range(0, len(bytes_hex), 16):
             chunk = ", ".join(bytes_hex[i:i+16])
             if i + 16 < len(bytes_hex):
@@ -111,10 +117,11 @@ const WebAsset* get_web_asset_at(size_t index);
 
     cpp_lines.append("static const WebAsset WEB_ASSETS[] = {")
     for a in assets:
-        cpp_lines.append(f'    {{ "{a["rel_path"]}", {a["ident"]}, {len(a["gz_data"])}, "{a["mime"]}", "{a["etag"]}" }},')
+        encoding = '"gzip"' if a["encoding"] else 'nullptr'
+        cpp_lines.append(f'    {{ "{a["rel_path"]}", {a["ident"]}, {len(a["data"])}, "{a["mime"]}", "{a["etag"]}", {encoding} }},')
         if a["rel_path"] == "/index.html":
             # Also map root "/" to index.html
-            cpp_lines.append(f'    {{ "/", {a["ident"]}, {len(a["gz_data"])}, "{a["mime"]}", "{a["etag"]}" }},')
+            cpp_lines.append(f'    {{ "/", {a["ident"]}, {len(a["data"])}, "{a["mime"]}", "{a["etag"]}", {encoding} }},')
     cpp_lines.append("};\n")
 
     cpp_lines.append("static const size_t WEB_ASSETS_COUNT = sizeof(WEB_ASSETS) / sizeof(WEB_ASSETS[0]);\n")

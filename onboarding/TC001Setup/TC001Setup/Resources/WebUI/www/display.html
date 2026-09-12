@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SugarClock - Dashboard</title>
-    <link rel="stylesheet" href="style.css?v=toast-icons-1">
+    <link rel="stylesheet" href="style.css">
     <script>if(localStorage.getItem('theme')==='dark')document.documentElement.setAttribute('data-theme','dark');</script>
 </head>
 <body class="app-shell-page">
@@ -105,6 +105,7 @@
     </div>
     </main>
 
+    <script src="glucose-format.js"></script>
     <script>
         const trendMap = {'RisingFast':'\u2191\u2191','Rising':'\u2191','Flat':'\u2192','Falling':'\u2193','FallingFast':'\u2193\u2193','Unknown':'?'};
         const colorMap = {'red':'color-red','orange':'color-orange','green':'color-green','gray':'color-gray'};
@@ -114,14 +115,28 @@
         function fmtAge(s){if(s<0)return'No data';if(s<60)return s+'s ago';if(s<3600)return Math.floor(s/60)+'m '+s%60+'s ago';return Math.floor(s/3600)+'h ago';}
         function friendlyMode(mode){return modeNames[mode]||String(mode||'--').replaceAll('_',' ');}
 
+        let readingUnits = null;
+        let latestReading = null;
+        function renderReading(){
+            const d=latestReading;
+            const gv=document.getElementById('glucose-value'),ta=document.getElementById('trend-arrow'),dd=document.getElementById('delta-display');
+            const unit=readingUnits===null?'--':readingUnits?'mmol/L':'mg/dL';
+            document.getElementById('unit-label').textContent=unit;
+            const valid=d&&d.valid&&Number.isFinite(d.glucose)&&d.glucose>0&&readingUnits!==null;
+            gv.textContent=valid?GlucoseFormat.value(d.glucose,readingUnits):'---';
+            ta.textContent=valid?(trendMap[d.trend]||'?'):'';
+            const cc=d?(colorMap[d.color]||''):'';gv.className='value '+cc;ta.className='trend '+cc;
+            if(valid&&Number.isFinite(d.delta)&&d.delta!==0){dd.textContent=GlucoseFormat.value(d.delta,readingUnits,true)+' '+unit;dd.className='delta '+(d.delta>0?'delta-positive':'delta-negative');}else{dd.textContent='';dd.className='delta';}
+        }
+
         async function refresh(){
             try{
                 const sr=await fetch('/api/status');
                 const d=await sr.json();
-                const gv=document.getElementById('glucose-value'),ta=document.getElementById('trend-arrow'),dd=document.getElementById('delta-display');
-                if(d.valid&&d.glucose>0){gv.textContent=d.glucose;ta.textContent=trendMap[d.trend]||'?';}else{gv.textContent='---';ta.textContent='';}
-                const cc=colorMap[d.color]||'';gv.className='value '+cc;ta.className='trend '+cc;
-                if(d.delta!==undefined&&d.delta!==null&&d.delta!==0){dd.textContent=(d.delta>0?'+':'')+d.delta+' mg/dL';dd.className='delta '+(d.delta>0?'delta-positive':d.delta<0?'delta-negative':'delta-neutral');}else{dd.textContent='';dd.className='delta';}
+                latestReading=d;
+                // Status carries its own units preference so readings and labels stay atomic.
+                if(typeof d.use_mmol==='boolean')readingUnits=d.use_mmol;
+                renderReading();
                 document.getElementById('data-age').textContent=fmtAge(d.data_age_sec);
                 document.getElementById('display-state').textContent=friendlyMode(d.state);
                 const we=document.getElementById('wifi-status');we.textContent=d.wifi_connected?'Connected':'Disconnected';we.style.color=d.wifi_connected?'var(--green)':'var(--red)';
@@ -129,7 +144,7 @@
                 document.getElementById('failure-count').textContent=d.failure_count;
                 document.getElementById('uptime').textContent=fmtUp(d.uptime_sec);
                 if(d.thresholds)window._t=d.thresholds;
-            }catch(e){document.getElementById('glucose-value').textContent='ERR';}
+            }catch(e){latestReading=null;renderReading();document.getElementById('glucose-value').textContent='ERR';}
         }
 
         async function loadCapabilities(){
@@ -144,7 +159,9 @@
                     if(enabled)visible++;
                 });
                 document.getElementById('capability-section').hidden=visible===0;
-                document.getElementById('unit-label').textContent=config.use_mmol?'mmol/L':'mg/dL';
+                // Compatibility with older firmware whose status omitted use_mmol.
+                if(!latestReading||typeof latestReading.use_mmol!=='boolean')readingUnits=config.use_mmol===true;
+                renderReading();
             }catch(e){document.getElementById('capability-section').hidden=true;}
         }
 

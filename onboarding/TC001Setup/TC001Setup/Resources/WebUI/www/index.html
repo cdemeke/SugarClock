@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SugarClock - Configuration</title>
-    <link rel="stylesheet" href="style.css?v=toast-icons-1">
+    <link rel="stylesheet" href="style.css">
     <script>if(localStorage.getItem('theme')==='dark')document.documentElement.setAttribute('data-theme','dark');</script>
 </head>
 <body class="app-shell-page">
@@ -194,6 +194,15 @@
                     </div>
                     <input class="brightness-slider" type="range" id="brightness" min="1" max="100" value="16" aria-valuetext="16 percent">
                     <div class="brightness-scale" aria-hidden="true"><span>1%</span><span>100%</span></div>
+                    <div class="hint" id="brightness-mode-hint">Manual brightness.</div>
+                    <details class="wifi-advanced">
+                        <summary>Advanced brightness</summary>
+                        <div class="toggle-row">
+                            <label for="auto_brightness">Adjust brightness automatically</label>
+                            <input type="checkbox" id="auto_brightness">
+                        </div>
+                        <div class="hint">Uses the clock's light sensor. Moving the slider switches back to manual brightness.</div>
+                    </details>
                 </div>
 
                 <div class="card">
@@ -995,14 +1004,23 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
         let brightnessDeviceValue = 40;
         let brightnessChanged = false;
+        let brightnessModeChanged = false;
         function updateBrightnessLabel() {
             const slider = document.getElementById('brightness');
             document.getElementById('brightness-value').textContent = slider.value + '%';
             slider.setAttribute('aria-valuetext', slider.value + ' percent');
+            document.getElementById('brightness-mode-hint').textContent = document.getElementById('auto_brightness').checked
+                ? 'Automatic brightness is on. Move the slider to choose a manual level.'
+                : 'Manual brightness. Automatic adjustment is available under Advanced brightness.';
         }
         document.getElementById('brightness').addEventListener('input', () => {
             brightnessDeviceValue = Math.round(Number(document.getElementById('brightness').value) * 255 / 100);
             brightnessChanged = true;
+            document.getElementById('auto_brightness').checked = false;
+            updateBrightnessLabel();
+        });
+        document.getElementById('auto_brightness').addEventListener('change', () => {
+            brightnessModeChanged = true;
             updateBrightnessLabel();
         });
 
@@ -1298,6 +1316,8 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 brightnessDeviceValue = Math.max(1, Math.min(255, Number(c.brightness) || 40));
                 document.getElementById('brightness').value = Math.max(1, Math.round(brightnessDeviceValue * 100 / 255));
                 brightnessChanged = false;
+                brightnessModeChanged = false;
+                document.getElementById('auto_brightness').checked = c.auto_brightness === true;
                 updateBrightnessLabel();
                 document.getElementById('show_delta').checked = c.show_delta || false;
                 document.getElementById('use_mmol').value = c.use_mmol ? '1' : '0';
@@ -1421,7 +1441,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 poll_interval: poll,
                 stale_timeout_min: parseInt(document.getElementById('stale_timeout').value),
                 brightness: brightnessDeviceValue,
-                ...(brightnessChanged ? {auto_brightness: false} : {}),
+                ...((brightnessChanged || brightnessModeChanged) ? {auto_brightness: document.getElementById('auto_brightness').checked} : {}),
                 show_delta: document.getElementById('show_delta').checked,
                 use_mmol: document.getElementById('use_mmol').value === '1',
                 night_mode_enabled: document.getElementById('night_mode_enabled').checked,

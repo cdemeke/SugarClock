@@ -77,6 +77,7 @@ static void handle_status(AsyncWebServerRequest* request) {
 
     // Glucose color info
     AppConfig& cfg = config_get();
+    doc["use_mmol"] = cfg.use_mmol;
     unsigned long age = http_time_since_last_reading();
     unsigned long stale_ms = (unsigned long)cfg.stale_timeout_min * 60UL * 1000UL;
     int failures = http_get_failure_count();
@@ -1172,7 +1173,7 @@ void webserver_init() {
         server.on(asset->path, HTTP_GET, [asset](AsyncWebServerRequest* request) {
             AsyncWebServerResponse* response = request->beginResponse(
                 200, asset->mime_type, asset->data, asset->size);
-            response->addHeader("Content-Encoding", "gzip");
+            if (asset->content_encoding) response->addHeader("Content-Encoding", asset->content_encoding);
             response->addHeader("Cache-Control", "no-cache");
             response->addHeader("ETag", asset->etag);
             request->send(response);
