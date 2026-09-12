@@ -15,8 +15,11 @@
 // values are volatile (32-bit loads/stores are atomic on ESP32).
 static SemaphoreHandle_t data_mutex = NULL;
 static SemaphoreHandle_t force_done_sem = NULL;
-static volatile bool force_requested = false;
-static volatile bool force_result = false;
+static SemaphoreHandle_t force_caller_mutex = NULL;
+static uint32_t force_next_id = 0;
+static uint32_t force_pending_id = 0;
+static uint32_t force_done_id = 0;
+static bool force_result = false;
 
 static WeatherReading current_weather;        // guarded by data_mutex
 static volatile bool weather_paused = false;
@@ -110,6 +113,7 @@ static bool weather_do_fetch() {
     WiFiClientSecure client;
     client.setInsecure();
     client.setTimeout(10);
+    client.setHandshakeTimeout(10);
 
     HTTPClient http;
     if (!http.begin(client, url)) {
@@ -120,6 +124,7 @@ static bool weather_do_fetch() {
     }
 
     http.setTimeout(10000);
+    http.setConnectTimeout(10000);
 
     // Notify engine before the blocking HTTP call so it can clear
     // particle animations and render a clean frame.
@@ -201,6 +206,12 @@ void weather_init() {
         force_done_sem = xSemaphoreCreateBinary();
     }
 
+    if (!force_caller_mutex) force_caller_mutex = xSemaphoreCreateMutex();
+    if (!data_mutex || !force_done_sem || !force_caller_mutex) {
+        Serial.println("[WEATHER] Cannot allocate synchronization state");
+        ESP.restart();
+        return;
+    }
     memset(&current_weather, 0, sizeof(WeatherReading));
     current_weather.valid = false;
     last_poll_ms = 0;
@@ -214,10 +225,17 @@ void weather_poll_tick() {
 
     // Forced fetch (web UI test button) works even when weather is disabled,
     // so users can verify their API key before enabling the screen.
-    if (force_requested) {
-        force_requested = false;
+    xSemaphoreTake(data_mutex, portMAX_DELAY);
+    const uint32_t request_id = force_pending_id;
+    force_pending_id = 0;
+    xSemaphoreGive(data_mutex);
+    if (request_id) {
         last_poll_ms = millis();
-        force_result = weather_do_fetch();
+        const bool result = weather_do_fetch();
+        xSemaphoreTake(data_mutex, portMAX_DELAY);
+        force_result = result;
+        force_done_id = request_id;
+        xSemaphoreGive(data_mutex);
         xSemaphoreGive(force_done_sem);
         return;
     }
@@ -247,16 +265,27 @@ bool weather_is_paused() {
 }
 
 bool weather_force_fetch(unsigned long timeout_ms) {
-    if (!wifi_is_connected()) return false;
-
-    // Drain a stale completion from a previously timed-out request
+    if (weather_paused || xSemaphoreTake(force_caller_mutex, 0) != pdTRUE) return false;
     xSemaphoreTake(force_done_sem, 0);
-    force_requested = true;
-
-    if (xSemaphoreTake(force_done_sem, pdMS_TO_TICKS(timeout_ms)) != pdTRUE) {
-        return false; // still running
+    xSemaphoreTake(data_mutex, portMAX_DELAY);
+    if (++force_next_id == 0) ++force_next_id;
+    const uint32_t request_id = force_next_id;
+    force_pending_id = request_id;
+    xSemaphoreGive(data_mutex);
+    const unsigned long started = millis();
+    bool ok = false;
+    while (millis() - started < timeout_ms) {
+        const unsigned long elapsed = millis() - started;
+        if (elapsed >= timeout_ms) break;
+        if (xSemaphoreTake(force_done_sem, pdMS_TO_TICKS(timeout_ms - elapsed)) != pdTRUE) break;
+        xSemaphoreTake(data_mutex, portMAX_DELAY);
+        const bool ours = force_done_id == request_id;
+        const bool result = force_result;
+        xSemaphoreGive(data_mutex);
+        if (ours) { ok = result; break; }
     }
-    return force_result;
+    xSemaphoreGive(force_caller_mutex);
+    return ok;
 }
 
 int weather_get_last_http_code() {
@@ -280,7 +309,7 @@ WeatherReading weather_get_reading() {
 }
 
 bool weather_has_data() {
-    return ever_received && current_weather.valid;
+    return ever_received && weather_get_reading().valid;
 }
 
 void weather_set_pre_fetch_callback(WeatherPreFetchCallback cb) {

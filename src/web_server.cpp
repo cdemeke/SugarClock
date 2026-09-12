@@ -17,6 +17,9 @@
 #include "hardware_pins.h"
 #include "captive_portal.h"
 #include "net_check.h"
+#include "net_task.h"
+#include "nightscout_settings.h"
+#include "config_request_body.h"
 #include "web_assets.h"
 #include "ota_manager.h"
 
@@ -56,7 +59,7 @@ static void handle_status(AsyncWebServerRequest* request) {
     doc["glucose"] = r.valid ? r.glucose : 0;
     doc["trend"] = r.valid ? TREND_NAMES[r.trend] : "Unknown";
     doc["valid"] = r.valid;
-    doc["data_age_sec"] = r.valid ? (millis() - r.received_at_ms) / 1000 : -1;
+    doc["data_age_sec"] = r.valid ? (long)(http_time_since_last_reading() / 1000UL) : -1;
     doc["state"] = engine_state_name(engine_get_state());
     doc["wifi_connected"] = wifi_is_connected();
     doc["wifi_ip"] = wifi_get_ip();
@@ -74,6 +77,7 @@ static void handle_status(AsyncWebServerRequest* request) {
 
     // Delta
     doc["delta"] = http_get_delta();
+    doc["has_delta"] = http_has_delta();
 
     // Glucose color info
     AppConfig& cfg = config_get();
@@ -159,6 +163,9 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     doc["data_source"] = cfg.data_source;
     doc["server_url"] = cfg.server_url;
     doc["has_auth_token"] = strlen(cfg.auth_token) > 0;
+    doc["ns_url"] = cfg.ns_url;
+    doc["ns_auth_mode"] = cfg.ns_auth_mode;
+    doc["has_ns_credential"] = cfg.ns_credential[0] != '\0';
     doc["dexcom_username"] = cfg.dexcom_username;
     doc["has_dexcom_password"] = strlen(cfg.dexcom_password) > 0;
     doc["dexcom_us"] = cfg.dexcom_us;
@@ -257,21 +264,26 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     request->send(200, "application/json", output);
 }
 
-// POST /api/config (JSON body) — accumulate chunks before parsing
-static char config_body[4096];
-
+// POST /api/config (JSON body) — bounded, separate storage for each request.
 static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
-    if (total > sizeof(config_body) - 1) {
+    if (!total || total >= sizeof(ConfigRequestBody::data)) {
         request->send(413, "application/json", "{\"error\":\"Body too large\"}");
         return;
     }
-    memcpy(config_body + index, data, len);
+    // ESPAsyncWebServer frees _tempObject on request destruction, including
+    // disconnected/incomplete requests. calloc keeps the initial counters zero.
+    if (index == 0 && !request->_tempObject)
+        request->_tempObject = calloc(1, sizeof(ConfigRequestBody));
+    auto* body = static_cast<ConfigRequestBody*>(request->_tempObject);
+    if (!body || !body->append(data, len, index, total)) {
+        request->send(400, "application/json", "{\"error\":\"Invalid configuration body chunks\"}");
+        return;
+    }
     if (index + len < total) return; // wait for all chunks
-    config_body[total] = '\0';
 
     JsonDocument doc;
-    DeserializationError err = deserializeJson(doc, config_body, total);
-    if (err) {
+    DeserializationError err = deserializeJson(doc, body->data, total);
+    if (err || !doc.is<JsonObject>()) {
         request->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
         return;
     }
@@ -294,7 +306,41 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
         return;
     }
 
+    // Wait only briefly; a slow active request returns a retryable response.
+    if (ota_is_busy() || !net_task_quiesce(250)) {
+        request->send(503, "application/json", "{\"error\":\"Data request in progress. Retry saving in a moment.\"}");
+        return;
+    }
+    struct NetworkResume { ~NetworkResume() { net_task_resume(); } } resume_network;
     AppConfig& cfg = config_get();
+    const AppConfig previous = cfg;
+    int selected_source = cfg.data_source;
+    if (doc.as<JsonObjectConst>().containsKey("data_source")) {
+        if (!doc["data_source"].is<int>() ||
+            (doc["data_source"].as<int>() != 0 && doc["data_source"].as<int>() != 1 &&
+             doc["data_source"].as<int>() != 2 && doc["data_source"].as<int>() != 4)) {
+            request->send(400, "application/json", "{\"error\":\"Unsupported data source\"}");
+            return;
+        }
+        selected_source = doc["data_source"].as<int>();
+    }
+    NightscoutConfig ns = {};
+    snprintf(ns.url, sizeof(ns.url), "%s", cfg.ns_url);
+    ns.auth_mode = cfg.ns_auth_mode;
+    snprintf(ns.credential, sizeof(ns.credential), "%s", cfg.ns_credential);
+    char ns_error[160] = "";
+    if (!nightscout_apply_settings(doc.as<JsonObjectConst>(), ns, selected_source == 4, ns_error, sizeof(ns_error))) {
+        JsonDocument response;
+        response["error"] = ns_error;
+        String body;
+        serializeJson(response, body);
+        request->send(400, "application/json", body);
+        return;
+    }
+    snprintf(cfg.ns_url, sizeof(cfg.ns_url), "%s", ns.url);
+    cfg.ns_auth_mode = ns.auth_mode;
+    snprintf(cfg.ns_credential, sizeof(cfg.ns_credential), "%s", ns.credential);
+
 
     if (doc["wifi_ssid"].is<const char*>()) {
         strncpy(cfg.wifi_ssid, doc["wifi_ssid"] | "", sizeof(cfg.wifi_ssid) - 1);
@@ -573,6 +619,16 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
         cfg.auto_cycle_sec = constrain(doc["auto_cycle_sec"].as<int>(), 3, 300);
     }
 
+    bool source_changed = cfg.data_source != previous.data_source;
+    if (cfg.data_source == 0)
+        source_changed |= strcmp(cfg.server_url, previous.server_url) || strcmp(cfg.auth_token, previous.auth_token);
+    if (cfg.data_source == 1)
+        source_changed |= strcmp(cfg.dexcom_username, previous.dexcom_username) ||
+                          strcmp(cfg.dexcom_password, previous.dexcom_password) || cfg.dexcom_us != previous.dexcom_us;
+    if (cfg.data_source == 4)
+        source_changed |= strcmp(cfg.ns_url, previous.ns_url) || strcmp(cfg.ns_credential, previous.ns_credential) ||
+                          cfg.ns_auth_mode != previous.ns_auth_mode;
+    if (source_changed) http_reset_source();
     config_save();
     engine_rebuild_toggle_order();
 
@@ -881,11 +937,12 @@ static void handle_test_glucose(AsyncWebServerRequest* request) {
 
     // Demo mode: no network involved, just return a synthetic reading.
     if (cfg.data_source == 2) {
-        http_force_fetch(5000);
+        bool ok = http_force_fetch(5000);
         GlucoseReading r = http_get_reading();
         JsonDocument doc;
-        doc["ok"] = true;
-        doc["http_code"] = 200;
+        doc["ok"] = ok;
+        doc["http_code"] = http_get_last_response_code();
+        if (!ok) doc["error"] = "Data request busy. Retry in a moment.";
         doc["glucose"] = r.glucose;
         doc["trend"] = TREND_NAMES[r.trend];
         String output;
@@ -912,11 +969,21 @@ static void handle_test_glucose(AsyncWebServerRequest* request) {
         GlucoseReading r = http_get_reading();
         doc["glucose"] = r.glucose;
         doc["trend"] = TREND_NAMES[r.trend];
+        doc["data_age_sec"] = http_time_since_last_reading() / 1000UL;
+        doc["stale"] = http_time_since_last_reading() >= (unsigned long)cfg.stale_timeout_min * 60000UL;
+        doc["has_delta"] = http_has_delta();
+        if (http_has_delta()) doc["delta"] = http_get_delta();
+
     } else {
         int code = http_get_last_response_code();
         char body[512];
         http_get_last_response_body(body, sizeof(body));
-        if (code > 0 && strlen(body) > 0) {
+        char scheduling_error[128];
+        http_get_force_error(scheduling_error, sizeof(scheduling_error));
+        if (scheduling_error[0]) {
+            doc["error"] = scheduling_error;
+            doc["http_code"] = 0;
+        } else if (code > 0 && strlen(body) > 0) {
             char err[384];
             snprintf(err, sizeof(err), "HTTP %d: %s", code, body);
             doc["error"] = err;

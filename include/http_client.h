@@ -52,6 +52,10 @@ unsigned long http_time_since_last_reading();
 
 // Get delta from previous reading (mg/dL, positive = rising)
 int http_get_delta();
+bool http_has_delta();
+
+// Clear account-specific state while holding the network gate.
+void http_reset_source();
 
 // Get history buffer (returns count, fills array)
 int http_get_history(GlucoseHistoryEntry* out, int max_count);
@@ -60,6 +64,8 @@ int http_get_history(GlucoseHistoryEntry* out, int max_count);
 // Returns true on success, false on failure or timeout.
 // `timeout_ms` controls how long to wait for the background task.
 bool http_force_fetch(unsigned long timeout_ms);
+// Scheduling error for the last test; late network completions cannot replace it.
+void http_get_force_error(char* out, size_t size);
 
 // Pause background glucose/Dexcom/custom HTTP traffic during OTA download.
 void http_set_paused(bool paused);

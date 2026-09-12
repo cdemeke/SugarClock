@@ -19,6 +19,8 @@ jobs:
             fleet/requirements.txt
       - run: pip install -r requirements-build.txt
       - run: pip install -r fleet/requirements.txt
+      - name: Install pinned firmware libraries for production parser tests
+        run: pio pkg install -e esp32dev
       - name: Host security and policy tests
         run: python -m unittest discover -s tests -v
       - name: Build firmware and installer filesystem

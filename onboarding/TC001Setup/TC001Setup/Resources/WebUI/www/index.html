@@ -353,7 +353,7 @@
                             <option value="0">Custom URL</option>
                             <option value="1">Dexcom Share</option>
                             <option value="2">Demo Mode (no real data)</option>
-                            <option value="3">Nightscout</option>
+                            <option value="4">Nightscout</option>
                         </select>
                     </div>
 
@@ -376,18 +376,29 @@
                     </div>
 
                     <div id="nightscout-fields" style="display:none;">
-                        <div class="hint">Enter your Nightscout site URL (e.g. <code>https://mysite.herokuapp.com</code>) and an optional access token.</div>
+                        <div class="hint">Use your Nightscout site address, including any base path, without an API endpoint or token in the URL. HTTPS is required. A read-only access token is recommended for private sites.</div>
                         <div class="form-group">
-                            <label>Nightscout URL</label>
-                            <input type="url" id="nightscout_url" placeholder="https://mysite.herokuapp.com" maxlength="255">
+                            <label for="ns_url">Nightscout URL</label>
+                            <input type="url" id="ns_url" placeholder="https://your-nightscout.example" maxlength="255">
                         </div>
                         <div class="form-group">
-                            <label>Access Token</label>
+                            <label for="ns_auth_mode">Authentication</label>
+                            <select id="ns_auth_mode">
+                                <option value="0">Public site (no credential)</option>
+                                <option value="1">Access token (recommended)</option>
+                                <option value="2">API secret</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="ns_credential">Access token or API secret</label>
                             <div class="pw-wrap">
-                                <input type="password" id="nightscout_token" maxlength="255">
-                                <button type="button" class="pw-toggle" onclick="togglePw('nightscout_token')">&#128065;</button>
+                                <input type="password" id="ns_credential" maxlength="255" autocomplete="new-password">
+                                <button type="button" class="pw-toggle" onclick="togglePw('ns_credential')">&#128065;</button>
                             </div>
+                            <div class="hint" id="ns_credential_hint">Leave blank to keep a saved credential. Enter a new credential when changing authentication methods.</div>
+                            <label><input type="checkbox" id="ns_clear_credential"> Remove saved credential on save</label>
                         </div>
+                        <div class="hint">Save &amp; Test saves these Nightscout settings and switches the clock to Nightscout before checking the connection.</div>
                     </div>
 
                     <div id="dexcom-fields" style="display:none;">
@@ -919,7 +930,8 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             document.getElementById('custom-fields').style.display = src === '0' ? 'block' : 'none';
             document.getElementById('dexcom-fields').style.display = src === '1' ? 'block' : 'none';
             document.getElementById('demo-fields').style.display = src === '2' ? 'block' : 'none';
-            document.getElementById('nightscout-fields').style.display = src === '3' ? 'block' : 'none';
+            document.getElementById('nightscout-fields').style.display = src === '4' ? 'block' : 'none';
+            document.getElementById('test-glucose-btn').textContent = src === '4' ? 'Save & Test Connection' : 'Test Connection';
         }
 
         function showToast(msg, type) {
@@ -1293,8 +1305,13 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 document.getElementById('data_source').value = c.data_source || 0;
                 document.getElementById('server_url').value = c.server_url || '';
                 document.getElementById('auth_token').value = c.auth_token || '';
-                document.getElementById('nightscout_url').value = c.data_source === 3 ? (c.server_url || '') : '';
-                document.getElementById('nightscout_token').value = '';
+                document.getElementById('ns_url').value = c.ns_url || '';
+                document.getElementById('ns_auth_mode').value = c.ns_auth_mode || 0;
+                document.getElementById('ns_credential').value = '';
+                document.getElementById('ns_clear_credential').checked = false;
+                document.getElementById('ns_credential_hint').textContent = c.has_ns_credential
+                    ? 'A credential is saved. Leave blank to keep it; changing authentication methods requires a new credential.'
+                    : 'No credential is saved. Public sites need none.';
                 document.getElementById('dexcom_username').value = c.dexcom_username || '';
                 document.getElementById('dexcom_password').value = c.dexcom_password || '';
                 document.getElementById('dexcom_us').value = c.dexcom_us ? '1' : '0';
@@ -1425,12 +1442,9 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
             const data = {
                 data_source: parseInt(document.getElementById('data_source').value),
-                server_url: document.getElementById('data_source').value === '3'
-                    ? document.getElementById('nightscout_url').value
-                    : document.getElementById('server_url').value,
-                auth_token: document.getElementById('data_source').value === '3'
-                    ? document.getElementById('nightscout_token').value
-                    : document.getElementById('auth_token').value,
+                server_url: document.getElementById('server_url').value,
+                auth_token: document.getElementById('auth_token').value,
+                ...nightscoutSettings(),
                 dexcom_username: document.getElementById('dexcom_username').value,
                 dexcom_password: document.getElementById('dexcom_password').value,
                 dexcom_us: document.getElementById('dexcom_us').value === '1',
@@ -1500,7 +1514,9 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
             try {
                 const r = await fetch('/api/config', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
-                showToast(r.ok ? 'Configuration saved!' : 'Save failed', r.ok ? 'success' : 'error');
+                const result = await r.json();
+                showToast(r.ok ? 'Configuration saved!' : (result.error || 'Save failed'), r.ok ? 'success' : 'error');
+                if (r.ok) clearNightscoutCredentialInput();
             } catch (e) { showToast('Network error', 'error'); }
         });
 
@@ -1557,6 +1573,21 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             btn.textContent = 'Test Weather API';
         });
 
+        function nightscoutSettings() {
+            return {
+                ns_url: document.getElementById('ns_url').value.trim(),
+                ns_auth_mode: parseInt(document.getElementById('ns_auth_mode').value),
+                ns_credential: document.getElementById('ns_credential').value,
+                ns_clear_credential: document.getElementById('ns_clear_credential').checked
+            };
+        }
+
+        function clearNightscoutCredentialInput() {
+            document.getElementById('ns_credential').value = '';
+            document.getElementById('ns_clear_credential').checked = false;
+            document.getElementById('ns_credential_hint').textContent = 'Settings saved. Leave blank to keep the saved credential; changing authentication methods requires a new credential.';
+        }
+
         // Test Glucose Data Source
         document.getElementById('test-glucose-btn').addEventListener('click', async function() {
             const btn = this;
@@ -1566,21 +1597,32 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             res.className = 'test-result';
             res.textContent = '';
             try {
+                if (document.getElementById('data_source').value === '4') {
+                    const saved = await fetch('/api/config', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({data_source: 4, ...nightscoutSettings()})
+                    });
+                    const status = await saved.json();
+                    if (!saved.ok) throw new Error(status.error || 'Unable to save Nightscout settings');
+                    clearNightscoutCredentialInput();
+                }
                 const r = await fetch('/api/test/glucose', { method: 'POST' });
                 const d = await r.json();
                 if (d.ok) {
-                    res.textContent = 'Glucose: ' + d.glucose + ' mg/dL, Trend: ' + d.trend;
-                    res.className = 'test-result test-success';
+                    res.textContent = 'Glucose: ' + d.glucose + ' mg/dL, Trend: ' + d.trend
+                        + (d.data_age_sec !== undefined ? ', age: ' + Math.floor(d.data_age_sec / 60) + ' min' : '')
+                        + (d.stale ? ' — reading is stale' : '');
+                    res.className = 'test-result ' + (d.stale ? 'test-error' : 'test-success');
                 } else {
                     res.textContent = d.error || ('HTTP ' + d.http_code);
                     res.className = 'test-result test-error';
                 }
             } catch (e) {
-                res.textContent = 'Network error';
+                res.textContent = e.message || 'Network error';
                 res.className = 'test-result test-error';
             }
             btn.disabled = false;
-            btn.textContent = 'Test Connection';
+            toggleSource();
         });
 
         // Display prev/next controls

@@ -5,6 +5,7 @@
 #include "display.h"
 #include "glucose_engine.h"
 #include "http_client.h"
+#include "net_task.h"
 #include "improv_serial.h"
 #include "notify_engine.h"
 #include "ota_manifest.h"
@@ -444,15 +445,31 @@ static void record_failure(const char* error) {
     Serial.printf("[OTA] Failed: %s\n", error ? error : "unknown");
 }
 
+// Pause future polls and wait until a request already in flight has finished.
+// This runs on the OTA worker, leaving the display and buttons responsive.
+static bool pause_network_for_ota() {
+    http_set_paused(true);
+    weather_set_paused(true);
+    if (!net_task_quiesce(25000)) {
+        http_set_paused(false);
+        weather_set_paused(false);
+        return false;
+    }
+    net_task_resume(); // Pause flags prevent new requests for the entire OTA.
+    return true;
+}
+
 static void ota_worker(void* parameter) {
     unsigned mode = static_cast<unsigned>(reinterpret_cast<uintptr_t>(parameter));
     bool managed = mode == 2;
     bool owns_network_pause = mode == 0 || managed;
     char error[64] = "";
 
-    if (owns_network_pause) {
-        http_set_paused(true);
-        weather_set_paused(true);
+    if (owns_network_pause && !pause_network_for_ota()) {
+        record_failure("network_busy");
+        worker_running = false;
+        vTaskDelete(nullptr);
+        return;
     }
 
     if (!wifi_is_connected()) {
@@ -580,8 +597,12 @@ static void ota_worker(void* parameter) {
             vTaskDelete(nullptr);
             return;
         }
-        http_set_paused(true);
-        weather_set_paused(true);
+        if (!pause_network_for_ota()) {
+            record_failure("network_busy");
+            worker_running = false;
+            vTaskDelete(nullptr);
+            return;
+        }
         set_state(OTA_DOWNLOADING);
         set_progress(0);
         if (install_firmware(available_manifest, error, sizeof(error))) {

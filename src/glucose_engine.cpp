@@ -505,7 +505,7 @@ static void render_state(DisplayState state) {
             }
 
             // Check if we should show delta flash (only when data is fresh)
-            if (!is_stale && cfg.show_delta && reading.glucose != last_seen_glucose && last_seen_glucose > 0) {
+            if (!is_stale && cfg.show_delta && http_has_delta() && reading.glucose != last_seen_glucose && last_seen_glucose > 0) {
                 delta_flash_start_ms = millis();
                 delta_flash_active = true;
                 last_seen_glucose = reading.glucose;
@@ -514,7 +514,8 @@ static void render_state(DisplayState state) {
             }
 
             // Delta flash: show delta for a few seconds
-            if (delta_flash_active && (millis() - delta_flash_start_ms < DELTA_FLASH_DURATION_MS)) {
+            if (delta_flash_active && !is_stale && cfg.show_delta && http_has_delta() &&
+                (millis() - delta_flash_start_ms < DELTA_FLASH_DURATION_MS)) {
                 glucose_render_delta_flash(http_get_delta(), color, cfg.use_mmol);
                 break;
             }
@@ -787,7 +788,11 @@ static void render_state(DisplayState state) {
 
                 uint16_t tcolor = is_stale ? color_from_uint32(cfg.color_stale) : themed_glucose_color(reading.glucose, cfg);
 
-                display_draw_glucose_delta(http_get_delta(), reading.trend, tcolor, cfg.use_mmol);
+                if (http_has_delta()) {
+                    display_draw_glucose_delta(http_get_delta(), reading.trend, tcolor, cfg.use_mmol);
+                } else {
+                    display_draw_trend(reading.trend, 1, 0, tcolor);
+                }
             }
 
             display_show();

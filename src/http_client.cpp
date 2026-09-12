@@ -1,6 +1,8 @@
 #include "http_client.h"
 #include "config_manager.h"
 #include "wifi_manager.h"
+#include "nightscout_client.h"
+#include <limits.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
@@ -30,8 +32,13 @@
 // counters are volatile (32-bit loads/stores are atomic on ESP32).
 static SemaphoreHandle_t data_mutex = NULL;
 static SemaphoreHandle_t force_done_sem = NULL;
-static volatile bool force_requested = false;
-static volatile bool force_result = false;
+static SemaphoreHandle_t force_caller_mutex = NULL;
+// Request identity prevents a timed-out request completing a later request.
+static uint32_t force_next_id = 0;
+static uint32_t force_pending_id = 0;
+static uint32_t force_done_id = 0;
+static bool force_result = false;
+static char force_error[128] = "";
 
 static GlucoseReading current_reading;            // guarded by data_mutex
 static volatile int failure_count = 0;
@@ -41,6 +48,10 @@ static volatile bool ever_received = false;
 static unsigned long last_poll_ms = 0;            // network task only
 static volatile unsigned long last_success_ms = 0;
 static volatile bool http_paused = false;
+static bool sensor_age_active = false;  // guarded by data_mutex
+static uint32_t sensor_age_ms = 0;
+static unsigned long sensor_received_ms = 0;
+static bool delta_available = true;
 
 // Delta tracking (guarded by data_mutex)
 static int prev_glucose = 0;
@@ -147,6 +158,7 @@ static String dexcom_post(const char* url, const String& body, int& httpCode) {
     WiFiClientSecure client;
     client.setInsecure();
     client.setTimeout(HTTP_TIMEOUT_SEC);
+    client.setHandshakeTimeout(HTTP_TIMEOUT_SEC);
 
     HTTPClient http;
     if (!http.begin(client, url)) {
@@ -155,6 +167,7 @@ static String dexcom_post(const char* url, const String& body, int& httpCode) {
     }
 
     http.setTimeout(HTTP_TIMEOUT_MS);
+    http.setConnectTimeout(HTTP_TIMEOUT_MS);
     http.addHeader("Content-Type", "application/json");
     http.addHeader("Accept", "application/json");
 
@@ -177,7 +190,7 @@ static bool dexcom_login() {
     String authBody;
     serializeJson(authDoc, authBody);
 
-    Serial.printf("[DEXCOM] Auth as '%s' (%s)...\n", cfg.dexcom_username, cfg.dexcom_us ? "US" : "OUS");
+    Serial.printf("[DEXCOM] Authenticating (%s)...\n", cfg.dexcom_us ? "US" : "OUS");
 
     char auth_url[256];
     snprintf(auth_url, sizeof(auth_url), "%s%s", base, DEXCOM_AUTH_PATH);
@@ -187,7 +200,7 @@ static bool dexcom_login() {
     set_last_response(authResp.c_str());
     last_response_code = authCode;
 
-    Serial.printf("[DEXCOM] Auth step 1: HTTP %d, body: %.60s\n", authCode, authResp.c_str());
+    Serial.printf("[DEXCOM] Auth step 1: HTTP %d\n", authCode);
 
     if (authCode != HTTP_CODE_OK) {
         Serial.printf("[DEXCOM] Auth failed: HTTP %d\n", authCode);
@@ -215,7 +228,7 @@ static bool dexcom_login() {
     set_last_response(loginResp.c_str());
     last_response_code = loginCode;
 
-    Serial.printf("[DEXCOM] Auth step 2: HTTP %d, body: %.60s\n", loginCode, loginResp.c_str());
+    Serial.printf("[DEXCOM] Auth step 2: HTTP %d\n", loginCode);
 
     if (loginCode == HTTP_CODE_OK) {
         loginResp.trim();
@@ -231,7 +244,7 @@ static bool dexcom_login() {
 
         strncpy(dexcom_session_id, loginResp.c_str(), sizeof(dexcom_session_id) - 1);
         dexcom_session_time_ms = millis();
-        Serial.printf("[DEXCOM] Login OK, session: %.8s...\n", dexcom_session_id);
+        Serial.println("[DEXCOM] Login OK");
         return true;
     }
 
@@ -262,6 +275,7 @@ static bool dexcom_fetch_glucose() {
     WiFiClientSecure client;
     client.setInsecure();
     client.setTimeout(HTTP_TIMEOUT_SEC);
+    client.setHandshakeTimeout(HTTP_TIMEOUT_SEC);
 
     HTTPClient http;
     if (!http.begin(client, url)) {
@@ -271,6 +285,7 @@ static bool dexcom_fetch_glucose() {
     }
 
     http.setTimeout(HTTP_TIMEOUT_MS);
+    http.setConnectTimeout(HTTP_TIMEOUT_MS);
     http.addHeader("Accept", "application/json");
 
     int httpCode = http.POST(""); // Dexcom requires POST even for reads
@@ -365,6 +380,7 @@ static bool generic_fetch() {
     WiFiClientSecure client;
     client.setInsecure();
     client.setTimeout(HTTP_TIMEOUT_SEC);
+    client.setHandshakeTimeout(HTTP_TIMEOUT_SEC);
 
     HTTPClient http;
     Serial.printf("[HTTP] Polling: %s\n", cfg.server_url);
@@ -377,6 +393,7 @@ static bool generic_fetch() {
     }
 
     http.setTimeout(HTTP_TIMEOUT_MS);
+    http.setConnectTimeout(HTTP_TIMEOUT_MS);
     http.addHeader("Accept", "application/json");
 
     if (strlen(cfg.auth_token) > 0) {
@@ -441,111 +458,90 @@ static bool generic_fetch() {
     return success;
 }
 
-// Nightscout: fetch latest SGV entry from a Nightscout instance.
-// cfg.server_url holds the base URL (e.g. https://mysite.herokuapp.com) and
-// cfg.auth_token holds an optional Nightscout access token. The base URL is
-// expected to be the site root; any trailing '/' is stripped before the API
-// path is appended.
-static bool nightscout_fetch() {
-    AppConfig& cfg = config_get();
-
-    // Strip trailing slashes from the base URL so we don't build a URL with
-    // a double slash before /api.
-    char base[256];
-    strncpy(base, cfg.server_url, sizeof(base) - 1);
-    base[sizeof(base) - 1] = '\0';
-    size_t base_len = strlen(base);
-    while (base_len > 0 && base[base_len - 1] == '/') {
-        base[--base_len] = '\0';
-    }
-
-    char url[384];
-    if (strlen(cfg.auth_token) > 0) {
-        snprintf(url, sizeof(url), "%s/api/v1/entries/sgv.json?count=1&token=%s",
-                 base, cfg.auth_token);
-    } else {
-        snprintf(url, sizeof(url), "%s/api/v1/entries/sgv.json?count=1", base);
-    }
-
-    esp_task_wdt_reset();
-
-    WiFiClientSecure client;
-    client.setInsecure();
-    client.setTimeout(HTTP_TIMEOUT_SEC);
-
-    HTTPClient http;
-    Serial.printf("[NS] Polling: %s/api/v1/entries/sgv.json?count=1\n", base);
-
-    if (!http.begin(client, url)) {
-        Serial.println("[NS] Failed to begin connection");
-        failure_count++;
-        last_response_code = -1;
+// Nightscout publishes sensor age, not the age of a successful HTTP request.
+static bool fetch_nightscout_reading() {
+    const AppConfig& cfg = config_get(); // protected by the network gate
+    NightscoutConfig ns = {};
+    memcpy(ns.url, cfg.ns_url, sizeof(ns.url));
+    ns.auth_mode = cfg.ns_auth_mode;
+    memcpy(ns.credential, cfg.ns_credential, sizeof(ns.credential));
+    NightscoutResult result = {};
+    bool ok = nightscout_fetch(ns, result);
+    last_response_code = result.http_code;
+    set_last_response(result.error);
+    if (!ok) {
+        ++failure_count;
         return false;
     }
 
-    http.setTimeout(HTTP_TIMEOUT_MS);
-    http.addHeader("Accept", "application/json");
-
-    int httpCode = http.GET();
-    last_response_code = httpCode;
-
-    bool success = false;
-
-    if (httpCode == HTTP_CODE_OK) {
-        String payload = http.getString();
-        set_last_response(payload.c_str());
-
-        JsonDocument doc;
-        DeserializationError err = deserializeJson(doc, payload);
-
-        if (err) {
-            Serial.printf("[NS] JSON parse error: %s\n", err.c_str());
-            failure_count++;
-        } else {
-            JsonArray arr = doc.as<JsonArray>();
-            if (arr.size() == 0) {
-                Serial.println("[NS] Empty entries array");
-                set_last_response("Empty entries array");
-                failure_count++;
-            } else {
-                JsonObject entry = arr[0];
-
-                GlucoseReading r = {};
-                r.glucose = entry["sgv"] | 0;
-                // Nightscout "date" is epoch milliseconds and exceeds 32-bit.
-                unsigned long long date_ms = entry["date"] | 0ULL;
-                r.timestamp = (unsigned long)(date_ms / 1000ULL);
-                r.received_at_ms = millis();
-                r.force_mode = -1;
-                r.trend = parse_trend(entry["direction"] | "Unknown");
-                r.message[0] = '\0';
-                r.valid = (r.glucose > 0);
-
-                commit_reading(r);
-
-                if (r.valid) {
-                    failure_count = 0;
-                    ever_received = true;
-                    last_success_ms = millis();
-                    success = true;
-                    Serial.printf("[NS] Glucose: %d, Trend: %s\n",
-                                  r.glucose, TREND_NAMES[r.trend]);
-                } else {
-                    failure_count++;
-                    Serial.println("[NS] Invalid glucose value");
-                }
-            }
-        }
-    } else {
-        char errbuf[32];
-        snprintf(errbuf, sizeof(errbuf), "HTTP %d", httpCode);
-        set_last_response(errbuf);
-        Serial.printf("[NS] Error: %d\n", httpCode);
-        failure_count++;
+    const unsigned long now = millis();
+    xSemaphoreTake(data_mutex, portMAX_DELAY);
+    if (current_reading.valid && result.timestamp < current_reading.timestamp) {
+        xSemaphoreGive(data_mutex);
+        set_last_response("Server returned an older reading");
+        ++failure_count;
+        return false;
     }
+    uint64_t incoming_age = static_cast<uint64_t>(result.age_sec) * 1000ULL;
+    const bool duplicate = current_reading.valid && result.timestamp == current_reading.timestamp;
+    if (duplicate && sensor_age_active) {
+        const uint64_t existing_age = static_cast<uint64_t>(sensor_age_ms) +
+            static_cast<uint32_t>(now - sensor_received_ms);
+        if (incoming_age < existing_age) incoming_age = existing_age;
+    }
+    sensor_age_ms = incoming_age >= UINT32_MAX ? UINT32_MAX : static_cast<uint32_t>(incoming_age);
+    sensor_received_ms = now;
+    sensor_age_active = true;
 
-    http.end();
-    return success;
+    if (!duplicate) {
+        const bool local_previous = current_reading.valid &&
+            result.timestamp > current_reading.timestamp &&
+            result.timestamp - current_reading.timestamp <= 600;
+        const int previous = result.has_previous ? result.previous_glucose : current_reading.glucose;
+        delta_available = result.has_previous || local_previous;
+        if (!has_prev_reading && result.has_previous) {
+            record_reading(result.previous_glucose, result.previous_timestamp);
+        }
+        GlucoseReading r = {};
+        r.glucose = result.glucose;
+        r.trend = result.trend;
+        r.timestamp = result.timestamp;
+        r.received_at_ms = now;
+        r.force_mode = -1;
+        r.valid = true;
+        current_reading = r;
+        record_reading(r.glucose, r.timestamp);
+        current_delta = delta_available ? r.glucose - previous : 0;
+        const int latest = (history_write_idx + GLUCOSE_HISTORY_SIZE - 1) % GLUCOSE_HISTORY_SIZE;
+        history_buf[latest].delta = current_delta;
+    }
+    ever_received = true;
+    failure_count = 0;
+    last_success_ms = now;
+    xSemaphoreGive(data_mutex);
+    return true;
+}
+
+static bool demo_generate() {
+    const unsigned long now = millis();
+    demo_last_update_ms = now;
+    demo_value += (int)random(-4, 5);
+    demo_value = constrain(demo_value, 80, 100);
+    GlucoseReading r = {};
+    int delta = has_prev_reading ? demo_value - prev_glucose : 0;
+    r.trend = delta > 1 ? TREND_RISING : (delta < -1 ? TREND_FALLING : TREND_FLAT);
+    r.glucose = demo_value;
+    r.received_at_ms = now;
+    r.force_mode = -1;
+    r.timestamp = now / 1000;
+    r.valid = true;
+    commit_reading(r);
+    failure_count = 0;
+    ever_received = true;
+    last_response_code = 200;
+    last_success_ms = now;
+    set_last_response("demo mode");
+    return true;
 }
 
 // Run the configured fetch (network task only)
@@ -554,98 +550,95 @@ static bool do_fetch() {
     if (cfg.data_source == 1) {
         return dexcom_fetch_glucose();
     }
+    if (cfg.data_source == 2) return demo_generate();
+    if (cfg.data_source == 4) return fetch_nightscout_reading();
+    // Source 3 is reserved for Libre; never send its settings to Custom URL.
     if (cfg.data_source == 3) {
-        return nightscout_fetch();
+        set_last_response("Libre is not available in this firmware branch");
+        last_response_code = 0;
+        ++failure_count;
+        return false;
     }
     return generic_fetch();
 }
 
-void http_init() {
-    if (data_mutex == NULL) {
-        data_mutex = xSemaphoreCreateMutex();
-    }
-    if (force_done_sem == NULL) {
-        force_done_sem = xSemaphoreCreateBinary();
-    }
-
-    memset(&current_reading, 0, sizeof(GlucoseReading));
-    current_reading.valid = false;
+void http_reset_source() {
+    // Caller owns the network gate, so no older request can publish afterwards.
+    xSemaphoreTake(data_mutex, portMAX_DELAY);
+    memset(&current_reading, 0, sizeof(current_reading));
     current_reading.force_mode = -1;
     last_poll_ms = 0;
     last_success_ms = 0;
+    failure_count = 0;
+    last_response_code = 0;
+    last_response_body[0] = '\0';
+    ever_received = false;
     dexcom_session_id[0] = '\0';
-
-    // Reset history
-    history_write_idx = 0;
-    history_count = 0;
+    dexcom_session_time_ms = 0;
+    history_write_idx = history_count = 0;
     has_prev_reading = false;
-    current_delta = 0;
-    prev_glucose = 0;
+    current_delta = prev_glucose = 0;
     last_recorded_timestamp = 0;
-
-    // Demo mode state
+    sensor_age_active = false;
+    sensor_age_ms = 0;
+    sensor_received_ms = 0;
+    delta_available = config_get().data_source != 4;
     demo_last_update_ms = 0;
     demo_value = 90;
+    // Cancel a queued test when its settings were replaced.
+    if (force_pending_id) {
+        force_done_id = force_pending_id;
+        force_pending_id = 0;
+        force_result = false;
+        xSemaphoreGive(force_done_sem);
+    }
+    xSemaphoreGive(data_mutex);
+}
+
+void http_init() {
+    if (!data_mutex) data_mutex = xSemaphoreCreateMutex();
+    if (!force_done_sem) force_done_sem = xSemaphoreCreateBinary();
+    if (!force_caller_mutex) force_caller_mutex = xSemaphoreCreateMutex();
+    if (!data_mutex || !force_done_sem || !force_caller_mutex) {
+        Serial.println("[HTTP] Cannot allocate synchronization state");
+        ESP.restart();
+        return;
+    }
+    http_reset_source();
 }
 
 void http_poll_tick() {
     if (http_paused) return;
-
-    // Forced fetch (web UI test button) takes priority over the schedule
-    if (force_requested) {
-        force_requested = false;
-        force_result = false;
-        if (wifi_is_connected() && config_has_server()) {
+    xSemaphoreTake(data_mutex, portMAX_DELAY);
+    const uint32_t request_id = force_pending_id;
+    force_pending_id = 0;
+    xSemaphoreGive(data_mutex);
+    const AppConfig& cfg = config_get();
+    if (request_id) {
+        bool result = false;
+        if (cfg.data_source == 2 || (wifi_is_connected() && config_has_server())) {
             last_poll_ms = millis();
-            force_result = do_fetch();
+            result = do_fetch();
+        } else {
+            last_response_code = 0;
+            set_last_response("Wi-Fi or data source is not configured");
         }
+        xSemaphoreTake(data_mutex, portMAX_DELAY);
+        force_done_id = request_id;
+        force_result = result;
+        xSemaphoreGive(data_mutex);
         xSemaphoreGive(force_done_sem);
         return;
     }
-
-    // Demo mode needs no WiFi or configured data source — just synthesize data.
-    AppConfig& cfg = config_get();
     if (cfg.data_source == 2) {
-        unsigned long now = millis();
-        if (demo_last_update_ms == 0 || (now - demo_last_update_ms >= DEMO_UPDATE_MS)) {
-            demo_last_update_ms = now;
-
-            demo_value += (int)random(-4, 5);   // -4..+4
-            if (demo_value < 80) demo_value = 80;
-            if (demo_value > 100) demo_value = 100;
-
-            GlucoseReading r = {};
-            int delta = has_prev_reading ? (demo_value - prev_glucose) : 0;
-            if (delta > 1)       r.trend = TREND_RISING;
-            else if (delta < -1) r.trend = TREND_FALLING;
-            else                 r.trend = TREND_FLAT;
-
-            r.glucose = demo_value;
-            r.received_at_ms = now;
-            r.force_mode = -1;
-            r.message[0] = '\0';
-            r.timestamp = now / 1000;
-            r.valid = true;
-
-            commit_reading(r);
-            failure_count = 0;
-            ever_received = true;
-            last_response_code = 200;
-            last_success_ms = now;
-            set_last_response("demo mode");
+        if (!demo_last_update_ms || millis() - demo_last_update_ms >= DEMO_UPDATE_MS) {
+            demo_generate();
         }
         return;
     }
-
-    if (!wifi_is_connected()) return;
-    if (!config_has_server()) return;
-
+    if (!wifi_is_connected() || !config_has_server()) return;
     unsigned long interval_ms = max(15, cfg.poll_interval_sec) * 1000UL;
-
-    if (last_poll_ms != 0 && (millis() - last_poll_ms < interval_ms)) {
-        return;
-    }
-
+    if (last_poll_ms && millis() - last_poll_ms < interval_ms) return;
     last_poll_ms = millis();
     do_fetch();
 }
@@ -679,28 +672,77 @@ bool http_has_ever_received() {
 }
 
 unsigned long http_time_since_last_reading() {
-    if (!ever_received || last_success_ms == 0) {
-        return ULONG_MAX;
+    xSemaphoreTake(data_mutex, portMAX_DELAY);
+    unsigned long age = ULONG_MAX;
+    if (ever_received) {
+        const unsigned long now = millis();
+        uint64_t value = sensor_age_active
+            ? static_cast<uint64_t>(sensor_age_ms) + static_cast<uint32_t>(now - sensor_received_ms)
+            : static_cast<uint32_t>(now - last_success_ms);
+        age = value >= UINT32_MAX ? UINT32_MAX : static_cast<unsigned long>(value);
+        if (sensor_age_active) {
+            // Accumulate while the display polls age, including millis rollover.
+            // A long offline period must never turn an old reading fresh again.
+            sensor_age_ms = static_cast<uint32_t>(age);
+            sensor_received_ms = now;
+        }
     }
-    return millis() - last_success_ms;
+    xSemaphoreGive(data_mutex);
+    return age;
 }
 
 int http_get_delta() {
     return current_delta;
 }
 
+bool http_has_delta() {
+    xSemaphoreTake(data_mutex, portMAX_DELAY);
+    const bool available = delta_available;
+    xSemaphoreGive(data_mutex);
+    return available;
+}
+
+static void set_force_error(const char* error) {
+    xSemaphoreTake(data_mutex, portMAX_DELAY);
+    snprintf(force_error, sizeof(force_error), "%s", error);
+    xSemaphoreGive(data_mutex);
+}
+
+void http_get_force_error(char* out, size_t size) {
+    if (!out || !size) return;
+    xSemaphoreTake(data_mutex, portMAX_DELAY);
+    snprintf(out, size, "%s", force_error);
+    xSemaphoreGive(data_mutex);
+}
+
 bool http_force_fetch(unsigned long timeout_ms) {
-    if (!wifi_is_connected()) return false;
-    if (!config_has_server()) return false;
-
-    // Drain a stale completion from a previously timed-out request
-    xSemaphoreTake(force_done_sem, 0);
-    force_requested = true;
-
-    if (xSemaphoreTake(force_done_sem, pdMS_TO_TICKS(timeout_ms)) != pdTRUE) {
-        return false; // still running; result will be published when done
+    if (http_paused || xSemaphoreTake(force_caller_mutex, 0) != pdTRUE) {
+        set_force_error("Data request busy or paused. Retry in a moment.");
+        return false;
     }
-    return force_result;
+    set_force_error("");
+    xSemaphoreTake(force_done_sem, 0);
+    xSemaphoreTake(data_mutex, portMAX_DELAY);
+    if (++force_next_id == 0) ++force_next_id;
+    const uint32_t request_id = force_next_id;
+    force_pending_id = request_id;
+    xSemaphoreGive(data_mutex);
+    const unsigned long started = millis();
+    bool ok = false;
+    bool completed = false;
+    while (millis() - started < timeout_ms) {
+        const unsigned long elapsed = millis() - started;
+        if (elapsed >= timeout_ms) break;
+        if (xSemaphoreTake(force_done_sem, pdMS_TO_TICKS(timeout_ms - elapsed)) != pdTRUE) break;
+        xSemaphoreTake(data_mutex, portMAX_DELAY);
+        const bool ours = force_done_id == request_id;
+        const bool result = force_result;
+        xSemaphoreGive(data_mutex);
+        if (ours) { ok = result; completed = true; break; }
+    }
+    if (!completed) set_force_error("Data request timed out. Retry in a moment.");
+    xSemaphoreGive(force_caller_mutex);
+    return ok;
 }
 
 int http_get_history(GlucoseHistoryEntry* out, int max_count) {
