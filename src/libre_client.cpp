@@ -11,6 +11,7 @@
 #include <stdarg.h>
 #include <atomic>
 #include <memory>
+#include <new>
 #include "mbedtls/md.h"
 
 // LibreLinkUp rejects clients that report an outdated app version (status 920).
@@ -91,9 +92,10 @@ static int llu_request(const char* path, const char* body, String& response, boo
     http.addHeader("Accept", "application/json");
     http.addHeader("Cache-Control", "no-cache");
     if (authed) {
-        char bearer[sizeof(auth_token) + 8];
-        snprintf(bearer, sizeof(bearer), "Bearer %s", auth_token);
-        http.addHeader("Authorization", bearer);
+        // TLS certificate verification needs substantial stack space. Keep
+        // the token-sized buffer on the heap, including on unauthenticated
+        // calls where a local array would still reserve its full stack frame.
+        http.addHeader("Authorization", String("Bearer ") + auth_token);
         http.addHeader("account-id", account_id);
     }
 
@@ -364,14 +366,23 @@ bool libre_fetch(LibreReading& out, bool* attempted) {
         auth_token[0] = '\0';
         account_id[0] = '\0';
     }
-    HttpLibreTransport transport;
+    // The immutable account snapshot must survive the whole request without
+    // competing with mbedTLS for the loop task's 8 KB stack.
+    std::unique_ptr<HttpLibreTransport> transport(new (std::nothrow) HttpLibreTransport());
+    if (!transport) {
+        last_http_code = -1;
+        set_message("Not enough memory for a Libre request; retry shortly");
+        return false;
+    }
     bool synced = time_is_network_synced();
-    LibreResult r = session.fetch(transport, millis(), synced, synced ? (uint32_t)time(nullptr) : 0);
+    LibreResult r = session.fetch(*transport, millis(), synced, synced ? (uint32_t)time(nullptr) : 0);
+    Serial.printf("[LIBRE] Minimum free request stack: %u bytes\n",
+                  (unsigned)uxTaskGetStackHighWaterMark(nullptr));
     if (attempted) *attempted = r.status != LIBRE_FETCH_BACKOFF && r.status != LIBRE_FETCH_CLOCK_UNSYNCED;
     if (reset_pending.load()) return false; // discard an in-flight old-account reading
     // Coalesce a successful region redirect and first person binding into one
     // NVS write. Failed logins never persist their speculative redirect.
-    if (!transport.save_config_if_changed()) return false;
+    if (!transport->save_config_if_changed()) return false;
 
     switch (r.status) {
         case LIBRE_FETCH_OK:
@@ -406,7 +417,7 @@ bool libre_fetch(LibreReading& out, bool* attempted) {
             set_message("Libre reading has an invalid timestamp");
             return false;
         case LIBRE_FETCH_NO_DATA:
-            if (!transport.saw_empty) set_message("No glucose value yet (sensor warming up?)");
+            if (!transport->saw_empty) set_message("No glucose value yet (sensor warming up?)");
             return false;
         case LIBRE_FETCH_TRANSIENT:
             return false;  // transport already recorded the reason
