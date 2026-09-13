@@ -27,6 +27,8 @@
 #include <esp_ota_ops.h>
 #include <esp_partition.h>
 #include <mbedtls/sha256.h>
+#include <memory>
+#include <new>
 #include <time.h>
 
 #ifndef SUGARCLOCK_VERSION
@@ -37,11 +39,11 @@
 static const uint32_t OTA_DOWNLOAD_TIMEOUT_MS = 30000;
 static const uint32_t OTA_VALIDATION_PERIOD_MS = 15000;
 static const uint32_t OTA_VALIDATION_MIN_HEAP = 55000;
+static const size_t OTA_TRANSFER_BUFFER_BYTES = 4096;
 static const char* OTA_NVS_NAMESPACE = "sugarota";
 
 static portMUX_TYPE status_mux = portMUX_INITIALIZER_UNLOCKED;
 static OtaStatusSnapshot status_snapshot;
-static OtaManifest available_manifest;
 static volatile bool worker_running = false;
 static bool validation_pending = false;
 static uint32_t validation_started_ms = 0;
@@ -300,6 +302,11 @@ static bool install_firmware(const OtaManifest& manifest, char* error, size_t er
     if (!target) return (copy_text(error, error_size, "no_inactive_partition"), false);
     if (manifest.size > target->size) return (copy_text(error, error_size, "firmware_too_large"), false);
 
+    // This function can be inlined into the update task. A local 4 KiB array
+    // would reserve stack space even during the earlier TLS handshakes.
+    std::unique_ptr<uint8_t[]> buffer(new (std::nothrow) uint8_t[OTA_TRANSFER_BUFFER_BYTES]);
+    if (!buffer) return (copy_text(error, error_size, "heap_low"), false);
+
     WiFiClientSecure client;
     client.setCACert(OTA_TRUSTED_ROOTS_PEM);
     client.setHandshakeTimeout(15);
@@ -338,7 +345,6 @@ static bool install_firmware(const OtaManifest& manifest, char* error, size_t er
     mbedtls_sha256_init(&sha);
     mbedtls_sha256_starts_ret(&sha, 0);
     WiFiClient* stream = http.getStreamPtr();
-    uint8_t buffer[4096];
     uint32_t received = 0;
     uint32_t last_data_ms = millis();
     bool ok = true;
@@ -355,12 +361,12 @@ static bool install_firmware(const OtaManifest& manifest, char* error, size_t er
             continue;
         }
         size_t remaining = manifest.size - received;
-        size_t chunk = min(static_cast<size_t>(available), min(sizeof(buffer), remaining));
-        int count = stream->read(buffer, chunk);
+        size_t chunk = min(static_cast<size_t>(available), min(OTA_TRANSFER_BUFFER_BYTES, remaining));
+        int count = stream->read(buffer.get(), chunk);
         if (count <= 0) continue;
         last_data_ms = millis();
-        mbedtls_sha256_update_ret(&sha, buffer, count);
-        if (esp_ota_write(handle, buffer, count) != ESP_OK) {
+        mbedtls_sha256_update_ret(&sha, buffer.get(), count);
+        if (esp_ota_write(handle, buffer.get(), count) != ESP_OK) {
             copy_text(error, error_size, "ota_write_failed");
             ok = false;
             break;
@@ -435,8 +441,7 @@ static void record_failure(const char* error) {
     Serial.printf("[OTA] Failed: %s\n", error ? error : "unknown");
 }
 
-static void ota_worker(void* parameter) {
-    unsigned mode = static_cast<unsigned>(reinterpret_cast<uintptr_t>(parameter));
+static void run_ota_update(unsigned mode) {
     bool managed = mode == 2;
     bool owns_network_pause = mode == 0 || managed;
     char error[64] = "";
@@ -452,8 +457,6 @@ static void ota_worker(void* parameter) {
             http_set_paused(false);
             weather_set_paused(false);
         }
-        worker_running = false;
-        vTaskDelete(nullptr);
         return;
     }
     if (!time_is_available()) {
@@ -462,13 +465,18 @@ static void ota_worker(void* parameter) {
             http_set_paused(false);
             weather_set_paused(false);
         }
-        worker_running = false;
-        vTaskDelete(nullptr);
         return;
     }
 
     {
-        OtaManifest candidate = {};
+        // Keep the manifest off the task stack while TLS is using it. This
+        // helper returns normally so allocation cleanup precedes vTaskDelete.
+        std::unique_ptr<OtaManifest> storage(new (std::nothrow) OtaManifest{});
+        if (!storage) {
+            record_failure("heap_low");
+            return;
+        }
+        OtaManifest& candidate = *storage;
         const esp_partition_t* target = esp_ota_get_next_update_partition(nullptr);
         if (!target) copy_text(error, sizeof(error), "no_inactive_partition");
         else if (!download_manifest_from_url(managed_request.manifest_url, candidate,
@@ -484,7 +492,6 @@ static void ota_worker(void* parameter) {
                      candidate, managed_request.expected_channel, SUGARCLOCK_VERSION,
                      target->size, error, sizeof(error))) {}
         else {
-            available_manifest = candidate;
             portENTER_CRITICAL(&status_mux);
             copy_text(status_snapshot.available_version,
                       sizeof(status_snapshot.available_version), candidate.version);
@@ -495,8 +502,6 @@ static void ota_worker(void* parameter) {
                 set_state(OTA_DEFERRED, nullptr, safety);
                 http_set_paused(false);
                 weather_set_paused(false);
-                worker_running = false;
-                vTaskDelete(nullptr);
                 return;
             }
             if (!fleet_authorize_update(managed_request.manifest_url,
@@ -506,8 +511,6 @@ static void ota_worker(void* parameter) {
                 set_state(OTA_DEFERRED, nullptr, "authorization_unavailable");
                 http_set_paused(false);
                 weather_set_paused(false);
-                worker_running = false;
-                vTaskDelete(nullptr);
                 return;
             }
             const char* final_safety = ota_safety_failure(collect_safety_inputs());
@@ -515,17 +518,17 @@ static void ota_worker(void* parameter) {
                 set_state(OTA_DEFERRED, nullptr, final_safety);
                 http_set_paused(false);
                 weather_set_paused(false);
-                worker_running = false;
-                vTaskDelete(nullptr);
                 return;
             }
             http_set_paused(true);
             weather_set_paused(true);
             set_state(OTA_DOWNLOADING);
             set_progress(0);
-            if (install_firmware(available_manifest, error, sizeof(error))) {
+            if (install_firmware(candidate, error, sizeof(error))) {
                 set_progress(100);
                 set_state(OTA_PENDING_REBOOT);
+                Serial.printf("[OTA] Minimum free update stack: %u bytes\n",
+                              static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)));
                 Serial.println("[OTA] Managed update complete; rebooting");
                 delay(1000);
                 ESP.restart();
@@ -536,8 +539,6 @@ static void ota_worker(void* parameter) {
                     set_state(OTA_DEFERRED, nullptr, error);
                 else record_failure(error[0] ? error : "install_failed");
             }
-            worker_running = false;
-            vTaskDelete(nullptr);
             return;
         }
         record_failure(error[0] ? error : "managed_manifest_failed");
@@ -545,6 +546,18 @@ static void ota_worker(void* parameter) {
         weather_set_paused(false);
     }
 
+}
+
+
+static void ota_worker(void* parameter) {
+    unsigned mode = static_cast<unsigned>(reinterpret_cast<uintptr_t>(parameter));
+    run_ota_update(mode);
+    // vTaskDelete does not unwind C++ objects. All update-owned allocations
+    // have left scope before deleting this task, including on early failures.
+    Serial.printf("[OTA] Minimum free update stack: %u bytes\n",
+                  static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)));
+    http_set_paused(false);
+    weather_set_paused(false);
     worker_running = false;
     vTaskDelete(nullptr);
 }
