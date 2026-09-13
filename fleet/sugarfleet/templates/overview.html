@@ -7,7 +7,7 @@
 <div class="grid"><section class="card"><h2>Enabled features</h2><p class="hint">Latest configuration reported by installations active in the last 30 days. Enabled does not measure time spent using a feature.</p><div id="feature-counts"></div></section><section class="card"><h2>Firmware versions</h2><div id="version-counts"></div></section></div>
 <div class="grid"><section class="card"><h2>Data sources</h2><div id="source-counts"></div></section><section class="card"><h2>Activity history</h2><p class="hint">Daily snapshots accumulate as clocks report.</p><div id="daily-counts"></div></section></div>
 <section class="card action-card"><h2>Approximate city / country</h2><p class="hint">Installations active in the last 30 days. IP estimates can be inaccurate or unavailable.</p><div id="location-counts"></div></section>
-<section class="card"><h2>Registration capacity</h2><p id="capacity-summary"></p><p class="hint">Cleanup removes registrations older than 24 hours that never completed a check-in. Active clocks and blocked identities are preserved.</p><button id="cleanup" class="secondary">Clean up abandoned registrations</button><span id="cleanup-result" role="status" class="form-result"></span></section>
+<section class="card"><h2>Registration capacity</h2><p id="capacity-summary"></p><p class="hint">Cleanup removes new registrations older than 24 hours that never completed a check-in. Migrated identities, active clocks, and blocked installations are preserved.</p><button id="cleanup" class="secondary">Clean up abandoned registrations</button><span id="cleanup-result" role="status" class="form-result"></span></section>
 {% endblock %}
 {% block scripts %}<script>
 function countTable(target, rows) {

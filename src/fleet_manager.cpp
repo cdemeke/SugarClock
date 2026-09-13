@@ -56,6 +56,10 @@ static time_t authorization_expires_at = 0;
 static bool pending_is_target = false;
 static bool pending_from_boot = false;
 static char pending_outcome[20];
+static char pending_outcome_reason[32];
+static FleetManualIntent manual_intent;
+static portMUX_TYPE manual_intent_mux = portMUX_INITIALIZER_UNLOCKED;
+static bool pending_manual_install = false;
 
 static uint8_t maintenance_days = 0x7f;
 static uint16_t maintenance_start = 180;
@@ -114,6 +118,7 @@ static void load_identity() {
     prefs.getString("ota_cmd", pending_ota_command, sizeof(pending_ota_command));
     prefs.getString("ota_version", pending_ota_version, sizeof(pending_ota_version));
     prefs.getString("ota_outcome", pending_outcome, sizeof(pending_outcome));
+    prefs.getString("ota_reason", pending_outcome_reason, sizeof(pending_outcome_reason));
     prefs.getString("ota_channel", pending_ota_channel, sizeof(pending_ota_channel));
     pending_install_authorized = prefs.getBool("ota_started", false);
     pending_is_target = prefs.getBool("ota_target", false);
@@ -225,11 +230,14 @@ static bool save_pending_ota(const char* command_id, const char* version, const 
     pending_install_authorized = false;
     authorization_expires_at = 0;
     pending_outcome[0] = '\0';
+    pending_outcome_reason[0] = '\0';
+    pending_manual_install = false;
     pending_is_target = true;
     pending_from_boot = false;
     Preferences prefs;
     if (!prefs.begin(FLEET_NAMESPACE, false)) return false;
     prefs.remove("ota_outcome");
+    prefs.remove("ota_reason");
     bool ok = prefs.putString("ota_cmd", pending_ota_command) &&
               prefs.putString("ota_version", pending_ota_version) &&
               prefs.putString("ota_channel", pending_ota_channel) &&
@@ -239,6 +247,7 @@ static bool save_pending_ota(const char* command_id, const char* version, const 
 }
 
 static void clear_pending_ota() {
+    pending_manual_install = false;
     pending_ota_command[0] = '\0';
     pending_ota_version[0] = '\0';
     Preferences prefs;
@@ -247,6 +256,7 @@ static void clear_pending_ota() {
         prefs.remove("ota_version");
         prefs.remove("ota_target");
         prefs.remove("ota_outcome");
+        prefs.remove("ota_reason");
         prefs.remove("ota_started");
         prefs.remove("ota_channel");
         prefs.end();
@@ -283,7 +293,8 @@ static bool report_pending_ota() {
         reason = "rollback_detected";
     } else if (pending_outcome[0]) {
         status = pending_outcome;
-        reason = strcmp(status, "deferred") == 0 ? "local_safety" : "update_failed";
+        reason = pending_outcome_reason[0] ? pending_outcome_reason :
+                 (strcmp(status, "deferred") == 0 ? "local_safety" : "update_failed");
     } else if (boot == FLEET_BOOT_DEFERRED) {
         status = "deferred";
         reason = "interrupted_before_authorization";
@@ -510,13 +521,15 @@ static bool handle_command(JsonObjectConst command) {
     return post_result(id, "failed", "unsupported_command");
 }
 
-static void handle_update_offer(JsonObjectConst offer) {
+static void handle_update_offer(JsonObjectConst offer, bool manual) {
     if (offer.isNull() || pending_ota_command[0] || ota_is_busy()) return;
     const char* id = offer["target_id"] | "";
     const char* version = offer["version"] | "";
     if (strlen(id) != 36 || !*version || strlen(version) >= sizeof(pending_ota_version)) return;
-    if (!config_get().auto_update_enabled || !maintenance_automatic || !minute_in_window()) {
-        post_result(id, "deferred", "outside_maintenance_window", nullptr, true);
+    const char* local_block = fleet_local_install_block(
+        manual, config_get().auto_update_enabled && maintenance_automatic, minute_in_window());
+    if (local_block) {
+        post_result(id, "deferred", local_block, nullptr, true);
         return;
     }
     if (!save_pending_ota(id, version, offer["channel"] | "")) {
@@ -524,17 +537,21 @@ static void handle_update_offer(JsonObjectConst offer) {
         post_result(id, "failed", "persistence_failed", nullptr, true);
         return;
     }
+    pending_manual_install = manual;
     OtaRequestResult queued = ota_request_managed_install(
         offer["manifest_url"] | "", version, offer["channel"] | "", offer["sha256"] | "");
-    if (queued != OTA_REQUEST_QUEUED) {
-        if (post_result(id, "failed", "ota_busy", nullptr, true)) clear_pending_ota();
+    if (queued != OTA_REQUEST_QUEUED && !pending_outcome[0]) {
+        // start_worker already persisted task-create failure classification.
+        // Never overwrite that deferred outcome with a generic terminal failure.
+        fleet_record_update_outcome(queued == OTA_REQUEST_BUSY, "invalid_managed_offer");
     }
 }
 
 bool fleet_authorize_update(const char* manifest_url, const char* version,
                             const char* release_channel, const char* sha256) {
     if (!pending_is_target || !pending_ota_command[0] ||
-        !config_get().auto_update_enabled || !maintenance_automatic || !minute_in_window()) return false;
+        fleet_local_install_block(pending_manual_install,
+            config_get().auto_update_enabled && maintenance_automatic, minute_in_window())) return false;
     JsonDocument doc;
     doc["installation_id"] = installation_id;
     String body, response;
@@ -566,11 +583,11 @@ bool fleet_authorize_update(const char* manifest_url, const char* version,
 bool fleet_update_authorization_current() {
     return pending_is_target && pending_ota_command[0] && pending_install_authorized &&
            fleet_authorization_valid(time(nullptr), authorization_expires_at, time_is_available(),
-                                     config_get().auto_update_enabled && maintenance_automatic,
-                                     minute_in_window());
+                                     pending_manual_install || (config_get().auto_update_enabled && maintenance_automatic),
+                                     pending_manual_install || minute_in_window());
 }
 
-static bool check_in(uint32_t& next_seconds) {
+static bool check_in(uint32_t& next_seconds, bool manual, bool allow_offer) {
     OtaStatusSnapshot ota = {};
     ota_get_status(ota);
     JsonDocument doc;
@@ -641,15 +658,25 @@ static bool check_in(uint32_t& next_seconds) {
         handle_command(command);
         break;
     }
-    if (!restart_requested) handle_update_offer(result["update_offer"].as<JsonObjectConst>());
+    if (!restart_requested && allow_offer)
+        handle_update_offer(result["update_offer"].as<JsonObjectConst>(), manual);
     return true;
 }
 
 static void fleet_worker(void*) {
+    // Consume even if reporting/network fails: a failed visit does not leave a
+    // standing permission to install during an unrelated automatic visit.
+    portENTER_CRITICAL(&manual_intent_mux);
+    bool manual = manual_intent.consume(millis());
+    portEXIT_CRITICAL(&manual_intent_mux);
     uint32_t next_seconds = 300;
+    bool had_pending_outcome = pending_ota_command[0] != '\0';
     bool ok = report_pending_ota();
     if (ok && !registered) ok = register_device(next_seconds);
-    if (ok && registered) ok = check_in(next_seconds);
+    // Reporting a transient outcome promptly must not immediately launch the
+    // same attempt again in a tight loop. Automatic retries wait one heartbeat;
+    // only a new explicit manual request may retry in this reporting visit.
+    if (ok && registered) ok = check_in(next_seconds, manual, !had_pending_outcome || manual);
     if (ok) {
         failure_count = 0;
         next_seconds = fleet_checkin_seconds(next_seconds);
@@ -715,13 +742,28 @@ bool fleet_request_check() {
     return true;
 }
 
-void fleet_record_update_outcome(bool deferred) {
-    if (!pending_is_target || !pending_ota_command[0]) return;
+bool fleet_request_manual_install() {
+    if (worker_running || ota_is_busy()) return false;
+    portENTER_CRITICAL(&manual_intent_mux);
+    manual_intent.request(millis());
+    portEXIT_CRITICAL(&manual_intent_mux);
+    next_attempt_ms = millis();
+    return true;
+}
+
+bool fleet_record_update_outcome(bool deferred, const char* error) {
+    if (!pending_is_target || !pending_ota_command[0]) return deferred;
+    bool transient = !deferred && fleet_preflight_error_is_retryable(error, pending_install_authorized);
+    deferred = deferred || transient;
+    copy_text(pending_outcome_reason, sizeof(pending_outcome_reason),
+              transient ? "transient_update_error" : deferred ? "local_safety" : "update_failed");
     copy_text(pending_outcome, sizeof(pending_outcome), deferred ? "deferred" : "failed");
     Preferences prefs;
     if (prefs.begin(FLEET_NAMESPACE, false)) {
         prefs.putString("ota_outcome", pending_outcome);
+        prefs.putString("ota_reason", pending_outcome_reason);
         prefs.end();
     }
     next_attempt_ms = millis();
+    return deferred;
 }

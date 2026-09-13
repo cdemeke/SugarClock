@@ -450,6 +450,12 @@ class RolloutTests(unittest.TestCase):
         self.assertEqual(self.check(active).status_code, 200)
 
     def test_v5_migration_preserves_retired_and_enables_pending(self):
+        self._assert_migrated_pending_survives_cleanup("0006")
+
+    def test_v6_upgrade_preserves_existing_registrations_without_fake_activity(self):
+        self._assert_migrated_pending_survives_cleanup("0007")
+
+    def _assert_migrated_pending_survives_cleanup(self, stop_before):
         import pathlib
         import sqlite3
 
@@ -462,15 +468,21 @@ class RolloutTests(unittest.TestCase):
             pathlib.Path(__file__).resolve().parents[1] / "fleet/sugarfleet/migrations"
         )
         for migration in sorted(migrations.glob("*.sql")):
-            if migration.name.startswith("0006"):
+            if migration.name.startswith(stop_before):
                 break
             db.executescript(migration.read_text())
             db.execute("INSERT INTO schema_migrations VALUES(?,1)", (migration.name,))
             db.commit()
-        for retired in (None, 100):
+        identities = [str(uuid.uuid4()), str(uuid.uuid4())]
+        original_hash = hash_device_credential(CREDENTIAL, "s" * 32)
+        for identity, retired in zip(identities, (None, 100)):
             db.execute(
                 "INSERT INTO devices(installation_id,credential_hash,hardware,management_protocol,first_seen,last_seen,firmware_version,timezone,retired_at,friendly_name) VALUES(?,?,'ulanzi-tc001-esp32-4mb',1,1,1,'1.0.0','UTC',?,'My desk')",
-                (str(uuid.uuid4()), "original-hash", retired),
+                (identity, original_hash, retired),
+            )
+        if stop_before == "0007":
+            db.execute(
+                "UPDATE devices SET verification_state='verified' WHERE retired_at IS NULL"
             )
         db.commit()
         db.close()
@@ -479,8 +491,65 @@ class RolloutTests(unittest.TestCase):
             rows = get_db().execute("SELECT * FROM devices ORDER BY id").fetchall()
             self.assertEqual(rows[0]["verification_state"], "verified")
             self.assertEqual(rows[1]["retired_at"], 100)
-            self.assertEqual(rows[0]["credential_hash"], "original-hash")
+            self.assertEqual(rows[0]["credential_hash"], original_hash)
             self.assertEqual(rows[0]["friendly_name"], "My desk")
+            self.assertIsNone(rows[0]["last_checkin_at"])
+            self.assertEqual(rows[0]["registration_cleanup_exempt"], 1)
+
+        # Another clock checks in first and triggers hourly cleanup while the old
+        # pending clock is still in its one-hour legacy retry backoff.
+        client = app.test_client()
+        fresh = str(uuid.uuid4())
+        registered = client.post(
+            "/device/v1/register",
+            headers=self.auth,
+            json={
+                "installation_id": fresh,
+                "hardware": "ulanzi-tc001-esp32-4mb",
+                "firmware_version": "1.0.0",
+                "timezone": "UTC",
+                "management_protocol": 1,
+            },
+        )
+        self.assertEqual(registered.status_code, 201)
+        checkin = {
+            "installation_id": fresh,
+            "firmware_version": "1.0.0",
+            "channel": "stable",
+            "uptime_seconds": 30,
+        }
+        self.assertEqual(
+            client.post(
+                "/device/v1/check-in", headers=self.auth, json=checkin
+            ).status_code,
+            200,
+        )
+        with app.app_context():
+            from fleet.sugarfleet.telemetry import overview
+
+            db = get_db()
+            pending = db.execute(
+                "SELECT * FROM devices WHERE installation_id=?", (identities[0],)
+            ).fetchone()
+            self.assertIsNotNone(pending)
+            self.assertEqual(pending["credential_hash"], original_hash)
+            self.assertEqual(pending["friendly_name"], "My desk")
+            self.assertIsNone(pending["last_checkin_at"])
+            self.assertEqual(overview(db)["counts"]["active_30d"], 1)
+        checkin["installation_id"] = identities[0]
+        self.assertEqual(
+            client.post(
+                "/device/v1/check-in", headers=self.auth, json=checkin
+            ).status_code,
+            200,
+        )
+        checkin["installation_id"] = identities[1]
+        self.assertEqual(
+            client.post(
+                "/device/v1/check-in", headers=self.auth, json=checkin
+            ).status_code,
+            403,
+        )
 
     def test_finish_candidate_returns_stable_and_revokes_stale_offer(self):
         clock = self.clock()

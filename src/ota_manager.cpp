@@ -93,6 +93,14 @@ static void copy_text(char* destination, size_t size, const char* source) {
 
 static void set_state(OtaState state, const char* error = nullptr,
                       const char* safety = nullptr) {
+    if (state == OTA_ERROR || state == OTA_DEFERRED) {
+        bool deferred = fleet_record_update_outcome(state == OTA_DEFERRED, error);
+        if (deferred && state == OTA_ERROR) {
+            state = OTA_DEFERRED;
+            safety = "transient_update_error";
+            error = nullptr;
+        }
+    }
     portENTER_CRITICAL(&status_mux);
     status_snapshot.state = state;
     if (state == OTA_CHECKING) status_snapshot.last_error[0] = '\0';
@@ -100,8 +108,6 @@ static void set_state(OtaState state, const char* error = nullptr,
     if (safety) copy_text(status_snapshot.safety_reason, sizeof(status_snapshot.safety_reason), safety);
     else if (state != OTA_DEFERRED) status_snapshot.safety_reason[0] = '\0';
     portEXIT_CRITICAL(&status_mux);
-    if (state == OTA_ERROR || state == OTA_DEFERRED)
-        fleet_record_update_outcome(state == OTA_DEFERRED);
 }
 
 static void set_progress(int progress) {
@@ -214,6 +220,7 @@ static bool download_manifest_from_url(const char* manifest_url, OtaManifest& ma
     int code = open_https_with_redirects(http, client, url, error, error_size);
     if (code != HTTP_CODE_OK) {
         if (code >= 0) snprintf(error, error_size, "manifest_http_%d", code);
+        else if (!error[0]) copy_text(error, error_size, "manifest_transport_failed");
         http.end();
         return false;
     }
@@ -234,7 +241,8 @@ static bool download_manifest_from_url(const char* manifest_url, OtaManifest& ma
     CappedManifestStream sink(body, OTA_MANIFEST_MAX_BYTES);
     int written = http.writeToStream(&sink);
     http.end();
-    if (written < 0 || sink.overflowed() || sink.length() == 0) {
+    if (written < 0 || sink.overflowed() || sink.length() == 0 ||
+        (content_length >= 0 && sink.length() != static_cast<size_t>(content_length))) {
         copy_text(error, error_size, sink.overflowed() ? "manifest_too_large" : "manifest_read_failed");
         free(body);
         return false;
@@ -562,8 +570,8 @@ OtaRequestResult ota_request_check() {
 
 OtaRequestResult ota_request_install(bool manual) {
     // Even local/manual retries require a new fleet offer and authorization.
-    (void)manual;
-    return ota_request_check();
+    if (!manual) return ota_request_check();
+    return fleet_request_manual_install() ? OTA_REQUEST_QUEUED : OTA_REQUEST_BUSY;
 }
 
 OtaRequestResult ota_request_managed_install(const char* manifest_url,

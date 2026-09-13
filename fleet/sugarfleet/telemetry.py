@@ -191,7 +191,7 @@ def cleanup(connection, now):
     ids = [
         r[0]
         for r in connection.execute(
-            "SELECT id FROM devices WHERE last_checkin_at IS NULL AND retired_at IS NULL AND blocked_at IS NULL AND first_seen<?",
+            "SELECT id FROM devices WHERE last_checkin_at IS NULL AND registration_cleanup_exempt=0 AND retired_at IS NULL AND blocked_at IS NULL AND first_seen<?",
             (now - 86400,),
         )
     ]

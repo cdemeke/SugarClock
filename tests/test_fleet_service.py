@@ -197,6 +197,7 @@ class FleetServiceTests(unittest.TestCase):
                     "0004_reported_identity.sql",
                     "0005_enrollment_and_identity_cleanup.sql",
                     "0006_fleet_rollouts.sql",
+                    "0007_preserve_existing_registrations.sql",
                 ],
             )
 

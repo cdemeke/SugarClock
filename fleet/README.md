@@ -43,7 +43,9 @@ save a private nickname. Renaming never changes deployment membership.
 validation target. Remove obsolete `FLEET_ENROLLMENT_REQUIRED` and
 `FLEET_ENROLLMENT_MAX_DEVICES` settings. Registration rate limits remain separately
 configurable. The dashboard warns at 80% record capacity. Registration-only records
-older than 24 hours are cleaned up; blocked/retired records are preserved. No
+older than 24 hours are cleaned up only for registrations created after the
+cleanup-preservation migration. Existing identities/nicknames and blocked/retired
+records are preserved without inventing activity timestamps. No
 self-registration system can prove that every reporting client is physical hardware.
 
 ## Release workflow
@@ -61,6 +63,12 @@ self-registration system can prove that every reporting client is physical hardw
    Retry failed clocks explicitly after addressing the problem. Boot rollbacks and
    successful installations are not reset by retry. “Return test clocks to stable”
    ends a candidate assignment without downgrading installed firmware.
+
+Temporary manifest connection/read errors before authorization defer automatically
+until the next heartbeat; invalid signatures or permanent manifest errors remain
+failures. In local clock settings, “Install assigned release now” permits one
+manual attempt with automatic updates off or outside the nightly window. It still
+requires the current fleet assignment, fresh authorization, and local safety checks.
 
 A newer corrective release can supersede a bad partial rollout. Clocks outside the
 new trial retain the last completed stable target. Corrective versions must be

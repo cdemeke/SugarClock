@@ -72,7 +72,7 @@
         <div class="card">
             <h2>Firmware Updates</h2>
             <p style="font-size:13px;color:var(--text-secondary);margin:-8px 0 16px;">
-                Updates are signed, downloaded over secure HTTPS, and installed into a backup slot. Only releases assigned by the fleet administrator are eligible. Checks and retries respect the nightly window; the clock may restart briefly after verification.
+                Updates are signed, downloaded over secure HTTPS, and installed into a backup slot. Only releases assigned by the fleet administrator are eligible. Automatic updates respect the nightly window; explicit manual installs can run outside it, subject to safety checks; the clock may restart briefly after verification.
             </p>
             <div class="status-row"><span class="status-label">Installed</span><span class="status-value" id="ota-current">--</span></div>
             <div class="status-row"><span class="status-label">Available</span><span class="status-value" id="ota-available">--</span></div>
@@ -89,11 +89,11 @@
             <div class="form-group" style="max-width:220px;margin-top:12px;">
                 <label for="ota-hour">Nightly install hour</label>
                 <select id="ota-hour"></select>
-                <div class="hint">Local time; automatic installs are deferred when the clock is busy or unsafe.</div>
+                <div class="hint">Local time; automatic installs are deferred when the clock is busy or unsafe. Manual install below works even with automatic updates off, and requests only the release assigned to this clock.</div>
             </div>
             <div class="btn-group">
                 <button class="btn btn-outline" id="ota-check-btn">Check assigned release</button>
-                <button class="btn btn-primary" id="ota-install-btn" style="display:none;">Retry assigned release</button>
+                <button class="btn btn-primary" id="ota-install-btn">Install assigned release now</button>
             </div>
         </div>
 
@@ -156,7 +156,7 @@
                 const busy=['checking','downloading','verifying','pending_reboot'].includes(o.state);
                 document.getElementById('ota-check-btn').disabled=busy;
                 const install=document.getElementById('ota-install-btn');
-                install.style.display=o.available_version?'inline-flex':'none';install.disabled=busy;
+                install.disabled=busy;
             }catch(e){}
         }
 
@@ -178,7 +178,7 @@
         }
 
         document.getElementById('ota-check-btn').addEventListener('click',()=>otaAction('/api/ota/check'));
-        document.getElementById('ota-install-btn').addEventListener('click',()=>{if(confirm('Recheck the assigned release? Installation follows your maintenance window.'))otaAction('/api/ota/install');});
+        document.getElementById('ota-install-btn').addEventListener('click',()=>{if(confirm('Install the currently assigned release now? This one attempt bypasses automatic-update settings and the nightly window, but still requires fleet authorization and device safety checks. The clock may restart.'))otaAction('/api/ota/install');});
         async function saveOtaSettings(){try{const r=await fetch('/api/ota/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({auto_update_enabled:document.getElementById('ota-auto').checked,auto_update_hour:Number(hourSelect.value)})});if(!r.ok)throw new Error();showToast('Update schedule saved');}catch(e){showToast('Failed to save update schedule','error');}}
         document.getElementById('ota-auto').addEventListener('change',saveOtaSettings);
         hourSelect.addEventListener('change',saveOtaSettings);

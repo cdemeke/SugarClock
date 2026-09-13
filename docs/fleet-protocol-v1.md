@@ -106,6 +106,9 @@ manifest request and rejects any mismatch.
 
 Immediately before `esp_ota_begin`, including after firmware HTTPS redirects, the
 clock checks lease expiry, local enablement, maintenance window, and safety again.
+An explicit local manual install bypasses only enablement and the maintenance
+window for that attempt; server eligibility, lease expiry, signatures and safety
+remain mandatory.
 Expired or unsafe starts defer until a new offer/authorization is obtained.
 Pause prevents subsequent authorizations; a previously authorized operation may
 still begin within its lease, and pause cannot retract an installation already
@@ -128,7 +131,10 @@ checking in on a version is not success.
 The clock persists the attempt UUID, version/channel, authorization-start marker,
 and deferred/failure outcome across reboot. A reboot before authorization defers;
 an interrupted authorized attempt fails unless boot state establishes validation
-or rollback. Deferred attempts can be offered again. Failed attempts require an
+or rollback. Known transient transport/resource errors before authorization are deferred,
+including TLS/connect/read failures and HTTP 408/425/429/5xx responses. Invalid
+manifest formats, signatures, hash bindings, and permanent HTTP errors remain
+failed rather than retrying indefinitely. Deferred attempts can be offered again. Failed attempts require an
 administrator retry, which creates a fresh target UUID. No prior release or
 candidate authorization grants access to later releases.
 
@@ -156,8 +162,14 @@ The reserved v1 command names remain `config_patch`, `set_channel`,
 `ota_rollback_previous`, `restart`, and `notify`. Fleet-aware firmware rejects
 queued `ota_install` with `requires_rollout_target`; manual previous-slot rollback
 is unsupported. `ota_check` relies on the current check-in's offer. Local update
-check/retry controls also request a fresh fleet check, rather than fetching Latest
-or installing a cached manifest. `set_channel` does not select rollout targets.
+check controls request a fresh fleet check. The explicit “Install assigned release
+now” control creates one RAM-only manual intent, consumed by the next fleet visit
+and expiring after 60 seconds while waiting. A failed/no-offer visit consumes it;
+it is not restored after reboot or carried into later automatic retries. Manual
+install can run with automatic updates off or outside the nightly window, but
+still obtains a current assigned offer and fresh authorization. Ordinary automatic
+checks report `auto_update_disabled` separately from `outside_maintenance_window`.
+Neither control fetches Latest or installs a cached manifest. `set_channel` does not select rollout targets.
 A restart window override is not an update authorization or safety override.
 
 `POST /device/v1/commands/{command_id}/result` accepts `command_result`: `accepted`,

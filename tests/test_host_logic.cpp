@@ -542,6 +542,39 @@ int main() {
     assert(!fleet_authorization_valid(100, 160, false, true, true));
     assert(!fleet_authorization_valid(100, 160, true, false, true));
     assert(!fleet_authorization_valid(100, 160, true, true, false));
+    // Transport availability before authorization is retriable; invalid metadata
+    // and failures after authorization still need an explicit administrator retry.
+    for (const char* error : {"wifi_unavailable", "time_unavailable", "https_begin_failed",
+         "manifest_transport_failed", "manifest_read_failed", "manifest_http_408",
+         "manifest_http_429", "manifest_http_503", "heap_low", "task_create_failed"}) {
+        assert(fleet_preflight_error_is_retryable(error, false));
+        assert(!fleet_preflight_error_is_retryable(error, true));
+    }
+    for (const char* error : {"invalid_json", "signature_invalid", "managed_sha256_mismatch",
+         "manifest_too_large", "manifest_http_404", "manifest_http_401", "redirect_not_https"})
+        assert(!fleet_preflight_error_is_retryable(error, false));
+    assert(!fleet_preflight_error_is_retryable(nullptr, false));
+    assert(strcmp(fleet_local_install_block(false, false, true), "auto_update_disabled") == 0);
+    assert(strcmp(fleet_local_install_block(false, true, false), "outside_maintenance_window") == 0);
+    assert(fleet_local_install_block(false, true, true) == nullptr);
+    assert(fleet_local_install_block(true, false, false) == nullptr);
+    // Manual intent is consumed on the first visit, including failed/no-offer
+    // visits, expires while offline, and does not survive a new boot instance.
+    FleetManualIntent manual;
+    assert(!manual.consume(10));
+    manual.request(20);
+    assert(manual.consume(21));
+    assert(!manual.consume(22));
+    manual.request(30);
+    assert(!manual.consume(60030));
+    manual.request(UINT32_MAX - 10);
+    assert(manual.consume(5));
+    FleetManualIntent rebooted;
+    assert(!rebooted.consume(5));
+    // A manual schedule override must still leave expiry/time checks effective.
+    assert(!fleet_authorization_valid(160, 160, true, true, true));
+    assert(!fleet_authorization_valid(100, 160, false, true, true));
+
     assert(fleet_checkin_seconds(0) == 270);
     assert(fleet_checkin_seconds(120) == 270);
     assert(fleet_checkin_seconds(300) == 300);
