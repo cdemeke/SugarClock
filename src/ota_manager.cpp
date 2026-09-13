@@ -441,30 +441,19 @@ static void record_failure(const char* error) {
     Serial.printf("[OTA] Failed: %s\n", error ? error : "unknown");
 }
 
-static void run_ota_update(unsigned mode) {
-    bool managed = mode == 2;
-    bool owns_network_pause = mode == 0 || managed;
+static void run_ota_update() {
     char error[64] = "";
 
-    if (owns_network_pause) {
-        http_set_paused(true);
-        weather_set_paused(true);
-    }
+    // ota_worker resumes both services after every return, including heap_low.
+    http_set_paused(true);
+    weather_set_paused(true);
 
     if (!wifi_is_connected()) {
         record_failure("wifi_unavailable");
-        if (owns_network_pause) {
-            http_set_paused(false);
-            weather_set_paused(false);
-        }
         return;
     }
     if (!time_is_available()) {
         record_failure("time_unavailable");
-        if (owns_network_pause) {
-            http_set_paused(false);
-            weather_set_paused(false);
-        }
         return;
     }
 
@@ -500,8 +489,6 @@ static void run_ota_update(unsigned mode) {
             const char* safety = ota_safety_failure(collect_safety_inputs());
             if (safety) {
                 set_state(OTA_DEFERRED, nullptr, safety);
-                http_set_paused(false);
-                weather_set_paused(false);
                 return;
             }
             if (!fleet_authorize_update(managed_request.manifest_url,
@@ -509,15 +496,11 @@ static void run_ota_update(unsigned mode) {
                                         managed_request.expected_channel,
                                         managed_request.expected_sha256)) {
                 set_state(OTA_DEFERRED, nullptr, "authorization_unavailable");
-                http_set_paused(false);
-                weather_set_paused(false);
                 return;
             }
             const char* final_safety = ota_safety_failure(collect_safety_inputs());
             if (final_safety) {
                 set_state(OTA_DEFERRED, nullptr, final_safety);
-                http_set_paused(false);
-                weather_set_paused(false);
                 return;
             }
             http_set_paused(true);
@@ -533,8 +516,6 @@ static void run_ota_update(unsigned mode) {
                 delay(1000);
                 ESP.restart();
             } else {
-                http_set_paused(false);
-                weather_set_paused(false);
                 if (strcmp(error, "authorization_or_safety_changed") == 0)
                     set_state(OTA_DEFERRED, nullptr, error);
                 else record_failure(error[0] ? error : "install_failed");
@@ -542,16 +523,11 @@ static void run_ota_update(unsigned mode) {
             return;
         }
         record_failure(error[0] ? error : "managed_manifest_failed");
-        http_set_paused(false);
-        weather_set_paused(false);
     }
-
 }
 
-
-static void ota_worker(void* parameter) {
-    unsigned mode = static_cast<unsigned>(reinterpret_cast<uintptr_t>(parameter));
-    run_ota_update(mode);
+static void ota_worker(void*) {
+    run_ota_update();
     // vTaskDelete does not unwind C++ objects. All update-owned allocations
     // have left scope before deleting this task, including on early failures.
     Serial.printf("[OTA] Minimum free update stack: %u bytes\n",
@@ -562,12 +538,10 @@ static void ota_worker(void* parameter) {
     vTaskDelete(nullptr);
 }
 
-static OtaRequestResult start_worker(unsigned mode) {
+static OtaRequestResult start_worker() {
     if (worker_running) return OTA_REQUEST_BUSY;
     worker_running = true;
-    BaseType_t result = xTaskCreate(ota_worker, mode ? "ota_install" : "ota_check",
-                                   12288, reinterpret_cast<void*>(static_cast<uintptr_t>(mode)),
-                                   1, nullptr);
+    BaseType_t result = xTaskCreate(ota_worker, "ota_install", 12288, nullptr, 1, nullptr);
     if (result != pdPASS) {
         worker_running = false;
         set_state(OTA_ERROR, "task_create_failed");
@@ -611,7 +585,7 @@ OtaRequestResult ota_request_managed_install(const char* manifest_url,
     copy_text(managed_request.expected_sha256, sizeof(managed_request.expected_sha256), expected_sha256);
     set_state(OTA_CHECKING);
     set_progress(0);
-    return start_worker(2);
+    return start_worker();
 }
 
 static void inspect_boot_state() {

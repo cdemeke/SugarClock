@@ -98,11 +98,14 @@ if os.path.exists(firmware) and os.path.getsize(firmware) > 0x1C0000:
     fail("firmware.bin exceeds OTA slot")
 if os.path.exists(firmware):
     try:
-        largest_frame = check_ota_stack(os.path.join(
-            ROOT, ".pio", "build", "esp32dev", "src", "ota_manager.cpp.su"))
+        largest_frames = check_ota_stack(os.path.join(
+            ROOT, ".pio", "build", "esp32dev", "src"))
     except (OSError, ValueError) as error:
         fail(str(error))
-    print(f"OTA compiler stack-frame check passed: largest frame {largest_frame} bytes")
+    for report, largest_frame in largest_frames.items():
+        print(f"OTA compiler stack-frame check passed: {report}: largest frame {largest_frame} bytes")
+else:
+    print("SKIPPED OTA compiler stack-frame check: firmware.bin is missing; run pio run first")
 if os.path.exists(littlefs) and os.path.getsize(littlefs) != 0x70000:
     fail("littlefs.bin does not match filesystem partition")
 
