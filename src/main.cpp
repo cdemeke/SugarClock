@@ -149,9 +149,16 @@ void loop() {
     buttons_loop();
     ButtonEvent evt = buttons_get_event();
     if (evt != BTN_NONE) {
-        // While the connection address is visible, any completed button
-        // gesture dismisses it without also changing another setting.
-        if (engine_get_state() == STATE_CONNECTION_INFO_DISPLAY) {
+        if (ota_get_display_phase() != OTA_DISPLAY_NONE) {
+            // Keep snooze available, including over a connection-info screen;
+            // ignore navigation and configuration writes during installation.
+            if (evt == BTN_MIDDLE_LONG) {
+                engine_snooze_alerts();
+                Serial.println("[BTN] Alerts snoozed");
+            }
+        } else if (engine_get_state() == STATE_CONNECTION_INFO_DISPLAY) {
+            // While the connection address is visible, any completed button
+            // gesture dismisses it without also changing another setting.
             engine_dismiss_connection_info();
             Serial.println("[BTN] Connection info dismissed");
         } else switch (evt) {
@@ -211,8 +218,7 @@ void loop() {
     // 7. Engine state machine + rendering
     engine_loop();
 
-    // 8. Secure updater scheduling/rollback validation. Run after the normal
-    // renderer so an active update progress screen remains visible.
+    // 8. Secure updater status/rollback validation (drawing belongs to the engine).
     ota_loop();
 
     // Poll the management service only when Wi-Fi and trusted time are ready.
