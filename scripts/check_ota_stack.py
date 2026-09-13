@@ -1,8 +1,10 @@
-"""Bound frames in OTA task sources; hardware high-water checks still cover TLS."""
+"""Conservatively bound whole OTA-related sources, not a task-specific call graph."""
 
 from pathlib import Path
 
 MAX_FRAME_BYTES = 2048
+# Include every frame, even functions used only by the separate Fleet task.
+# This source-file budget is deliberately stricter than a per-task analysis.
 REQUIRED_REPORTS = {
     "ota_manager.cpp.su": "ota_worker(",
     "ota_manifest.cpp.su": "ota_manifest_verify_signature(",
@@ -19,10 +21,11 @@ def check_ota_stack(report_directory):
             function, size, kind = line.rsplit("\t", 2)
             size = int(size)
             if "dynamic" in kind.split(",") and "bounded" not in kind.split(","):
-                raise ValueError(f"unbounded OTA stack frame in {filename}: {function}")
+                raise ValueError(f"unbounded stack frame in {filename}: {function}")
             if size > MAX_FRAME_BYTES:
                 raise ValueError(
-                    f"OTA frame uses {size} bytes (limit {MAX_FRAME_BYTES}) in {filename}: {function}")
+                    f"Source frame uses {size} bytes (OTA source-file limit {MAX_FRAME_BYTES}) "
+                    f"in {filename}: {function}")
             frames.append((function, size))
         if not any(required_function in function for function, _ in frames):
             raise ValueError(f"{required_function} is missing from {filename}")

@@ -503,8 +503,6 @@ static void run_ota_update() {
                 set_state(OTA_DEFERRED, nullptr, final_safety);
                 return;
             }
-            http_set_paused(true);
-            weather_set_paused(true);
             set_state(OTA_DOWNLOADING);
             set_progress(0);
             if (install_firmware(candidate, error, sizeof(error))) {

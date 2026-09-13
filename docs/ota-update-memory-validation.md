@@ -50,13 +50,19 @@ The stack check now requires reports for `ota_manager.cpp`, `ota_manifest.cpp`,
 and `fleet_manager.cpp`, including the worker, signature-verification, and
 authorization functions. Every frame in those three reports is checked, including
 helpers. Their largest frames are 1,248, 1,376, and 800 bytes respectively.
+This is a conservative source-file budget: `fleet_manager.cpp` also contains
+functions used only by the separate Fleet task, which has a 14,336-byte stack.
+An oversized frame there still fails this check; the diagnostic identifies the
+source file and function without claiming it runs on the OTA task.
 A local layout check explicitly reports a skipped stack check if no firmware
 build exists.
 
 Worker cleanup now resumes the network services in one place after the update
-helper returns. The unused update modes and duplicate early-return cleanup have
-been removed. After these review changes, all 108 Python tests, the firmware
-build, and layout/stack checks passed locally. The physical results above remain
+helper returns. Networking is paused once at the start of the helper; the
+redundant pause immediately before download is removed. The unused update modes
+and duplicate early-return cleanup have been removed. After these review changes,
+all 108 Python tests, the firmware build, and layout/stack checks passed locally.
+The physical results above remain
 specific to commit `5bfa303`; the subsequent cleanup has not been reflashed or
 retested on hardware. The signed preview assets have not been replaced.
 
