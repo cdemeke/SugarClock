@@ -8,6 +8,8 @@ import os
 import re
 import sys
 
+from check_ota_stack import check_ota_stack
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXPECTED = {
     "nvs": ("0x9000", "0x5000"),
@@ -94,6 +96,16 @@ firmware = os.path.join(ROOT, ".pio", "build", "esp32dev", "firmware.bin")
 littlefs = os.path.join(ROOT, ".pio", "build", "esp32dev", "littlefs.bin")
 if os.path.exists(firmware) and os.path.getsize(firmware) > 0x1C0000:
     fail("firmware.bin exceeds OTA slot")
+if os.path.exists(firmware):
+    try:
+        largest_frames = check_ota_stack(os.path.join(
+            ROOT, ".pio", "build", "esp32dev", "src"))
+    except (OSError, ValueError) as error:
+        fail(str(error))
+    for report, largest_frame in largest_frames.items():
+        print(f"OTA compiler stack-frame check passed: {report}: largest frame {largest_frame} bytes")
+else:
+    print("SKIPPED OTA compiler stack-frame check: firmware.bin is missing; run pio run first")
 if os.path.exists(littlefs) and os.path.getsize(littlefs) != 0x70000:
     fail("littlefs.bin does not match filesystem partition")
 
