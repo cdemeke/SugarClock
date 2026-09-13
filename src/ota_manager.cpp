@@ -3,8 +3,6 @@
 
 #include "buzzer.h"
 #include "config_manager.h"
-#include "display.h"
-#include "glucose_engine.h"
 #include "http_client.h"
 #include "improv_serial.h"
 #include "notify_engine.h"
@@ -49,7 +47,34 @@ static bool validation_pending = false;
 static uint32_t validation_started_ms = 0;
 static uint32_t validation_loop_count = 0;
 static unsigned retry_failures = 0;
-static uint32_t last_render_ms = 0;
+static OtaDisplayLifecycle display_lifecycle;
+
+OtaDisplayPhase ota_get_display_phase() {
+    portENTER_CRITICAL(&status_mux);
+    OtaDisplayPhase phase = display_lifecycle.phase(millis());
+    portEXIT_CRITICAL(&status_mux);
+    return phase;
+}
+
+void ota_display_frame_shown(OtaDisplayPhase phase) {
+    portENTER_CRITICAL(&status_mux);
+    display_lifecycle.frame_shown(phase, millis());
+    portEXIT_CRITICAL(&status_mux);
+}
+
+static void wait_for_reboot_display() {
+    portENTER_CRITICAL(&status_mux);
+    display_lifecycle.reboot(millis());
+    portEXIT_CRITICAL(&status_mux);
+    for (;;) {
+        portENTER_CRITICAL(&status_mux);
+        bool ready = display_lifecycle.reboot_ready(millis());
+        portEXIT_CRITICAL(&status_mux);
+        if (ready) return;
+        // The engine keeps rendering; cap the wait if it cannot acknowledge.
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
 
 struct ManagedInstallRequest {
     char manifest_url[513];
@@ -334,6 +359,11 @@ static bool install_firmware(const OtaManifest& manifest, char* error, size_t er
     }
     esp_ota_handle_t handle = 0;
     bool ota_active = false;
+    // Take over only after the final authorization/safety check, once the
+    // firmware response is ready to transfer. Preparation can still defer.
+    portENTER_CRITICAL(&status_mux);
+    display_lifecycle.start();
+    portEXIT_CRITICAL(&status_mux);
     if (esp_ota_begin(target, manifest.size, &handle) != ESP_OK) {
         copy_text(error, error_size, "ota_begin_failed");
         http.end();
@@ -388,6 +418,9 @@ static bool install_firmware(const OtaManifest& manifest, char* error, size_t er
 
     if (ok) {
         set_state(OTA_VERIFYING);
+        portENTER_CRITICAL(&status_mux);
+        display_lifecycle.verify();
+        portEXIT_CRITICAL(&status_mux);
         esp_err_t end_result = esp_ota_end(handle);
         ota_active = false;  // esp_ota_end consumes the handle, success or failure.
         if (end_result != ESP_OK) {
@@ -511,9 +544,12 @@ static void run_ota_update() {
                 Serial.printf("[OTA] Minimum free update stack: %u bytes\n",
                               static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)));
                 Serial.println("[OTA] Managed update complete; rebooting");
-                delay(1000);
+                wait_for_reboot_display();
                 ESP.restart();
             } else {
+                portENTER_CRITICAL(&status_mux);
+                display_lifecycle.fail(millis());
+                portEXIT_CRITICAL(&status_mux);
                 if (strcmp(error, "authorization_or_safety_changed") == 0)
                     set_state(OTA_DEFERRED, nullptr, error);
                 else record_failure(error[0] ? error : "install_failed");
@@ -530,6 +566,11 @@ static void ota_worker(void*) {
     // have left scope before deleting this task, including on early failures.
     Serial.printf("[OTA] Minimum free update stack: %u bytes\n",
                   static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)));
+    // Keep blocking glucose/weather fetches paused for the short failure
+    // message too. Main-loop alerts, sensors, buttons and the web UI stay live.
+    while (ota_get_display_phase() == OTA_DISPLAY_FAILED) {
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
     http_set_paused(false);
     weather_set_paused(false);
     worker_running = false;
@@ -663,25 +704,8 @@ static void validate_pending_image() {
     }
 }
 
-static void render_update_status() {
-    OtaStatusSnapshot snapshot;
-    ota_get_status(snapshot);
-    if (snapshot.state != OTA_DOWNLOADING && snapshot.state != OTA_VERIFYING &&
-        snapshot.state != OTA_PENDING_REBOOT) return;
-    if (millis() - last_render_ms < 200) return;
-    last_render_ms = millis();
-    char text[8];
-    if (snapshot.state == OTA_DOWNLOADING) snprintf(text, sizeof(text), "%d%%", snapshot.progress);
-    else if (snapshot.state == OTA_VERIFYING) snprintf(text, sizeof(text), "VERIFY");
-    else snprintf(text, sizeof(text), "REBOOT");
-    display_clear();
-    display_draw_text(text, 1, 0, display_color(0, 200, 200));
-    display_show();
-}
-
 void ota_loop() {
     validate_pending_image();
-    render_update_status();
 
     AppConfig& cfg = config_get();
     portENTER_CRITICAL(&status_mux);

@@ -17,6 +17,7 @@
 #include "countdown_engine.h"
 #include "net_check.h"
 #include "sensors.h"
+#include "ota_manager.h"
 #include <Arduino.h>
 
 #define STALE_WARNING_MS   (10UL * 60 * 1000)   // 10 minutes
@@ -34,6 +35,7 @@ static bool connection_info_visible = false;
 static unsigned long connection_info_expires_ms = 0;
 static unsigned long last_render_ms = 0;
 static unsigned long boot_start_ms = 0;
+static OtaDisplayPhase last_ota_display_phase = OTA_DISPLAY_NONE;
 
 // Delta display flash
 static int last_seen_glucose = 0;
@@ -154,6 +156,8 @@ static unsigned long last_weather_render_ms = 0;
 // Clears particle animations and renders a clean frame so the display
 // doesn't show frozen particles during the 1-3 second network call.
 static void on_weather_pre_fetch() {
+    if (ota_get_display_phase() != OTA_DISPLAY_NONE ||
+        last_ota_display_phase != OTA_DISPLAY_NONE) return;
     // Reset all particles
     for (int i = 0; i < MAX_PARTICLES; i++) particles[i].active = false;
 
@@ -956,10 +960,51 @@ static void render_state(DisplayState state) {
     }
 }
 
+static void reset_display_transition() {
+    transition_phase = TRANSITION_NONE;
+    transition_target = current_state;
+    transition_level = 255;
+    transition_start_level = 255;
+    display_set_transition_level(255);
+    display_scroll_reset();
+    delta_flash_active = false;
+}
+
+static bool render_ota_display() {
+    OtaDisplayPhase phase = ota_get_display_phase();
+    // Verification uses the same marquee; do not restart a partially read word.
+    OtaDisplayPhase screen = phase == OTA_DISPLAY_VERIFYING ? OTA_DISPLAY_UPDATING : phase;
+    if (screen != last_ota_display_phase) {
+        reset_display_transition();
+        last_cycle_ms = millis();
+        last_ota_display_phase = screen;
+    }
+    if (screen == OTA_DISPLAY_NONE) return false;
+
+    display_set_brightness(effective_brightness());
+    display_set_transition_level(255);
+    display_clear();
+    uint16_t color = display_color(0, 200, 200);
+    if (screen == OTA_DISPLAY_REBOOTING) {
+        display_draw_centered_text("BOOT", 0, color);
+    } else {
+        display_scroll_text(screen == OTA_DISPLAY_FAILED ? "Update failed" : "Updating...",
+                            0, color, 70);
+    }
+    display_show();
+    ota_display_frame_shown(phase);
+    return true;
+}
+
 void engine_loop() {
     // Throttle rendering
     if (millis() - last_render_ms < RENDER_INTERVAL_MS) return;
     last_render_ms = millis();
+
+    if (render_ota_display()) {
+        check_alerts();
+        return;
+    }
 
     // Periodically rebuild toggle order (catches sysmon data appearing/disappearing)
     static unsigned long last_rebuild_ms = 0;

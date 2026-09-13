@@ -2,6 +2,7 @@
 #define OTA_MANAGER_H
 
 #include <stdint.h>
+#include "ota_display.h"
 
 enum OtaState {
     OTA_IDLE,
@@ -39,6 +40,10 @@ struct OtaStatusSnapshot {
 
 void ota_init();
 void ota_loop();
+// Installation-only display ownership, independent of general OTA status.
+OtaDisplayPhase ota_get_display_phase();
+// Called by the engine after pushing a frame, so BOOT gets visible dwell time.
+void ota_display_frame_shown(OtaDisplayPhase phase);
 OtaRequestResult ota_request_check();
 OtaRequestResult ota_request_install(bool manual = true);
 OtaRequestResult ota_request_managed_install(const char* manifest_url,
