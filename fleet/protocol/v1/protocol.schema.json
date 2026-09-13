@@ -3,75 +3,500 @@
   "$id": "https://sugarclock.com/protocol/fleet/v1/schema.json",
   "title": "SugarClock fleet protocol v1",
   "$defs": {
-    "uuid": {"type": "string", "format": "uuid"},
-    "semver": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
-    "channel": {"enum": ["stable", "preview"]},
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "channel": {
+      "enum": [
+        "stable",
+        "preview"
+      ]
+    },
     "maintenance_window": {
       "type": "object",
-      "required": ["timezone", "days", "start", "end", "automatic_install"],
+      "required": [
+        "timezone",
+        "days",
+        "start",
+        "end",
+        "automatic_install"
+      ],
       "properties": {
-        "timezone": {"type": "string", "minLength": 1, "maxLength": 64},
-        "days": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "integer", "minimum": 0, "maximum": 6}},
-        "start": {"type": "string", "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"},
-        "end": {"type": "string", "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"},
-        "automatic_install": {"type": "boolean"}
+        "timezone": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "days": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 6
+          }
+        },
+        "start": {
+          "type": "string",
+          "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+        },
+        "end": {
+          "type": "string",
+          "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+        },
+        "automatic_install": {
+          "type": "boolean"
+        }
       },
       "additionalProperties": true
     },
     "registration": {
       "type": "object",
-      "required": ["installation_id", "hardware", "firmware_version", "timezone", "management_protocol"],
+      "required": [
+        "installation_id",
+        "hardware",
+        "firmware_version",
+        "timezone",
+        "management_protocol"
+      ],
       "properties": {
-        "installation_id": {"$ref": "#/$defs/uuid"},
-        "hardware": {"type": "string", "minLength": 1, "maxLength": 64},
-        "firmware_version": {"$ref": "#/$defs/semver"},
-        "timezone": {"type": "string", "minLength": 1, "maxLength": 64},
-        "management_protocol": {"const": 1}
+        "installation_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "hardware": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "firmware_version": {
+          "$ref": "#/$defs/semver"
+        },
+        "timezone": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "management_protocol": {
+          "const": 1
+        }
       },
       "additionalProperties": true
     },
     "checkin": {
       "type": "object",
-      "required": ["installation_id", "firmware_version", "channel", "uptime_seconds"],
+      "required": [
+        "installation_id",
+        "firmware_version",
+        "channel",
+        "uptime_seconds"
+      ],
       "properties": {
-        "installation_id": {"$ref": "#/$defs/uuid"},
-        "firmware_version": {"$ref": "#/$defs/semver"},
-        "channel": {"$ref": "#/$defs/channel"},
-        "uptime_seconds": {"type": "integer", "minimum": 0},
-        "maintenance_window": {"$ref": "#/$defs/maintenance_window"},
-        "health_codes": {"type": "array", "maxItems": 16, "items": {"type": "string", "pattern": "^[a-z0-9_]{1,48}$"}}
+        "installation_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "firmware_version": {
+          "$ref": "#/$defs/semver"
+        },
+        "channel": {
+          "$ref": "#/$defs/channel"
+        },
+        "uptime_seconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maintenance_window": {
+          "$ref": "#/$defs/maintenance_window"
+        },
+        "health_codes": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9_]{1,48}$"
+          }
+        },
+        "capabilities": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "enum": [
+              "fleet_rollout_v1"
+            ]
+          }
+        },
+        "features": {
+          "$ref": "#/$defs/features"
+        }
       },
       "additionalProperties": true
     },
     "command": {
       "type": "object",
-      "required": ["id", "type", "payload", "created_at", "expires_at"],
+      "required": [
+        "id",
+        "type",
+        "payload",
+        "created_at",
+        "expires_at"
+      ],
       "properties": {
-        "id": {"$ref": "#/$defs/uuid"},
-        "type": {"enum": ["config_patch", "set_channel", "set_maintenance_window", "ota_check", "ota_install", "ota_pause", "ota_rollback_previous", "restart", "notify"]},
-        "payload": {"type": "object"},
-        "created_at": {"type": "integer"},
-        "expires_at": {"type": "integer"}
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "type": {
+          "enum": [
+            "config_patch",
+            "set_channel",
+            "set_maintenance_window",
+            "ota_check",
+            "ota_install",
+            "ota_pause",
+            "ota_rollback_previous",
+            "restart",
+            "notify"
+          ]
+        },
+        "payload": {
+          "type": "object"
+        },
+        "created_at": {
+          "type": "integer"
+        },
+        "expires_at": {
+          "type": "integer"
+        }
       },
-      "additionalProperties": true
+      "additionalProperties": true,
+      "description": "Legacy wire types remain reserved. Fleet-aware firmware rejects ota_install and ota_rollback_previous; release authorization uses update_offer, not commands."
     },
     "command_result": {
       "type": "object",
-      "required": ["installation_id", "status"],
+      "required": [
+        "installation_id",
+        "status"
+      ],
       "properties": {
-        "installation_id": {"$ref": "#/$defs/uuid"},
-        "status": {"enum": ["accepted", "deferred", "succeeded", "failed"]},
-        "reason": {"type": "string", "pattern": "^[a-z0-9_]{1,64}$"},
-        "config_revision": {"type": "string"},
-        "firmware_version": {"$ref": "#/$defs/semver"}
+        "installation_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "status": {
+          "enum": [
+            "accepted",
+            "deferred",
+            "succeeded",
+            "failed"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9_]{1,64}$"
+        },
+        "config_revision": {
+          "type": "string"
+        },
+        "firmware_version": {
+          "$ref": "#/$defs/semver"
+        }
       },
       "additionalProperties": true
     },
     "error": {
       "type": "object",
-      "required": ["error"],
-      "properties": {"error": {"type": "object", "required": ["code", "message"], "properties": {"code": {"type": "string", "pattern": "^[a-z0-9_]+$"}, "message": {"type": "string"}}, "additionalProperties": false}},
+      "required": [
+        "error"
+      ],
+      "properties": {
+        "error": {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "pattern": "^[a-z0-9_]+$"
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
       "additionalProperties": false
+    },
+    "features": {
+      "type": "object",
+      "description": "Versioned configuration snapshot. Missing keys mean unknown. Deliberately closed to reject unreviewed personal fields.",
+      "required": [
+        "schema_version"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": 1,
+          "type": "integer"
+        },
+        "data_source": {
+          "enum": [
+            "custom",
+            "dexcom",
+            "demo",
+            "libre"
+          ]
+        },
+        "companion_character": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 6
+        },
+        "companion_enabled": {
+          "type": "boolean"
+        },
+        "weather_enabled": {
+          "type": "boolean"
+        },
+        "timer_enabled": {
+          "type": "boolean"
+        },
+        "stopwatch_enabled": {
+          "type": "boolean"
+        },
+        "notifications_enabled": {
+          "type": "boolean"
+        },
+        "sysmon_enabled": {
+          "type": "boolean"
+        },
+        "auto_cycle_enabled": {
+          "type": "boolean"
+        },
+        "countdown_enabled": {
+          "type": "boolean"
+        },
+        "night_mode_enabled": {
+          "type": "boolean"
+        },
+        "auto_brightness": {
+          "type": "boolean"
+        },
+        "time_display_enabled": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "registration_response": {
+      "type": "object",
+      "required": [
+        "status",
+        "verification_state",
+        "next_checkin_seconds",
+        "server_time"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "registered",
+            "already_registered"
+          ]
+        },
+        "verification_state": {
+          "type": "string",
+          "description": "Compatibility field; verified means reporting enabled, not hardware attestation."
+        },
+        "next_checkin_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "server_time": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true
+    },
+    "update_offer": {
+      "type": "object",
+      "required": [
+        "target_id",
+        "rollout_id",
+        "manifest_url",
+        "version",
+        "channel",
+        "sha256"
+      ],
+      "properties": {
+        "target_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "rollout_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "manifest_url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://",
+          "maxLength": 512
+        },
+        "version": {
+          "$ref": "#/$defs/semver"
+        },
+        "channel": {
+          "$ref": "#/$defs/channel"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "additionalProperties": true
+    },
+    "checkin_response": {
+      "type": "object",
+      "required": [
+        "server_time",
+        "next_checkin_seconds",
+        "commands"
+      ],
+      "properties": {
+        "server_time": {
+          "type": "integer"
+        },
+        "next_checkin_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "commands": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/command"
+          }
+        },
+        "update_offer": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/update_offer"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "update_authorization_request": {
+      "type": "object",
+      "required": [
+        "installation_id"
+      ],
+      "properties": {
+        "installation_id": {
+          "$ref": "#/$defs/uuid"
+        }
+      },
+      "additionalProperties": true
+    },
+    "update_authorization_response": {
+      "type": "object",
+      "required": [
+        "authorized",
+        "expires_at",
+        "manifest_url",
+        "update_offer"
+      ],
+      "properties": {
+        "authorized": {
+          "const": true
+        },
+        "expires_at": {
+          "type": "integer"
+        },
+        "manifest_url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://"
+        },
+        "update_offer": {
+          "$ref": "#/$defs/update_offer"
+        }
+      },
+      "additionalProperties": true
+    },
+    "update_result": {
+      "type": "object",
+      "required": [
+        "installation_id",
+        "status"
+      ],
+      "properties": {
+        "installation_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "status": {
+          "enum": [
+            "deferred",
+            "installing",
+            "boot_validated",
+            "failed",
+            "rolled_back"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9_]{1,64}$"
+        },
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z0-9_]{1,64}$",
+          "description": "Compatibility alias; use reason. If both exist, reason wins."
+        },
+        "firmware_version": {
+          "$ref": "#/$defs/semver"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "boot_validated"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "firmware_version"
+            ]
+          }
+        }
+      ],
+      "additionalProperties": true
+    },
+    "result_response": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "recorded",
+            "already_recorded"
+          ]
+        }
+      },
+      "additionalProperties": true
     }
   }
 }

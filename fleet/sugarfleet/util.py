@@ -5,7 +5,6 @@ import uuid
 
 from flask import jsonify, request
 
-
 SEMVER_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
@@ -19,7 +18,10 @@ class ApiError(ValueError):
 
 
 def error_response(error):
-    return jsonify(error={"code": error.code, "message": error.message}), error.status
+    response = jsonify(error={"code": error.code, "message": error.message})
+    if error.status in (429, 503):
+        response.headers["Retry-After"] = "60"
+    return response, error.status
 
 
 def json_body():
@@ -56,7 +58,7 @@ def connectivity_state(last_seen, retired_at=None, now=None):
     if retired_at is not None:
         return "retired"
     age = (now if now is not None else now_epoch()) - last_seen
-    if age < 5 * 60:
+    if age < 10 * 60:
         return "online"
     if age < 30 * 60:
         return "delayed"
