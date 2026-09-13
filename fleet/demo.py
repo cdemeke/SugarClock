@@ -5,6 +5,7 @@ Run: python -m fleet.demo
 Open http://127.0.0.1:8081/admin/overview. All changes disappear on exit.
 """
 import argparse
+import datetime
 import json
 from pathlib import Path
 import secrets
@@ -54,6 +55,14 @@ def build_demo(database, port):
                  now-60*86400, now-age, now-age, nickname, json.dumps(['fleet_rollout_v1'] if index < 20 else []),
                  json.dumps(features) if index < 20 else None, now-age if index < 20 else None,
                  ['Boston','London','Toronto'][index%3], ['US','GB','CA'][index%3]))
+        # Synthetic adoption and history make the overview useful for visual review.
+        connection.execute("UPDATE devices SET firmware_version='0.3.1' WHERE id BETWEEN 17 AND 20")
+        connection.execute("UPDATE devices SET firmware_version='0.3.2' WHERE id > 20")
+        for offset in range(30):
+            captured = now - offset * 86400
+            day = datetime.datetime.fromtimestamp(captured, datetime.timezone.utc).date().isoformat()
+            connection.execute("INSERT INTO daily_metrics VALUES(?,?,?)",
+                (day, captured, json.dumps({'active_30d': max(3, 21 - offset // 2)})))
         for version, channel in [('0.4.0','stable'), ('0.5.0','preview'), ('0.5.0','stable')]:
             connection.execute("INSERT INTO releases(version,channel,manifest_url,firmware_url,firmware_sha256,firmware_size,published_at,imported_at,approved_by,metadata_complete) VALUES(?,?,?,?,?,1000000,?,?,?,1)",
               (version, channel, f'https://example.invalid/releases/v{version}-{channel}/ota-manifest.json',

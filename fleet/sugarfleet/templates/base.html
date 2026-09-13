@@ -7,12 +7,13 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='fleet.css') }}">
 </head>
 <body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
   <header>
     <a class="brand" href="/admin/overview">SugarClock Fleet</a>
-    <nav aria-label="Main navigation"><a href="/admin/overview">Overview</a><a href="{{ url_for('admin.device_list_page') }}">Devices</a><a href="{{ url_for('admin.releases_page') }}">Releases</a></nav>
+    <nav aria-label="Main navigation"><a href="{{ url_for('admin.overview_page') }}"{% if request.endpoint == 'admin.overview_page' %} aria-current="page"{% endif %}>Overview</a><a href="{{ url_for('admin.device_list_page') }}"{% if request.endpoint in ['admin.device_list_page', 'admin.device_detail_page'] %} aria-current="page"{% endif %}>Devices</a><a href="{{ url_for('admin.releases_page') }}"{% if request.endpoint == 'admin.releases_page' %} aria-current="page"{% endif %}>Releases</a></nav>
     {% if admin_login %}<span class="login">{{ admin_login }}</span>{% endif %}
   </header>
-  <main>{% if admin_login == 'local-demo' %}<p class="warning">Local demo · Synthetic clocks and releases. Changes here cannot update real devices and disappear when the demo stops.</p>{% endif %}{% block content %}{% endblock %}</main>
+  <main id="main-content" tabindex="-1">{% if admin_login == 'local-demo' %}<p class="warning">Local demo · Synthetic clocks and releases. Changes here cannot update real devices and disappear when the demo stops.</p>{% endif %}{% block content %}{% endblock %}</main>
   <script>window.fleetCsrf = {{ csrf_token|tojson }};</script>
   <script src="{{ url_for('static', filename='fleet.js') }}"></script>
   {% block scripts %}{% endblock %}
