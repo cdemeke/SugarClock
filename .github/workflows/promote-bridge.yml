@@ -1,0 +1,71 @@
+name: Explicitly promote tested bridge to legacy Latest
+
+on:
+  workflow_dispatch:
+    inputs:
+      bridge_tag:
+        description: Existing signed stable bridge tag (vMAJOR.MINOR.PATCH)
+        required: true
+        type: string
+      physical_and_load_tests_passed:
+        description: Exact artifacts passed physical clock testing and mixed/legacy fleet load tests
+        required: true
+        default: false
+        type: boolean
+      accept_all_legacy_clocks:
+        description: Authorize ALL legacy auto-updaters to receive this bridge (no percentage targeting)
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: firmware-release-publishing
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  bridge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Require explicit bridge authorization
+        env:
+          TESTED: ${{ inputs.physical_and_load_tests_passed }}
+          AUTHORIZED: ${{ inputs.accept_all_legacy_clocks }}
+          BRIDGE_TAG: ${{ inputs.bridge_tag }}
+        run: |
+          set -euo pipefail
+          test "$TESTED" = true
+          test "$AUTHORIZED" = true
+          [[ "$BRIDGE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          git show "${BRIDGE_TAG}:src/fleet_manager.cpp" | grep fleet_rollout_v1 > /dev/null
+      - name: Capture previous legacy offer and validate exact signed bridge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRIDGE_TAG: ${{ inputs.bridge_tag }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          test "$(gh release view "$BRIDGE_TAG" --json isPrerelease --jq .isPrerelease)" = false
+          test "$(gh release view "$BRIDGE_TAG" --json isDraft --jq .isDraft)" = false
+          python3 scripts/release_guard.py --repository "$REPOSITORY" snapshot --output "$RUNNER_TEMP/latest-before.json"
+          mkdir -p bridge
+          gh release download "$BRIDGE_TAG" --dir bridge
+          python3 scripts/release_guard.py --repository "$REPOSITORY" verify-bridge \
+            --directory bridge --tag "$BRIDGE_TAG" \
+            --public-key keys/ota-release-2026-01-public.pem \
+            --previous "$RUNNER_TEMP/latest-before.json" --output "$RUNNER_TEMP/bridge-expected.json"
+      - name: Explicitly change legacy Latest to tested bridge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRIDGE_TAG: ${{ inputs.bridge_tag }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          python3 scripts/release_guard.py --repository "$REPOSITORY" check --expected "$RUNNER_TEMP/latest-before.json"
+          gh release edit "$BRIDGE_TAG" --latest
+          python3 scripts/release_guard.py --repository "$REPOSITORY" check --expected "$RUNNER_TEMP/bridge-expected.json"

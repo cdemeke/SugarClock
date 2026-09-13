@@ -1,6 +1,9 @@
 # Fleet simplification plan
 
-Status: agreed product direction; implementation has not started.
+Status: implemented in PR #37, with local service/UI tests and firmware builds.
+Physical signed-bridge and rollback validation remain required before distribution.
+See `fleet/README.md` for the runnable demo and `docs/fleet-release-migration.md`
+for deployment instructions. This document records the design and acceptance goals.
 
 ## Intended experience
 

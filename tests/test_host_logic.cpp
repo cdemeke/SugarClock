@@ -524,6 +524,29 @@ int main() {
     assert(!fleet_circuit_is_open(2));
     assert(fleet_circuit_is_open(3));
 
+    // Reboot, interrupted install, and lost ACK reconciliation. Neither matching
+    // version nor merely completing download can produce deployment success.
+    assert(fleet_boot_outcome(true, false, true, false, true) == FLEET_BOOT_WAIT);
+    assert(fleet_boot_outcome(true, false, false, false, true) == FLEET_BOOT_WAIT);
+    assert(fleet_boot_outcome(true, true, true, false, true) == FLEET_BOOT_WAIT);
+    assert(fleet_boot_outcome(true, true, false, false, true) == FLEET_BOOT_VALIDATED);
+    assert(fleet_boot_outcome(false, true, false, true, true) == FLEET_BOOT_ROLLED_BACK);
+    assert(fleet_boot_outcome(false, true, false, false, true) == FLEET_BOOT_INTERRUPTED);
+    assert(fleet_boot_outcome(false, true, false, false, false) == FLEET_BOOT_WAIT);
+    // A power loss while merely validating an offer must not terminally fail it.
+    assert(fleet_boot_outcome(false, true, false, false, true, false) == FLEET_BOOT_DEFERRED);
+    assert(fleet_boot_outcome(false, true, false, false, true, true) == FLEET_BOOT_INTERRUPTED);
+    assert(fleet_authorization_valid(100, 160, true, true, true));
+    assert(!fleet_authorization_valid(160, 160, true, true, true));
+    assert(!fleet_authorization_valid(161, 160, true, true, true));
+    assert(!fleet_authorization_valid(100, 160, false, true, true));
+    assert(!fleet_authorization_valid(100, 160, true, false, true));
+    assert(!fleet_authorization_valid(100, 160, true, true, false));
+    assert(fleet_checkin_seconds(0) == 270);
+    assert(fleet_checkin_seconds(120) == 270);
+    assert(fleet_checkin_seconds(300) == 300);
+    assert(fleet_checkin_seconds(86400) == 330);
+
     test_libre_timestamps_and_trends();
     test_libre_stale_readings_are_never_fresh();
     test_libre_authorization_failures_back_off();

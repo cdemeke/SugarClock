@@ -20,6 +20,7 @@
 #include "net_check.h"
 #include "web_assets.h"
 #include "ota_manager.h"
+#include "fleet_manager.h"
 
 #include <ESPAsyncWebServer.h>
 #include <WebResponseImpl.h>
@@ -70,6 +71,7 @@ static void handle_status(AsyncWebServerRequest* request) {
     OtaStatusSnapshot ota;
     ota_get_status(ota);
     doc["firmware_version"] = SUGARCLOCK_VERSION;
+    doc["installation_id"] = fleet_installation_id();
     doc["hardware"] = SUGARCLOCK_HARDWARE_ID;
     doc["running_partition"] = ota.running_partition;
     doc["boot_partition"] = ota.boot_partition;

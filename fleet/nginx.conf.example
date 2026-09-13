@@ -1,19 +1,32 @@
-# Place the limit zone in nginx's http {} block.
-limit_req_zone $binary_remote_addr zone=sugarfleet_register:10m rate=5r/m;
+# Place these fixed-size shared-memory zones in nginx's http {} block.
+# Shared across workers: new registrations cannot consume the authenticated
+# heartbeat budget. Tune for expected simultaneous installs on shared networks.
+limit_req_zone $binary_remote_addr zone=sugarfleet_register:10m rate=30r/m;
+limit_req_zone $server_name zone=sugarfleet_register_global:1m rate=120r/m;
 
 server {
     listen 443 ssl http2;
     server_name fleet.sugarclock.com;
 
+    # Avoid retaining source IPs or identifiers in routine access logs.
+    access_log off;
+    # nginx error/security logs may still contain IPs; configure short retention
+    # and restricted access in the host's log rotation policy.
+    client_max_body_size 32k;
+    limit_req_status 429;
+
     # Configure ssl_certificate and ssl_certificate_key for this hostname.
 
+    # This example is the public edge proxy: overwrite client-supplied forwarded
+    # IPs. If using another trusted proxy/CDN, configure real_ip explicitly.
     location = /device/v1/register {
-        limit_req zone=sugarfleet_register burst=5 nodelay;
+        limit_req zone=sugarfleet_register burst=30 nodelay;
+        limit_req zone=sugarfleet_register_global burst=60 nodelay;
         proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Host $host;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
     }
 
     location / {
@@ -21,6 +34,6 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Host $host;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
     }
 }

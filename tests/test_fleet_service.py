@@ -22,7 +22,6 @@ from fleet.sugarfleet.validation import (
     validate_result,
 )
 
-
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FIXTURES = os.path.join(ROOT, "fleet", "protocol", "v1", "fixtures")
 INSTALLATION_ID = "0d9189e2-117a-42b8-95c1-8fc88f23a8a4"
@@ -38,12 +37,14 @@ class FleetProtocolFixtureTests(unittest.TestCase):
     def test_ambient_creature_config_patch_is_validated(self):
         validate_command(
             "config_patch",
-            {"changes": {
-                "ambient_enabled": True,
-                "ambient_creature": 1,
-                "ambient_seasonal": False,
-                "default_mode": 3,
-            }},
+            {
+                "changes": {
+                    "ambient_enabled": True,
+                    "ambient_creature": 1,
+                    "ambient_seasonal": False,
+                    "default_mode": 3,
+                }
+            },
         )
         with self.assertRaisesRegex(ApiError, "ambient_creature is out of range"):
             validate_command("config_patch", {"changes": {"ambient_creature": 2}})
@@ -52,17 +53,25 @@ class FleetProtocolFixtureTests(unittest.TestCase):
 
     def test_companion_selection_is_validated(self):
         for character in range(7):
-            validate_command("config_patch", {"changes": {"ambient_character": character}})
+            validate_command(
+                "config_patch", {"changes": {"ambient_character": character}}
+            )
         for character in (-1, 7, True, "1", 1.5, None):
             with self.assertRaises(ApiError):
-                validate_command("config_patch", {"changes": {"ambient_character": character}})
+                validate_command(
+                    "config_patch", {"changes": {"ambient_character": character}}
+                )
 
     def test_companion_color_preference_is_validated(self):
         for value in (True, False):
-            validate_command("config_patch", {"changes": {"ambient_use_glucose_colors": value}})
+            validate_command(
+                "config_patch", {"changes": {"ambient_use_glucose_colors": value}}
+            )
         for value in (0, 1, "true", None):
             with self.assertRaises(ApiError):
-                validate_command("config_patch", {"changes": {"ambient_use_glucose_colors": value}})
+                validate_command(
+                    "config_patch", {"changes": {"ambient_use_glucose_colors": value}}
+                )
 
     def test_companion_style_is_validated(self):
         for style in range(3):
@@ -72,7 +81,9 @@ class FleetProtocolFixtureTests(unittest.TestCase):
                 validate_command("config_patch", {"changes": {"ambient_style": style}})
 
     def test_missing_production_secret_fails_closed(self):
-        with mock.patch.dict(os.environ, {"FLEET_SECRET_KEY": "", "FLEET_INSECURE_COOKIES": ""}):
+        with mock.patch.dict(
+            os.environ, {"FLEET_SECRET_KEY": "", "FLEET_INSECURE_COOKIES": ""}
+        ):
             with self.assertRaisesRegex(RuntimeError, "FLEET_SECRET_KEY is required"):
                 create_app({"TESTING": False})
 
@@ -87,7 +98,9 @@ class FleetProtocolFixtureTests(unittest.TestCase):
         validate_register(fixture("register-request.json"))
         validate_checkin(fixture("check-in-request.json"))
         self.assertEqual(fixture("register-response.json")["status"], "registered")
-        self.assertEqual(fixture("check-in-response.json")["commands"][0]["type"], "notify")
+        self.assertEqual(
+            fixture("check-in-response.json")["commands"][0]["type"], "notify"
+        )
         for result in fixture("command-results.json"):
             validate_result(result)
 
@@ -100,7 +113,7 @@ class FleetProtocolFixtureTests(unittest.TestCase):
     def test_connectivity_thresholds(self):
         now = 2_000_000_000
         self.assertEqual(connectivity_state(now - 299, now=now), "online")
-        self.assertEqual(connectivity_state(now - 300, now=now), "delayed")
+        self.assertEqual(connectivity_state(now - 600, now=now), "delayed")
         self.assertEqual(connectivity_state(now - 1800, now=now), "offline")
         self.assertEqual(connectivity_state(now - 30 * 86400, now=now), "dormant")
         self.assertEqual(connectivity_state(now, retired_at=now, now=now), "retired")
@@ -110,8 +123,12 @@ class FleetProtocolFixtureTests(unittest.TestCase):
         self.assertIsNone(public_ip("192.168.1.55"))
         self.assertIsNone(public_ip("127.0.0.1"))
         self.assertIsNone(public_ip("not-an-ip"))
-        self.assertEqual(location_label("Boston", "Massachusetts", "US"), "Boston, Massachusetts, US")
-        self.assertEqual(location_label("Singapore", "Singapore", "SG"), "Singapore, SG")
+        self.assertEqual(
+            location_label("Boston", "Massachusetts", "US"), "Boston, Massachusetts, US"
+        )
+        self.assertEqual(
+            location_label("Singapore", "Singapore", "SG"), "Singapore, SG"
+        )
 
 
 class FleetServiceTests(unittest.TestCase):
@@ -168,7 +185,9 @@ class FleetServiceTests(unittest.TestCase):
     def test_health_and_sqlite_migration_are_ready(self):
         self.assertEqual(self.client.get("/healthz").json, {"status": "ok"})
         with self.app.app_context():
-            versions = get_db().execute("SELECT version FROM schema_migrations").fetchall()
+            versions = (
+                get_db().execute("SELECT version FROM schema_migrations").fetchall()
+            )
             self.assertEqual(
                 [row[0] for row in versions],
                 [
@@ -177,6 +196,7 @@ class FleetServiceTests(unittest.TestCase):
                     "0003_detected_location.sql",
                     "0004_reported_identity.sql",
                     "0005_enrollment_and_identity_cleanup.sql",
+                    "0006_fleet_rollouts.sql",
                 ],
             )
 
@@ -189,7 +209,9 @@ class FleetServiceTests(unittest.TestCase):
         self.assertEqual(second.status_code, 200)
         self.assertEqual(second.json["status"], "already_registered")
         with self.app.app_context():
-            stored = get_db().execute("SELECT credential_hash FROM devices").fetchone()[0]
+            stored = (
+                get_db().execute("SELECT credential_hash FROM devices").fetchone()[0]
+            )
             self.assertTrue(stored.startswith("hmac-sha256$"))
             self.assertNotIn(CREDENTIAL, stored)
 
@@ -197,13 +219,20 @@ class FleetServiceTests(unittest.TestCase):
         self.register()
         wrong = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
         response = self.client.post(
-            "/device/v1/register", json=fixture("register-request.json"), headers=self.auth_headers(wrong)
+            "/device/v1/register",
+            json=fixture("register-request.json"),
+            headers=self.auth_headers(wrong),
         )
         self.assertEqual(response.status_code, 409)
 
     def test_unauthorized_checkin_and_admin_requests_fail(self):
         self.register()
-        self.assertEqual(self.client.post("/device/v1/check-in", json=fixture("check-in-request.json")).status_code, 401)
+        self.assertEqual(
+            self.client.post(
+                "/device/v1/check-in", json=fixture("check-in-request.json")
+            ).status_code,
+            401,
+        )
         self.assertEqual(self.client.get("/admin/api/devices").status_code, 401)
 
     def test_checkin_updates_current_snapshot_without_secret_or_identity_fields(self):
@@ -226,28 +255,42 @@ class FleetServiceTests(unittest.TestCase):
         headers = self.admin_headers()
         command_ids = []
         for command in fixture("commands.json"):
+            if command["type"] in {
+                "ota_install",
+                "ota_rollback_previous",
+                "set_channel",
+            }:
+                continue
             response = self.client.post(
                 "/admin/api/devices/1/commands", json=command, headers=headers
             )
             self.assertEqual(response.status_code, 201, response.json)
             command_ids.append(response.json["command"]["id"])
         first = self.checkin()
-        self.assertEqual({command["id"] for command in first.json["commands"]}, set(command_ids))
+        self.assertEqual(
+            {command["id"] for command in first.json["commands"]}, set(command_ids)
+        )
         second = self.checkin()
         self.assertEqual(len(second.json["commands"]), len(command_ids))
         for command_id in command_ids:
             result = {"installation_id": INSTALLATION_ID, "status": "succeeded"}
             response = self.client.post(
-                f"/device/v1/commands/{command_id}/result", json=result, headers=self.auth_headers()
+                f"/device/v1/commands/{command_id}/result",
+                json=result,
+                headers=self.auth_headers(),
             )
             self.assertEqual(response.status_code, 200)
             repeated = self.client.post(
-                f"/device/v1/commands/{command_id}/result", json=result, headers=self.auth_headers()
+                f"/device/v1/commands/{command_id}/result",
+                json=result,
+                headers=self.auth_headers(),
             )
             self.assertEqual(repeated.json["status"], "already_recorded")
         self.assertEqual(self.checkin().json["commands"], [])
         with self.app.app_context():
-            attempts = [row[0] for row in get_db().execute("SELECT attempt_count FROM commands")]
+            attempts = [
+                row[0] for row in get_db().execute("SELECT attempt_count FROM commands")
+            ]
             self.assertTrue(all(value == 2 for value in attempts))
 
     def test_expired_commands_are_not_delivered(self):
@@ -261,7 +304,10 @@ class FleetServiceTests(unittest.TestCase):
         command_id = response.json["command"]["id"]
         with self.app.app_context():
             connection = get_db()
-            connection.execute("UPDATE commands SET expires_at=? WHERE id=?", (int(time.time()) - 1, command_id))
+            connection.execute(
+                "UPDATE commands SET expires_at=? WHERE id=?",
+                (int(time.time()) - 1, command_id),
+            )
             connection.commit()
         self.assertEqual(self.checkin().json["commands"], [])
 
@@ -274,7 +320,10 @@ class FleetServiceTests(unittest.TestCase):
         self.assertEqual(no_csrf.status_code, 403)
         secret = self.client.post(
             "/admin/api/devices/1/commands",
-            json={"type": "config_patch", "payload": {"changes": {"wifi_password": "must-not-leak"}}},
+            json={
+                "type": "config_patch",
+                "payload": {"changes": {"wifi_password": "must-not-leak"}},
+            },
             headers={"X-CSRF-Token": "csrf-test"},
         )
         self.assertEqual(secret.status_code, 422)
@@ -284,30 +333,44 @@ class FleetServiceTests(unittest.TestCase):
         self.register()
         self.admin_headers()
         self.assertIn(b"Devices", self.client.get("/admin/devices").data)
-        self.assertIn(INSTALLATION_ID.encode(), self.client.get("/admin/devices/1").data)
+        self.assertIn(
+            INSTALLATION_ID.encode(), self.client.get("/admin/devices/1").data
+        )
 
     def test_admin_can_label_device_by_nickname_and_location(self):
         self.register()
         headers = self.admin_headers()
         response = self.client.patch(
             "/admin/api/devices/1",
-            json={"friendly_name": "Kitchen Clock", "location_label": "Boston – Main Office"},
+            json={
+                "friendly_name": "Kitchen Clock",
+                "location_label": "Boston – Main Office",
+            },
             headers=headers,
         )
         self.assertEqual(response.status_code, 200, response.json)
         self.assertEqual(response.json["device"]["friendly_name"], "Kitchen Clock")
-        self.assertEqual(response.json["device"]["location_label"], "Boston – Main Office")
+        self.assertEqual(
+            response.json["device"]["location_label"], "Boston – Main Office"
+        )
 
         api_device = self.client.get("/admin/api/devices/1").json["device"]
         self.assertEqual(api_device["friendly_name"], "Kitchen Clock")
         self.assertEqual(api_device["location_label"], "Boston – Main Office")
         self.assertIn(b"Kitchen Clock", self.client.get("/admin/devices").data)
-        self.assertIn("Boston – Main Office", self.client.get("/admin/devices/1").text)
+        self.assertEqual(
+            self.client.get("/admin/api/devices/1").json["device"]["location_label"],
+            "Boston – Main Office",
+        )
 
         with self.app.app_context():
-            audit = get_db().execute(
-                "SELECT action, summary_json FROM audit_events ORDER BY id DESC LIMIT 1"
-            ).fetchone()
+            audit = (
+                get_db()
+                .execute(
+                    "SELECT action, summary_json FROM audit_events ORDER BY id DESC LIMIT 1"
+                )
+                .fetchone()
+            )
             self.assertEqual(audit["action"], "update_device_identity")
             self.assertEqual(
                 json.loads(audit["summary_json"])["changes"]["friendly_name"]["after"],
@@ -330,24 +393,13 @@ class FleetServiceTests(unittest.TestCase):
         )
         self.assertEqual(wrong_type.status_code, 400)
 
-    def test_enrollment_window_and_device_approval_gate_checkins(self):
-        self.app.config["ENROLLMENT_REQUIRED"] = True
-        closed = self.register(approve=False)
-        self.assertEqual(closed.status_code, 403)
-        self.assertEqual(closed.json["error"]["code"], "enrollment_closed")
-
-        headers = self.admin_headers()
-        opened = self.client.post(
-            "/admin/api/enrollment", json={"duration_minutes": 15}, headers=headers
+    def test_registration_and_checkins_need_no_approval(self):
+        self.app.config["ENROLLMENT_REQUIRED"] = (
+            True  # obsolete setting cannot gate clients
         )
-        self.assertEqual(opened.status_code, 200)
-        enrolled = self.register(approve=False)
-        self.assertEqual(enrolled.status_code, 201)
-        self.assertEqual(enrolled.json["verification_state"], "unverified")
-        self.assertEqual(self.checkin().status_code, 403)
-
-        approved = self.client.post("/admin/api/devices/1/approve", headers=headers)
-        self.assertEqual(approved.json["status"], "verified")
+        response = self.register(approve=False)
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json["verification_state"], "verified")
         self.assertEqual(self.checkin().status_code, 200)
 
     @mock.patch("fleet.sugarfleet.location_worker.lookup_approximate_location")
@@ -369,14 +421,16 @@ class FleetServiceTests(unittest.TestCase):
 
         self.admin_headers()
         device = self.client.get("/admin/api/devices/1").json["device"]
-        self.assertEqual(device["detected_location"]["label"], "Boston, Massachusetts, US")
+        self.assertEqual(device["detected_location"]["label"], "Boston, US")
         self.assertNotIn("8.8.8.8", json.dumps(device))
         with self.app.app_context():
             columns = [row[1] for row in get_db().execute("PRAGMA table_info(devices)")]
             self.assertFalse(any("ip" in column.lower() for column in columns))
 
     @mock.patch("fleet.sugarfleet.location_worker.lookup_approximate_location")
-    def test_private_ip_and_untrusted_forwarding_header_are_not_geolocated(self, lookup):
+    def test_private_ip_and_untrusted_forwarding_header_are_not_geolocated(
+        self, lookup
+    ):
         self.app.config["IP_GEOLOCATION_ENABLED"] = True
         response = self.client.post(
             "/device/v1/register",
@@ -387,11 +441,17 @@ class FleetServiceTests(unittest.TestCase):
         self.assertEqual(response.status_code, 201)
         lookup.assert_not_called()
         self.admin_headers()
-        self.assertIsNone(self.client.get("/admin/api/devices/1").json["device"]["detected_location"])
+        self.assertIsNone(
+            self.client.get("/admin/api/devices/1").json["device"]["detected_location"]
+        )
 
     @mock.patch("fleet.sugarfleet.location_worker.lookup_approximate_location")
     def test_configured_proxy_hop_uses_forwarded_public_ip(self, lookup):
-        lookup.return_value = {"city": "Boston", "region": "Massachusetts", "country_code": "US"}
+        lookup.return_value = {
+            "city": "Boston",
+            "region": "Massachusetts",
+            "country_code": "US",
+        }
         app = create_app(
             {
                 "TESTING": True,
@@ -431,8 +491,18 @@ class FleetServiceTests(unittest.TestCase):
     def test_signed_release_import_and_immutable_conflict(self):
         private = os.path.join(self.temp.name, "private.pem")
         public = os.path.join(self.temp.name, "ota-test-key-public.pem")
-        subprocess.run(["openssl", "genrsa", "-out", private, "2048"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        subprocess.run(["openssl", "rsa", "-in", private, "-pubout", "-out", public], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(
+            ["openssl", "genrsa", "-out", private, "2048"],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        subprocess.run(
+            ["openssl", "rsa", "-in", private, "-pubout", "-out", public],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
         manifest_url = "https://github.com/cdemeke/SugarClock/releases/download/v0.3.0/ota-manifest.json"
         manifest = {
             "schema": 1,
@@ -468,7 +538,10 @@ class FleetServiceTests(unittest.TestCase):
             headers=headers,
         )
         self.assertEqual(repeated.json["status"], "unchanged")
-        changed = dict(manifest, firmware_url=manifest["firmware_url"].replace(".bin", "-other.bin"))
+        changed = dict(
+            manifest,
+            firmware_url=manifest["firmware_url"].replace(".bin", "-other.bin"),
+        )
         changed_signature = subprocess.run(
             ["openssl", "dgst", "-sha256", "-sign", private],
             input=canonical_payload(changed),

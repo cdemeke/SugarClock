@@ -31,6 +31,8 @@ jobs:
       - run: pip install -r fleet/requirements.txt
       - name: Host security and policy tests
         run: python -m unittest discover -s tests -v
+      - name: Legacy and mixed fleet transition load
+        run: python -m fleet.load_test --devices 1000 --seconds 10 --rate 12
       - name: Build firmware and installer filesystem
         shell: bash
         run: |

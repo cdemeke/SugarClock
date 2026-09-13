@@ -1,6 +1,6 @@
 {
   "installation_id": "0d9189e2-117a-42b8-95c1-8fc88f23a8a4",
-  "firmware_version": "0.2.2",
+  "firmware_version": "0.2.7",
   "running_partition": "ota_0",
   "boot_partition": "ota_0",
   "previous_partition": "ota_1",
@@ -30,5 +30,24 @@
   "health_codes": [],
   "future_optional_field": {
     "ignored": true
+  },
+  "capabilities": [
+    "fleet_rollout_v1"
+  ],
+  "features": {
+    "schema_version": 1,
+    "data_source": "libre",
+    "companion_character": 4,
+    "companion_enabled": true,
+    "weather_enabled": true,
+    "timer_enabled": false,
+    "stopwatch_enabled": false,
+    "notifications_enabled": false,
+    "sysmon_enabled": false,
+    "auto_cycle_enabled": false,
+    "countdown_enabled": false,
+    "night_mode_enabled": false,
+    "auto_brightness": true,
+    "time_display_enabled": true
   }
 }

@@ -4,6 +4,10 @@ on:
   push:
     tags: ["preview-v*.*.*-*"]
 
+concurrency:
+  group: firmware-release-publishing
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
@@ -12,6 +16,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Load publishing guard from workflow revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: publishing-policy
+      - name: Capture pinned legacy update offer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 publishing-policy/scripts/release_guard.py --repository "${{ github.repository }}" snapshot --output "${{ runner.temp }}/latest-before.json"
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -84,5 +97,11 @@ jobs:
           gh release create "${tag}" release/* \
             --verify-tag \
             --prerelease \
+            --latest=false \
             --generate-notes \
             --title "SugarClock ${tag}"
+      - name: Verify legacy Latest tag and manifest were preserved
+        if: ${{ always() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 publishing-policy/scripts/release_guard.py --repository "${{ github.repository }}" check --expected "${{ runner.temp }}/latest-before.json"
