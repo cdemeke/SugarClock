@@ -210,11 +210,60 @@ static void animation_boundaries() {
             same_region(render(-12, false, condition, ms), baseline, 10, 31);
     }
 }
+static void animation_clock_lifecycle() {
+    WeatherAnimationState state = {};
+    // A first render starts at zero regardless of the device's uptime.
+    assert(weather_animation_elapsed(state, 600, 123456) == 0);
+    assert(state.active && state.condition_id == 600);
+    assert(state.epoch_ms == 123456 && state.last_render_ms == 123456);
+    assert(weather_animation_elapsed(state, 600, 123456) == 0);
+    assert(weather_animation_elapsed(state, 600, 123556) == 100);
+    assert(weather_animation_elapsed(state, 600, 123756) == 300);
+    assert(state.epoch_ms == 123456 && state.last_render_ms == 123756);
+
+    // Exactly 500ms is continuous; a 501ms gap starts a fresh animation.
+    assert(weather_animation_elapsed(state, 600, 124256) == 800);
+    assert(weather_animation_elapsed(state, 600, 124757) == 0);
+    assert(state.epoch_ms == 124757 && state.last_render_ms == 124757);
+    assert(weather_animation_elapsed(state, 600, 124857) == 100);
+
+    // A new condition restarts even when it shares the same visual category.
+    assert(weather_animation_elapsed(state, 601, 124858) == 0);
+    assert(state.condition_id == 601 && state.epoch_ms == 124858);
+    assert(weather_animation_elapsed(state, 601, 124959) == 101);
+
+    // Screen exit, pre-fetch and unavailable-data paths use this reset API.
+    weather_animation_reset(state);
+    assert(!state.active);
+    weather_animation_reset(state); // Repeated resets remain harmless.
+    assert(weather_animation_elapsed(state, 601, 124960) == 0);
+    assert(weather_animation_elapsed(state, 601, 125010) == 50);
+
+    WeatherAnimationState rollover = {};
+    assert(weather_animation_elapsed(rollover, 803, UINT32_MAX - 100) == 0);
+    // Across rollover, UINT32_MAX-100 -> 200 is 301ms, not a fetch gap.
+    assert(weather_animation_elapsed(rollover, 803, 200) == 301);
+    assert(rollover.epoch_ms == UINT32_MAX - 100 && rollover.last_render_ms == 200);
+    assert(weather_animation_elapsed(rollover, 803, 700) == 801);
+    assert(weather_animation_elapsed(rollover, 803, 1201) == 0);
+
+    // A genuine long pause is still detected when it straddles rollover.
+    weather_animation_reset(rollover);
+    assert(weather_animation_elapsed(rollover, 803, UINT32_MAX - 100) == 0);
+    assert(weather_animation_elapsed(rollover, 803, 401) == 0); // 502ms gap.
+    assert(rollover.epoch_ms == 401 && rollover.last_render_ms == 401);
+
+    // A recent frame keeps an old epoch valid: elapsed time also wraps safely.
+    WeatherAnimationState long_running = {true, 600, UINT32_MAX - 1000, UINT32_MAX - 100};
+    assert(weather_animation_elapsed(long_running, 600, 200) == 1201);
+    assert(long_running.epoch_ms == UINT32_MAX - 1000);
+}
 int main() {
     mapping();
     golden_temperatures();
     formatting_edges();
     icons_and_motion();
     animation_boundaries();
-    puts("Weather renderer: mapping, pixels, motion, text and numeric edges passed");
+    animation_clock_lifecycle();
+    puts("Weather renderer: mapping, pixels, motion, text, numeric edges and clock lifecycle passed");
 }

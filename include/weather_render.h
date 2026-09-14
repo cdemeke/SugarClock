@@ -11,6 +11,21 @@ enum class WeatherVisual {
 
 WeatherVisual weather_visual_for_condition(int condition_id);
 
+// Zero-initialize before use. The caller resets on screen exit, before a
+// blocking fetch, and when weather data becomes unavailable.
+struct WeatherAnimationState {
+    bool active;
+    int condition_id;
+    uint32_t epoch_ms;
+    uint32_t last_render_ms;
+};
+
+// Starts a new epoch on first use, condition changes, or render gaps >500ms.
+// Unsigned differences preserve timing across the 32-bit clock rollover.
+uint32_t weather_animation_elapsed(WeatherAnimationState& state,
+                                   int condition_id, uint32_t now);
+void weather_animation_reset(WeatherAnimationState& state);
+
 // Round half away from zero. Writes numeric digits only. Returns false for
 // nonfinite values, rounded values outside [-999, 9999], or a short buffer.
 bool weather_format_temperature(float temp, char* out, size_t size);

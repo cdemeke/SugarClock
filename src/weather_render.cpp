@@ -158,6 +158,22 @@ void render_temperature(const char* digits, bool available, bool use_f,
 }
 } // namespace
 
+uint32_t weather_animation_elapsed(WeatherAnimationState& state,
+                                   int condition_id, uint32_t now) {
+    if (!state.active || state.condition_id != condition_id ||
+        static_cast<uint32_t>(now - state.last_render_ms) > 500) {
+        state.epoch_ms = now;
+        state.condition_id = condition_id;
+        state.active = true;
+    }
+    state.last_render_ms = now;
+    return static_cast<uint32_t>(now - state.epoch_ms);
+}
+
+void weather_animation_reset(WeatherAnimationState& state) {
+    state.active = false;
+}
+
 WeatherVisual weather_visual_for_condition(int condition_id) {
     if (condition_id >= 200 && condition_id < 300) return WeatherVisual::Storm;
     if (condition_id >= 300 && condition_id < 400) return WeatherVisual::Drizzle;

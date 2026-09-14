@@ -768,16 +768,21 @@
                         <div class="hint" style="margin-top:8px;">Save config first, then test. New API keys can take up to 2 hours to activate.</div>
 
                         <div class="divider"></div>
-                        <h3 style="font-size:14px;margin-bottom:12px;">Preview Animations</h3>
+                        <h3 style="font-size:14px;margin-bottom:12px;">Preview Weather</h3>
                         <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px;">
-                            Trigger mock weather to preview animations on the display. Clears on next real weather fetch.
+                            Preview weather icons and animations on the display. Clears on next real weather fetch.
                         </p>
                         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                            <button type="button" class="btn btn-test" onclick="mockWeather(500,'Rain')">Rain</button>
-                            <button type="button" class="btn btn-test" onclick="mockWeather(601,'Snow')">Snow</button>
-                            <button type="button" class="btn btn-test" onclick="mockWeather(200,'Thunderstorm')">Thunder</button>
-                            <button type="button" class="btn btn-test" onclick="mockWeather(300,'Drizzle')">Drizzle</button>
                             <button type="button" class="btn btn-test" onclick="mockWeather(800,'Clear')">Clear</button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(801,'Partly cloudy')">Partly cloudy</button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(803,'Cloudy')">Cloudy</button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(500,'Rain / mist')">Rain / mist</button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(300,'Drizzle')">Drizzle</button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(611,'Sleet')">Sleet</button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(601,'Snow')">Snow</button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(200,'Thunderstorm')">Thunderstorm</button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(781,'Tornado')">Tornado</button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(711,'Other weather')">Other weather</button>
                         </div>
                         <span class="test-result" id="mock-weather-result" style="display:block;margin-top:8px;"></span>
                     </div>

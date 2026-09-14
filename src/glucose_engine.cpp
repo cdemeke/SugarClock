@@ -19,6 +19,8 @@
 #include "net_check.h"
 #include "sensors.h"
 #include <Arduino.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 #define STALE_WARNING_MS   (10UL * 60 * 1000)   // 10 minutes
 #define FAILURE_STALE_COUNT    5
@@ -70,36 +72,31 @@ static uint16_t color_from_uint32(uint32_t c) {
 
 // The icon renderer uses elapsed time, independent of render frame rate. Unsigned
 // subtraction keeps normal uptime rollover safe; gaps restart at a clean frame.
-static bool weather_animation_active = false;
-static int weather_animation_condition = 0;
-static uint32_t weather_animation_epoch_ms = 0;
-static uint32_t last_weather_render_ms = 0;
+static WeatherAnimationState weather_animation = {};
+static TaskHandle_t engine_task = nullptr;
 
 static void draw_weather_content(uint32_t now) {
     const AppConfig& cfg = config_get();
     const uint16_t color = color_from_uint32(cfg.color_weather);
     if (!weather_has_data()) {
-        weather_animation_active = false;
+        weather_animation_reset(weather_animation);
         display_draw_text("WX...", 4, 0, color);
         return;
     }
 
     const WeatherReading& wx = weather_get_reading();
-    if (!weather_animation_active || weather_animation_condition != wx.condition_id ||
-        static_cast<uint32_t>(now - last_weather_render_ms) > 500) {
-        weather_animation_epoch_ms = now;
-        weather_animation_condition = wx.condition_id;
-        weather_animation_active = true;
-    }
-    last_weather_render_ms = now;
     weather_render(wx.temp, cfg.weather_use_f, wx.condition_id,
-                   static_cast<uint32_t>(now - weather_animation_epoch_ms), color);
+                   weather_animation_elapsed(weather_animation, wx.condition_id, now), color);
 }
 
 // Freeze a complete compact weather frame before a blocking HTTP fetch, using
 // the same numeric rounding, layout, and current fade level as normal rendering.
 static void on_weather_pre_fetch() {
-    weather_animation_active = false;
+    // Test Weather API also fetches from AsyncTCP. Only the engine's task may
+    // touch its animation state or the LED buffer; that task keeps rendering
+    // normally while a different task is fetching.
+    if (xTaskGetCurrentTaskHandle() != engine_task) return;
+    weather_animation_reset(weather_animation);
     if (current_state == STATE_WEATHER_DISPLAY) {
         display_clear();
         display_set_transition_level(transition_level);
@@ -252,8 +249,9 @@ void engine_snooze_alerts() {
 }
 
 void engine_init() {
+    engine_task = xTaskGetCurrentTaskHandle();
     current_state = STATE_BOOT;
-    weather_animation_active = false;
+    weather_animation_reset(weather_animation);
     boot_start_ms = millis();
 
     AppConfig& cfg = config_get();
@@ -891,7 +889,7 @@ void engine_loop() {
                               engine_state_name(current_state),
                               engine_state_name(transition_target));
                 current_state = transition_target;
-                weather_animation_active = false;
+                weather_animation_reset(weather_animation);
                 display_scroll_reset();
                 transition_level = 0;
                 transition_start_level = 0;
