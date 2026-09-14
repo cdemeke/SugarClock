@@ -11,30 +11,45 @@
 <p align="center">
   <a href="https://sugarclock.com/">Website</a> &bull;
   <a href="#quick-start">Quick Start</a> &bull;
-  <a href="https://sugarclock.com/setup.html">Setup Guide</a> &bull;
-  <a href="https://sugarclock.com/support.html">Help & FAQ</a>
+  <a href="https://sugarclock.com/#install">Setup Guide</a> &bull;
+  <a href="https://sugarclock.com/faq.html">Help & FAQ</a>
 </p>
 
 ---
 
 ## What is SugarClock?
 
-SugarClock is free, open-source firmware that turns the [Ulanzi TC001 Smart Pixel Clock](https://amzn.to/4rrqbjz) into a dedicated CGM (continuous glucose monitor) display. It connects to **Dexcom Share**, **FreeStyle Libre** (via LibreLinkUp), or **Nightscout** over WiFi and shows your current glucose reading in big, color-coded numbers on an LED matrix.
+SugarClock is free, open-source firmware that turns the [Ulanzi TC001 Smart Pixel Clock](https://amzn.to/4rrqbjz) into a dedicated CGM (continuous glucose monitor) display. It connects to **Dexcom Share**, **FreeStyle Libre** (via LibreLinkUp), or a **compatible custom JSON endpoint** over WiFi and shows your current glucose reading in big, color-coded numbers on an LED matrix.
 
 **Cost:** ~$40 one-time for the clock. The software is free. No subscriptions.
+
+## Availability
+
+This README describes the latest merged source on `main`. **As of September 12, 2026**, the latest stable release is [v0.2.6](https://github.com/cdemeke/SugarClock/releases/tag/v0.2.6), while the browser and bundled Mac installer firmware remain at **v0.2.2** ([artifact metadata](docs/installer-artifacts.json)). LibreLinkUp, all seven companions, the redesigned dashboard, and the clock's mmol/L display fix are merged but are not yet included in that stable release or the bundled installers. Build from source to use all of these changes, or wait for a release that includes them. Updating to v0.2.6 alone does not add them.
 
 ## Features
 
 - **Live glucose display** — Large color-coded numbers (green = in range, orange = high/low, red = urgent)
 - **Trend arrows** — See which direction your glucose is heading
-- **Dexcom, Libre & Nightscout** — Works with Dexcom and FreeStyle Libre 2/3 CGMs directly, or any Nightscout-compatible setup
-- **Audible alerts** — Buzzer for high/low glucose with snooze button
+- **Dexcom Share & LibreLinkUp** — Fetch readings over WiFi using your Dexcom Share account or a LibreLinkUp follower account; the clock does not connect directly to the sensor
+- **Custom JSON & demo mode** — Connect a compatible endpoint, or explore the display with synthetic readings without a CGM account
+- **mg/dL or mmol/L** — Readings and deltas use your selected units on the clock and dashboard; mmol/L displays one decimal place
+- **Stale-data visibility** — Retains the last reading and trend in a configurable stale color (gray by default); stale readings do not trigger buzzer alerts
 - **Auto brightness** — Built-in light sensor adjusts to your room
 - **Night mode** — Dims automatically during sleeping hours
-- **Web dashboard** — Configure everything from your phone or computer browser
+- **Web dashboard** — Responsive sidebar navigation, light/dark mode, and a live mirror of the actual LED display. The latest glucose, signed delta, and reading age remain visible even when the clock shows another view
 - **Secure WiFi updates** — Signed, power-loss-safe firmware updates with automatic rollback
 - **Clock, weather & more** — Also shows time, date, temperature, pomodoro timer, and push notifications
-- **Pixel Companions** — Choose Pip the goldfish, Boo the ghost, Mochi the axolotl, Sprout the dinosaur, Pebble the turtle, Inky the octopus, or Maple the red panda in Settings → Display. Choose companion + text, companion + range icon, or the companion alone centered on screen. Preview low, in-range, and high poses; range text/icons use red for both low and high by default, with an option to follow your configured glucose colors. Greetings and sleepy poses apply only in range. The clock remembers your choices, and urgent readings replace the companion with the glucose number.
+- **Pixel companions** — Seven animated pets with glucose-aware poses, three display styles, and an animated settings preview
+- **Easy local access** — Double-click the middle button to scroll the clock's browser address
+
+### Make it yours with pixel companions
+
+Choose **Pip** the goldfish, **Boo** the ghost, **Mochi** the axolotl, **Sprout** the dinosaur, **Pebble** the turtle, **Inky** the octopus, or **Maple** the red panda in **Settings → Display**. Show your pet with range text, a range icon, or by itself. Range text/icons default to red for low/high and green for in range; optionally use your configured glucose colors. Greetings and sleep poses apply only in range. Urgent readings replace the pet with the glucose number, and missing/stale-data warnings take priority.
+
+![The seven pixel companions in low, in-range, and high states](docs/images/pixel-companions.png)
+
+The dashboard provides previous/next and auto-cycle controls. Its brightness slider selects manual brightness; **Advanced brightness** lets you re-enable the light sensor. Buzzer alerts remain supported by the firmware/API, but their controls are hidden in the redesigned settings because the hardware buzzer is quiet. Existing alert settings are preserved.
 
 ## What You Need
 
@@ -42,13 +57,13 @@ SugarClock is free, open-source firmware that turns the [Ulanzi TC001 Smart Pixe
 |------|-------|
 | [Ulanzi TC001 pixel clock](https://amzn.to/4rrqbjz) | ~$40 on Amazon |
 | USB-C data cable | Usually included with the clock |
-| A Mac (or any computer) | Mac has a one-click installer; Windows/Linux can use the command line |
+| A computer | Chrome/Edge for browser installation; command-line builds work across platforms |
 | WiFi (2.4 GHz) | The clock connects to your home WiFi |
-| Dexcom account, LibreLinkUp account, or Nightscout URL | Your glucose data source |
+| Dexcom Share account, LibreLinkUp follower account, or compatible JSON URL | See release availability above; demo mode needs no CGM account |
 
 ### FreeStyle Libre setup
 
-Use a LibreLinkUp follower account, save its credentials in Settings, then use
+Libre support uses the unofficial LibreLinkUp follower API and depends on readings being shared to that account. Use a LibreLinkUp follower account, save its credentials in Settings, then use
 **Test Connection** to load the people sharing with it. A single person is saved
 automatically. If several people share, choose **Person to display** and save.
 The clock remembers the person's ID across restarts and stops accepting readings
@@ -65,29 +80,22 @@ five minutes for the first hour, then back off to 10, 20, 40, and at most 60
 minutes. After completing the action in LibreLinkUp, test again once the current
 cooldown expires; Test uses the same retry limit as automatic polling.
 
-## Quick Start (Mac)
+### Custom URL and Nightscout compatibility
 
-### 1. Download the installer
+**Custom URL** expects a JSON object with `glucose` in mg/dL, `timestamp` in Unix seconds, and `trend` (for example, `Flat`, `SingleUp`, or `SingleDown`). An optional token is sent as `Authorization: Bearer <token>`.
 
-Download **SugarClock Setup.dmg** from the [latest release on GitHub](https://github.com/cdemeke/SugarClock/releases/latest). Open the DMG and drag **SugarClock Setup** into your Applications folder.
+A Nightscout site root or its standard entries response is **not directly supported** by this parser. Use an adapter that returns the expected object and handles Nightscout authentication. The Mac app's Nightscout option currently saves the site root as a Custom URL; that alone is insufficient.
 
-### 2. Plug in the clock
+## Quick Start
 
-Connect your Ulanzi TC001 to your Mac with the included USB-C cable. Use a port directly on your Mac (not a hub).
+1. Connect your Ulanzi TC001 to a computer with a USB-C **data** cable.
+2. Open the [browser installer](https://sugarclock.com/#install) in Chrome or Edge and follow its prompts. Check **Availability** above before choosing this route: the bundled image does not yet contain the latest merged features.
+3. On current source builds, first-time WiFi setup uses the **SugarClock-Setup** network. Join it from a phone or computer, open `http://192.168.4.1` in a normal browser, and use **WiFi → Join this network**. Older installer builds may present different provisioning steps; follow their on-screen prompts.
+4. Once connected, open the clock's local address from a device on the same network to configure your data source, units, ranges, and display. On current source builds, **double-click the middle button** to show that address.
 
-### 3. Run the setup app
+The Mac setup app source is in [onboarding/TC001Setup](onboarding/TC001Setup). The current v0.2.6 release has **no DMG asset**, so the latest-release page is not currently a working Mac app download. Use the browser installer or build from source below.
 
-Open **SugarClock Setup** and follow the on-screen steps. The app will walk you through everything:
-
-1. **Detect your clock** over USB
-2. **Pick your WiFi network** from a list
-3. **Connect your glucose source** (Dexcom Share, FreeStyle Libre, Nightscout, or custom URL)
-4. **Set your preferences** (units, alerts, brightness, timezone)
-5. **Flash the firmware** — the app installs everything onto the clock automatically
-
-When it's done, the clock restarts and your glucose reading should appear within a minute.
-
-For detailed step-by-step instructions (with screenshots), see the **[Setup Guide](https://sugarclock.com/setup.html)**.
+See the [installation guide](INSTALL.md) for detailed flashing, WiFi setup, and recovery instructions.
 
 <details>
 <summary><strong>Advanced: Build from source (all platforms)</strong></summary>
@@ -95,15 +103,15 @@ For detailed step-by-step instructions (with screenshots), see the **[Setup Guid
 If you'd rather build and flash manually (or you're on Windows/Linux):
 
 ```bash
-pip install -r requirements-build.txt
 git clone https://github.com/cdemeke/SugarClock.git
 cd SugarClock
+python3 -m pip install -r requirements-build.txt
 pio run && pio run --target buildfs      # build firmware + filesystem
 pio run --target upload                   # flash firmware
 pio run --target uploadfs                 # flash filesystem
 ```
 
-Then set your WiFi credentials in `src/config_manager.cpp`, rebuild, and re-flash. Use `pio device monitor` to find the device IP, then open `http://<device-ip>/config.html` to configure your glucose source.
+Use the first-time WiFi steps above; no source-code credential edits are needed. Open `http://<device-ip>/` for Settings, or use `pio device monitor` to find the IP. For a clock with an older partition layout, follow the [OTA migration instructions](INSTALL.md#one-time-ota-migration-preserve-existing-settings) before flashing.
 
 You may need the [CH340 USB driver](https://sparks.gogo.co.nz/ch340.html) on Windows.
 
@@ -123,7 +131,7 @@ mode, low heap, unavailable time, or lost WiFi. Manifest checks and firmware dow
 certificate-validated HTTPS, and every release manifest is verified with the public release
 key compiled into the firmware.
 
-The bootloader writes updates to the inactive application slot. The new firmware must pass a
+The running firmware writes updates to the inactive application slot. The new firmware must pass a
 15-second local health check before it is marked valid; a crash, watchdog reset, or failed
 health check causes the bootloader to restore the previous slot. Internet and CGM availability
 are deliberately not part of that health check.
@@ -131,6 +139,8 @@ are deliberately not part of that health check.
 USB flashing remains the recovery path. See [INSTALL.md](INSTALL.md) for the non-erasing
 bootstrap migration and recovery commands. Maintainers should follow
 [docs/OTA_SIGNING.md](docs/OTA_SIGNING.md) for release signing and key rotation.
+
+For administrators managing multiple clocks, the optional [fleet service](fleet/README.md) supports approved enrollment, remote commands, and managed updates. It requires a separately deployed service; see its setup and privacy documentation.
 
 Companion integrations: see the [configuration API and legacy-field migration notes](docs/companion-api.md).
 
@@ -141,15 +151,18 @@ Companion integrations: see the [configuration API and legacy-field migration no
 | Clock not detected via USB | Use a data cable (not charge-only), connect directly (no hub), install CH340 driver |
 | Upload fails | Hold middle button while plugging in USB to enter flash mode |
 | `NO WIFI` on display | Check SSID/password, make sure it's a 2.4 GHz network |
-| `NO DATA` on display | Check Dexcom/LibreLinkUp credentials or server URL on the config page |
+| `NO DATA` on display | Check source credentials, Libre person selection, or the custom endpoint format in Settings |
+| Reading is gray | The last reading is stale; check connectivity and the source's reading age |
+| Cannot find local Settings | On current source builds, double-click the middle button; otherwise check your router or serial monitor |
+| Latest features are missing | Check your running firmware version against Availability above; merged source and installer versions differ |
 
-See the **[Help & FAQ](https://sugarclock.com/support.html)** for more.
+See the **[Help & FAQ](https://sugarclock.com/faq.html)** for more.
 
 ## Backup & Restore Factory Firmware
 
 ```bash
 # Backup original firmware (before flashing)
-esptool.py -p /dev/cu.usbserial-* -b 921600 read_flash 0x0 0x800000 tc001_factory_backup.bin
+esptool.py -p /dev/cu.usbserial-* -b 921600 read_flash 0x0 ALL tc001_factory_backup.bin
 
 # Restore original firmware
 esptool.py -p /dev/cu.usbserial-* -b 460800 write_flash 0x0 tc001_factory_backup.bin
