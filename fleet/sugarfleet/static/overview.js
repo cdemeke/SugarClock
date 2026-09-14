@@ -66,6 +66,15 @@
     node.append(table);
   }
 
+  // Device registration accepts numeric x.y.z versions, without prerelease suffixes.
+  function newestReportedVersion(rows) {
+    return rows.map(([name]) => name).filter(name => /^\d+\.\d+\.\d+$/.test(name)).sort((a, b) => {
+      const left = a.split('.').map(Number), right = b.split('.').map(Number);
+      for (let i = 0; i < 3; i++) if (left[i] !== right[i]) return right[i] - left[i];
+      return 0;
+    })[0];
+  }
+
   function renderDistribution(id, counts, total, versions = false) {
     const node = target(id);
     node.replaceChildren();
@@ -75,12 +84,15 @@
       return;
     }
     const list = element('div', null, 'distribution');
-    rows.forEach(([name, count], index) => {
+    const newest = versions ? newestReportedVersion(rows) : undefined;
+    rows.forEach(([name, count]) => {
       const row = element('div');
       const label = element('div', null, 'distribution-label');
-      label.append(element('span', name, versions ? 'mono' : undefined),
+      const nameLabel = element('span', name, versions ? 'version-label mono' : undefined);
+      if (versions && name === newest) nameLabel.append(element('span', 'Newest reported', 'version-badge'));
+      label.append(nameLabel,
         element('span', versions ? `${number(count)} · ${Math.round(percent(count, total))}%` : number(count), 'distribution-value'));
-      row.append(label, bar(count, total, name.toLowerCase() === 'unknown' || (versions && index === 0 && rows.length > 1)));
+      row.append(label, bar(count, total, name.toLowerCase() === 'unknown' || (versions && name !== newest)));
       list.append(row);
     });
     node.append(list);
@@ -190,14 +202,18 @@
     if (capacity?.warning) node.append(element('p', 'Registration capacity is running low. Review abandoned registrations to free space.', 'warning'));
   }
 
-  let refreshing = false;
+  let refreshing = false, cleaning = false, hasSummary = false;
+  function updateControls() {
+    target('refresh').disabled = refreshing || cleaning;
+    target('cleanup').disabled = refreshing || cleaning || !hasSummary;
+  }
   async function refreshOverview() {
     if (refreshing) return;
     refreshing = true;
     const button = target('refresh');
     const status = target('overview-status');
     const content = target('overview-content');
-    button.disabled = true;
+    updateControls();
     button.textContent = 'Refreshing…';
     content.setAttribute('aria-busy', 'true');
     status.textContent = 'Loading fleet summary…';
@@ -221,25 +237,39 @@
       renderHistory(data.daily);
       renderCapacity(counts, data.capacity);
       target('updated-at').textContent = `Updated ${new Date().toLocaleTimeString()}`;
-      target('cleanup').disabled = false;
+      hasSummary = true;
       status.textContent = '';
     } catch (error) {
       status.textContent = `Couldn’t refresh the summary. ${error.message} Use Refresh to try again. Any displayed counts are from the last successful refresh.`;
       status.classList.add('is-error');
     } finally {
       refreshing = false;
-      button.disabled = false;
+      updateControls();
       button.textContent = 'Refresh';
       content.setAttribute('aria-busy', 'false');
     }
   }
 
-  target('refresh').addEventListener('click', refreshOverview);
-  target('cleanup').addEventListener('click', event => fleet.action(event.currentTarget, target('cleanup-result'), async () => {
-    const result = await fleet.request('/admin/api/cleanup', {registration_only: true});
-    const removed = result.deleted ?? result.removed ?? 0;
-    target('cleanup-result').textContent = `Removed ${number(removed)} abandoned registration${removed === 1 ? '' : 's'}.`;
-    await refreshOverview();
-  }));
+  target('refresh').addEventListener('click', () => { if (!cleaning) return refreshOverview(); });
+  target('cleanup').addEventListener('click', async () => {
+    if (refreshing || cleaning || !hasSummary) return;
+    cleaning = true;
+    updateControls();
+    const output = target('cleanup-result');
+    output.textContent = 'Cleaning up…';
+    try {
+      const result = await fleet.request('/admin/api/cleanup', {registration_only: true});
+      const removed = result.deleted ?? result.removed ?? 0;
+      output.textContent = `Removed ${number(removed)} abandoned registration${removed === 1 ? '' : 's'}.`;
+      // A successful delete makes the previous totals stale until the next GET succeeds.
+      hasSummary = false;
+      await refreshOverview();
+    } catch (error) {
+      output.textContent = error.message;
+    } finally {
+      cleaning = false;
+      updateControls();
+    }
+  });
   refreshOverview();
 })();
