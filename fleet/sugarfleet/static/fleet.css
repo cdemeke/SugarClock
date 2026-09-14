@@ -194,3 +194,39 @@ details form { margin-top: 24px; max-width: 600px; }
 }
 .skip-link { position: absolute; top: -80px; left: 16px; z-index: 10; padding: 10px 16px; border-radius: 6px; background: var(--accent); color: white; }
 .skip-link:focus { top: 12px; }
+
+/* Page-load panel reveal: a short rise, fade, and cross-blur.
+   Animate stable containers so fetching or refreshing their data does not replay it. */
+@keyframes fleet-panel-reveal {
+  from { opacity: 0; transform: translateY(24px); filter: blur(2px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  #main-content > :where(:not(#overview-content, script, noscript, .warning, [role="status"])),
+  #overview-content > .metrics,
+  #overview-content > .capacity-card,
+  .overview-grid > .feature-card,
+  .overview-stack > .card,
+  .overview-bottom > .card {
+    animation: fleet-panel-reveal 400ms cubic-bezier(.22, 1, .36, 1) backwards;
+    animation-delay: var(--reveal-delay, 0ms);
+  }
+  #main-content > :nth-child(2) { --reveal-delay: 40ms; }
+  #main-content > :nth-child(3) { --reveal-delay: 80ms; }
+  #main-content > :nth-child(4) { --reveal-delay: 120ms; }
+  #main-content > :nth-child(5) { --reveal-delay: 160ms; }
+  #main-content > :nth-child(n+6) { --reveal-delay: 200ms; }
+  #overview-content > .metrics { --reveal-delay: 80ms; }
+  #overview-content > .capacity-card { --reveal-delay: 120ms; }
+  .overview-grid > .feature-card { --reveal-delay: 160ms; }
+  .overview-stack > .card:first-child { --reveal-delay: 200ms; }
+  .overview-stack > .card + .card { --reveal-delay: 240ms; }
+  .overview-bottom > .card:first-child { --reveal-delay: 280ms; }
+  .overview-bottom > .card + .card { --reveal-delay: 320ms; }
+  /* Keyboard navigation should never wait for a panel to settle. */
+  #main-content > :focus-within,
+  #overview-content :focus-within {
+    animation-duration: 0s;
+    animation-delay: 0s;
+  }
+}
