@@ -14,8 +14,13 @@ class WeatherPrefetchTests(unittest.TestCase):
         # glucose, buzzer and timer dependencies. Its callees record side effects.
         source = (ROOT / 'src/glucose_engine.cpp').read_text()
         signature = 'static void on_weather_pre_fetch() {'
-        callback = signature + source.split(signature, 1)[1].split(
-            '// Data-driven toggle order', 1)[0]
+        end_marker = '// Data-driven toggle order'
+        self.assertEqual(source.count(signature), 1,
+                         'Expected one on_weather_pre_fetch definition; update the callback extraction.')
+        remainder = source.split(signature, 1)[1]
+        self.assertIn(end_marker, remainder,
+                      'Callback end marker is missing; update the callback extraction before compiling.')
+        callback = signature + remainder.split(end_marker, 1)[0]
         harness = r'''
 #include "weather_render.h"
 #include <assert.h>
