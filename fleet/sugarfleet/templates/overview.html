@@ -1,38 +1,45 @@
 {% extends "base.html" %}
 {% block title %}Overview · SugarClock Fleet{% endblock %}
 {% block content %}
-<div class="heading"><div><h1>Your clocks, at a glance</h1><p>Connections, enabled features, and firmware adoption.</p></div><button id="refresh">Refresh</button></div>
+<div class="overview-heading">
+  <div class="overview-title-row">
+    <h1>Your clocks, at a glance</h1>
+    <div class="refresh-control"><span id="updated-at" class="mono" role="status">Waiting for reports</span><button id="refresh">Refresh</button></div>
+  </div>
+  <p class="overview-intro">Connections, enabled features, and firmware adoption. <span id="reporting-summary"></span></p>
+</div>
 <p id="overview-status" role="status">Loading fleet summary…</p>
-<div id="metrics" class="metrics"></div>
-<div class="grid"><section class="card"><h2>Enabled features</h2><p class="hint">Latest configuration reported by installations active in the last 30 days. Enabled does not measure time spent using a feature.</p><div id="feature-counts"></div></section><section class="card"><h2>Firmware versions</h2><div id="version-counts"></div></section></div>
-<div class="grid"><section class="card"><h2>Data sources</h2><div id="source-counts"></div></section><section class="card"><h2>Activity history</h2><p class="hint">Daily snapshots accumulate as clocks report.</p><div id="daily-counts"></div></section></div>
-<section class="card action-card"><h2>Approximate city / country</h2><p class="hint">Installations active in the last 30 days. IP estimates can be inaccurate or unavailable.</p><div id="location-counts"></div></section>
-<section class="card"><h2>Registration capacity</h2><p id="capacity-summary"></p><p class="hint">Cleanup removes new registrations older than 24 hours that never completed a check-in. Migrated identities, active clocks, and blocked installations are preserved.</p><button id="cleanup" class="secondary">Clean up abandoned registrations</button><span id="cleanup-result" role="status" class="form-result"></span></section>
+<div id="overview-content" aria-busy="true">
+  <div id="metrics" class="metrics">
+    {% for label in ['Registered', 'Online now', 'Active · 7 days', 'Active · 30 days'] %}
+    <section class="card metric"><h2>{{ label }}</h2><strong>—</strong><p class="mono hint">Waiting for reports</p></section>
+    {% endfor %}
+  </div>
+  <section class="card capacity-card" aria-labelledby="capacity-title">
+    <div class="panel-heading"><h2 id="capacity-title">Registration capacity</h2><button id="cleanup" class="secondary" disabled>Clean up abandoned registrations</button></div>
+    <div id="capacity-summary"><p class="hint">Loading capacity…</p></div>
+    <details class="cleanup-help"><summary>What does cleanup remove?</summary><p class="hint">New registrations older than 24 hours that never completed a check-in. Migrated identities, active clocks, and blocked installations are preserved.</p></details>
+    <p id="cleanup-result" role="status" class="form-result"></p>
+  </section>
+  <div class="overview-grid">
+    <section class="card feature-card" aria-labelledby="features-title">
+      <div class="panel-intro"><h2 id="features-title">Enabled features</h2><p class="hint">Latest reported config from installations active in the last 30 days. “Enabled” is configuration, not usage.</p></div>
+      <div id="feature-counts" class="feature-table-wrap" role="region" aria-label="Enabled feature counts" tabindex="0"><p class="empty">Loading features…</p></div>
+    </section>
+    <div class="overview-stack">
+      <section class="card" aria-labelledby="activity-title">
+        <div class="panel-heading"><h2 id="activity-title">Activity history</h2><span class="mono hint">Last 30 days</span></div>
+        <div id="daily-counts"><p class="empty">Loading activity…</p></div>
+        <p class="hint panel-footnote">Daily snapshots of installations active in the preceding 30 days. Recorded as clocks report in.</p>
+      </section>
+      <section class="card" aria-labelledby="versions-title"><h2 id="versions-title">Firmware versions</h2><p class="hint panel-description">Installed on clocks active in the last 30 days.</p><div id="version-counts"><p class="empty">Loading versions…</p></div></section>
+    </div>
+  </div>
+  <div class="grid overview-bottom">
+    <section class="card" aria-labelledby="sources-title"><h2 id="sources-title">Data sources</h2><p class="hint panel-description">Reported by clocks active in the last 30 days.</p><div id="source-counts"><p class="empty">Loading sources…</p></div></section>
+    <section class="card" aria-labelledby="locations-title"><div class="panel-heading"><h2 id="locations-title">Approximate city / country</h2><span class="mono hint">IP estimate</span></div><div id="location-counts"><p class="empty">Loading locations…</p></div><p class="hint panel-footnote">Active in the last 30 days. IP estimates may be inaccurate or unavailable.</p></section>
+  </div>
+</div>
+<noscript><p class="warning">Enable JavaScript to load the fleet summary and use dashboard actions.</p></noscript>
 {% endblock %}
-{% block scripts %}<script>
-function countTable(target, rows) {
-  const node=document.querySelector(target); node.replaceChildren();
-  if (!rows.length) {node.append(fleet.element('p','No reports yet.','hint'));return;}
-  const table=fleet.element('table'); const body=fleet.element('tbody');
-  rows.forEach(([name,count])=>{const row=fleet.element('tr');row.append(fleet.element('td',fleet.label(name)),fleet.element('td',count));body.append(row);});table.append(body);node.append(table);
-}
-async function refreshOverview(){
-  const status=document.querySelector('#overview-status');
-  try {
-    const data=await fleet.request('/admin/api/overview',undefined,'GET');
-    const counts=data.counts;
-    const metrics=document.querySelector('#metrics');metrics.replaceChildren();
-    [['Registered',counts.total],['Online now',counts.online],['Active · 7 days',counts.active_7d],['Active · 30 days',counts.active_30d]].forEach(([label,value])=>{const card=fleet.element('section',null,'card metric');card.append(fleet.element('span',label),fleet.element('strong',value??0));metrics.append(card);});
-    countTable('#feature-counts',Object.entries(data.feature_counts||{}).map(([name,value])=>[name,`${value.enabled} enabled · ${value.unknown} unknown`]));
-    countTable('#version-counts',Object.entries(data.version_counts||{}));
-    countTable('#source-counts',Object.entries(data.source_counts||{}));
-    countTable('#location-counts',Object.entries(data.location_counts||{}));
-    countTable('#daily-counts',(data.daily||[]).slice(0,7).map(day=>[day.day,day.active_30d]));
-    document.querySelector('#capacity-summary').textContent=`${data.capacity?.warning?'Capacity warning: ':''}${counts.total??0} / ${data.capacity?.ceiling??'—'} stored installations. ${counts.blocked??0} blocked · ${counts.retired??0} retired · ${counts.legacy??0} using legacy updates.`;
-    status.textContent=`Updated ${new Date().toLocaleTimeString()}. Feature reports available from ${counts.feature_reporting??0} active installations; missing reports are unknown.`;
-  }catch(error){status.textContent=error.message;}
-}
-document.querySelector('#refresh').addEventListener('click',refreshOverview);
-document.querySelector('#cleanup').addEventListener('click',event=>fleet.action(event.currentTarget,document.querySelector('#cleanup-result'),async()=>{const result=await fleet.request('/admin/api/cleanup',{registration_only:true});document.querySelector('#cleanup-result').textContent=`Removed ${result.deleted??result.removed??0} abandoned registrations.`;await refreshOverview();}));
-refreshOverview();
-</script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='overview.js') }}"></script>{% endblock %}
