@@ -11,12 +11,42 @@ bootloader alone is insufficient.
 OTA manager then retains responsibility for acceptance: at least 15 seconds,
 loaded configuration, available web assets, more than 100 loop iterations, and
 at least 55,000 bytes of free heap. Network availability is not a requirement.
+If only heap is low, the image stays pending until heap recovers or 60 seconds
+have elapsed since validation started. Recovery permits immediate acceptance
+after the initial 15-second observation period; persistent low heap at the
+deadline requests rollback. Missing configuration/assets or insufficient loop
+iterations still fail at the initial check. A failed SDK acceptance call, or a
+rollback call that returns without rebooting, is retried no sooner than five
+seconds later. The image stays pending while those calls fail.
 An image that restarts before acceptance remains eligible for bootloader
 rollback. No bootloader change is required on the tested TC001.
 
 The host regression test links the actual application source against a weak C
 default and a C caller. It catches both removal of the override and accidental
 C++ name mangling, which would otherwise silently preserve early acceptance.
+Host C/C++ compilers are required: a missing compiler fails the test rather than
+silently skipping this protection. Policy tests compile the production decision
+code and cover heap recovery, the deadline, failed-attempt backoff, and counter
+wraparound. After a firmware build, `scripts/check_layout.py` also checks the
+installed Arduino weak-hook signature and initialization call, plus the live
+linker-map definition's ownership by `src/ota_boot_validation.cpp.o`. A platform
+upgrade that changes these assumptions must be reviewed explicitly.
+
+## Restarts while validation is pending
+
+Avoid manual restart, factory reset, or removing power until
+`pending_verification` becomes false. These actions can make the bootloader
+reject even a healthy image and return to its valid fallback. The usual window
+is about 15 seconds, but low heap extends it to 60 seconds and SDK failures can
+extend it further. Restart endpoints keep their existing behavior; they are
+not blocked during validation. The 30-second initial Fleet check-in delay also
+does not exclude remote restart commands during an extended window.
+
+When Fleet records `rolled_back`, that target is terminal for the rollout and
+is not automatically offered the release again. The existing **Retry failed**
+action retries only `failed` targets, not `rolled_back` targets. Investigate the
+restart, then create a new rollout/candidate selection if another attempt is
+appropriate (finish the existing candidate selection first if applicable).
 
 ## Scope of hardware validation
 
@@ -34,7 +64,8 @@ and remaining migration acceptance checks are complete.
 
 ## Physical results — September 16, 2026
 
-A TC001 with the original installed bootloader and a valid v0.2.12 fallback
+At commit `00ce9a94458a649985b6d2ab87b730bbb807e084`, a TC001 with the original
+installed bootloader and a valid v0.2.12 fallback
 passed both first-boot tests:
 
 - Healthy v0.2.13: API observations remained pending at approximately 5 and 11
@@ -48,9 +79,15 @@ passed both first-boot tests:
 
 The production binary excludes the failure fixture. Its SHA-256 is
 `7a1e232aa33b67de4bcd3ec87b7247aef6ea7974fbeb348d806f63b1f13150e7`;
-a clean rebuild after removing the fixture produced the same bytes.
+rebuilding production source after removing the fixture produced the same bytes.
 The 117 Python tests, 22 JavaScript tests, firmware and filesystem builds, and
 layout/OTA stack-budget checks passed locally.
+
+These physical results precede the review changes that add heap grace and SDK
+retry backoff. Those changes have host regression coverage but need a fresh
+hardware test of the final release candidate before public promotion. The
+previous binary's hash and physical observations above do not identify or
+validate the revised binary.
 
 These results replace the previous inference that `pending_verification=false`
 alone established successful health validation. A historical Fleet
