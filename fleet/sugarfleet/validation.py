@@ -106,6 +106,7 @@ CONFIG_FIELDS = {
     "sysmon_display_mode": (int, 0, 1),
     "sysmon_warn_pct": (int, 0, 100),
     "sysmon_crit_pct": (int, 0, 100),
+    "glucose_only_when_low": (bool, None, None),
     "auto_cycle_enabled": (bool, None, None),
     "auto_cycle_sec": (int, 3, 300),
     "countdown_enabled": (bool, None, None),

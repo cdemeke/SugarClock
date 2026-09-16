@@ -89,6 +89,27 @@ static void draw_weather_content(uint32_t now) {
                    weather_animation_elapsed(weather_animation, wx.condition_id, now), color);
 }
 
+bool engine_low_glucose_lock_active() {
+    const AppConfig& cfg = config_get();
+    const GlucoseReading& reading = http_get_reading();
+    if (!cfg.glucose_only_when_low || !reading.valid) return false;
+
+    // Match urgent-glucose freshness rules, but allow AP setup to take over.
+    // Brief WiFi drops and cached reachability failures do not invalidate a
+    // fresh glucose reading. Demo readings do not depend on connectivity.
+    if (cfg.data_source != 2) {
+        const unsigned long stale_ms = (unsigned long)cfg.stale_timeout_min * 60000UL;
+        if (http_time_since_last_reading() >= stale_ms ||
+            http_get_failure_count() >= FAILURE_STALE_COUNT ||
+            wifi_is_ap_mode()) {
+            return false;
+        }
+    }
+
+    // Defensive: configuration does not require these thresholds to be ordered.
+    return reading.glucose < cfg.thresh_low || reading.glucose < cfg.thresh_urgent_low;
+}
+
 // Freeze a complete compact weather frame before a blocking HTTP fetch, using
 // the same numeric rounding, layout, and current fade level as normal rendering.
 static void on_weather_pre_fetch() {
@@ -287,6 +308,10 @@ static DisplayState evaluate_state() {
     AppConfig& cfg = config_get();
     unsigned long stale_ms = (unsigned long)cfg.stale_timeout_min * 60UL * 1000UL;
 
+    // Fresh low glucose takes priority over other content and overrides.
+    // Stale readings, repeated glucose fetch failures, or AP setup release it.
+    if (engine_low_glucose_lock_active()) return STATE_GLUCOSE_DISPLAY;
+
     // Boot screen: scroll "SugarClock" across the display
     if (millis() - boot_start_ms < 3000) {
         return STATE_BOOT;
@@ -435,6 +460,13 @@ static void render_state(DisplayState state) {
                 display_set_brightness(effective_brightness() / 3);
             } else {
                 display_set_brightness(effective_brightness());
+            }
+
+            // Never replace the low value with a delta-only flash, including
+            // one that was already active when the low reading arrived.
+            if (engine_low_glucose_lock_active()) {
+                delta_flash_active = false;
+                last_seen_glucose = reading.glucose;
             }
 
             // Check if we should show delta flash (only when data is fresh)
@@ -853,7 +885,13 @@ void engine_loop() {
 
     // Auto-cycle display modes
     AppConfig& cfg = config_get();
-    if (!connection_info_visible && cfg.auto_cycle_enabled && toggle_count > 1) {
+    const bool low_glucose_active = engine_low_glucose_lock_active();
+    if (low_glucose_active) {
+        // Preserve the selected screen, and give it a full cycle after recovery.
+        last_cycle_ms = millis();
+        connection_info_visible = false;
+    }
+    if (!low_glucose_active && !connection_info_visible && cfg.auto_cycle_enabled && toggle_count > 1) {
         unsigned long cycle_interval_ms = (unsigned long)cfg.auto_cycle_sec * 1000UL;
         if (last_cycle_ms == 0) last_cycle_ms = millis();
         if (millis() - last_cycle_ms >= cycle_interval_ms) {
@@ -866,6 +904,20 @@ void engine_loop() {
 
     DisplayState desired_state = evaluate_state();
     unsigned long now = millis();
+
+    if (low_glucose_active) {
+        // Cancel an in-flight fade immediately: no unrelated frame or dimmed
+        // glucose frame should linger after a low reading is received.
+        if (current_state != STATE_GLUCOSE_DISPLAY) {
+            weather_animation_reset(weather_animation);
+            display_scroll_reset();
+        }
+        current_state = STATE_GLUCOSE_DISPLAY;
+        transition_target = STATE_GLUCOSE_DISPLAY;
+        transition_phase = TRANSITION_NONE;
+        transition_level = 255;
+        transition_start_level = 255;
+    }
 
     if (transition_phase == TRANSITION_NONE && desired_state != current_state) {
         transition_phase = TRANSITION_FADE_OUT;
@@ -989,18 +1041,22 @@ void engine_set_default_mode(DisplayState mode) {
     user_mode = mode;
 }
 
-void engine_toggle_mode() {
+bool engine_toggle_mode() {
+    if (engine_low_glucose_lock_active()) return false;
     toggle_index = (toggle_index + 1) % toggle_count;
     user_mode = toggle_order[toggle_index];
     last_cycle_ms = millis(); // reset auto-cycle timer on manual toggle
     Serial.printf("[ENGINE] Toggled to %s\n", engine_state_name(user_mode));
+    return true;
 }
 
-void engine_toggle_mode_prev() {
+bool engine_toggle_mode_prev() {
+    if (engine_low_glucose_lock_active()) return false;
     toggle_index = (toggle_index - 1 + toggle_count) % toggle_count;
     user_mode = toggle_order[toggle_index];
     last_cycle_ms = millis(); // reset auto-cycle timer on manual toggle
     Serial.printf("[ENGINE] Toggled prev to %s\n", engine_state_name(user_mode));
+    return true;
 }
 
 void engine_reset_auto_cycle() {
@@ -1008,6 +1064,7 @@ void engine_reset_auto_cycle() {
 }
 
 void engine_show_connection_info() {
+    if (engine_low_glucose_lock_active()) return;
     if (wifi_is_connected() && strcmp(wifi_get_ip(), "0.0.0.0") != 0) {
         snprintf(connection_info_buf, sizeof(connection_info_buf),
                  "To connect to SugarClock, visit %s", wifi_get_ip());
@@ -1033,6 +1090,7 @@ void engine_dismiss_connection_info() {
 }
 
 void engine_right_button_action() {
+    if (engine_low_glucose_lock_active()) return;
     switch (user_mode) {
         case STATE_TIMER_DISPLAY:
             timer_toggle_start_pause();
@@ -1052,6 +1110,7 @@ void engine_right_button_action() {
 }
 
 void engine_right_long_action() {
+    if (engine_low_glucose_lock_active()) return;
     switch (user_mode) {
         case STATE_TIMER_DISPLAY:
             timer_reset();
