@@ -264,6 +264,7 @@ void config_init() {
         config.poll_interval_sec = prefs.getInt("poll_int", 60);
         config.brightness = prefs.getUChar("brightness", 40);
         config.auto_brightness = prefs.getBool("auto_brt", true);
+        config.glucose_only_when_low = prefs.getBool("low_only", false);
         config.show_delta = prefs.getBool("show_delta", false);
         config.use_mmol = prefs.getBool("use_mmol", false);
         config.thresh_urgent_low = prefs.getInt("t_ulow", 70);
@@ -359,7 +360,6 @@ void config_init() {
         config.countdown_target = prefs.getULong("cd_target", 0);
 
         // Auto-cycle
-        config.glucose_only_when_low = prefs.getBool("low_only", false);
         config.auto_cycle_enabled = prefs.getBool("acyc_en", true);
         config.auto_cycle_sec = prefs.getInt("acyc_sec", 10);
         if (config.auto_cycle_sec < 3) config.auto_cycle_sec = 3;
@@ -414,6 +414,7 @@ void config_save() {
     prefs.putInt("poll_int", config.poll_interval_sec);
     prefs.putUChar("brightness", config.brightness);
     prefs.putBool("auto_brt", config.auto_brightness);
+    prefs.putBool("low_only", config.glucose_only_when_low);
     prefs.putBool("show_delta", config.show_delta);
     prefs.putBool("use_mmol", config.use_mmol);
     prefs.putInt("t_ulow", config.thresh_urgent_low);
@@ -499,7 +500,6 @@ void config_save() {
     prefs.putULong("cd_target", config.countdown_target);
 
     // Auto-cycle
-    prefs.putBool("low_only", config.glucose_only_when_low);
     prefs.putBool("acyc_en", config.auto_cycle_enabled);
     prefs.putInt("acyc_sec", config.auto_cycle_sec);
     prefs.putBool("ota_auto", config.auto_update_enabled);

@@ -143,7 +143,7 @@ int main() {
     // inactive, preserving the pre-low screen even over many rotation intervals.
     const DisplayState saved_mode = engine_get_user_mode();
     for (int i = 0; i < 10; ++i) {
-        engine_toggle_mode(); engine_toggle_mode_prev(); engine_show_connection_info();
+        assert(!engine_toggle_mode()); assert(!engine_toggle_mode_prev()); engine_show_connection_info();
         engine_right_button_action(); engine_right_long_action(); tick(5000);
         assert(engine_get_user_mode() == saved_mode);
         assert(engine_get_state() == STATE_GLUCOSE_DISPLAY);
@@ -161,23 +161,53 @@ int main() {
         reading.glucose = glucose; assert_low_frame();
     }
     cfg.use_mmol = true; assert_low_frame();
-    // Keep stale low data marked stale, including loss of network/setup mode.
+    // Remove unrelated overrides to observe diagnostic precedence directly.
+    cfg.auto_cycle_enabled = false;
+    engine_clear_force(); reading.force_mode = -1; reading.message[0] = '\0';
+    notification = false;
+    engine_set_default_mode(STATE_GLUCOSE_DISPLAY); engine_rebuild_toggle_order();
+
+    // Freshness boundaries match urgent-glucose behavior. A stale low releases
+    // the lock, including controls and the deliberate connection-info shortcut.
+    age_ms = 20UL * 60000 - 1; failures = 4; assert_low_frame();
+    age_ms += 1;
+    assert(!engine_low_glucose_lock_active());
+    settle(); assert(engine_get_state() == STATE_STALE_WARNING);
+    engine_show_connection_info(); settle();
+    assert(engine_get_state() == STATE_CONNECTION_INFO_DISPLAY);
+    engine_dismiss_connection_info();
+    assert(engine_toggle_mode());
+    assert(engine_toggle_mode_prev());
+    age_ms = 0; failures = 5;
+    assert(!engine_low_glucose_lock_active());
+    settle(); assert(engine_get_state() == STATE_STALE_WARNING);
+    failures = 10; settle(); assert(engine_get_state() == STATE_NO_DATA);
+    failures = 0;
+
+    // Actionable connectivity screens are reachable immediately, even with a
+    // fresh urgent-low reading. Reconnection reacquires the lock if still low.
+    reading.glucose = 55;
+    connected = false; settle(); assert(engine_get_state() == STATE_NO_WIFI);
+    assert(!engine_low_glucose_lock_active());
+    ap_mode = true; settle(); assert(engine_get_state() == STATE_SETUP_AP);
+    connected = true; ap_mode = false; network = NC_FAIL;
+    settle(); assert(engine_get_state() == STATE_NET_LIMITED);
+    network = NC_OK; assert_low_frame();
+
+    // Demo uses synthetic readings, independently of network and data age.
     age_ms = 20UL * 60000; failures = 10;
     connected = false; ap_mode = true; network = NC_FAIL;
-    assert_low_frame();
-    assert(drawn_color == display_color(128, 128, 128));
     cfg.data_source = 2; assert_low_frame();
-    assert(drawn_color == display_color(255, 170, 0));
     cfg.data_source = 0;
 
     // Invalid/cleared readings don't lock the display or invent a low value.
     reading.valid = false;
-    assert(!low_glucose_display_is_active());
+    assert(!engine_low_glucose_lock_active());
     assert(evaluate_state() == STATE_SETUP_AP);
     reading.valid = true;
     connected = true; ap_mode = false; network = NC_OK; age_ms = 0; failures = 0;
-    engine_clear_force(); reading.force_mode = -1; reading.message[0] = '\0';
-    notification = false;
+    engine_set_default_mode(saved_mode); engine_rebuild_toggle_order();
+    cfg.auto_cycle_enabled = true;
 
     // At the exact low threshold, restore the saved screen for a full interval.
     tick(); reading.glucose = 80; settle();
@@ -186,8 +216,8 @@ int main() {
     tick(3000); settle(); assert(engine_get_state() != saved_mode);
     // Updated thresholds take effect without rebooting, with strict boundaries.
     cfg.thresh_low = 90; reading.glucose = 89; assert_low_frame();
-    reading.glucose = 90; assert(!low_glucose_display_is_active());
-    reading.glucose = 300; assert(!low_glucose_display_is_active());
+    reading.glucose = 90; assert(!engine_low_glucose_lock_active());
+    reading.glucose = 300; assert(!engine_low_glucose_lock_active());
     // Preserve urgent-low handling even with misordered configured thresholds.
     cfg.thresh_low = 60; reading.glucose = 65; assert_low_frame();
     // Disabling the option while low restores normal override precedence.
@@ -196,4 +226,5 @@ int main() {
     notification = false; cfg.auto_cycle_enabled = false;
     engine_force_state(STATE_WEATHER_DISPLAY); settle();
     assert(engine_get_state() == STATE_WEATHER_DISPLAY);
+    return 0;
 }

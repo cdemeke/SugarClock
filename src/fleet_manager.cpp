@@ -449,7 +449,7 @@ static bool apply_config_patch(JsonObjectConst changes) {
         else if (strcmp(name, "ambient_enabled") == 0 && value.is<bool>()) cfg.ambient_enabled = value.as<bool>();
         else if (strcmp(name, "ambient_seasonal") == 0 && value.is<bool>()) cfg.ambient_seasonal = value.as<bool>();
         else if (strcmp(name, "notify_enabled") == 0 && value.is<bool>()) cfg.notify_enabled = value.as<bool>();
-        else if (strcmp(name, "glucose_only_when_low") == 0) cfg.glucose_only_when_low = value.as<bool>();
+        else if (strcmp(name, "glucose_only_when_low") == 0 && value.is<bool>()) cfg.glucose_only_when_low = value.as<bool>();
         else if (strcmp(name, "auto_cycle_enabled") == 0 && value.is<bool>()) cfg.auto_cycle_enabled = value.as<bool>();
         else if (strcmp(name, "auto_cycle_sec") == 0) cfg.auto_cycle_sec = value.as<int>();
     }

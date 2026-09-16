@@ -132,6 +132,16 @@
             }
         });
 
+        let glucoseDisplayLocked = false;
+        function updateDisplayLock(locked){
+            const wasLocked=glucoseDisplayLocked;
+            glucoseDisplayLocked=locked===true;
+            document.querySelectorAll('.display-nav-btn').forEach(button=>button.disabled=glucoseDisplayLocked);
+            const status=document.getElementById('display-control-status');
+            if(glucoseDisplayLocked)status.textContent='Blood sugar display is locked while glucose is low.';
+            else if(wasLocked)status.textContent='';
+        }
+
         let readingUnits = null;
         let latestReading = null;
         function renderReading(){
@@ -156,6 +166,7 @@
                 if(!sr.ok)throw new Error('Status unavailable');
                 const d=await sr.json();
                 latestReading=d;
+                updateDisplayLock(d.glucose_display_locked);
                 // Status carries its own units preference so readings and labels stay atomic.
                 if(typeof d.use_mmol==='boolean')readingUnits=d.use_mmol;
                 renderReading();
@@ -193,12 +204,13 @@
             try{
                 const response=await fetch('/api/display/'+direction,{method:'POST'});
                 const result=await response.json();
+                updateDisplayLock(result.locked);
                 if(!response.ok)throw new Error(result.error||'Unable to change display');
                 if(result.mode)document.getElementById('display-state').textContent=friendlyMode(result.mode);
                 status.textContent=result.message||'Clock display changed';
                 setTimeout(()=>{refresh();liveDisplay.refresh();},200);
             }catch(e){status.textContent=e.message||'Unable to change display';}
-            finally{buttons.forEach(button=>button.disabled=false);}
+            finally{buttons.forEach(button=>button.disabled=glucoseDisplayLocked);}
         }
 
         refresh();setInterval(refresh,5000);loadCapabilities();
