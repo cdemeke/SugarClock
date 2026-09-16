@@ -94,14 +94,14 @@ bool engine_low_glucose_lock_active() {
     const GlucoseReading& reading = http_get_reading();
     if (!cfg.glucose_only_when_low || !reading.valid) return false;
 
-    // Match urgent-glucose freshness rules and leave actionable connection
-    // diagnostics/setup available. Demo readings do not depend on the network.
+    // Match urgent-glucose freshness rules, but allow AP setup to take over.
+    // Brief WiFi drops and cached reachability failures do not invalidate a
+    // fresh glucose reading. Demo readings do not depend on connectivity.
     if (cfg.data_source != 2) {
         const unsigned long stale_ms = (unsigned long)cfg.stale_timeout_min * 60000UL;
         if (http_time_since_last_reading() >= stale_ms ||
             http_get_failure_count() >= FAILURE_STALE_COUNT ||
-            wifi_is_ap_mode() || !wifi_is_connected() ||
-            netcheck_dns() == NC_FAIL || netcheck_data() == NC_FAIL) {
+            wifi_is_ap_mode()) {
             return false;
         }
     }
@@ -309,7 +309,7 @@ static DisplayState evaluate_state() {
     unsigned long stale_ms = (unsigned long)cfg.stale_timeout_min * 60UL * 1000UL;
 
     // Fresh low glucose takes priority over other content and overrides.
-    // Stale readings or connection failures release the lock for diagnostics.
+    // Stale readings, repeated glucose fetch failures, or AP setup release it.
     if (engine_low_glucose_lock_active()) return STATE_GLUCOSE_DISPLAY;
 
     // Boot screen: scroll "SugarClock" across the display

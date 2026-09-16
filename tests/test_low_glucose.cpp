@@ -20,7 +20,7 @@ static int failures = 0, drawn_glucose = 0, delta_frames = 0, button_actions = 0
 static uint16_t drawn_color = 0;
 static uint8_t frame_level = 0;
 static bool connected = true, ap_mode = false, notification = false, ever_received = true;
-static NetCheckResult network = NC_OK;
+static NetCheckResult network = NC_OK, data_network = NC_OK;
 
 unsigned long millis() { return now_ms; }
 AppConfig& config_get() { return cfg; }
@@ -41,7 +41,7 @@ int wifi_ap_station_count() { return 0; }
 WifiTrialState wifi_trial_get_state() { return WIFI_TRIAL_IDLE; }
 const char* wifi_trial_ssid() { return "test"; }
 NetCheckResult netcheck_dns() { return network; }
-NetCheckResult netcheck_data() { return network; }
+NetCheckResult netcheck_data() { return data_network; }
 const char* netcheck_summary() { return "offline"; }
 bool notify_has_active() { return notification; }
 bool notify_is_urgent() { return true; }
@@ -184,15 +184,38 @@ int main() {
     failures = 10; settle(); assert(engine_get_state() == STATE_NO_DATA);
     failures = 0;
 
-    // Actionable connectivity screens are reachable immediately, even with a
-    // fresh urgent-low reading. Reconnection reacquires the lock if still low.
-    reading.glucose = 55;
-    connected = false; settle(); assert(engine_get_state() == STATE_NO_WIFI);
-    assert(!engine_low_glucose_lock_active());
+    // Fresh urgent lows remain fully visible through WiFi blips, without even
+    // starting a fade. Exercise the entire outage and the reconnection frame.
+    reading.glucose = 55; age_ms = 20000;
+    for (int duration : {200, 700, 3000}) {
+        connected = false;
+        for (int elapsed = 0; elapsed < duration; elapsed += 50) assert_low_frame();
+        connected = true; assert_low_frame();
+    }
+
+    // Either cached probe can fail for a full 15-minute retry window while
+    // glucose polling keeps readings fresh. Neither may disable the lock.
+    for (int probe = 0; probe < 2; ++probe) {
+        network = probe == 0 ? NC_FAIL : NC_OK;
+        data_network = probe == 1 ? NC_FAIL : NC_OK;
+        for (int elapsed = 0; elapsed < 15 * 60 * 1000; elapsed += 50) {
+            age_ms = 20000 + elapsed % 60000;
+            assert_low_frame();
+        }
+        failures = 5;
+        settle(); assert(engine_get_state() == STATE_NET_LIMITED);
+        failures = 0; assert_low_frame();
+    }
+    network = NC_OK; data_network = NC_OK;
+
+    // Real glucose fetch failures still expose outage diagnostics, and AP
+    // setup is an immediate escape even with fresh data and no poll failures.
+    connected = false; failures = 5;
+    settle(); assert(engine_get_state() == STATE_NO_WIFI);
+    failures = 0; assert_low_frame();
     ap_mode = true; settle(); assert(engine_get_state() == STATE_SETUP_AP);
-    connected = true; ap_mode = false; network = NC_FAIL;
-    settle(); assert(engine_get_state() == STATE_NET_LIMITED);
-    network = NC_OK; assert_low_frame();
+    assert(!engine_low_glucose_lock_active());
+    connected = true; ap_mode = false; assert_low_frame();
 
     // Demo uses synthetic readings, independently of network and data age.
     age_ms = 20UL * 60000; failures = 10;

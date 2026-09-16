@@ -258,7 +258,7 @@
                         <h2><label for="glucose_only_when_low">Show Only Blood Sugar When Low</label></h2>
                         <input type="checkbox" id="glucose_only_when_low" aria-describedby="low-only-hint">
                     </div>
-                    <p class="hint" id="low-only-hint">Keep the blood sugar value visible while fresh readings are below your configured Low threshold, including urgent lows. Other screens and navigation are blocked. Notifications, including urgent ones, are hidden and may expire unseen. Stale readings or connection problems release the lock so diagnostics and setup remain available. Off by default.</p>
+                    <p class="hint" id="low-only-hint">Keep the blood sugar value visible while fresh readings are below your configured Low threshold, including urgent lows. Other screens and navigation are blocked. Notifications, including urgent ones, are hidden and may expire unseen. Stale readings, repeated glucose fetch failures, or Wi-Fi setup mode release the lock. Brief Wi-Fi drops and failed network checks do not hide a fresh low reading. Off by default.</p>
                 </div>
 
                 <div class="card">
@@ -1656,12 +1656,17 @@ curl -X POST http://DEVICE_IP/api/sysmon \
         });
 
         // Display prev/next controls
+        function updateDisplayControls(mode, locked) {
+            document.getElementById('current-mode').textContent = locked === true ? 'Blood sugar (locked)' : (['AMBIENT_FISH', 'AMBIENT_CREATURE'].includes(mode) ? 'Pixel Companion' : (mode || '--'));
+            document.getElementById('display-prev-btn').disabled = locked === true;
+            document.getElementById('display-next-btn').disabled = locked === true;
+        }
         async function displayControl(direction) {
             try {
                 const r = await fetch('/api/display/' + direction, { method: 'POST' });
                 const d = await r.json();
+                updateDisplayControls(d.mode, d.locked);
                 if (!r.ok) throw new Error(d.error || 'Unable to change display');
-                document.getElementById('current-mode').textContent = ['AMBIENT_FISH', 'AMBIENT_CREATURE'].includes(d.mode) ? 'Pixel Companion' : (d.mode || '--');
             } catch (e) { showToast(e.message || 'Unable to change display', 'error'); }
         }
         document.getElementById('display-prev-btn').addEventListener('click', () => displayControl('prev'));
@@ -1672,9 +1677,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             try {
                 const r = await fetch('/api/status');
                 const d = await r.json();
-                document.getElementById('current-mode').textContent = d.glucose_display_locked ? 'Blood sugar (locked)' : (['AMBIENT_FISH', 'AMBIENT_CREATURE'].includes(d.state) ? 'Pixel Companion' : (d.state || '--'));
-                document.getElementById('display-prev-btn').disabled = d.glucose_display_locked === true;
-                document.getElementById('display-next-btn').disabled = d.glucose_display_locked === true;
+                updateDisplayControls(d.state, d.glucose_display_locked);
             } catch (e) {}
         }
         setInterval(updateCurrentMode, 3000);

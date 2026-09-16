@@ -1048,7 +1048,7 @@ static void handle_display_navigation(AsyncWebServerRequest* request, bool forwa
     JsonDocument doc;
     doc["status"] = changed ? "ok" : "locked";
     doc["locked"] = !changed;
-    doc["mode"] = engine_state_name(changed ? engine_get_user_mode() : STATE_GLUCOSE_DISPLAY);
+    doc["mode"] = engine_state_name(engine_get_user_mode());
     if (!changed) {
         doc["error"] = "Blood sugar display is locked while glucose is low.";
         doc["reason"] = "low_glucose";

@@ -48,10 +48,11 @@ struct AsyncWebServerRequest {
 __HANDLERS__
 int main() {
     cfg.thresh_low=80; cfg.thresh_urgent_low=70; cfg.stale_timeout_min=20;
-    cfg.glucose_only_when_low=true; cfg.time_display_enabled=true;
+    cfg.glucose_only_when_low=true; cfg.time_display_enabled=true; cfg.default_mode=1;
     reading.valid=true; reading.glucose=65; reading.force_mode=-1;
     engine_init();
     const DisplayState before=engine_get_user_mode();
+    assert(before==STATE_TIME_DISPLAY);
     for (auto handler : {handle_display_next, handle_display_prev}) {
         AsyncWebServerRequest request;
         handler(&request);
@@ -60,7 +61,7 @@ int main() {
         assert(request.body.at("status").text=="locked");
         assert(request.body.at("reason").text=="low_glucose");
         assert(!request.body.at("error").text.empty());
-        assert(request.body.at("mode").text=="GLUCOSE");
+        assert(request.body.at("mode").text==engine_state_name(before));
         assert(engine_get_user_mode()==before);
     }
     reading.glucose=100;
@@ -69,10 +70,12 @@ int main() {
     assert(next.status==200 && next.body.at("locked").text=="false");
     assert(next.body.at("status").text=="ok");
     assert(engine_get_user_mode()!=before);
+    assert(next.body.at("mode").text==engine_state_name(engine_get_user_mode()));
     AsyncWebServerRequest prev;
     handle_display_prev(&prev);
     assert(prev.status==200 && prev.body.at("locked").text=="false");
     assert(engine_get_user_mode()==before);
+    assert(prev.body.at("mode").text==engine_state_name(before));
     assert(!prev.body.count("error"));
 }
 '''.replace('__ENGINE_TEST__', str(ROOT / 'tests/test_low_glucose.cpp')).replace('__HANDLERS__', handlers)
@@ -99,7 +102,7 @@ const display=fs.readFileSync(process.argv[1],'utf8');
 vm.runInContext(display.slice(display.indexOf('let glucoseDisplayLocked'),display.indexOf('let readingUnits')),context);
 vm.runInContext(display.slice(display.indexOf('async function changeDisplay'),display.indexOf('refresh();setInterval')),context);
 const settings=fs.readFileSync(process.argv[2],'utf8');
-vm.runInContext(settings.slice(settings.indexOf('async function displayControl'),settings.indexOf("document.getElementById('display-prev-btn').addEventListener")),context);
+vm.runInContext(settings.slice(settings.indexOf('function updateDisplayControls'),settings.indexOf("document.getElementById('display-prev-btn').addEventListener")),context);
 vm.runInContext(settings.slice(settings.indexOf('async function updateCurrentMode'),settings.indexOf('setInterval(updateCurrentMode')),context);
 (async()=>{
     context.updateDisplayLock(true);
@@ -115,6 +118,9 @@ vm.runInContext(settings.slice(settings.indexOf('async function updateCurrentMod
     assert(buttons.every(b=>b.disabled));
     await context.displayControl('prev');
     assert.equal(toast,error);
+    // The 409 itself disables settings controls, before the next status poll.
+    assert(nodes['display-next-btn'].disabled && nodes['display-prev-btn'].disabled);
+    assert.equal(nodes['current-mode'].textContent,'Blood sugar (locked)');
     context.fetch=async()=>({ok:true,json:async()=>({glucose_display_locked:true,state:'GLUCOSE'})});
     await context.updateCurrentMode();
     assert.equal(nodes['current-mode'].textContent,'Blood sugar (locked)');
