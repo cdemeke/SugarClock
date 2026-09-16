@@ -1,6 +1,7 @@
 // Compile the complete production engine; fake only its hardware/services.
 #include "../src/glucose_engine.cpp"
 #include <cassert>
+#include <initializer_list>
 
 static AppConfig cfg = {};
 static GlucoseReading reading = {};
