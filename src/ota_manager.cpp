@@ -32,7 +32,7 @@
 #error "SUGARCLOCK_VERSION must be injected from VERSION"
 #endif
 #ifndef SUGARCLOCK_OTA_MANIFEST_URL
-#define SUGARCLOCK_OTA_MANIFEST_URL "https://github.com/cdemeke/SugarClock/releases/latest/download/ota-manifest.json"
+#define SUGARCLOCK_OTA_MANIFEST_URL "https://raw.githubusercontent.com/cdemeke/SugarClock/1629075a57e4af72d81c773aa2a2352aaf15893d/tests/fixtures/legacy-ota-canary/ota-manifest.json"
 #endif
 
 static const uint32_t OTA_DOWNLOAD_TIMEOUT_MS = 30000;
