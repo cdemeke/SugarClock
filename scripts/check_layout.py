@@ -9,6 +9,7 @@ import re
 import sys
 
 from check_ota_stack import check_ota_stack
+from check_ota_boot_validation import check_ota_boot_validation
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXPECTED = {
@@ -98,13 +99,18 @@ if os.path.exists(firmware) and os.path.getsize(firmware) > 0x1C0000:
     fail("firmware.bin exceeds OTA slot")
 if os.path.exists(firmware):
     try:
+        check_ota_boot_validation(
+            os.path.expanduser("~/.platformio/packages/framework-arduinoespressif32/cores/esp32/esp32-hal-misc.c"),
+            os.path.join(ROOT, ".pio", "build", "esp32dev", "firmware.map"))
         largest_frames = check_ota_stack(os.path.join(
             ROOT, ".pio", "build", "esp32dev", "src"))
     except (OSError, ValueError) as error:
         fail(str(error))
+    print("OTA boot-validation check passed: Arduino hook and live SugarClock definition")
     for report, largest_frame in largest_frames.items():
         print(f"OTA compiler stack-frame check passed: {report}: largest frame {largest_frame} bytes")
 else:
+    print("SKIPPED OTA boot-validation check: firmware.bin is missing; run pio run first")
     print("SKIPPED OTA compiler stack-frame check: firmware.bin is missing; run pio run first")
 if os.path.exists(littlefs) and os.path.getsize(littlefs) != 0x70000:
     fail("littlefs.bin does not match filesystem partition")

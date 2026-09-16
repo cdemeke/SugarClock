@@ -1,4 +1,5 @@
 #include "ota_manager.h"
+#include "ota_boot_validation.h"
 #include "fleet_manager.h"
 
 #include "buzzer.h"
@@ -37,8 +38,6 @@
 
 
 static const uint32_t OTA_DOWNLOAD_TIMEOUT_MS = 30000;
-static const uint32_t OTA_VALIDATION_PERIOD_MS = 15000;
-static const uint32_t OTA_VALIDATION_MIN_HEAP = 55000;
 static const size_t OTA_TRANSFER_BUFFER_BYTES = 4096;
 static const char* OTA_NVS_NAMESPACE = "sugarota";
 
@@ -46,8 +45,7 @@ static portMUX_TYPE status_mux = portMUX_INITIALIZER_UNLOCKED;
 static OtaStatusSnapshot status_snapshot;
 static volatile bool worker_running = false;
 static bool validation_pending = false;
-static uint32_t validation_started_ms = 0;
-static uint32_t validation_loop_count = 0;
+static OtaBootValidationState boot_validation = {};
 static unsigned retry_failures = 0;
 static uint32_t last_render_ms = 0;
 
@@ -598,7 +596,7 @@ static void inspect_boot_state() {
     if (running && esp_ota_get_state_partition(running, &image_state) == ESP_OK &&
         image_state == ESP_OTA_IMG_PENDING_VERIFY) {
         validation_pending = true;
-        validation_started_ms = millis();
+        ota_boot_validation_begin(boot_validation, millis());
         status_snapshot.pending_verification = true;
         Serial.printf("[OTA] v%s pending local first-boot validation\n", SUGARCLOCK_VERSION);
     }
@@ -643,23 +641,31 @@ void ota_init() {
 
 static void validate_pending_image() {
     if (!validation_pending) return;
-    ++validation_loop_count;
-    if (millis() - validation_started_ms < OTA_VALIDATION_PERIOD_MS) return;
+    const bool config_loaded = config_is_loaded();
+    const uint32_t assets = get_web_assets_count();
+    const uint32_t heap = ESP.getFreeHeap();
+    const OtaBootValidationAction action = ota_boot_validation_next(
+        boot_validation, millis(), config_loaded, assets, heap);
+    if (action == OTA_BOOT_WAIT) return;
 
-    bool local_health_ok = config_is_loaded() && get_web_assets_count() > 0 &&
-                           validation_loop_count > 100 && ESP.getFreeHeap() >= OTA_VALIDATION_MIN_HEAP;
-    if (local_health_ok) {
-        if (esp_ota_mark_app_valid_cancel_rollback() == ESP_OK) {
+    if (action == OTA_BOOT_ACCEPT) {
+        const esp_err_t result = esp_ota_mark_app_valid_cancel_rollback();
+        if (result == ESP_OK) {
             validation_pending = false;
             status_snapshot.pending_verification = false;
             clear_pending_metadata();
             Serial.printf("[OTA] Local validation passed; v%s marked valid\n", SUGARCLOCK_VERSION);
+        } else {
+            Serial.printf("[OTA] Accepting image failed (%d); retrying in 5 seconds\n", result);
         }
     } else {
         Serial.printf("[OTA] Local validation failed (config=%d assets=%u loops=%lu heap=%u); rolling back\n",
-                      config_is_loaded(), static_cast<unsigned>(get_web_assets_count()),
-                      static_cast<unsigned long>(validation_loop_count), ESP.getFreeHeap());
-        esp_ota_mark_app_invalid_rollback_and_reboot();
+                      config_loaded, static_cast<unsigned>(assets),
+                      static_cast<unsigned long>(boot_validation.loop_count), heap);
+        const esp_err_t result = esp_ota_mark_app_invalid_rollback_and_reboot();
+        // Successful rollback reboots. If it returns (e.g. no valid fallback),
+        // keep the image pending and avoid retrying flash writes on every loop.
+        Serial.printf("[OTA] Rollback returned (%d); retrying in 5 seconds\n", result);
     }
 }
 
