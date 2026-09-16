@@ -1,5 +1,15 @@
 // Compile the complete production engine; fake only its hardware/services.
+// GCC diagnoses the existing timer/stopwatch snprintf bounds when compiling
+// the whole engine. Keep those warnings visible without making this display
+// policy regression test depend on unrelated timer formatting changes.
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic warning "-Wformat-truncation"
+#endif
 #include "../src/glucose_engine.cpp"
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 #include <cassert>
 #include <initializer_list>
 
