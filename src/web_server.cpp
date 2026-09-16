@@ -275,6 +275,7 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     doc["countdown_target"] = cfg.countdown_target;
 
     // Auto-cycle
+    doc["glucose_only_when_low"] = cfg.glucose_only_when_low;
     doc["auto_cycle_enabled"] = cfg.auto_cycle_enabled;
     doc["auto_cycle_sec"] = cfg.auto_cycle_sec;
 
@@ -619,6 +620,9 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     }
 
     // Auto-cycle
+    if (doc["glucose_only_when_low"].is<bool>()) {
+        cfg.glucose_only_when_low = doc["glucose_only_when_low"].as<bool>();
+    }
     if (doc["auto_cycle_enabled"].is<bool>()) {
         cfg.auto_cycle_enabled = doc["auto_cycle_enabled"].as<bool>();
     }

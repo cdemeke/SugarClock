@@ -28,6 +28,7 @@ SugarClock is free, open-source firmware that turns the [Ulanzi TC001 Smart Pixe
 - **Live glucose display** — Large color-coded numbers (green = in range, orange = high/low, red = urgent)
 - **Trend arrows** — See which direction your glucose is heading
 - **Dexcom, Libre & Nightscout** — Works with Dexcom and FreeStyle Libre 2/3 CGMs directly, or any Nightscout-compatible setup
+- **Low glucose focus** — Enable “Show Only Blood Sugar When Low” in Settings → Display to keep the glucose value visible below the configured Low threshold (including urgent lows). It pauses other screens, notifications, and navigation, then resumes normal display behavior after recovery. Off by default; stale low readings retain their stale color.
 - **Audible alerts** — Buzzer for high/low glucose with snooze button
 - **Auto brightness** — Built-in light sensor adjusts to your room
 - **Night mode** — Dims automatically during sleeping hours

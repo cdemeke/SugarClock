@@ -254,6 +254,14 @@
                 </div>
 
                 <div class="card">
+                    <div class="card-header-toggle">
+                        <h2><label for="glucose_only_when_low">Show Only Blood Sugar When Low</label></h2>
+                        <input type="checkbox" id="glucose_only_when_low" aria-describedby="low-only-hint">
+                    </div>
+                    <p class="hint" id="low-only-hint">Keep the blood sugar value visible below your configured Low threshold, including urgent lows. Other screens, notifications, and screen navigation pause until blood sugar recovers. Stale readings keep their stale color. Off by default.</p>
+                </div>
+
+                <div class="card">
                     <h2>Remote Control</h2>
                     <p style="font-size:13px; color:var(--text-secondary); margin:-8px 0 16px;">
                         Switch the device display from here.
@@ -1384,6 +1392,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 document.getElementById('night_start').value = c.night_start_hour !== undefined ? c.night_start_hour : 22;
                 document.getElementById('night_end').value = c.night_end_hour !== undefined ? c.night_end_hour : 7;
                 document.getElementById('night_brightness').value = c.night_brightness || 10;
+                document.getElementById('glucose_only_when_low').checked = c.glucose_only_when_low === true;
                 document.getElementById('auto_cycle_enabled').checked = c.auto_cycle_enabled !== false;
                 document.getElementById('auto_cycle_sec').value = c.auto_cycle_sec || 10;
                 document.getElementById('ambient_enabled').checked = c.ambient_enabled || false;
@@ -1510,6 +1519,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 night_start_hour: parseInt(document.getElementById('night_start').value),
                 night_end_hour: parseInt(document.getElementById('night_end').value),
                 night_brightness: parseInt(document.getElementById('night_brightness').value),
+                glucose_only_when_low: document.getElementById('glucose_only_when_low').checked,
                 auto_cycle_enabled: document.getElementById('auto_cycle_enabled').checked,
                 auto_cycle_sec: parseInt(document.getElementById('auto_cycle_sec').value),
                 ambient_enabled: document.getElementById('ambient_enabled').checked,

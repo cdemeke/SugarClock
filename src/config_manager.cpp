@@ -47,6 +47,7 @@ static void config_set_defaults() {
     // Display
     config.brightness = 40;
     config.auto_brightness = true;
+    config.glucose_only_when_low = false;
     config.show_delta = false;
     config.use_mmol = false;
 
@@ -213,6 +214,7 @@ static void config_check_littlefs_overlay() {
     if (doc["auth_token"].is<const char*>())     strncpy(config.auth_token, doc["auth_token"], sizeof(config.auth_token));
     if (doc["timezone"].is<const char*>())       strncpy(config.timezone, doc["timezone"], sizeof(config.timezone));
     if (doc["time_display_enabled"].is<bool>()) config.time_display_enabled = doc["time_display_enabled"];
+    if (doc["glucose_only_when_low"].is<bool>()) config.glucose_only_when_low = doc["glucose_only_when_low"];
     if (doc["use_mmol"].is<bool>())              config.use_mmol = doc["use_mmol"];
     if (doc["brightness"].is<int>())             config.brightness = doc["brightness"];
     if (doc["alert_low"].is<int>())              config.alert_low = doc["alert_low"];
@@ -357,6 +359,7 @@ void config_init() {
         config.countdown_target = prefs.getULong("cd_target", 0);
 
         // Auto-cycle
+        config.glucose_only_when_low = prefs.getBool("low_only", false);
         config.auto_cycle_enabled = prefs.getBool("acyc_en", true);
         config.auto_cycle_sec = prefs.getInt("acyc_sec", 10);
         if (config.auto_cycle_sec < 3) config.auto_cycle_sec = 3;
@@ -496,6 +499,7 @@ void config_save() {
     prefs.putULong("cd_target", config.countdown_target);
 
     // Auto-cycle
+    prefs.putBool("low_only", config.glucose_only_when_low);
     prefs.putBool("acyc_en", config.auto_cycle_enabled);
     prefs.putInt("acyc_sec", config.auto_cycle_sec);
     prefs.putBool("ota_auto", config.auto_update_enabled);
