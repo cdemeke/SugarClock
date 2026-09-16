@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "product": "sugarclock",
+  "hardware": "ulanzi-tc001-esp32-4mb",
+  "channel": "stable",
+  "version": "0.2.11",
+  "minimum_ota_version": "0.2.0",
+  "size": 1475664,
+  "sha256": "abcf3fe89d72802d0dbd6c3b1a48c9c2226219dcf48964e797cf89dcbfbdabe5",
+  "firmware_url": "https://github.com/cdemeke/SugarClock/releases/download/preview-v0.2.11-1/sugarclock-v0.2.11.bin",
+  "key_id": "release-2026-01",
+  "signature": "oPB2QCMA3eTaW3f/ki+shWo/gv2G1bek/+HE9u+GobBl8pp8CEh4m3NP/v2Txl5ooyxO5zq7ngNqRtFAsziCOoNfgRyRAMUdzzLY9e/okkvGFp5L90Kl6UC+/C9AmDbhhqG2d4rq4XK75fPpzBV/+e68K+OlfEfLLXyC1Q7cAWchlGw55YUUUBBu3JVPx3yT9ryceoqkaBZI5E/OCO+4/uo06fpbn3GQ1VERerMhimWHuyJ5iC4dpvtq4lfmEslMcKY1qW4qtIGyG2KO3lE4vLvugkUlzOMkPlzJnowvadTBUiQiOoovERyUB00jdt6o45YREOfzYLJue2V/QPnlLA==",
+  "published_at": "2026-09-13T19:08:34Z"
+}
