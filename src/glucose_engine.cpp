@@ -754,7 +754,7 @@ static void render_state(DisplayState state) {
                 ? connection_info_buf
                 : "SugarClock connection information unavailable";
             bool complete = display_scroll_text(
-                text, 0, display_color(0, 200, 200), 55);
+                text, 0, display_color(255, 255, 255), 55);
             display_show();
             if (complete) {
                 connection_info_visible = false;
@@ -1067,7 +1067,7 @@ void engine_show_connection_info() {
     if (engine_low_glucose_lock_active()) return;
     if (wifi_is_connected() && strcmp(wifi_get_ip(), "0.0.0.0") != 0) {
         snprintf(connection_info_buf, sizeof(connection_info_buf),
-                 "To connect to SugarClock, visit %s", wifi_get_ip());
+                 "To connect, visit %s", wifi_get_ip());
     } else if (wifi_is_ap_mode()) {
         snprintf(connection_info_buf, sizeof(connection_info_buf),
                  "To set up SugarClock, visit %s", wifi_get_ap_ip());
