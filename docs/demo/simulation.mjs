@@ -57,7 +57,7 @@ export class Simulation {
         auto: false,
         intervalMs: 4000,
       },
-      brightness: 100,
+      brightness: 200, // Full output by default for clear video capture.
       alertsSnoozedUntil: 0,
     };
   }

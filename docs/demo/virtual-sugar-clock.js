@@ -104,7 +104,7 @@ export class VirtualSugarClock extends HTMLElement {
     const inset = (pitch - fill) / 2;
     const brightness = Math.max(
       0.12,
-      Math.min(1, Math.sqrt((this._state.brightness ?? 100) / 200)),
+      Math.min(1, Math.sqrt((this._state.brightness ?? 200) / 200)),
     );
     ctx.fillStyle = "#07090a";
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
@@ -120,14 +120,11 @@ export class VirtualSugarClock extends HTMLElement {
         ctx.fillRect(x, y, fill, fill);
         continue;
       }
-      const rgb = color.match(/\w\w/g).map((v) => {
-        // Approximate the perceived luminance of an emissive LED on an sRGB monitor.
-        return 255 * Math.pow(parseInt(v, 16) / 255, 0.55);
-      });
-      const tint = (factor, lift = 0) =>
-        `rgb(${rgb.map((c) => Math.round(c * factor + (255 - c) * lift)).join(",")})`;
-      // Square diffuser cells with a restrained bright center and darker edges,
-      // based on the illuminated-all-pixels hardware reference. Never bleed into neighbors.
+      // Preserve source hue and saturation: mixing every LED toward white washed out colors.
+      const rgb = color.match(/\w\w/g).map((v) => parseInt(v, 16));
+      const tint = (factor) =>
+        `rgb(${rgb.map((c) => Math.round(c * factor)).join(",")})`;
+      // Keep most of the square at full intensity; soften only the diffuser edge.
       const gradient = ctx.createRadialGradient(
         x + fill / 2,
         y + fill / 2,
@@ -136,10 +133,10 @@ export class VirtualSugarClock extends HTMLElement {
         y + fill / 2,
         fill * 0.7,
       );
-      gradient.addColorStop(0, tint(0.98, 0.12));
-      gradient.addColorStop(0.45, tint(0.93, 0.04));
-      gradient.addColorStop(0.8, tint(0.7));
-      gradient.addColorStop(1, tint(0.48));
+      gradient.addColorStop(0, tint(1));
+      gradient.addColorStop(0.65, tint(1));
+      gradient.addColorStop(0.9, tint(0.93));
+      gradient.addColorStop(1, tint(0.82));
       ctx.fillStyle = gradient;
       ctx.beginPath();
       ctx.roundRect(x, y, fill, fill, pitch * 0.025);

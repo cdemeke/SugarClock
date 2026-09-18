@@ -114,7 +114,7 @@ test("physical buttons follow context and snapshots cannot mutate model", () => 
   sim.button("right");
   assert.equal(sim.state.pet.nap, false);
   sim.button("middle");
-  assert.equal(sim.state.brightness, 200);
+  assert.equal(sim.state.brightness, 10);
   sim.button("left", "long");
   assert.equal(sim.state.mode, "glucose");
   const snapshot = sim.state;
