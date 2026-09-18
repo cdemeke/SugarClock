@@ -171,11 +171,14 @@ export class Simulation {
       modes[(((index + steps) % modes.length) + modes.length) % modes.length];
     this.data.modeStartedAt = this.lastNow;
   }
-  next() {
+  next(direction = 1) {
     this.tick();
     this.ipUntil = 0;
-    this.advance(1);
+    this.advance(direction < 0 ? -1 : 1);
     this.lastRotation = this.lastNow;
+  }
+  previous() {
+    this.next(-1);
   }
   preset(status) {
     const presets = {

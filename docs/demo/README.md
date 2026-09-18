@@ -24,6 +24,8 @@ Open http://127.0.0.1:8765/demo/ in a current browser. Serve over HTTP; JavaScri
 
 Select Weather or Pixel companion, then enable **Compare all options · two columns** in the right panel. All ten weather conditions or all seven pets animate together, each in a TC001 enclosure with a label. Temperature/unit, glucose presets, nap, and greetings apply across the set; the selected single-display option is preserved when you turn comparison off. Other modes use the single display. Filming mode also supports the gallery; Record pixels only returns to a single borderless matrix. The studio background is white, and In Range / High / Low presets live in the right panel.
 
+Use the keyboard **← / →** arrows for the previous / next enabled rotation display, including in filming and comparison views. Navigation wraps around and skips disabled displays. Arrow keys retain their usual behavior while editing inputs or selects.
+
 ## Physical buttons
 
 | Button | Short press | Hold one second |

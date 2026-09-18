@@ -1,5 +1,5 @@
 import { COMPARISON_OPTIONS, comparisonState } from "./comparison.js";
-import { Simulation } from "./simulation.mjs?v=restored-1";
+import { Simulation } from "./simulation.mjs?v=keyboard-1";
 import "./virtual-sugar-clock.js?v=restored-1";
 const $ = (id) => document.getElementById(id);
 const sim = new Simulation();
@@ -236,11 +236,18 @@ $("exit-film").addEventListener("click", film);
 document.addEventListener("keydown", (e) => {
   if (
     e.target.matches("input,select,textarea") ||
+    e.target.isContentEditable ||
     e.ctrlKey ||
     e.metaKey ||
     e.altKey
   )
     return;
+  if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+    e.preventDefault();
+    if (e.key === "ArrowLeft") sim.previous();
+    else sim.next();
+    return;
+  }
   if (
     e.key.toLowerCase() === "f" ||
     (e.key === "Escape" && document.body.classList.contains("filming"))

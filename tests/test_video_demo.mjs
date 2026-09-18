@@ -158,3 +158,15 @@ test("default duration clock remains stable when wall time changes", () => {
     Date.now = realDateNow;
   }
 });
+
+test("previous and next navigate enabled screens, wrap, and reset overlay/rotation timing", () => {
+  const {sim,advance}=fixture();
+  sim.update('rotation',{enabled:['glucose','weather','pet'],auto:true,intervalMs:3000});
+  sim.previous(); assert.equal(sim.state.mode,'pet');
+  sim.next(); assert.equal(sim.state.mode,'glucose');
+  sim.selectMode('stopwatch');sim.previous();assert.equal(sim.state.mode,'pet');
+  sim.showIP();sim.previous();assert.equal(sim.state.mode,'weather');
+  assert.equal(advance(2999).mode,'weather');
+  assert.equal(advance(1).mode,'pet');
+  sim.update('rotation',{enabled:[]});sim.previous();assert.equal(sim.state.mode,'pet');
+});
