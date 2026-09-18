@@ -539,3 +539,30 @@ body.filming.comparing .comparison-grid virtual-sugar-clock {
     min-height: 36px;
   }
 }
+
+/* Anchor the single device independently of form height, focus scrolling, and gutters. */
+@media (min-width: 721px) {
+  body:not(.filming) main {
+    position: fixed;
+    inset: 88px 0 0;
+    height: auto;
+    margin: 0 auto;
+  }
+  body:not(.filming) .controller {
+    contain: layout style;
+    overflow-x: hidden;
+  }
+  body:not(.filming):not(.comparing) .stage {
+    overflow: hidden;
+    scrollbar-gutter: auto;
+  }
+  body:not(.filming):not(.comparing) #main-device {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: calc(88% - 30px);
+    max-width: 760px;
+    margin: 0;
+  }
+}
