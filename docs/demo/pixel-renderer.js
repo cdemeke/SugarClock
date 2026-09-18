@@ -1,4 +1,6 @@
-/** Virtual 32×8 LED renderer. Pet silhouettes and palette adapted from include/companion.h. */
+import { renderCompanionFrame } from "./companion-renderer.js";
+import { renderWeather, WEATHER_CONDITIONS } from "./weather-renderer.js";
+/** Virtual 32×8 LED renderer. Weather and companions follow the production renderers. */
 export const MATRIX_WIDTH = 32;
 export const MATRIX_HEIGHT = 8;
 const C = {
@@ -8,24 +10,6 @@ const C = {
   blue: "#74bfdc",
   gold: "#ffd47c",
   purple: "#c997ff",
-};
-const PALETTE = {
-  W: C.white,
-  M: "#86dfd1",
-  S: "#4b9d9d",
-  E: "#0b1725",
-  O: "#ff9d48",
-  Y: C.gold,
-  R: "#e57439",
-  P: "#ffc8d9",
-  G: "#ec779e",
-  L: C.green,
-  D: "#50ad7c",
-  H: "#ff83ac",
-  C: "#fff1d7",
-  V: C.purple,
-  T: "#8f5c47",
-  B: C.blue,
 };
 // Classic 5×7 column bitmaps: same fixed six-pixel advance as Adafruit GFX.
 const FONT = {
@@ -72,82 +56,6 @@ const FONT = {
   "°": [6, 9, 9, 6, 0],
   "!": [0, 0, 95, 0, 0],
 };
-const TINY = {
-  O: ["111", "101", "101", "101", "111"],
-  K: ["101", "101", "110", "101", "101"],
-  Z: ["111", "001", "010", "100", "111"],
-  H: ["101", "101", "111", "101", "101"],
-  I: ["111", "010", "010", "010", "111"],
-};
-const PETS = {
-  goldfish: [
-    ".....YY......",
-    "....OOOOO..Y.",
-    "..YOOOOOOOYY.",
-    ".OOOEOOOOOYYY",
-    "..OOOOOOOOYY.",
-    "...RRRORR..Y.",
-    "......Y......",
-  ],
-  ghost: [
-    "...WWW...",
-    "..WWWWW..",
-    ".WWWWWWW.",
-    ".WEWWEWW.",
-    ".WWWWWWW.",
-    ".MWWEWWM.",
-    ".MM.M.MM.",
-  ],
-  axolotl: [
-    ".G.......G.",
-    "..GPPPPPG..",
-    "G.PPPPPPP.G",
-    ".GPEPPPEPG.",
-    "G.PGPEPGP.G",
-    "...PPPPP...",
-    "..P.....P..",
-  ],
-  dinosaur: [
-    "............",
-    "......LLLLL.",
-    ".....LLLELLL",
-    ".....LLLLLLL",
-    "L...DLLLL...",
-    "LL.DLLLLLL..",
-    ".LLLLLYL....",
-    "...LL.LL....",
-  ],
-  turtle: [
-    "..............",
-    "....LLLL......",
-    "...LDLLDL.....",
-    "..LDDLDDDL.LL.",
-    "..LDLLLDLL.LEL",
-    ".LLLLLLLLLLLL.",
-    "...L....L.....",
-    "..LL...LL.....",
-  ],
-  octopus: [
-    "....VVVV......",
-    "...VVVVVV.....",
-    "..VVVVVVVV....",
-    "..VCEVVCEV....",
-    "..VVVVVVVV....",
-    "...VVVVVV.....",
-    "..VV.VV.VV....",
-    ".VV..VV..VV...",
-  ],
-  "red-panda": [
-    ".O...O........",
-    ".OCCCO........",
-    "OOOOOOO.......",
-    "OCECECO....OO.",
-    "OCCYCCO...OYY.",
-    ".OOOOO...YYOO.",
-    ".TTTTT.OOYY...",
-    ".TT.TT.OO.....",
-  ],
-};
 const ARROWS = {
   flat: [".....", "..X..", "...X.", "XXXXX", "...X.", "..X..", "....."],
   up: ["..X..", ".XXX.", "X.X.X", "..X..", "..X..", "..X..", "..X.."],
@@ -179,7 +87,7 @@ function clockText(state, now) {
   const hours = state.clock?.hour24
     ? date.getHours()
     : date.getHours() % 12 || 12;
-  return `${String(hours).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+  return `${String(hours)}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 function eventText(event) {
   const ms = Math.max(0, clampNumber(event?.remainingMs));
@@ -226,20 +134,12 @@ export function renderFrame(state, now = Date.now()) {
     rows.forEach((row, dy) =>
       [...row].forEach((key, dx) => {
         if (key !== "." && key !== "0")
-          put(x + dx, y + dy, color || PALETTE[key]);
+          put(x + dx, y + dy, color);
       }),
-    );
-  const tiny = (value, x, y, color) =>
-    [...value].forEach((char, i) =>
-      (TINY[char] || []).forEach((row, dy) =>
-        [...row].forEach((bit, dx) => {
-          if (bit === "1") put(x + i * 4 + dx, y + dy, color);
-        }),
-      ),
     );
   const glucose = () => {
     const g = state.glucose || {};
-    const color = g.status === "range" ? C.green : C.red;
+    const color = g.status === "range" ? "#34a853" : "#fbbc04";
     const value = String(Math.round(clampNumber(g.value, 112)));
     const x = Math.floor((32 - value.length * 6 - 6) / 2);
     text(value, x, 0, color);
@@ -255,149 +155,24 @@ export function renderFrame(state, now = Date.now()) {
       break;
     case "time": {
       const value = clockText(state, now);
-      center(Math.floor(now / 500) % 2 ? value : value.replace(":", " "));
+      text(Math.floor(now / 500) % 2 ? value : value.replace(":", " "), Math.floor((32-value.length*6)/2), 0, "#ffffff");
       break;
     }
     case "weather": {
       const w = state.weather || {};
-      const c = w.condition || "sunny";
-      if (c === "sunny") {
-        sprite(
-          [
-            "...Y...",
-            ".Y...Y.",
-            "..YYY..",
-            "Y.YYY.Y",
-            "..YYY..",
-            ".Y...Y.",
-            "...Y...",
-          ],
-          0,
-          0,
-        );
-        if (Math.floor(now / 450) % 2) {
-          put(0, 0, C.gold);
-          put(6, 6, C.gold);
-        }
-      } else {
-        sprite(
-          ["..WWW...", ".WWWWW..", "WWWWWWWW", "WWWWWWWW"],
-          0,
-          c === "cloudy" ? 2 : 0,
-        );
-        if (c === "rain" || c === "snow")
-          for (let i = 0; i < 4; i++) {
-            const y =
-              4 + ((Math.floor(now / (c === "rain" ? 130 : 320)) + i * 3) % 4);
-            const x =
-              (i * 2 + (c === "snow" ? Math.floor(now / 850) % 2 : 0)) % 8;
-            put(x, y, c === "rain" ? C.blue : C.white);
-            if (c === "rain" && y < 7) put(x, y + 1, "#397dba");
-          }
-      }
-      const temperature = Math.round(
-        w.unit === "C"
-          ? ((clampNumber(w.temperature, 72) - 32) * 5) / 9
-          : clampNumber(w.temperature, 72),
+      const fahrenheit = w.temperature ?? 72;
+      const temperature = w.unit === "C" ? (fahrenheit - 32) * 5 / 9 : fahrenheit;
+      const startedAt = w.animationStartedAt ?? state.modeStartedAt ?? now;
+      return renderWeather(
+        temperature,
+        w.unit !== "C",
+        w.conditionId ?? WEATHER_CONDITIONS[w.condition || "sunny"] ?? 711,
+        Math.max(0, now - startedAt),
       );
-      const value = `${temperature}${w.unit === "C" ? "C" : "F"}`;
-      if (value.length <= 4)
-        text(value, 32 - (value.length * 6 - 1), 0, C.white);
-      else scroll(value, C.white);
-      break;
     }
     case "pet": {
-      if (state.glucose?.status !== "range") {
-        glucose();
-        break;
-      }
-      const p = state.pet || {};
-      const happy = now < clampNumber(p.greetingUntil);
-      const nap = p.nap && !happy;
-      const kind = PETS[p.kind] ? p.kind : "goldfish";
-      const rows = PETS[kind].map((row) => [...row]);
-      const phase = nap ? 0 : Math.floor(now / (happy ? 180 : 650)) % 2;
-      const set = (x, y, c) => {
-        if (rows[y] && x >= 0 && x < rows[y].length) rows[y][x] = c;
-      };
-      if (kind === "goldfish" && phase) {
-        set(12, 3, ".");
-        set(11, 0, "Y");
-        set(11, 6, "Y");
-      }
-      if (kind === "ghost")
-        for (let x = 1; x < 8; x++)
-          set(x, 6, (x + phase) % 3 === 0 ? "." : "M");
-      if (kind === "axolotl" && phase) {
-        set(1, 0, ".");
-        set(9, 0, ".");
-        set(0, 1, "G");
-        set(10, 1, "G");
-      }
-      if (kind === "dinosaur" && phase) {
-        set(3, 7, ".");
-        set(7, 7, ".");
-        set(5, 7, "D");
-        set(8, 7, "D");
-      }
-      if (kind === "turtle" && phase) {
-        set(2, 7, ".");
-        set(7, 7, ".");
-        set(4, 7, "L");
-        set(9, 7, "L");
-      }
-      if (kind === "octopus" && phase) {
-        set(1, 7, ".");
-        set(10, 7, ".");
-        set(3, 7, "V");
-        set(8, 7, "V");
-      }
-      if (kind === "red-panda" && phase) {
-        set(7, 7, ".");
-        set(8, 7, ".");
-        set(9, 7, "O");
-        set(10, 6, "Y");
-      }
-      if (nap) {
-        const eyes = {
-          goldfish: [[4, 3, "O"]],
-          ghost: [
-            [2, 3, "W"],
-            [5, 3, "W"],
-          ],
-          axolotl: [
-            [3, 3, "P"],
-            [7, 3, "P"],
-          ],
-          dinosaur: [[8, 2, "L"]],
-          turtle: [[12, 4, "L"]],
-          octopus: [
-            [4, 3, "V"],
-            [8, 3, "V"],
-          ],
-          "red-panda": [
-            [2, 3, "C"],
-            [4, 3, "C"],
-          ],
-        };
-        eyes[kind].forEach(([x, y, color]) => {
-          set(x, y, color);
-          set(x, y + 1, "E");
-        });
-      }
-      const width = rows[0].length;
-      const x =
-        Math.floor((16 - width) / 2) +
-        (nap ? 0 : Math.floor(now / (happy ? 300 : 1600)) % 2);
-      const y = rows.length < 8 ? (nap ? 1 : Math.floor(now / 1600) % 2) : 0;
-      sprite(
-        rows.map((row) => row.join("")),
-        x,
-        y,
-      );
-      tiny(nap ? "ZZ" : happy ? "HI" : "OK", 21, 2, nap ? C.blue : C.green);
-      if (nap && Math.floor(now / 800) % 2) put(30, 0, C.blue);
-      break;
+      if (state.glucose?.status !== "range") {glucose(); break;}
+      return renderCompanionFrame(state, now);
     }
     case "pomodoro": {
       const p = state.pomodoro || {};

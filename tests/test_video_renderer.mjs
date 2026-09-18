@@ -1,14 +1,7 @@
 /** Run with node --test tests/test_video_renderer.mjs (no npm dependencies). */
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import test from "node:test";
-const source = await readFile(
-  new URL("../docs/demo/pixel-renderer.js", import.meta.url),
-  "utf8",
-);
-const { renderFrame, describeFrame, formatDuration } = await import(
-  `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`
-);
+import { renderFrame, describeFrame, formatDuration } from "../docs/demo/pixel-renderer.js";
 const base = {
   glucose: { value: 112, status: "range", trend: "flat", provider: "dexcom" },
   clock: { hour24: true },
@@ -98,7 +91,7 @@ for (const condition of ["rain", "snow"]) {
       weather: { ...base.weather, condition },
     };
     const a = renderFrame(state, 0);
-    const b = renderFrame(state, 450);
+    const b = renderFrame(state, 850);
     assert.notDeepEqual(a, b);
     for (let y = 0; y < 8; y++)
       assert.deepEqual(
