@@ -4,7 +4,7 @@ import { renderWeather, WEATHER_CONDITIONS } from "./weather-renderer.js";
 export const MATRIX_WIDTH = 32;
 export const MATRIX_HEIGHT = 8;
 const C = {
-  white: "#d1fff1",
+  white: "#ffffff",
   green: "#94e6a1",
   red: "#f06460",
   blue: "#74bfdc",
@@ -138,7 +138,7 @@ export function renderFrame(state, now = Date.now()) {
     );
   const glucose = () => {
     const g = state.glucose || {};
-    const color = g.status === "range" ? "#34a853" : "#fbbc04";
+    const color = g.status === "range" ? "#39ff14" : "#fbbc04";
     const value = String(Math.round(clampNumber(g.value, 112)));
     const x = Math.floor((32 - value.length * 6 - 6) / 2);
     text(value, x, 0, color);

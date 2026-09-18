@@ -1,5 +1,5 @@
-import { Simulation } from "./simulation.mjs";
-import "./virtual-sugar-clock.js";
+import { Simulation } from "./simulation.mjs?v=neon-1";
+import "./virtual-sugar-clock.js?v=neon-1";
 const $ = (id) => document.getElementById(id);
 const sim = new Simulation();
 sim.update("clock", { hour24: true });
