@@ -274,6 +274,7 @@ function renderComparison(s) {
       const figure = document.createElement("figure");
       const caption = document.createElement("figcaption");
       caption.textContent = title;
+      caption.className = "visually-hidden";
       const clock = document.createElement("virtual-sugar-clock");
       figure.append(caption, clock);
       $("comparison-grid").append(figure);
@@ -303,8 +304,6 @@ function render() {
   if (!device.hidden) device.state = s;
   $("mode").value = selectedMode;
   $("nap").checked = s.pet.nap;
-  $("mode-label").textContent =
-    labels[s.mode] + (s.mode === "pomodoro" ? ` · ${s.pomodoro.phase}` : "");
   document
     .querySelectorAll("[data-panel]")
     .forEach(

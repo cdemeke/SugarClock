@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>SugarClock · Demo studio</title>
     <link rel="icon" href="../favicon.ico" />
-    <link rel="stylesheet" href="studio.css?v=gallery-2" />
+    <link rel="stylesheet" href="studio.css?v=clean-stage-1" />
   </head>
   <body>
     <header>
@@ -15,14 +15,6 @@
     </header>
     <main>
       <section class="stage" aria-label="Virtual device">
-        <div class="eyebrow">A LITTLE CLOCK. A LOT OF LIFE.</div>
-        <h1>Your day, in pixels.</h1>
-        <p class="intro">
-          Meet your virtual SugarClock. Try a reading, wake a companion,<br
-            class="wide"
-          />
-          or let the day roll by.
-        </p>
         <virtual-sugar-clock id="main-device" pixels-only></virtual-sugar-clock>
         <section
           id="comparison-grid"
@@ -30,17 +22,6 @@
           aria-label="Display options side by side"
           hidden
         ></section>
-        <div class="now">
-          <span class="live-dot"></span
-          ><span id="mode-label">Blood glucose</span
-          ><span class="separator">/</span><span>32 × 8 pixels</span>
-        </div>
-        <p id="feedback" role="status">
-          Choose a display, then Record pixels only for a clean capture.
-        </p>
-        <p class="disclosure">
-          SIMULATED READINGS · NO DEVICE OR ACCOUNT REQUIRED
-        </p>
       </section>
       <aside class="controller" aria-label="Demo controls">
         <div class="panel-heading">
@@ -50,6 +31,7 @@
           </div>
           <span class="badge">DEMO</span>
         </div>
+        <p id="feedback" class="hint" role="status">Use the controls below to change the display.</p>
         <div class="presets" aria-label="Glucose presets">
           <button data-preset="range">
             <i class="range"></i>In range <strong>112 →</strong></button
@@ -292,6 +274,6 @@
       </aside>
     </main>
     <button id="exit-film" hidden>Exit filming mode <kbd>F</kbd></button>
-    <script type="module" src="studio.js?v=keyboard-1"></script>
+    <script type="module" src="studio.js?v=clean-stage-1"></script>
   </body>
 </html>
