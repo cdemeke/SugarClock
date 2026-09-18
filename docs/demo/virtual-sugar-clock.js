@@ -1,4 +1,4 @@
-import { renderFrame, describeFrame } from "./pixel-renderer.js?v=neon-1";
+import { renderFrame, describeFrame } from "./pixel-renderer.js?v=restored-1";
 import { DEVICE_GEOMETRY as geometry } from "./device-geometry.js";
 
 /** Reusable 32 × 8 display. Set .state; listen for bubbling `clock-button` events. */
@@ -134,9 +134,9 @@ export class VirtualSugarClock extends HTMLElement {
         fill * 0.7,
       );
       gradient.addColorStop(0, tint(1));
-      gradient.addColorStop(0.85, tint(1));
-      gradient.addColorStop(0.95, tint(0.98));
-      gradient.addColorStop(1, tint(0.94));
+      gradient.addColorStop(0.65, tint(1));
+      gradient.addColorStop(0.9, tint(0.93));
+      gradient.addColorStop(1, tint(0.82));
       ctx.fillStyle = gradient;
       ctx.beginPath();
       ctx.roundRect(x, y, fill, fill, pitch * 0.025);

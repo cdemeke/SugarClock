@@ -109,7 +109,7 @@ test("IP scrolls in firmware white and supersedes transient provider identificat
   const state = { ...base, mode: "ip" };
   const first = renderFrame(state, 0);
   assert.notDeepEqual(first, renderFrame(state, 2000));
-  assert.deepEqual([...new Set(first.filter(Boolean))], ["#ffffff"]);
+  assert.deepEqual([...new Set(first.filter(Boolean))], ["#d1fff1"]);
   assert.deepEqual(renderFrame({ ...state, providerLabel: true }, 0), first);
   assert.equal(
     describeFrame({ ...state, providerLabel: true }, 0),

@@ -48,7 +48,7 @@ Tests cover elapsed-time accounting, pause/resume/reset, suspended-tab catch-up,
 
 - [PR #45](https://github.com/cdemeke/SugarClock/pull/45) and `docs/images/weather-side-animation-design.png`: 8×8 weather icon, stationary compact 4×7 digits with degree/unit, static sun, looping clouds, dense rain, six-armed snowflakes without a cloud, and amber lightning that brightens periodically. `weather-renderer.js` ports `src/weather_render.cpp`; tests compare frames directly against compiled firmware rendering.
 - [PR #28](https://github.com/cdemeke/SugarClock/pull/28) and `docs/images/pixel-companions.png`: `companions.js` is an unchanged copy of `data/www/companions.js`. Parity tests check the copy and all pets' animation, nap, and greeting frames against the production preview. Keep the copy synchronized when production art changes.
-- Clock hour formatting follows `src/display.cpp`. The video demo uses a requested neon-green in-range color (`#39ff14`) rather than the firmware default; white display text is pure white (`#ffffff`). Physical LED diffusion and user-configured hardware brightness/colors can differ from a browser preview.
+- Clock hour formatting and glucose default colors follow `src/display.cpp` and `src/config_manager.cpp`. Physical LED diffusion and user-configured hardware brightness/colors can differ from a browser preview.
 
 ## TC001 physical appearance
 
