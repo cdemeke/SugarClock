@@ -6,7 +6,7 @@
     "Segoe UI",
     sans-serif;
   color: #202a29;
-  background: #f5f4ef;
+  background: #ffffff;
   font-synthesis: none;
 }
 * {
@@ -167,7 +167,7 @@ h1 {
 .controller {
   border-left: 1px solid #dfdfd6;
   padding: 32px 28px;
-  background: #fafaf6;
+  background: #ffffff;
 }
 .panel-heading {
   display: flex;
@@ -373,7 +373,7 @@ body.filming virtual-sugar-clock {
   background: #e5ecdf;
 }
 body.filming.pixels-only {
-  background: #07090a;
+  background: #ffffff;
 }
 body.filming.pixels-only #exit-film {
   display: none;
@@ -385,5 +385,85 @@ body.filming.pixels-only .stage {
 body.filming.pixels-only virtual-sugar-clock {
   max-width: none;
   width: 100%;
+  outline: none;
+}
+
+.controller .presets {
+  margin: 0 0 24px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 7px;
+}
+.controller .presets button {
+  justify-content: flex-start;
+  font-size: 12px;
+}
+.controller .presets strong {
+  margin-left: auto;
+}
+.comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 30px 22px;
+  margin: 40px 0 20px;
+  text-align: left;
+}
+.comparison-grid figure {
+  margin: 0;
+  min-width: 0;
+}
+.comparison-grid figcaption {
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0 0 12px;
+  color: #526257;
+}
+.comparison-grid virtual-sugar-clock {
+  margin: 0;
+  width: 100%;
+  max-width: none;
+}
+body.comparing .stage {
+  position: static;
+}
+body.comparing .stage h1 {
+  font-size: 38px;
+}
+body.comparing .stage .intro {
+  display: none;
+}
+body.filming.comparing .stage > #comparison-grid {
+  display: grid;
+}
+body.filming.comparing {
+  background: #fff;
+}
+body.filming.comparing .stage {
+  padding: 36px;
+  max-width: 1400px;
+}
+body.filming.comparing .comparison-grid {
+  margin: 0;
+  gap: 30px;
+}
+body.filming.comparing .comparison-grid virtual-sugar-clock {
+  margin: 0;
+  max-width: none;
+}
+@media (max-width: 720px) {
+  .comparison-grid {
+    gap: 22px 12px;
+    margin-top: 30px;
+  }
+  .comparison-grid figcaption {
+    font-size: 10px;
+  }
+  .stage:has(.comparison-grid:not([hidden])) {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
+
+.comparison-grid:focus {
   outline: none;
 }

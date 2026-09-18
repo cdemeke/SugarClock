@@ -20,6 +20,10 @@ Open http://127.0.0.1:8765/demo/ in a current browser. Serve over HTTP; JavaScri
 6. Choose “Ulanzi TC001 enclosure” under Display appearance, then double-tap the middle physical button to show the editable IP, then wait six seconds for return. A single completed button gesture also dismisses it.
 7. Click **Record pixels only** for a clean matrix with no enclosure, buttons, controls, or framing. Press F or Escape, or double-tap the matrix, to return. Display appearance defaults to Pixel block only and remembers your choice locally. The optional TC001 enclosure follows the published dimensions and front-on hardware photos. F / Filming mode also works with either appearance.
 
+## Side-by-side comparison
+
+Select Weather or Pixel companion, then enable **Compare all options · two columns** in the right panel. All ten weather conditions or all seven pets animate together, each in a TC001 enclosure with a label. Temperature/unit, glucose presets, nap, and greetings apply across the set; the selected single-display option is preserved when you turn comparison off. Other modes use the single display. Filming mode also supports the gallery; Record pixels only returns to a single borderless matrix. The studio background is white, and In Range / High / Low presets live in the right panel.
+
 ## Physical buttons
 
 | Button | Short press | Hold one second |

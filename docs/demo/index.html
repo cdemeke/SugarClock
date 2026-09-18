@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>SugarClock · Demo studio</title>
     <link rel="icon" href="../favicon.ico" />
-    <link rel="stylesheet" href="studio.css" />
+    <link rel="stylesheet" href="studio.css?v=gallery-2" />
   </head>
   <body>
     <header>
@@ -23,20 +23,17 @@
           />
           or let the day roll by.
         </p>
-        <virtual-sugar-clock pixels-only></virtual-sugar-clock>
+        <virtual-sugar-clock id="main-device" pixels-only></virtual-sugar-clock>
+        <section
+          id="comparison-grid"
+          class="comparison-grid"
+          aria-label="Display options side by side"
+          hidden
+        ></section>
         <div class="now">
           <span class="live-dot"></span
           ><span id="mode-label">Blood glucose</span
           ><span class="separator">/</span><span>32 × 8 pixels</span>
-        </div>
-        <div class="presets" aria-label="Glucose presets">
-          <button data-preset="range">
-            <i class="range"></i>In range <strong>112 →</strong></button
-          ><button data-preset="high">
-            <i class="high"></i>High <strong>245 ↑</strong></button
-          ><button data-preset="low">
-            <i class="low"></i>Low <strong>58 ↓</strong>
-          </button>
         </div>
         <p id="feedback" role="status">
           Choose a display, then Record pixels only for a clean capture.
@@ -52,6 +49,15 @@
             <h2>At the controls</h2>
           </div>
           <span class="badge">DEMO</span>
+        </div>
+        <div class="presets" aria-label="Glucose presets">
+          <button data-preset="range">
+            <i class="range"></i>In range <strong>112 →</strong></button
+          ><button data-preset="high">
+            <i class="high"></i>High <strong>245 ↑</strong></button
+          ><button data-preset="low">
+            <i class="low"></i>Low <strong>58 ↓</strong>
+          </button>
         </div>
         <label
           >Display appearance<select id="appearance">
@@ -75,6 +81,14 @@
             <option value="event">Event countdown</option>
           </select></label
         >
+        <label class="check"
+          ><input id="compare" type="checkbox" />Compare all options · two
+          columns</label
+        >
+        <p class="hint" id="compare-hint">
+          Available for weather and pixel companions. Each option appears in its
+          own TC001 enclosure.
+        </p>
         <section class="controls-section" data-panel="glucose pet">
           <h3>Glucose</h3>
           <div class="pair">
@@ -278,6 +292,6 @@
       </aside>
     </main>
     <button id="exit-film" hidden>Exit filming mode <kbd>F</kbd></button>
-    <script type="module" src="studio.js?v=restored-1"></script>
+    <script type="module" src="studio.js?v=gallery-2"></script>
   </body>
 </html>

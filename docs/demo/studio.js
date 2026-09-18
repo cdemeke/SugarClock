@@ -1,3 +1,4 @@
+import { COMPARISON_OPTIONS, comparisonState } from "./comparison.js";
 import { Simulation } from "./simulation.mjs?v=restored-1";
 import "./virtual-sugar-clock.js?v=restored-1";
 const $ = (id) => document.getElementById(id);
@@ -5,7 +6,7 @@ const sim = new Simulation();
 sim.update("clock", { hour24: true });
 sim.update("glucose", { age: 0 });
 sim.update("rotation", { intervalMs: 3000 });
-const device = document.querySelector("virtual-sugar-clock");
+const device = $("main-device");
 const labels = {
   glucose: "Blood glucose",
   time: "Clock / time",
@@ -201,6 +202,10 @@ $("appearance").addEventListener("change", () =>
   setAppearance($("appearance").value),
 );
 $("record-pixels").addEventListener("click", () => {
+  $("compare").checked = false;
+  document.body.classList.remove("comparing");
+  $("comparison-grid").hidden = true;
+  device.hidden = false;
   setAppearance("pixels");
   if (!document.body.classList.contains("filming")) film();
 });
@@ -214,7 +219,14 @@ device.addEventListener("dblclick", () => {
 function film() {
   const active = document.body.classList.toggle("filming");
   $("exit-film").hidden = !active;
-  if (active && device.hasAttribute("pixels-only")) {
+  if (active && document.body.classList.contains("comparing")) {
+    $("comparison-grid").tabIndex = -1;
+    $("comparison-grid").focus();
+  } else if (
+    active &&
+    device.hasAttribute("pixels-only") &&
+    !document.body.classList.contains("comparing")
+  ) {
     device.tabIndex = -1;
     device.focus();
   } else (active ? $("exit-film") : $("film")).focus();
@@ -235,6 +247,42 @@ document.addEventListener("keydown", (e) => {
   )
     film();
 });
+let galleryMode = null;
+let galleryDevices = [];
+let lastGalleryFrame = 0;
+function renderComparison(s) {
+  const options = COMPARISON_OPTIONS[s.mode];
+  const eligible = Boolean(COMPARISON_OPTIONS[selectedMode]);
+  $("compare").disabled = !eligible;
+  const active = $("compare").checked && Boolean(options);
+  document.body.classList.toggle("comparing", active);
+  $("comparison-grid").hidden = !active;
+  device.hidden = active;
+  $("appearance").disabled = active;
+  if (!active) return;
+  if (galleryMode !== s.mode) {
+    galleryMode = s.mode;
+    $("comparison-grid").replaceChildren();
+    galleryDevices = options.map(([key, title]) => {
+      const figure = document.createElement("figure");
+      const caption = document.createElement("figcaption");
+      caption.textContent = title;
+      const clock = document.createElement("virtual-sugar-clock");
+      figure.append(caption, clock);
+      $("comparison-grid").append(figure);
+      return { key, clock };
+    });
+    lastGalleryFrame = 0;
+  }
+  const now = performance.now();
+  if (now - lastGalleryFrame < 33) return;
+  lastGalleryFrame = now;
+  for (const { key, clock } of galleryDevices)
+    clock.state = comparisonState(s, key);
+}
+$("comparison-grid").addEventListener("clock-button", (e) =>
+  sim.button(e.detail.name, e.detail.kind),
+);
 function render() {
   const s = sim.snapshot();
   // Restart the weather animation when returning to the screen, as on firmware.
@@ -243,8 +291,9 @@ function render() {
       s.modeStartedAt,
       s.weather.animationStartedAt || 0,
     );
-  device.state = s;
   if (s.mode !== "ip") selectedMode = s.mode;
+  renderComparison(s);
+  if (!device.hidden) device.state = s;
   $("mode").value = selectedMode;
   $("nap").checked = s.pet.nap;
   $("mode-label").textContent =
