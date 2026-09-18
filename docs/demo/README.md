@@ -17,8 +17,8 @@ Open http://127.0.0.1:8765/demo/ in a current browser. Serve over HTTP; JavaScri
 3. Select Weather and try all ten firmware visuals: clear, partly cloudy, cloudy, drizzle, rain, sleet, snow, thunderstorm, tornado, and the static cloud fallback, plus °F/°C conversion.
 4. Choose included displays under Display rotation. Extra services includes all three timers. Enable auto-cycle at three or five seconds, or use Next.
 5. Select Pomodoro, choose the ten-second demo, and start it. It switches to a five-second break and repeats. Stopwatch and event countdown use real elapsed time too; event has a 15-second shortcut.
-6. Choose “Illustrative device with buttons” under Display appearance, then double-tap the middle physical button to show the editable IP, then wait six seconds for return. A single completed button gesture also dismisses it.
-7. Click **Record pixels only** for a clean matrix with no enclosure, buttons, controls, shadows, or framing. Press F or Escape, or double-tap the matrix, to return. Display appearance defaults to Pixel block only and remembers your choice locally. The optional illustrative enclosure is not a hardware-accurate device model. F / Filming mode also works with either appearance.
+6. Choose “Ulanzi TC001 enclosure” under Display appearance, then double-tap the middle physical button to show the editable IP, then wait six seconds for return. A single completed button gesture also dismisses it.
+7. Click **Record pixels only** for a clean matrix with no enclosure, buttons, controls, or framing. Press F or Escape, or double-tap the matrix, to return. Display appearance defaults to Pixel block only and remembers your choice locally. The optional TC001 enclosure follows the published dimensions and front-on hardware photos. F / Filming mode also works with either appearance.
 
 ## Physical buttons
 
@@ -49,3 +49,11 @@ Tests cover elapsed-time accounting, pause/resume/reset, suspended-tab catch-up,
 - [PR #45](https://github.com/cdemeke/SugarClock/pull/45) and `docs/images/weather-side-animation-design.png`: 8×8 weather icon, stationary compact 4×7 digits with degree/unit, static sun, looping clouds, dense rain, six-armed snowflakes without a cloud, and amber lightning that brightens periodically. `weather-renderer.js` ports `src/weather_render.cpp`; tests compare frames directly against compiled firmware rendering.
 - [PR #28](https://github.com/cdemeke/SugarClock/pull/28) and `docs/images/pixel-companions.png`: `companions.js` is an unchanged copy of `data/www/companions.js`. Parity tests check the copy and all pets' animation, nap, and greeting frames against the production preview. Keep the copy synchronized when production art changes.
 - Clock hour formatting and glucose default colors follow `src/display.cpp` and `src/config_manager.cpp`. Physical LED diffusion and user-configured hardware brightness/colors can differ from a browser preview.
+
+## TC001 physical appearance
+
+The optional enclosure uses Ulanzi’s published **200.58 × 70.25 mm** front dimensions (2.855:1). The LED matrix remains **32×8**, with equal horizontal/vertical pitch and 90% square diffuser fill in both framed and pixels-only modes. It uses a thin pale case rim, rounded black front glass, near-flush top controls and light sensor, without invented feet or front branding.
+
+The active matrix occupies about 86.2% of the body width, centered vertically; this inset, corner radius, and diffuser fill are estimates from the linked hardware photograph, not factory mechanical measurements. Display colors use a restrained center-to-edge diffuser gradient and an sRGB luminance approximation. No animation shifts pixels between physical grid positions. Browser/monitor brightness and camera exposure cannot be calibrated from a photograph, so this is a close visual reconstruction rather than an optically exact hardware capture.
+
+References: [Ulanzi dimensions and hardware review](https://www.ulanzi.com/de-eu/blogs/news/ulanzi-desktop-pixel-clock-tc001-review), [illuminated matrix/front photograph](https://blakadder.com/assets/images/ulanzi-tc001/pixelrows.jpg), [top buttons and light sensor](https://blakadder.com/assets/images/ulanzi-tc001/buttons.jpg). Geometry is centralized in `device-geometry.js` and tested across six display widths. Reference photographs are not bundled or used as runtime assets.

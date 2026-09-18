@@ -1,15 +1,26 @@
 import { renderFrame, describeFrame } from "./pixel-renderer.js";
+import { DEVICE_GEOMETRY as geometry } from "./device-geometry.js";
 
 /** Reusable 32 × 8 display. Set .state; listen for bubbling `clock-button` events. */
 export class VirtualSugarClock extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" }).innerHTML = `<style>
-      :host{display:block}.device{position:relative;border-radius:23px;background:linear-gradient(155deg,#3c4140,#171c1c 45%,#272c2c);padding:27px 27px 30px;border:1px solid #555b56;box-shadow:0 25px 34px -15px #18272065,inset 0 2px 2px #ffffff25,inset 0 -4px 3px #0008}.screen{background:#090d0c;border-radius:10px;padding:13px 17px;box-shadow:inset 0 2px 9px #000,0 1px 1px #ffffff1a;overflow:hidden}canvas{display:block;width:100%;height:auto;aspect-ratio:4;filter:brightness(.95)}.buttons{position:absolute;top:-10px;left:38%;right:38%;display:flex;gap:8px}.buttons button{width:33.33%;height:12px;border-radius:5px 5px 0 0;border:1px solid #6a7169;background:linear-gradient(#6d746c,#333a34);cursor:pointer;touch-action:none}.buttons button:active{transform:translateY(2px)}.buttons button:focus-visible{outline:3px solid #79aa87;outline-offset:3px}.signature{position:absolute;bottom:10px;left:0;right:0;text-align:center;font:6px system-ui;letter-spacing:3px;color:#68736b}.foot{position:absolute;bottom:-6px;background:#242b28;width:12%;height:7px;border-radius:0 0 5px 5px}.foot.left{left:14%}.foot.right{right:14%}@media(max-width:600px){.device{padding:17px 15px 22px;border-radius:16px}.screen{padding:7px 9px}.signature{bottom:7px;font-size:5px}}
-      :host([pixels-only]) .device,:host([pixels-only]) .screen{padding:0;border:0;border-radius:0;box-shadow:none;background:#090d0c}
-      :host([pixels-only]) .buttons,:host([pixels-only]) .signature,:host([pixels-only]) .foot{display:none}
-      :host([pixels-only]) canvas{filter:none;opacity:1!important;image-rendering:pixelated}
-      </style><div class="device"><div class="buttons"><button aria-label="Left physical button" title="Left: next · hold: glucose" data-button="left"></button><button aria-label="Middle physical button" title="Middle: brightness · double tap: IP · hold: snooze" data-button="middle"></button><button aria-label="Right physical button" title="Right: interact / start or pause · hold: reset" data-button="right"></button></div><div class="screen"><canvas width="640" height="160" role="img" aria-label="Virtual SugarClock pixel display"></canvas></div><div class="signature">S U G A R C L O C K</div><i class="foot left"></i><i class="foot right"></i></div>`;
+      :host {display:block;container-type:inline-size}
+      .device {position:relative;aspect-ratio:${geometry.widthMm}/${geometry.heightMm};border-radius:3.49% / 9.96%;background:linear-gradient(150deg,#f4f3ef 0%,#d6d7d4 40%,#b9bbb9 100%);box-shadow:0 1px 1px #fff9,inset 0 1px 2px #fff,0 12px 18px -12px #18202080}
+      .face {position:absolute;inset:2% .7%;border-radius:2.8% / 8.3%;background:linear-gradient(145deg,#101214 0%,#060809 55%,#0c0e10 100%);box-shadow:inset 0 0 2px #000,0 0 1px #666;overflow:hidden}
+      .screen {position:absolute;left:${(1 - geometry.matrixWidthFraction) * 50}%;top:50%;width:${geometry.matrixWidthFraction * 100}%;aspect-ratio:4;transform:translateY(-50%);background:#07090a}
+      canvas {display:block;width:100%;height:auto;aspect-ratio:4}
+      .buttons {position:absolute;top:-.9%;left:34%;width:29%;height:1.8%;display:flex;gap:1%;z-index:1}
+      .buttons button {position:relative;width:33.33%;height:100%;padding:0;border:0;border-radius:2px 2px 0 0;background:linear-gradient(#e8e7e3,#c7c9c5);box-shadow:inset 0 1px 1px #fff9;cursor:pointer;touch-action:none}
+      .buttons button::before {content:"";position:absolute;inset:-12px 0}
+      .buttons button:active {transform:translateY(1px)}
+      .buttons button:focus-visible {outline:2px solid #7199b1;outline-offset:3px}
+      .sensor {position:absolute;top:-.25%;left:66%;width:.9%;height:.9%;border-radius:50%;background:#555956;box-shadow:0 0 0 1px #d1d2cf}
+      :host([pixels-only]) .device {aspect-ratio:4;border-radius:0;background:#07090a;box-shadow:none}
+      :host([pixels-only]) .face,:host([pixels-only]) .buttons,:host([pixels-only]) .sensor {display:none}
+      :host([pixels-only]) .screen {left:0;top:0;width:100%;transform:none}
+      </style><div class="device"><div class="buttons"><button aria-label="Left physical button" title="Left: next · hold: glucose" data-button="left"></button><button aria-label="Middle physical button" title="Middle: brightness · double tap: IP · hold: snooze" data-button="middle"></button><button aria-label="Right physical button" title="Right: interact / start or pause · hold: reset" data-button="right"></button></div><i class="sensor" aria-hidden="true"></i><div class="face" aria-hidden="true"></div><div class="screen"><canvas width="1280" height="320" role="img" aria-label="Virtual SugarClock pixel display"></canvas></div></div>`;
     this.canvas = this.shadowRoot.querySelector("canvas");
     this.ctx = this.canvas.getContext("2d");
     this.shadowRoot.querySelectorAll("button").forEach((button) => {
@@ -88,38 +99,56 @@ export class VirtualSugarClock extends HTMLElement {
       this.lastKey = key;
     }
     const progress = Math.min(1, (now - this.transition) / 230);
-    ctx.fillStyle = "#090d0c";
-    ctx.fillRect(0, 0, 640, 160);
+    const pitch = this.canvas.width / geometry.columns;
+    const fill = pitch * geometry.pixelFillFraction;
+    const inset = (pitch - fill) / 2;
+    const brightness = Math.max(
+      0.12,
+      Math.min(1, Math.sqrt((this._state.brightness ?? 100) / 200)),
+    );
+    ctx.fillStyle = "#07090a";
+    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     ctx.save();
-    ctx.globalAlpha = 0.35 + 0.65 * progress;
-    ctx.translate(0, (1 - progress) * 12);
+    // Fade intensity only: fractional-pixel vertical slides cannot occur on the matrix.
+    ctx.globalAlpha = (0.35 + 0.65 * progress) * brightness;
     for (let i = 0; i < 256; i++) {
       const color = frame[i];
-      const pixelsOnly = this.hasAttribute("pixels-only");
-      ctx.fillStyle = color || "#151b18";
-      ctx.shadowBlur = color && !pixelsOnly ? 6 : 0;
-      ctx.shadowColor = color || "transparent";
-      ctx.beginPath();
-      const inset = pixelsOnly ? 1 : 3;
-      ctx.roundRect(
-        (i % 32) * 20 + inset,
-        Math.floor(i / 32) * 20 + inset,
-        20 - inset * 2,
-        20 - inset * 2,
-        pixelsOnly ? 0 : 2,
+      const x = (i % 32) * pitch + inset;
+      const y = Math.floor(i / 32) * pitch + inset;
+      if (!color) {
+        ctx.fillStyle = "#0b0e10";
+        ctx.fillRect(x, y, fill, fill);
+        continue;
+      }
+      const rgb = color.match(/\w\w/g).map((v) => {
+        // Approximate the perceived luminance of an emissive LED on an sRGB monitor.
+        return 255 * Math.pow(parseInt(v, 16) / 255, 0.55);
+      });
+      const tint = (factor, lift = 0) =>
+        `rgb(${rgb.map((c) => Math.round(c * factor + (255 - c) * lift)).join(",")})`;
+      // Square diffuser cells with a restrained bright center and darker edges,
+      // based on the illuminated-all-pixels hardware reference. Never bleed into neighbors.
+      const gradient = ctx.createRadialGradient(
+        x + fill / 2,
+        y + fill / 2,
+        0,
+        x + fill / 2,
+        y + fill / 2,
+        fill * 0.7,
       );
+      gradient.addColorStop(0, tint(0.98, 0.12));
+      gradient.addColorStop(0.45, tint(0.93, 0.04));
+      gradient.addColorStop(0.8, tint(0.7));
+      gradient.addColorStop(1, tint(0.48));
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.roundRect(x, y, fill, fill, pitch * 0.025);
       ctx.fill();
     }
     ctx.restore();
     const description = describeFrame(this._state);
     if (this.canvas.getAttribute("aria-label") !== description)
       this.canvas.setAttribute("aria-label", description);
-    this.canvas.style.opacity = String(
-      Math.max(
-        0.2,
-        Math.min(1, Math.sqrt((this._state.brightness ?? 100) / 200)),
-      ),
-    );
   }
 }
 customElements.define("virtual-sugar-clock", VirtualSugarClock);
