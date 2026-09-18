@@ -76,7 +76,7 @@ export function renderFrame(state, now = Date.now()) {
   const x = Math.floor((32-value.length*6-6)/2);
   text(value,x,0,color); sprite(ARROWS[g.trend] || ARROWS.flat,x+value.length*6+1,0,color);
  };
- if(state.providerLabel) { center(state.glucose?.provider === 'libre' ? 'LIBRE' : 'DEX',C.blue); return frame; }
+ if(state.providerLabel && state.mode !== 'ip') { center(state.glucose?.provider === 'libre' ? 'LIBRE' : 'DEX',C.blue); return frame; }
  switch(state.mode) {
   case 'glucose': glucose(); break;
   case 'time': {
@@ -141,7 +141,7 @@ export function renderFrame(state, now = Date.now()) {
    const namePhase = Math.floor(elapsed/4500)%3===0 && event.remainingMs>15000;
    scroll(namePhase ? event.name || 'EVENT' : eventText(event),C.purple); break;
   }
-  case 'ip': scroll(state.ip || '192.168.1.42',C.blue,state.ipStartedAt ?? state.modeStartedAt); break;
+  case 'ip': scroll(state.ip || '192.168.1.42',C.white,state.ipStartedAt ?? state.modeStartedAt); break;
   default: center('SUGAR',C.green);
  }
  return frame;
@@ -150,7 +150,7 @@ export function renderFrame(state, now = Date.now()) {
 export function describeFrame(state, now = Date.now()) {
  const g = state.glucose || {};
  const glucose = `${g.provider === 'libre' ? 'FreeStyle Libre' : 'Dexcom'} glucose ${g.value} mg/dL, ${g.status === 'range' ? 'in range' : g.status}, trend ${g.trend}${g.age ? `, reading ${g.age} minutes old` : ''}`;
- if(state.providerLabel) return `${g.provider === 'libre' ? 'FreeStyle Libre' : 'Dexcom'} connected`;
+ if(state.providerLabel && state.mode !== 'ip') return `${g.provider === 'libre' ? 'FreeStyle Libre' : 'Dexcom'} connected`;
  switch(state.mode) {
   case 'glucose': return glucose;
   case 'time': return `Time ${clockText(state,now)}, ${state.clock?.hour24?'24':'12'} hour clock`;
