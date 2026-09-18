@@ -48,3 +48,29 @@ test('physical buttons follow context and snapshots cannot mutate model', () => 
   sim.button('middle'); assert.equal(sim.state.brightness, 200); sim.button('left', 'long'); assert.equal(sim.state.mode, 'glucose');
   const snapshot = sim.state; snapshot.glucose.value = 999; assert.equal(sim.state.glucose.value, 112);
 });
+test('mode and IP animation timestamps restart on selection, navigation and each overlay', () => {
+  const { sim, advance } = fixture();
+  assert.equal(sim.state.modeStartedAt, 100000);
+  advance(1000); sim.selectMode('event'); assert.equal(sim.state.modeStartedAt, 101000);
+  advance(500); sim.next(); assert.equal(sim.state.modeStartedAt, 101500);
+  advance(500); sim.showIP(); assert.equal(sim.state.ipStartedAt, 102000);
+  assert.equal(sim.state.modeStartedAt, 101500);
+  assert.equal(advance(6000).modeStartedAt, 101500);
+  sim.showIP(); assert.equal(sim.state.ipStartedAt, 108000);
+  sim.button('left'); sim.update('rotation', { auto: true, intervalMs: 3000 });
+  assert.equal(advance(3000).modeStartedAt, 111000);
+});
+test('default duration clock remains stable when wall time changes', () => {
+  const realDateNow = Date.now;
+  try {
+    const sim = new Simulation(); sim.stopwatch('start');
+    const initial = sim.now();
+    Date.now = () => realDateNow() + 86400000;
+    const forward = sim.now();
+    assert.ok(forward >= initial && forward - initial < 1000);
+    Date.now = () => realDateNow() - 86400000;
+    const backward = sim.now();
+    assert.ok(backward >= forward && backward - initial < 1000);
+    assert.ok(sim.state.stopwatch.elapsedMs < 1000);
+  } finally { Date.now = realDateNow; }
+});

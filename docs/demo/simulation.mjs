@@ -1,14 +1,19 @@
 /** Deterministic, elapsed-time simulation. No network or patient data is used. */
 export const MODES = ['glucose', 'time', 'weather', 'pet', 'pomodoro', 'stopwatch', 'event'];
 export class Simulation {
-  constructor(now = () => Date.now()) {
-    this.now = typeof now === 'function' ? now : now.now;
+  constructor(now) {
+    // Preserve epoch-compatible event dates without coupling durations to wall-clock corrections.
+    const epochAnchor = Date.now();
+    const monotonicAnchor = performance.now();
+    this.now = now == null
+      ? () => epochAnchor + performance.now() - monotonicAnchor
+      : typeof now === 'function' ? now : now.now;
     this.lastNow = this.now();
     this.lastRotation = this.lastNow;
     this.ipUntil = 0;
     this.providerUntil = 0;
     this.data = {
-      mode: 'glucose',
+      mode: 'glucose', modeStartedAt: this.lastNow, ipStartedAt: 0,
       glucose: { value: 112, trend: 'flat', status: 'range', age: 1, provider: 'dexcom' },
       clock: { hour24: false },
       weather: { temperature: 72, unit: 'F', condition: 'sunny' },
@@ -82,13 +87,14 @@ export class Simulation {
       this.lastRotation = this.lastNow;
     }
   }
-  selectMode(mode) { this.tick(); if (MODES.includes(mode)) { this.data.mode = mode; this.ipUntil = 0; this.lastRotation = this.lastNow; } }
+  selectMode(mode) { this.tick(); if (MODES.includes(mode)) { this.data.mode = mode; this.data.modeStartedAt = this.lastNow; this.ipUntil = 0; this.lastRotation = this.lastNow; } }
   advance(steps) {
     const modes = this.data.rotation.enabled;
     if (!modes.length) return;
     let index = modes.indexOf(this.data.mode);
     if (index < 0) index = steps > 0 ? -1 : 0;
     this.data.mode = modes[((index + steps) % modes.length + modes.length) % modes.length];
+    this.data.modeStartedAt = this.lastNow;
   }
   next() { this.tick(); this.ipUntil = 0; this.advance(1); this.lastRotation = this.lastNow; }
   preset(status) {
@@ -111,7 +117,7 @@ export class Simulation {
   }
   setEvent(name, targetEpoch) { if (!Number.isFinite(targetEpoch)) return; this.tick(); this.data.event = { name, targetEpoch, remainingMs: Math.max(0, targetEpoch - this.lastNow) }; }
   demoEvent(seconds = 15) { this.tick(); this.setEvent(this.data.event.name, this.lastNow + Math.max(0, seconds) * 1000); }
-  showIP() { this.tick(); this.ipUntil = this.lastNow + 6000; }
+  showIP() { this.tick(); this.data.ipStartedAt = this.lastNow; this.ipUntil = this.lastNow + 6000; }
   button(name, kind = 'short') {
     this.tick();
     if (this.ipUntil) { this.ipUntil = 0; this.lastRotation = this.lastNow; return; }
