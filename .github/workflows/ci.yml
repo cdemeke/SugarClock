@@ -14,7 +14,7 @@ jobs:
         with:
           node-version: "22"
       - name: Site analytics tests
-        run: node --test tests/test_site_analytics.cjs tests/test_video_demo.mjs tests/test_video_renderer.mjs
+        run: node --test tests/test_site_analytics.cjs tests/test_video_*.mjs
 
   firmware:
     runs-on: ubuntu-latest

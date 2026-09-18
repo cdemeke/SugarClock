@@ -1,7 +1,11 @@
 /** Run with node --test tests/test_video_renderer.mjs (no npm dependencies). */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { renderFrame, describeFrame, formatDuration } from "../docs/demo/pixel-renderer.js";
+import {
+  renderFrame,
+  describeFrame,
+  formatDuration,
+} from "../docs/demo/pixel-renderer.js";
 const base = {
   glucose: { value: 112, status: "range", trend: "flat", provider: "dexcom" },
   clock: { hour24: true },

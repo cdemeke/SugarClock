@@ -367,3 +367,23 @@ body.filming virtual-sugar-clock {
     padding: 20px;
   }
 }
+
+#record-pixels {
+  width: 100%;
+  background: #e5ecdf;
+}
+body.filming.pixels-only {
+  background: #090d0c;
+}
+body.filming.pixels-only #exit-film {
+  display: none;
+}
+body.filming.pixels-only .stage {
+  padding: 0;
+  max-width: none;
+}
+body.filming.pixels-only virtual-sugar-clock {
+  max-width: none;
+  width: 100%;
+  outline: none;
+}

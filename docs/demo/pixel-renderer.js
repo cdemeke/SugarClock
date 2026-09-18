@@ -133,8 +133,7 @@ export function renderFrame(state, now = Date.now()) {
   const sprite = (rows, x, y, color) =>
     rows.forEach((row, dy) =>
       [...row].forEach((key, dx) => {
-        if (key !== "." && key !== "0")
-          put(x + dx, y + dy, color);
+        if (key !== "." && key !== "0") put(x + dx, y + dy, color);
       }),
     );
   const glucose = () => {
@@ -155,13 +154,19 @@ export function renderFrame(state, now = Date.now()) {
       break;
     case "time": {
       const value = clockText(state, now);
-      text(Math.floor(now / 500) % 2 ? value : value.replace(":", " "), Math.floor((32-value.length*6)/2), 0, "#ffffff");
+      text(
+        Math.floor(now / 500) % 2 ? value : value.replace(":", " "),
+        Math.floor((32 - value.length * 6) / 2),
+        0,
+        "#ffffff",
+      );
       break;
     }
     case "weather": {
       const w = state.weather || {};
       const fahrenheit = w.temperature ?? 72;
-      const temperature = w.unit === "C" ? (fahrenheit - 32) * 5 / 9 : fahrenheit;
+      const temperature =
+        w.unit === "C" ? ((fahrenheit - 32) * 5) / 9 : fahrenheit;
       const startedAt = w.animationStartedAt ?? state.modeStartedAt ?? now;
       return renderWeather(
         temperature,
@@ -171,7 +176,10 @@ export function renderFrame(state, now = Date.now()) {
       );
     }
     case "pet": {
-      if (state.glucose?.status !== "range") {glucose(); break;}
+      if (state.glucose?.status !== "range") {
+        glucose();
+        break;
+      }
       return renderCompanionFrame(state, now);
     }
     case "pomodoro": {

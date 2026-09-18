@@ -47,7 +47,12 @@ bind("trend", "glucose", "trend");
 bind("status", "glucose", "status");
 bind("age", "glucose", "age", (v) => Math.max(0, Math.min(60, Number(v) || 0)));
 bind("hour24", "clock", "hour24");
-bind("condition", "weather", "condition");
+$("condition").addEventListener("change", () =>
+  sim.update("weather", {
+    condition: $("condition").value,
+    animationStartedAt: sim.now(),
+  }),
+);
 bind("pet", "pet", "kind");
 bind("nap", "pet", "nap");
 bind("auto", "rotation", "auto");
@@ -151,7 +156,7 @@ document
   .querySelectorAll("[data-rotation]")
   .forEach((el) => el.addEventListener("change", rotation));
 rotation();
-notice("Double-tap the middle button to reveal the IP address.");
+notice("Choose a display, then Record pixels only for a clean capture.");
 $("ip").addEventListener("change", () => {
   const value = $("ip").value.trim();
   if (
@@ -177,10 +182,42 @@ device.addEventListener("clock-button", (e) => {
       : `${e.detail.name[0].toUpperCase() + e.detail.name.slice(1)} button · ${e.detail.kind} press`,
   );
 });
+function setAppearance(value) {
+  const pixelsOnly = value !== "device";
+  device.toggleAttribute("pixels-only", pixelsOnly);
+  document.body.classList.toggle("pixels-only", pixelsOnly);
+  $("appearance").value = pixelsOnly ? "pixels" : "device";
+  try {
+    localStorage.setItem("sugarclock-demo-appearance", $("appearance").value);
+  } catch {}
+}
+let savedAppearance = "pixels";
+try {
+  savedAppearance =
+    localStorage.getItem("sugarclock-demo-appearance") || "pixels";
+} catch {}
+setAppearance(savedAppearance);
+$("appearance").addEventListener("change", () =>
+  setAppearance($("appearance").value),
+);
+$("record-pixels").addEventListener("click", () => {
+  setAppearance("pixels");
+  if (!document.body.classList.contains("filming")) film();
+});
+device.addEventListener("dblclick", () => {
+  if (
+    document.body.classList.contains("filming") &&
+    device.hasAttribute("pixels-only")
+  )
+    film();
+});
 function film() {
   const active = document.body.classList.toggle("filming");
   $("exit-film").hidden = !active;
-  (active ? $("exit-film") : $("film")).focus();
+  if (active && device.hasAttribute("pixels-only")) {
+    device.tabIndex = -1;
+    device.focus();
+  } else (active ? $("exit-film") : $("film")).focus();
 }
 $("film").addEventListener("click", film);
 $("exit-film").addEventListener("click", film);
@@ -200,6 +237,12 @@ document.addEventListener("keydown", (e) => {
 });
 function render() {
   const s = sim.snapshot();
+  // Restart the weather animation when returning to the screen, as on firmware.
+  if (s.mode === "weather")
+    s.weather.animationStartedAt = Math.max(
+      s.modeStartedAt,
+      s.weather.animationStartedAt || 0,
+    );
   device.state = s;
   if (s.mode !== "ip") selectedMode = s.mode;
   $("mode").value = selectedMode;

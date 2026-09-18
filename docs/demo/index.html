@@ -23,7 +23,7 @@
           />
           or let the day roll by.
         </p>
-        <virtual-sugar-clock></virtual-sugar-clock>
+        <virtual-sugar-clock pixels-only></virtual-sugar-clock>
         <div class="now">
           <span class="live-dot"></span
           ><span id="mode-label">Blood glucose</span
@@ -39,7 +39,7 @@
           </button>
         </div>
         <p id="feedback" role="status">
-          Double-tap the middle button to reveal the IP address.
+          Choose a display, then Record pixels only for a clean capture.
         </p>
         <p class="disclosure">
           SIMULATED READINGS · NO DEVICE OR ACCOUNT REQUIRED
@@ -53,6 +53,17 @@
           </div>
           <span class="badge">DEMO</span>
         </div>
+        <label
+          >Display appearance<select id="appearance">
+            <option value="pixels">Pixel block only</option>
+            <option value="device">Illustrative device with buttons</option>
+          </select></label
+        >
+        <button id="record-pixels">Record pixels only</button>
+        <p class="hint">
+          No controls, enclosure, buttons, or framing. Press F or Escape, or
+          double-tap the pixel block, to return.
+        </p>
         <label
           >On the display<select id="mode">
             <option value="glucose">Blood glucose</option>
@@ -136,10 +147,18 @@
           </div>
           <label
             >Conditions<select id="condition">
-              <option value="sunny">Sunny</option>
+              <option value="sunny">Clear sky · static sun</option>
+              <option value="partly-cloudy">Partly cloudy</option>
               <option value="cloudy">Cloudy</option>
-              <option value="rain">Rain</option>
+              <option value="drizzle">Drizzle</option>
+              <option value="rain">Rain / mist / fog</option>
+              <option value="sleet">Sleet</option>
               <option value="snow">Snow</option>
+              <option value="storm">Thunderstorm</option>
+              <option value="tornado">Tornado</option>
+              <option value="cloud-fallback">
+                Smoke / dust · static cloud
+              </option>
             </select></label
           ><label
             >Mock location<input
