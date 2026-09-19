@@ -1876,11 +1876,4 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     position: absolute; top: -.25%; left: 66%; width: .9%; height: .9%;
     border-radius: 50%; background: #555956; box-shadow: 0 0 0 1px #d1d2cf;
 }
-.disclosure-card p {
-    font-size: 14px;
-    line-height: 1.6;
-    color: var(--text);
-    max-width: 75ch;
-}
-.disclosure-card p + p { margin-top: 10px; }
 #installation-id { font-size: 14px; color: var(--text); }
