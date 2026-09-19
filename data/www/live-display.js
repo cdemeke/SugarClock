@@ -1,6 +1,5 @@
 // One small RGB request at a time. Background tabs stop polling the device.
 globalThis.startLiveDisplay = function ({canvas, status, onMode}) {
-    render(new Uint8Array(768));
     let timer, controller, inFlight = false, stopped = false;
     let etag = null;
     function setStatus(message) {
@@ -17,6 +16,8 @@ globalThis.startLiveDisplay = function ({canvas, status, onMode}) {
             return false;
         }
     }
+
+    render(new Uint8Array(768));
 
     async function refresh() {
         if (stopped || document.hidden || inFlight) return;

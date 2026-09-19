@@ -20,7 +20,6 @@ const ctx = {
  }}, save(){}, restore(){},
  translate(x,y){position=[x,y]},
  createRadialGradient(){stops=[];return {addColorStop:(s,c)=>stops.push([s,c])}},
-
 };
 const canvas = {width:32,height:8,getContext:()=>ctx};
 const rgb = new Uint8Array(768); rgb.set([148,230,161],0); rgb.set([255,0,0],765);
