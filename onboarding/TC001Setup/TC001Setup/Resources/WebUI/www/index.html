@@ -550,15 +550,11 @@
             <!-- TIME TAB (Clock, Date, Timers, Countdown) -->
             <div class="tab-panel" id="tab-time">
                 <div class="card">
-                    <h2>Clock</h2>
-                    <div class="toggle-row">
-                        <div>
-                            <label>Show Time Display</label>
-                            <div class="hint">Include the clock in button navigation and auto-cycle.</div>
-                        </div>
-                        <input type="checkbox" id="time_display_enabled" checked>
+                    <div class="card-header-toggle">
+                        <h2 id="clock-heading">Clock</h2>
+                        <input type="checkbox" id="time_display_enabled" aria-labelledby="clock-heading" aria-describedby="clock-display-hint" checked>
                     </div>
-                    <div class="divider"></div>
+                    <p class="card-intro" id="clock-display-hint" style="margin-bottom:16px;">Include the clock in button navigation and auto-cycle.</p>
                     <div class="form-row">
                         <div class="form-group">
                             <label>Timezone</label>
