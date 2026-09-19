@@ -1863,7 +1863,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 .ambient-preview-caption { margin: 8px 0 18px; }
 
 /* Supporting copy stays subordinate to headings throughout the device admin. */
-.page-header p, .card > p, .card-header p, .capability-heading p,
+.page-header p, .card-intro,
 .ambient-description {
     font-size: 12px;
     font-weight: 400;
@@ -1876,4 +1876,11 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     position: absolute; top: -.25%; left: 66%; width: .9%; height: .9%;
     border-radius: 50%; background: #555956; box-shadow: 0 0 0 1px #d1d2cf;
 }
-.card > p + p { margin-top: 8px; }
+.disclosure-card p {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text);
+    max-width: 75ch;
+}
+.disclosure-card p + p { margin-top: 10px; }
+#installation-id { font-size: 14px; color: var(--text); }

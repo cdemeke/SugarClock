@@ -28,13 +28,13 @@
             <p>Hardware details and management</p>
         </div>
 
-<div class="card">
+<div class="card disclosure-card">
             <h2>Installation reporting</h2>
             <p>SugarClock automatically reports a random installation ID, firmware version, last-seen time, device health, configured data source (such as Dexcom or Libre), and enabled features including display pet and weather. The fleet administrator can view each installation and may label it with a nickname.</p>
             <p>Your network address may be used to estimate city and country. These linked records are pseudonymous, not anonymous. Reporting is built in and cannot be switched off. Glucose readings, account credentials, Wi-Fi names, and your configured weather location are not included in fleet reports.</p>
             <p>Updates follow the administrator’s release rollout. The clock keeps its current firmware if the fleet service is unavailable.</p>
         </div>
-        <div class="card"><h2>Installation ID</h2><p id="installation-id" style="overflow-wrap:anywhere;">Loading…</p><p>Match this ID in the fleet dashboard to assign a nickname such as “My desk.”</p></div>
+        <div class="card"><h2>Installation ID</h2><p id="installation-id" style="overflow-wrap:anywhere;">Loading…</p><p class="card-intro">Match this ID in the fleet dashboard to assign a nickname such as “My desk.”</p></div>
         <div class="stat-grid">
             <div class="stat-card">
                 <div class="stat-label">Firmware</div>
@@ -71,7 +71,7 @@
 
         <div class="card">
             <h2>Firmware Updates</h2>
-            <p style="font-size:13px;color:var(--text-secondary);margin:-8px 0 16px;">
+            <p class="card-intro" style="margin:-8px 0 16px;">
                 Updates are signed, downloaded over secure HTTPS, and installed into a backup slot. Only releases assigned by the fleet administrator are eligible. Automatic updates respect the nightly window; explicit manual installs can run outside it, subject to safety checks; the clock may restart briefly after verification.
             </p>
             <div class="status-row"><span class="status-label">Installed</span><span class="status-value" id="ota-current">--</span></div>
@@ -99,7 +99,7 @@
 
         <div class="card">
             <h2>Button Controls</h2>
-            <p style="font-size:13px; color:var(--text-secondary); margin:-8px 0 16px;">
+            <p class="card-intro" style="margin:-8px 0 16px;">
                 Physical button actions on the SugarClock device.
             </p>
             <div class="status-row"><span class="status-label">Left Short</span><span class="status-value">Toggle display mode</span></div>
@@ -120,7 +120,7 @@
             </div>
             <div class="card card-compact">
                 <h2>Actions</h2>
-                <p style="color:var(--text-secondary);font-size:13px;margin:-8px 0 16px;">Manage your device remotely.</p>
+                <p class="card-intro" style="margin:-8px 0 16px;">Manage your device remotely.</p>
                 <div class="btn-group">
                     <button class="btn btn-outline" id="restart-btn">Restart</button>
                     <button class="btn btn-danger" id="reset-btn">Factory Reset</button>

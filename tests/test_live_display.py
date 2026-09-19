@@ -46,6 +46,15 @@ require(process.argv[1]);
  assert.equal(status.textContent,'Live from your clock');
  const fresh=client.refresh();resolveFetch({status:204,ok:true});await fresh;
  assert.ok(status.textContent.includes('Waiting'));assert.equal(painted,originalPixels);
+ const draw=MatrixDisplay.draw;
+ MatrixDisplay.draw=()=>{throw new Error('Drawing failed')};
+ const broken=client.refresh();resolveFetch(response(768));await broken;
+ assert.ok(status.textContent.includes('could not render'));
+ assert.ok(!status.textContent.includes('disconnected'));
+ MatrixDisplay.draw=draw;
+ const recovered=client.refresh();assert.deepEqual(requestHeaders,{});
+ resolveFetch(response(768));await recovered;
+ assert.equal(status.textContent,'Live from your clock');
  client.stop();assert.equal(timers.size,0);assert.equal(events.size,0);
 })().catch(error=>{console.error(error);process.exit(1)});
 '''

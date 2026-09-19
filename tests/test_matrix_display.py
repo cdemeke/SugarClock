@@ -15,11 +15,12 @@ require(process.argv[1]);
 require(process.argv[2]);
 let tiles = [], position, stops;
 const ctx = {
- fillRect(){}, save(){}, restore(){}, beginPath(){},
+ fillRect(x,y,w,h){if(this.fillStyle !== '#07090a' && this.fillStyle !== '#0b0e10') {
+  assert.deepEqual([x,y,w,h],[0,0,36,36]);tiles.push({position,stops});
+ }}, save(){}, restore(){},
  translate(x,y){position=[x,y]},
  createRadialGradient(){stops=[];return {addColorStop:(s,c)=>stops.push([s,c])}},
- roundRect(x,y,w,h,r){assert.deepEqual([x,y,w,h,r],[0,0,36,36,1])},
- fill(){tiles.push({position,stops})}
+
 };
 const canvas = {width:32,height:8,getContext:()=>ctx};
 const rgb = new Uint8Array(768); rgb.set([148,230,161],0); rgb.set([255,0,0],765);
@@ -30,6 +31,7 @@ assert.deepEqual(tiles.map(t=>t.position),[[2,2],[1242,282]]);
 assert.equal(tiles[0].stops[0][1],'rgb(148,230,161)');
 assert.equal(tiles[1].stops[0][1],'rgb(255,0,0)');
 assert.throws(()=>MatrixDisplay.draw(canvas,new Uint8Array(3)));
+assert.equal(MatrixDisplay.draw({width:1280,height:320,getContext:()=>null},rgb),false);
 let actual;
 MatrixDisplay.draw=(_canvas,frame)=>actual=frame;
 for(let id=0;id<7;id++)for(let range=0;range<3;range++)for(const mood of ['awake','sleepy','happy']) {
