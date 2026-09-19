@@ -38,6 +38,10 @@ SugarClock is free, open-source firmware that turns the [Ulanzi TC001 Smart Pixe
 - **Compact weather animations** — A dedicated pixel icon sits beside the temperature: looping clouds, falling rain, straight-falling snowflakes, and a small lightning bolt. Clear skies use a static sun. [See the display design](docs/images/weather-side-animation-design.png).
 - **Pixel Companions** — Choose Pip the goldfish, Boo the ghost, Mochi the axolotl, Sprout the dinosaur, Pebble the turtle, Inky the octopus, or Maple the red panda in Settings → Display. Choose companion + text, companion + range icon, or the companion alone centered on screen. Preview low, in-range, and high poses; range text/icons use red for both low and high by default, with an option to follow your configured glucose colors. Greetings and sleepy poses apply only in range. The clock remembers your choices, and urgent readings replace the companion with the glucose number.
 
+## Video demo studio
+
+Try the virtual 32×8 SugarClock in [`docs/demo/`](docs/demo/README.md): glucose presets, seven pixel companions, animated weather, live timers, display rotation, and physical-button interactions. Includes a controls-free filming view and runs locally without a device or account.
+
 ## What You Need
 
 | Item | Notes |
