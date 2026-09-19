@@ -97,11 +97,13 @@
         return palette[key]||'#07090d';
     }
     function draw(canvas,id,ms,mood,style=0,range=0,colors=null) {
-        const ctx=canvas.getContext('2d');if(!ctx)return;
-        ctx.imageSmoothingEnabled=false;
-        frame(id,ms,mood==='sleepy',mood==='happy',style,range).forEach((row,y)=>row.forEach((c,x)=>{
-            ctx.fillStyle=resolveColor(c,colors);ctx.fillRect(x,y,1,1);
+        const pixels = frame(id,ms,mood==='sleepy',mood==='happy',style,range);
+        const rgb = new Uint8Array(768);
+        pixels.forEach((row,y)=>row.forEach((c,x)=>{
+            const hex = c === '.' ? '#000000' : resolveColor(c,colors);
+            for (let channel=0;channel<3;channel++) rgb[(y*32+x)*3+channel]=parseInt(hex.slice(1+channel*2,3+channel*2),16);
         }));
+        scope.MatrixDisplay.draw(canvas,rgb);
     }
     scope.PixelCompanions={names,palette,valid,validStyle,frame,resolveColor,draw};
 })(globalThis);

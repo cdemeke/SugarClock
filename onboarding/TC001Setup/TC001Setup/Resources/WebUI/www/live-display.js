@@ -1,7 +1,6 @@
 // One small RGB request at a time. Background tabs stop polling the device.
 globalThis.startLiveDisplay = function ({canvas, status, onMode}) {
-    const context = canvas.getContext('2d');
-    const image = context.createImageData(32, 8);
+    MatrixDisplay.draw(canvas, new Uint8Array(768));
     let timer, controller, inFlight = false, stopped = false;
     let etag = null;
     function setStatus(message) {
@@ -33,13 +32,8 @@ globalThis.startLiveDisplay = function ({canvas, status, onMode}) {
             const rgb = new Uint8Array(await response.arrayBuffer());
             if (rgb.length !== 32 * 8 * 3) throw new Error('Invalid display frame');
             if (stopped || document.hidden) return;
-            for (let pixel = 0; pixel < 256; pixel++) {
-                image.data[pixel * 4] = rgb[pixel * 3];
-                image.data[pixel * 4 + 1] = rgb[pixel * 3 + 1];
-                image.data[pixel * 4 + 2] = rgb[pixel * 3 + 2];
-                image.data[pixel * 4 + 3] = 255;
-            }
-            context.putImageData(image, 0, 0);
+            MatrixDisplay.draw(canvas, rgb);
+            canvas.setAttribute('aria-label', 'Live display from your clock');
             etag = response.headers.get('ETag');
             canvas.dataset.frameSequence = response.headers.get('X-Display-Sequence') || '';
             const mode = response.headers.get('X-Display-Mode');

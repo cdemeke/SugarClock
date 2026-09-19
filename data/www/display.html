@@ -45,6 +45,7 @@
             </div>
             <div class="live-matrix-shell">
                 <div class="ambient-matrix live-matrix">
+                    <span class="matrix-sensor" aria-hidden="true"></span>
                     <canvas id="live-display" width="32" height="8" role="img" aria-label="Connecting to the clock's display"></canvas>
                 </div>
                 <div class="hint live-frame-status" id="live-frame-status" role="status">Connecting to live display…</div>
@@ -113,6 +114,7 @@
     </main>
 
     <script src="glucose-format.js"></script>
+    <script src="matrix-display.js"></script>
     <script src="live-display.js"></script>
     <script>
         const trendMap = {'RisingFast':'\u2191\u2191','Rising':'\u2191','Flat':'\u2192','Falling':'\u2193','FallingFast':'\u2193\u2193','Unknown':'?'};

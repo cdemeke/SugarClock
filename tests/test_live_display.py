@@ -17,7 +17,8 @@ global.document = {hidden:false, addEventListener:(k,v)=>events.set(k,v), remove
 global.setTimeout = (fn,delay) => {timers.set(++timerId,{fn,delay});return timerId;};
 global.clearTimeout = id => timers.delete(id);
 global.fetch = (_url, options) => {requestHeaders=options.headers;requests++;return new Promise(resolve=>resolveFetch=resolve);};
-const context = {createImageData:()=>({data:new Uint8ClampedArray(1024)}), putImageData:image=>painted=image.data.slice()};
+global.MatrixDisplay = {draw:(_canvas,rgb)=>painted=rgb.slice()};
+const context = {};
 const canvas = {getContext:()=>context,dataset:{},setAttribute:()=>{}};
 const status = {};
 const settle = () => new Promise(resolve=>setImmediate(resolve));
@@ -28,7 +29,7 @@ require(process.argv[1]);
  await client.refresh();assert.equal(requests,1); // No overlapping requests.
  resolveFetch(response(768));await settle();
  assert.equal(mode,'TIME');assert.equal(canvas.dataset.frameSequence,'7');
- for(let i=0;i<256;i++)assert.deepEqual([...painted.slice(i*4,i*4+4)],[17,17,17,255]);
+ for(let i=0;i<256;i++)assert.deepEqual([...painted.slice(i*3,i*3+3)],[17,17,17]);
  assert.equal(status.textContent,'Live from your clock');
  document.hidden=true;events.get('visibilitychange')();await client.refresh();assert.equal(requests,1);assert.equal(timers.size,0);
  document.hidden=false;events.get('visibilitychange')();assert.equal(requests,2);

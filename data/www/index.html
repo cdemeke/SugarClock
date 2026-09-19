@@ -334,6 +334,7 @@
                                 <span>32 &times; 8 pixels</span>
                             </div>
                             <div class="ambient-matrix" aria-label="Selected pixel companion preview">
+                                <span class="matrix-sensor" aria-hidden="true"></span>
                                 <canvas id="ambient-companion-preview" width="32" height="8" role="img" aria-label="Pip the goldfish preview"></canvas>
                             </div>
                         </div>
@@ -929,6 +930,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
     <div class="toast" id="toast"></div>
 
+    <script src="matrix-display.js"></script>
     <script src="companions.js"></script>
     <script>
         function switchTab(id) {
