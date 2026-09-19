@@ -70,13 +70,6 @@
             </div>
         </div>
 
-<div class="card">
-            <h2>Installation reporting</h2>
-            <p>SugarClock automatically reports a random installation ID, firmware version, last-seen time, device health, configured data source (such as Dexcom or Libre), and enabled features including display pet and weather. The fleet administrator can view each installation and may label it with a nickname.</p>
-            <p>Your network address may be used to estimate city and country. These linked records are pseudonymous, not anonymous. Reporting is built in and cannot be switched off. Glucose readings, account credentials, Wi-Fi names, and your configured weather location are not included in fleet reports.</p>
-            <p>Updates follow the administrator’s release rollout. The clock keeps its current firmware if the fleet service is unavailable.</p>
-        </div>
-
         <form id="config-form">
 
             <!-- CONNECTION TAB -->
@@ -242,7 +235,7 @@
                         <input type="checkbox" id="auto_cycle_enabled">
                     </div>
                     <div class="card-details" id="autocycle-details">
-                        <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+                        <p class="card-intro" style="margin-bottom:16px;">
                             Automatically rotate through enabled display screens.
                         </p>
                         <div class="form-group">
@@ -263,7 +256,7 @@
 
                 <div class="card">
                     <h2>Remote Control</h2>
-                    <p style="font-size:13px; color:var(--text-secondary); margin:-8px 0 16px;">
+                    <p class="card-intro" style="margin:-8px 0 16px;">
                         Switch the device display from here.
                     </p>
                     <div style="display:flex;gap:12px;align-items:center;justify-content:center;padding:8px 0;">
@@ -334,7 +327,8 @@
                                 <span>32 &times; 8 pixels</span>
                             </div>
                             <div class="ambient-matrix" aria-label="Selected pixel companion preview">
-                                <canvas id="ambient-companion-preview" width="32" height="8" role="img" aria-label="Pip the goldfish preview"></canvas>
+                                <span class="matrix-sensor" aria-hidden="true"></span>
+                                <canvas id="ambient-companion-preview" width="1280" height="320" role="img" aria-label="Pip the goldfish preview"></canvas>
                             </div>
                         </div>
                         <div class="ambient-preview-controls" role="group" aria-label="Preview companion poses">
@@ -556,15 +550,10 @@
             <!-- TIME TAB (Clock, Date, Timers, Countdown) -->
             <div class="tab-panel" id="tab-time">
                 <div class="card">
-                    <h2>Clock</h2>
-                    <div class="toggle-row">
-                        <div>
-                            <label>Show Time Display</label>
-                            <div class="hint">Include the clock in button navigation and auto-cycle.</div>
-                        </div>
-                        <input type="checkbox" id="time_display_enabled" checked>
+                    <div class="card-header-toggle">
+                        <h2 id="clock-heading">Clock</h2>
+                        <input type="checkbox" id="time_display_enabled" aria-labelledby="clock-heading" checked>
                     </div>
-                    <div class="divider"></div>
                     <div class="form-row">
                         <div class="form-group">
                             <label>Timezone</label>
@@ -632,9 +621,6 @@
 
                 <div class="card">
                     <h2>Date Display</h2>
-                    <p style="font-size:13px; color:var(--text-secondary); margin:-8px 0 16px;">
-                        Alternates with the clock every 5 seconds on the time screen.
-                    </p>
                     <div class="toggle-row">
                         <label>Show Date on Time Screen</label>
                         <input type="checkbox" id="date_on_time_screen">
@@ -656,7 +642,7 @@
                         <input type="checkbox" id="timer_enabled">
                     </div>
                     <div class="card-details" id="timer-details">
-                        <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+                        <p class="card-intro" style="margin-bottom:16px;">
                             Focus timer with work/break cycles. Right button starts/pauses when viewing timer.
                         </p>
                         <div class="form-row">
@@ -692,7 +678,7 @@
                         <input type="checkbox" id="stopwatch_enabled">
                     </div>
                     <div class="card-details" id="stopwatch-details">
-                        <p style="font-size:13px; color:var(--text-secondary); margin:0;">
+                        <p class="card-intro" style="margin:0;">
                             Count-up timer. Right button starts/pauses. Right long-press resets.
                         </p>
                     </div>
@@ -704,7 +690,7 @@
                         <input type="checkbox" id="countdown_enabled">
                     </div>
                     <div class="card-details" id="countdown-details">
-                        <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+                        <p class="card-intro" style="margin-bottom:16px;">
                             Shows days/hours until a target date. Displays "NOW!" when reached.
                         </p>
                         <div class="form-row">
@@ -730,7 +716,7 @@
                         <input type="checkbox" id="weather_enabled">
                     </div>
                     <div class="card-details" id="weather-details">
-                        <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+                        <p class="card-intro" style="margin-bottom:16px;">
                             Show current temperature in the display cycle. Uses OpenWeatherMap.
                         </p>
                         <div class="form-group">
@@ -805,7 +791,7 @@
                         <input type="checkbox" id="notify_enabled">
                     </div>
                     <div class="card-details" id="notify-details">
-                        <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+                        <p class="card-intro" style="margin-bottom:16px;">
                             Send messages to the display from any device on your network.
                             Open <a href="/notify.html" target="_blank" style="color:var(--accent);font-weight:500;">/notify.html</a>
                             on your phone and add it to your home screen for quick access.
@@ -859,7 +845,7 @@
                         <input type="checkbox" id="sysmon_enabled">
                     </div>
                     <div class="card-details" id="sysmon-details">
-                        <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+                        <p class="card-intro" style="margin-bottom:16px;">
                             Push CPU/RAM data from your computer via <code>POST /api/sysmon</code>. Auto-hides after 30s of no data.
                         </p>
                         <div class="form-row">
@@ -905,7 +891,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             <div class="tab-panel" id="tab-danger">
                 <div class="card reset-card">
                     <h2>Restart Device</h2>
-                    <p style="color:var(--text-secondary); margin:-8px 0 16px; font-size:13px;">
+                    <p class="card-intro" style="margin:-8px 0 16px; ">
                         Reboot the device. Settings are preserved.
                     </p>
                     <button type="button" class="btn btn-outline" id="restart-config-btn">Restart</button>
@@ -913,7 +899,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
                 <div class="card reset-card">
                     <h2>Factory Reset</h2>
-                    <p style="color:var(--text-secondary); margin:-8px 0 16px; font-size:13px;">
+                    <p class="card-intro" style="margin:-8px 0 16px; ">
                         Erase all settings and restore factory defaults. The device will restart and show SETUP.
                     </p>
                     <button type="button" class="btn btn-danger" id="factory-reset-btn">Factory Reset</button>
@@ -929,6 +915,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
     <div class="toast" id="toast"></div>
 
+    <script src="matrix-display.js"></script>
     <script src="companions.js"></script>
     <script>
         function switchTab(id) {
