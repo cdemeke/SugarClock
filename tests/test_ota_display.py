@@ -14,9 +14,11 @@ class OtaDisplayTests(unittest.TestCase):
             subprocess.run([
                 os.environ.get("CXX", "c++"), "-std=c++11", "-Wall", "-Wextra",
                 "-I", str(ROOT / "tests/glucose_display_stubs"),
+                "-I", str(ROOT / "tests/engine_stubs"),
                 "-I", str(ROOT / "include"),
                 str(ROOT / "tests/test_ota_display.cpp"),
                 str(ROOT / "src/display.cpp"), str(ROOT / "src/glucose_render.cpp"),
+                str(ROOT / "src/weather_render.cpp"),
                 "-o", binary,
             ], check=True)
             subprocess.run([binary], check=True, cwd=temp)

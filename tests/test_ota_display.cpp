@@ -120,6 +120,9 @@ static void test_engine() {
     config.alert_low = 70;
     config.alert_high = 200;
     config.alert_snooze_min = 10;
+    config.thresh_low = 70;
+    config.thresh_urgent_low = 55;
+    config.glucose_only_when_low = true; // The overlay outranks the low lock.
     config.auto_cycle_enabled = true;
     config.auto_cycle_sec = 1;
     reading.valid = true;
@@ -141,6 +144,7 @@ static void test_engine() {
     assert(drawn_text() == "Updating...");
     assert(FastLED.brightness == 40);
     assert(beeps == 1); // The overlay did not bypass the alert check.
+    assert(engine_low_glucose_lock_active());
     int shows = FastLED.shows;
     weather_callback();
     assert(FastLED.shows == shows);
@@ -182,6 +186,7 @@ static void test_engine() {
     assert(drawn_text() != "Update failed");
     assert(FastLED.brightness == 10);
     assert(engine_get_user_mode() == STATE_WEATHER_DISPLAY);
+    assert(engine_get_state() == STATE_GLUCOSE_DISPLAY); // The low lock resumes.
 
     lifecycle.start(); // A retry starts a fresh marquee.
     tick();
