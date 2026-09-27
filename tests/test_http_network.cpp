@@ -21,6 +21,17 @@ bool nightscout_fetch(const NightscoutConfig&, NightscoutResult& result) {
     result = fixture_result;
     return fixture_ok;
 }
+static LibreReading libre_fixture{};
+static bool libre_ok = true;
+static int libre_resets = 0;
+bool libre_fetch(LibreReading& out, bool* attempted) {
+    if (attempted) *attempted = true;
+    out = libre_fixture;
+    return libre_ok;
+}
+int libre_last_http_code() { return libre_ok ? 200 : 401; }
+const char* libre_last_message() { return libre_ok ? "OK" : "Login failed"; }
+void libre_reset_session() { ++libre_resets; }
 static void await_request() {
     for (int i=0; i<1000; ++i) {
         xSemaphoreTake(data_mutex, portMAX_DELAY);
@@ -67,6 +78,23 @@ int main() {
     http_reset_source();
     assert(!http_get_reading().valid && !http_has_ever_received());
     assert(http_get_history(history,48)==0 && http_get_failure_count()==0);
+
+    // LibreLinkUp publishes through the same guarded state, dated by sensor age.
+    assert(libre_resets == 1); // http_init drops any cached Libre session
+    fixture_config.data_source = 3;
+    http_reset_source();
+    libre_fixture = {101, TREND_RISING, 1700002000, 120};
+    assert(do_fetch());
+    assert(http_get_reading().glucose == 101 && http_get_reading().trend == TREND_RISING);
+    assert(http_has_ever_received() && http_has_delta());
+    assert(http_time_since_last_reading() >= 120000 && http_time_since_last_reading() < 125000);
+    libre_ok = false;
+    assert(!do_fetch() && http_get_failure_count() == 1);
+    assert(http_get_reading().glucose == 101);
+    libre_ok = true;
+    http_clear_readings(); // changing the Libre person clears readings only
+    assert(!http_get_reading().valid && !http_has_ever_received());
+    assert(http_get_history(history,48)==0 && libre_resets == 1);
 
     fixture_config.data_source = 2;
     fixture_wifi = false;

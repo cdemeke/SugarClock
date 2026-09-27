@@ -26,11 +26,12 @@ unsigned long millis() { return now_ms; }
 AppConfig& config_get() { return cfg; }
 bool config_has_wifi() { return true; }
 bool config_has_server() { return true; }
-const GlucoseReading& http_get_reading() { return reading; }
+GlucoseReading http_get_reading() { return reading; }
 unsigned long http_time_since_last_reading() { return age_ms; }
 int http_get_failure_count() { return failures; }
 bool http_has_ever_received() { return ever_received; }
 int http_get_delta() { return -5; }
+bool http_has_delta() { return true; }
 int http_get_history(GlucoseHistoryEntry*, int) { return 0; }
 bool wifi_is_connected() { return connected; }
 bool wifi_is_ap_mode() { return ap_mode; }
@@ -73,7 +74,7 @@ const char* sysmon_get_label() { return "CPU"; }
 bool countdown_is_configured() { return false; }
 long countdown_get_remaining_sec() { return 0; }
 bool weather_has_data() { return false; }
-const WeatherReading& weather_get_reading() { static WeatherReading wx = {}; return wx; }
+WeatherReading weather_get_reading() { return WeatherReading{}; }
 void weather_set_pre_fetch_callback(WeatherPreFetchCallback) {}
 void display_set_brightness(uint8_t) {}
 void display_set_transition_level(uint8_t level) { frame_level = level; }
