@@ -25,7 +25,7 @@ struct FastLED_NeoMatrix {
         for (int i = 0; i < width * height; ++i) pixels[i] = {};
         drawing() = {};
     }
-    uint16_t Color(uint8_t r, uint8_t g, uint8_t b) { return (r << 8) | (g << 3) | b; }
+    uint16_t Color(uint8_t r, uint8_t g, uint8_t b) { return ((r & 0xf8) << 8) | ((g & 0xfc) << 3) | (b >> 3); }
     void setTextColor(uint16_t) {}
     void setCursor(int x, int y) { cursor_x = x; cursor_y = y; }
     void print(const char* s) {
@@ -38,6 +38,12 @@ struct FastLED_NeoMatrix {
     }
     void drawPixel(int x, int y, uint16_t color) {
         drawing().pixels.push_back({x, y});
-        if (x >= 0 && x < width && y >= 0 && y < height) pixels[y * width + x].r = color;
+        if (x >= 0 && x < width && y >= 0 && y < height) {
+            // Model the hardware's row-serpentine wiring, not logical row order.
+            auto& pixel = pixels[y * width + ((y & 1) ? width - 1 - x : x)];
+            pixel.r = ((color >> 11) & 31) * 255 / 31;
+            pixel.g = ((color >> 5) & 63) * 255 / 63;
+            pixel.b = (color & 31) * 255 / 31;
+        }
     }
 };

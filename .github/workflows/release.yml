@@ -8,6 +8,10 @@ on:
         required: true
         type: string
 
+concurrency:
+  group: firmware-release-publishing
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
@@ -19,6 +23,15 @@ jobs:
         with:
           ref: ${{ inputs.candidate_tag }}
           fetch-depth: 0
+      - name: Load publishing guard from workflow revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: publishing-policy
+      - name: Capture pinned legacy update offer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 publishing-policy/scripts/release_guard.py --repository "${{ github.repository }}" snapshot --output "${{ runner.temp }}/latest-before.json"
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -106,5 +119,11 @@ jobs:
           candidate_commit="$(git rev-list -n 1 "${CANDIDATE_TAG}")"
           gh release create "v${version}" release/* \
             --target "${candidate_commit}" \
+            --latest=false \
             --generate-notes \
             --title "SugarClock v${version}"
+      - name: Verify legacy Latest tag and manifest were preserved
+        if: ${{ always() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 publishing-policy/scripts/release_guard.py --repository "${{ github.repository }}" check --expected "${{ runner.temp }}/latest-before.json"

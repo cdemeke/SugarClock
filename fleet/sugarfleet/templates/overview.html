@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Overview · SugarClock Fleet{% endblock %}
+{% block content %}
+<div class="overview-heading">
+  <div class="overview-title-row">
+    <h1>Your clocks, at a glance</h1>
+    <div class="refresh-control"><span id="updated-at" class="mono" role="status">Waiting for reports</span><button id="refresh">Refresh</button></div>
+  </div>
+  <p class="overview-intro">Connections, enabled features, and firmware adoption. <span id="reporting-summary"></span></p>
+</div>
+<p id="overview-status" role="status">Loading fleet summary…</p>
+<div id="overview-content" aria-busy="true">
+  <div id="metrics" class="metrics">
+    {% for label in ['Registered', 'Online now', 'Active · 7 days', 'Active · 30 days'] %}
+    <section class="card metric"><h2>{{ label }}</h2><strong>—</strong><p class="mono hint">Waiting for reports</p></section>
+    {% endfor %}
+  </div>
+  <section class="card capacity-card" aria-labelledby="capacity-title">
+    <div class="panel-heading"><h2 id="capacity-title">Registration capacity</h2><button id="cleanup" class="secondary" disabled>Clean up abandoned registrations</button></div>
+    <div id="capacity-summary"><p class="hint">Loading capacity…</p></div>
+    <details class="cleanup-help"><summary>What does cleanup remove?</summary><p class="hint">New registrations older than 24 hours that never completed a check-in. Migrated identities, active clocks, and blocked installations are preserved.</p></details>
+    <p id="cleanup-result" role="status" class="form-result"></p>
+  </section>
+  <div class="overview-grid">
+    <section class="card feature-card" aria-labelledby="features-title">
+      <div class="panel-intro"><h2 id="features-title">Enabled features</h2><p class="hint">Latest reported config from installations active in the last 30 days. “Enabled” is configuration, not usage.</p></div>
+      <div id="feature-counts" class="feature-table-wrap" role="region" aria-label="Enabled feature counts" tabindex="0"><p class="empty">Loading features…</p></div>
+    </section>
+    <div class="overview-stack">
+      <section class="card" aria-labelledby="activity-title">
+        <div class="panel-heading"><h2 id="activity-title">Activity history</h2><span class="mono hint">Last 30 days</span></div>
+        <div id="daily-counts"><p class="empty">Loading activity…</p></div>
+        <p class="hint panel-footnote">Daily snapshots of installations active in the preceding 30 days. Recorded as clocks report in.</p>
+      </section>
+      <section class="card" aria-labelledby="versions-title"><h2 id="versions-title">Firmware versions</h2><p class="hint panel-description">Installed on clocks active in the last 30 days.</p><div id="version-counts"><p class="empty">Loading versions…</p></div></section>
+    </div>
+  </div>
+  <div class="grid overview-bottom">
+    <section class="card" aria-labelledby="sources-title"><h2 id="sources-title">Data sources</h2><p class="hint panel-description">Reported by clocks active in the last 30 days.</p><div id="source-counts"><p class="empty">Loading sources…</p></div></section>
+    <section class="card" aria-labelledby="locations-title"><div class="panel-heading"><h2 id="locations-title">Approximate city / country</h2><span class="mono hint">IP estimate</span></div><div id="location-counts"><p class="empty">Loading locations…</p></div><p class="hint panel-footnote">Active in the last 30 days. IP estimates may be inaccurate or unavailable.</p></section>
+  </div>
+</div>
+<noscript><p class="warning">Enable JavaScript to load the fleet summary and use dashboard actions.</p></noscript>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='overview.js') }}"></script>{% endblock %}

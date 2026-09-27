@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <time.h>
 #include <Wire.h>
+#include "esp_sntp.h"
 
 // DS1307 RTC I2C address
 #define DS1307_ADDR 0x68
@@ -11,6 +12,14 @@
 #define NTP_RESYNC_INTERVAL_MS (6UL * 60 * 60 * 1000)  // 6 hours
 
 static bool ntp_synced = false;
+// Set only by the SNTP client when network time actually arrives. ntp_synced
+// above also turns true when getLocalTime() succeeds on RTC-seeded time.
+static volatile bool sntp_time_received = false;
+
+static void on_sntp_time_sync(struct timeval* tv) {
+    (void)tv;
+    sntp_time_received = true;
+}
 static bool rtc_available = false;
 static unsigned long last_ntp_sync_ms = 0;
 static unsigned long boot_time_sec = 0;
@@ -110,6 +119,8 @@ static void ntp_sync() {
 void time_init() {
     boot_millis = millis();
 
+    sntp_set_time_sync_notification_cb(on_sntp_time_sync);
+
     // Init I2C
     Wire.begin(21, 22);
 
@@ -143,6 +154,10 @@ void time_loop() {
         Serial.println("[TIME] NTP resync");
         ntp_sync();
     }
+}
+
+bool time_is_network_synced() {
+    return sntp_time_received;
 }
 
 bool time_is_available() {
