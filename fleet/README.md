@@ -93,7 +93,11 @@ Snapshots contain only reviewed booleans/categories: configured Dexcom/FreeStyle
 Libre/custom source, companion selection, weather, timer and other enabled features.
 They contain no glucose values, patient identifiers, credentials, SSIDs, source URLs,
 or weather city settings. This is pseudonymous per-installation reporting, not fully
-anonymous analytics. Reporting is disclosed in setup and has no product opt-out.
+anonymous analytics. Reporting has no product opt-out. The
+[project website’s installation section](https://sugarclock.com/#install) explains
+what is reported and how network addresses may be used for approximate location.
+The device admin and Mac installer do not display that notice; users who install
+directly through the app may not see it.
 Enabled-feature snapshots do not measure time spent using those features.
 
 Set `FLEET_IP_GEOLOCATION_ENABLED=1` to enable approximate city/country detection.

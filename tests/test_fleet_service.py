@@ -73,6 +73,17 @@ class FleetProtocolFixtureTests(unittest.TestCase):
                     "config_patch", {"changes": {"ambient_use_glucose_colors": value}}
                 )
 
+    def test_low_glucose_display_preference_is_validated(self):
+        for value in (True, False):
+            validate_command(
+                "config_patch", {"changes": {"glucose_only_when_low": value}}
+            )
+        for value in (0, 1, "true", None):
+            with self.assertRaises(ApiError):
+                validate_command(
+                    "config_patch", {"changes": {"glucose_only_when_low": value}}
+                )
+
     def test_companion_style_is_validated(self):
         for style in range(3):
             validate_command("config_patch", {"changes": {"ambient_style": style}})

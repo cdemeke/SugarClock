@@ -61,6 +61,7 @@ static void handle_status(AsyncWebServerRequest* request) {
     doc["valid"] = r.valid;
     doc["data_age_sec"] = r.valid ? (millis() - r.received_at_ms) / 1000 : -1;
     doc["state"] = engine_state_name(engine_get_state());
+    doc["glucose_display_locked"] = engine_low_glucose_lock_active();
     doc["wifi_connected"] = wifi_is_connected();
     doc["wifi_ip"] = wifi_get_ip();
     doc["wifi_rssi"] = wifi_get_rssi();
@@ -191,6 +192,7 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     doc["poll_interval"] = cfg.poll_interval_sec;
     doc["brightness"] = cfg.brightness;
     doc["auto_brightness"] = cfg.auto_brightness;
+    doc["glucose_only_when_low"] = cfg.glucose_only_when_low;
     doc["show_delta"] = cfg.show_delta;
     doc["use_mmol"] = cfg.use_mmol;
     doc["thresh_urgent_low"] = cfg.thresh_urgent_low;
@@ -408,6 +410,9 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     }
     if (doc["auto_brightness"].is<bool>()) {
         cfg.auto_brightness = doc["auto_brightness"].as<bool>();
+    }
+    if (doc["glucose_only_when_low"].is<bool>()) {
+        cfg.glucose_only_when_low = doc["glucose_only_when_low"].as<bool>();
     }
     if (doc["show_delta"].is<bool>()) {
         cfg.show_delta = doc["show_delta"].as<bool>();
@@ -1036,26 +1041,29 @@ static void handle_test_glucose(AsyncWebServerRequest* request) {
     request->send(ok ? 200 : (http_get_last_response_code() == 429 ? 429 : 502), "application/json", output);
 }
 
-// POST /api/display/next
-static void handle_display_next(AsyncWebServerRequest* request) {
-    engine_toggle_mode();
+// POST /api/display/next or /prev. Report the result of the navigation attempt,
+// so a blocked command cannot be mistaken for a successful screen change.
+static void handle_display_navigation(AsyncWebServerRequest* request, bool forward) {
+    const bool changed = forward ? engine_toggle_mode() : engine_toggle_mode_prev();
     JsonDocument doc;
-    doc["status"] = "ok";
+    doc["status"] = changed ? "ok" : "locked";
+    doc["locked"] = !changed;
     doc["mode"] = engine_state_name(engine_get_user_mode());
+    if (!changed) {
+        doc["error"] = "Blood sugar display is locked while glucose is low.";
+        doc["reason"] = "low_glucose";
+    }
     String output;
     serializeJson(doc, output);
-    request->send(200, "application/json", output);
+    request->send(changed ? 200 : 409, "application/json", output);
 }
 
-// POST /api/display/prev
+static void handle_display_next(AsyncWebServerRequest* request) {
+    handle_display_navigation(request, true);
+}
+
 static void handle_display_prev(AsyncWebServerRequest* request) {
-    engine_toggle_mode_prev();
-    JsonDocument doc;
-    doc["status"] = "ok";
-    doc["mode"] = engine_state_name(engine_get_user_mode());
-    String output;
-    serializeJson(doc, output);
-    request->send(200, "application/json", output);
+    handle_display_navigation(request, false);
 }
 
 // POST /api/restart

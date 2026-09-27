@@ -76,8 +76,11 @@ These are configured features, not measurements of time spent using them.
 Missing keys are unknown, not false. A legacy check-in without `features` clears
 the current feature snapshot instead of retaining stale data from newer firmware.
 Feature totals use the dashboard's stated activity window and count installations,
-not people. Reporting is built in, disclosed in setup, and pseudonymous rather
-than anonymous.
+not people. Reporting is built in, has no product opt-out, and is pseudonymous
+rather than anonymous. The disclosure is in the
+[project website’s installation section](https://sugarclock.com/#install), not in
+the device admin or Mac installer. Installing directly through the app does not
+present that website notice.
 
 ## Release offers and fresh authorization
 

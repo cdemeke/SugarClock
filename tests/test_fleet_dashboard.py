@@ -35,6 +35,19 @@ class FleetDashboardTests(unittest.TestCase):
                     result = subprocess.run(['node', '--check'], input=script, text=True, capture_output=True)
                     self.assertEqual(result.returncode, 0, f'{path}: {result.stderr}')
 
+    @unittest.skipUnless(shutil.which('node'), 'Node is required for frontend behavior tests')
+    def test_overview_rendering_behavior(self):
+        root = Path(__file__).resolve().parents[1]
+        result = subprocess.run(['node', '--test', 'tests/test_fleet_overview.cjs'],
+                                cwd=root, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_navigation_identifies_current_page(self):
+        for path, label in (('/admin/overview', 'Overview'), ('/admin/devices', 'Devices'),
+                            ('/admin/devices/1', 'Devices'), ('/admin/releases', 'Releases')):
+            response = self.get(path)
+            self.assertEqual(re.findall(r'aria-current="page">(.*?)</a>', response.text), [label])
+
     def test_nickname_is_escaped_and_identity_stays_stable(self):
         with self.app.app_context():
             connection = get_db()
