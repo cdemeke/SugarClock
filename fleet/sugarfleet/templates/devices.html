@@ -1,25 +1,28 @@
 {% extends "base.html" %}
 {% block title %}Devices · SugarClock Fleet{% endblock %}
 {% block content %}
-<div class="heading"><div><h1>Devices</h1><p>{{ devices|length }} registered installation{{ '' if devices|length == 1 else 's' }}</p></div><div class="enrollment"><span id="enrollment-state" class="pill {{ 'online' if enrollment_open else 'offline' }}">Enrollment {{ 'open' if enrollment_open else 'closed' }}</span><button id="enrollment-toggle" data-open="{{ '1' if enrollment_open else '0' }}">{{ 'Close enrollment' if enrollment_open else 'Open for 15 minutes' }}</button></div></div>
+<div class="heading"><div><h1>Devices</h1><p>{{ devices|length }} registered installations · New clocks connect automatically</p></div><a class="button" href="{{ url_for('admin.releases_page') }}">Deploy a release</a></div>
+<label>Find a clock<input type="search" id="device-search" placeholder="Nickname, installation ID, version, or location"></label>
+<p class="hint">Find the installation ID in a clock’s local settings, then open its row to give it a nickname.</p>
 <div class="card table-wrap">
-  <table>
-    <thead><tr><th>Device</th><th>Location / area</th><th>Status</th><th>Firmware</th><th>Channel</th><th>Last update</th><th>Last seen</th></tr></thead>
+  <table id="devices-table">
+    <thead><tr><th>Clock</th><th>Approximate location</th><th>Status</th><th>Firmware</th><th>Updates</th><th>Last seen</th></tr></thead>
     <tbody>
     {% for device in devices %}
-      <tr>
+      <tr data-search="{{ (device.friendly_name ~ ' ' ~ device.installation_id ~ ' ' ~ device.firmware_version ~ ' ' ~ (device.detected_location.label if device.detected_location else ''))|lower }}">
         <td><a href="{{ url_for('admin.device_detail_page', device_id=device.id) }}">{{ device.friendly_name or device.installation_id[:8] }}</a><small>{{ device.installation_id[:8] }}</small></td>
-        <td>{% if device.location_label %}{{ device.location_label }}{% elif device.detected_location %}{{ device.detected_location.label }}<small>Approximate from IP</small>{% else %}—{% endif %}</td>
-        <td><span class="pill {{ device.connectivity }}">{{ device.connectivity }}</span>{% if device.verification_state != 'verified' %}<small>Pending approval</small>{% endif %}</td>
-        <td>{{ device.firmware_version }}</td><td>{{ device.channel }}</td>
-        <td>{{ device.last_ota_result or '—' }}</td><td data-time="{{ device.last_seen }}">{{ device.last_seen }}</td>
+        <td>{{ device.detected_location.label if device.detected_location else 'Not available' }}</td>
+        <td><span class="pill {{ device.connectivity }}">{{ 'blocked' if device.blocked_at else device.connectivity }}</span></td>
+        <td>{{ device.firmware_version }}</td>
+        <td>{{ 'Fleet controlled' if device.rollout_capable else 'Legacy updater' }}<small>{{ device.last_ota_result or 'No update result' }}</small></td>
+        <td data-time="{{ device.last_seen }}"></td>
       </tr>
-    {% else %}<tr><td colspan="7" class="empty">No clocks have registered yet.</td></tr>{% endfor %}
+    {% else %}<tr><td colspan="6" class="empty">No clocks have connected yet. Install SugarClock and connect it to Wi-Fi to get started.</td></tr>{% endfor %}
     </tbody>
   </table>
 </div>
+<p class="hint">Counts represent installations, not unique people. An erased clock can acquire a new installation ID.</p>
 {% endblock %}
 {% block scripts %}<script>
-document.querySelectorAll('[data-time]').forEach(e => e.textContent = new Date(Number(e.dataset.time)*1000).toLocaleString());
-document.querySelector('#enrollment-toggle').addEventListener('click',async event=>{const button=event.currentTarget;button.disabled=true;try{const response=await fetch({{ url_for('admin.update_enrollment')|tojson }},{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':window.fleetCsrf},body:JSON.stringify({duration_minutes:button.dataset.open==='1'?0:15})});const body=await response.json();if(!response.ok)throw new Error(body.error?.message||'Request failed');location.reload()}catch(error){alert(error.message);button.disabled=false}});
+document.querySelector('#device-search').addEventListener('input',event=>{const query=event.target.value.trim().toLowerCase();document.querySelectorAll('[data-search]').forEach(row=>row.hidden=!row.dataset.search.includes(query));});
 </script>{% endblock %}

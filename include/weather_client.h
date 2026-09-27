@@ -35,7 +35,7 @@ const char* weather_get_last_response();
 void weather_set_mock(float temp, const char* desc, int condition_id);
 
 // Register a callback invoked just before a blocking weather fetch
-// (used by the engine to clear animations before the HTTP call blocks)
+// (used by the engine to render a coherent weather frame before the HTTP call blocks)
 typedef void (*WeatherPreFetchCallback)();
 void weather_set_pre_fetch_callback(WeatherPreFetchCallback cb);
 

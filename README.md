@@ -25,7 +25,7 @@ SugarClock is free, open-source firmware that turns the [Ulanzi TC001 Smart Pixe
 
 ## Availability
 
-This README describes the latest merged source on `main`. **As of September 12, 2026**, the latest stable release is [v0.2.6](https://github.com/cdemeke/SugarClock/releases/tag/v0.2.6), while the browser and bundled Mac installer firmware remain at **v0.2.2** ([artifact metadata](docs/installer-artifacts.json)). LibreLinkUp, all seven companions, the redesigned dashboard, and the clock's mmol/L display fix are merged but are not yet included in that stable release or the bundled installers. Build from source to use all of these changes, or wait for a release that includes them. Updating to v0.2.6 alone does not add them.
+This README describes the latest merged source on `main`. **As of September 27, 2026**, the latest stable release is [v0.2.13](https://github.com/cdemeke/SugarClock/releases/tag/v0.2.13). It includes LibreLinkUp, all seven companions, the redesigned dashboard, the clock's mmol/L display fix, compact weather animations, and the low-glucose focus option. The browser and bundled Mac installer firmware remain at **v0.2.2** ([artifact metadata](docs/installer-artifacts.json)) and do not include these features. Build from source to use them until the installer artifacts are refreshed.
 
 ## Features
 
@@ -35,12 +35,14 @@ This README describes the latest merged source on `main`. **As of September 12, 
 - **Custom JSON & demo mode** — Connect a compatible endpoint, or explore the display with synthetic readings without a CGM account
 - **mg/dL or mmol/L** — Readings and deltas use your selected units on the clock and dashboard; mmol/L displays one decimal place
 - **Stale-data visibility** — Retains the last reading and trend in a configurable stale color (gray by default); stale readings do not trigger buzzer alerts
+- **Low glucose focus** — Enable “Show Only Blood Sugar When Low” in Settings → Display to keep the glucose value visible below the configured Low threshold (including urgent lows). It blocks other screens and navigation while readings are fresh. Notifications (including urgent ones) are hidden and may expire unseen; they are not deferred. Normal behavior resumes after recovery, stale data, repeated glucose fetch failures, or entry into Wi-Fi setup mode. Brief Wi-Fi drops and failed network checks do not hide a fresh low reading. Off by default.
 - **Auto brightness** — Built-in light sensor adjusts to your room
 - **Night mode** — Dims automatically during sleeping hours
 - **Web dashboard** — Responsive sidebar navigation, light/dark mode, and a live mirror of the actual LED display. The latest glucose, signed delta, and reading age remain visible even when the clock shows another view
 - **Secure WiFi updates** — Signed, power-loss-safe firmware updates with automatic rollback
 - **Clock, weather & more** — Also shows time, date, temperature, pomodoro timer, and push notifications
 - **Pixel companions** — Seven animated pets with glucose-aware poses, three display styles, and an animated settings preview
+- **Compact weather animations** — A dedicated pixel icon sits beside the temperature: looping clouds, falling rain, straight-falling snowflakes, and a small lightning bolt. Clear skies use a static sun. [See the display design](docs/images/weather-side-animation-design.png).
 - **Easy local access** — Double-click the middle button to scroll the clock's browser address
 
 ### Make it yours with pixel companions
@@ -50,6 +52,10 @@ Choose **Pip** the goldfish, **Boo** the ghost, **Mochi** the axolotl, **Sprout*
 ![The seven pixel companions in low, in-range, and high states](docs/images/pixel-companions.png)
 
 The dashboard provides previous/next and auto-cycle controls. Its brightness slider selects manual brightness; **Advanced brightness** lets you re-enable the light sensor. Buzzer alerts remain supported by the firmware/API, but their controls are hidden in the redesigned settings because the hardware buzzer is quiet. Existing alert settings are preserved.
+
+## Video demo studio
+
+Try the virtual 32×8 SugarClock in [`docs/demo/`](docs/demo/README.md): glucose presets, seven pixel companions, animated weather, live timers, display rotation, and physical-button interactions. Includes a controls-free filming view and runs locally without a device or account.
 
 ## What You Need
 
@@ -93,7 +99,7 @@ A Nightscout site root or its standard entries response is **not directly suppor
 3. On current source builds, first-time WiFi setup uses the **SugarClock-Setup** network. Join it from a phone or computer, open `http://192.168.4.1` in a normal browser, and use **WiFi → Join this network**. Older installer builds may present different provisioning steps; follow their on-screen prompts.
 4. Once connected, open the clock's local address from a device on the same network to configure your data source, units, ranges, and display. On current source builds, **double-click the middle button** to show that address.
 
-The Mac setup app source is in [onboarding/TC001Setup](onboarding/TC001Setup). The current v0.2.6 release has **no DMG asset**, so the latest-release page is not currently a working Mac app download. Use the browser installer or build from source below.
+The Mac setup app source is in [onboarding/TC001Setup](onboarding/TC001Setup). The current v0.2.13 release has **no DMG asset**, so the latest-release page is not currently a working Mac app download. Use the browser installer or build from source below.
 
 See the [installation guide](INSTALL.md) for detailed flashing, WiFi setup, and recovery instructions.
 

@@ -38,7 +38,7 @@ class ConfigurationUITests(unittest.TestCase):
     def test_preview_scales_independently_of_canvas_id(self):
         css = (WEB / 'style.css').read_text()
         rule = re.search(r'\.ambient-matrix canvas\s*\{([^}]+)\}', css).group(1)
-        for declaration in ('width: 100%', 'height: auto', 'aspect-ratio: 4 / 1', 'image-rendering: pixelated'):
+        for declaration in ('width: 100%', 'height: auto', 'aspect-ratio: 4 / 1', 'max-width: 86.2%'):
             self.assertIn(declaration, rule)
         matrix = re.search(r'\.ambient-matrix\s*\{([^}]+)\}', css).group(1)
         self.assertGreaterEqual(int(re.search(r'max-width:\s*(\d+)px', matrix).group(1)), 784)

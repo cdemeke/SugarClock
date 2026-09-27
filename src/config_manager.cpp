@@ -47,6 +47,7 @@ static void config_set_defaults() {
     // Display
     config.brightness = 40;
     config.auto_brightness = true;
+    config.glucose_only_when_low = false;
     config.show_delta = false;
     config.use_mmol = false;
 
@@ -213,6 +214,7 @@ static void config_check_littlefs_overlay() {
     if (doc["auth_token"].is<const char*>())     strncpy(config.auth_token, doc["auth_token"], sizeof(config.auth_token));
     if (doc["timezone"].is<const char*>())       strncpy(config.timezone, doc["timezone"], sizeof(config.timezone));
     if (doc["time_display_enabled"].is<bool>()) config.time_display_enabled = doc["time_display_enabled"];
+    if (doc["glucose_only_when_low"].is<bool>()) config.glucose_only_when_low = doc["glucose_only_when_low"];
     if (doc["use_mmol"].is<bool>())              config.use_mmol = doc["use_mmol"];
     if (doc["brightness"].is<int>())             config.brightness = doc["brightness"];
     if (doc["alert_low"].is<int>())              config.alert_low = doc["alert_low"];
@@ -262,6 +264,7 @@ void config_init() {
         config.poll_interval_sec = prefs.getInt("poll_int", 60);
         config.brightness = prefs.getUChar("brightness", 40);
         config.auto_brightness = prefs.getBool("auto_brt", true);
+        config.glucose_only_when_low = prefs.getBool("low_only", false);
         config.show_delta = prefs.getBool("show_delta", false);
         config.use_mmol = prefs.getBool("use_mmol", false);
         config.thresh_urgent_low = prefs.getInt("t_ulow", 70);
@@ -411,6 +414,7 @@ void config_save() {
     prefs.putInt("poll_int", config.poll_interval_sec);
     prefs.putUChar("brightness", config.brightness);
     prefs.putBool("auto_brt", config.auto_brightness);
+    prefs.putBool("low_only", config.glucose_only_when_low);
     prefs.putBool("show_delta", config.show_delta);
     prefs.putBool("use_mmol", config.use_mmol);
     prefs.putInt("t_ulow", config.thresh_urgent_low);

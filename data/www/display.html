@@ -45,7 +45,8 @@
             </div>
             <div class="live-matrix-shell">
                 <div class="ambient-matrix live-matrix">
-                    <canvas id="live-display" width="32" height="8" role="img" aria-label="Connecting to the clock's display"></canvas>
+                    <span class="matrix-sensor" aria-hidden="true"></span>
+                    <canvas id="live-display" width="1280" height="320" role="img" aria-label="Connecting to the clock's display"></canvas>
                 </div>
                 <div class="hint live-frame-status" id="live-frame-status" role="status">Connecting to live display…</div>
             </div>
@@ -93,7 +94,7 @@
             <div class="capability-heading">
                 <div>
                     <h2>Enabled features</h2>
-                    <p>Only features turned on for this SugarClock appear here.</p>
+                    <p class="card-intro">Only features turned on for this SugarClock appear here.</p>
                 </div>
                 <a href="/" class="capability-manage-link">Manage features</a>
             </div>
@@ -113,6 +114,7 @@
     </main>
 
     <script src="glucose-format.js"></script>
+    <script src="matrix-display.js"></script>
     <script src="live-display.js"></script>
     <script>
         const trendMap = {'RisingFast':'\u2191\u2191','Rising':'\u2191','Flat':'\u2192','Falling':'\u2193','FallingFast':'\u2193\u2193','Unknown':'?'};
@@ -131,6 +133,16 @@
                 document.getElementById('live-display').setAttribute('aria-label','Clock display: '+friendlyMode(mode));
             }
         });
+
+        let glucoseDisplayLocked = false;
+        function updateDisplayLock(locked){
+            const wasLocked=glucoseDisplayLocked;
+            glucoseDisplayLocked=locked===true;
+            document.querySelectorAll('.display-nav-btn').forEach(button=>button.disabled=glucoseDisplayLocked);
+            const status=document.getElementById('display-control-status');
+            if(glucoseDisplayLocked)status.textContent='Blood sugar display is locked while glucose is low.';
+            else if(wasLocked)status.textContent='';
+        }
 
         let readingUnits = null;
         let latestReading = null;
@@ -156,6 +168,7 @@
                 if(!sr.ok)throw new Error('Status unavailable');
                 const d=await sr.json();
                 latestReading=d;
+                updateDisplayLock(d.glucose_display_locked);
                 // Status carries its own units preference so readings and labels stay atomic.
                 if(typeof d.use_mmol==='boolean')readingUnits=d.use_mmol;
                 renderReading();
@@ -193,12 +206,13 @@
             try{
                 const response=await fetch('/api/display/'+direction,{method:'POST'});
                 const result=await response.json();
+                updateDisplayLock(result.locked);
                 if(!response.ok)throw new Error(result.error||'Unable to change display');
                 if(result.mode)document.getElementById('display-state').textContent=friendlyMode(result.mode);
                 status.textContent=result.message||'Clock display changed';
                 setTimeout(()=>{refresh();liveDisplay.refresh();},200);
             }catch(e){status.textContent=e.message||'Unable to change display';}
-            finally{buttons.forEach(button=>button.disabled=false);}
+            finally{buttons.forEach(button=>button.disabled=glucoseDisplayLocked);}
         }
 
         refresh();setInterval(refresh,5000);loadCapabilities();

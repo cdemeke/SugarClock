@@ -1,15 +1,27 @@
 {
   "server_time": 1787697600,
-  "next_checkin_seconds": 120,
+  "next_checkin_seconds": 300,
   "commands": [
     {
       "id": "3ae46f8e-83b2-40ab-bbdf-156d32481e0e",
       "type": "notify",
-      "payload": {"message": "School closes in 10 minutes", "duration_seconds": 30, "allow_buzzer": false},
+      "payload": {
+        "message": "School closes in 10 minutes",
+        "duration_seconds": 30,
+        "allow_buzzer": false
+      },
       "created_at": 1787697500,
       "expires_at": 1787698400,
       "future_optional_field": true
     }
   ],
-  "future_optional_field": true
+  "future_optional_field": true,
+  "update_offer": {
+    "target_id": "3eb14d07-9a8f-430b-bc29-2a456726dfe3",
+    "rollout_id": "4d74e6c9-0da3-4612-90c3-b5a0e2b1dd71",
+    "manifest_url": "https://github.com/cdemeke/SugarClock/releases/download/v0.3.0/ota-manifest-preview.json",
+    "version": "0.3.0",
+    "channel": "preview",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
 }
