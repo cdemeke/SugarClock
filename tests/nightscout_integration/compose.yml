@@ -1,0 +1,37 @@
+# Synthetic-data test services only. Ports are restricted to this machine.
+services:
+  mongo:
+    image: mongo:7.0.16
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  denied:
+    image: nightscout/cgm-remote-monitor:15.0.8
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports: ["127.0.0.1:13371:1337"]
+    volumes: ["${NIGHTSCOUT_TEST_TLS_DIR:?Run make_tls.py and set NIGHTSCOUT_TEST_TLS_DIR}:/test-tls:ro"]
+    environment: &nightscout
+      NODE_ENV: production
+      TZ: Etc/UTC
+      SSL_KEY: /test-tls/test.key
+      SSL_CERT: /test-tls/test.crt
+      NIGHTSCOUT_HOSTNAME: 0.0.0.0
+      MONGO_CONNECTION: mongodb://mongo:27017/sugarclock_denied
+      API_SECRET: sugarclock-synthetic-test-only
+      AUTH_DEFAULT_ROLES: denied
+      ENABLE: ''
+  public:
+    image: nightscout/cgm-remote-monitor:15.0.8
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports: ["127.0.0.1:13372:1337"]
+    volumes: ["${NIGHTSCOUT_TEST_TLS_DIR:?Run make_tls.py and set NIGHTSCOUT_TEST_TLS_DIR}:/test-tls:ro"]
+    environment:
+      <<: *nightscout
+      MONGO_CONNECTION: mongodb://mongo:27017/sugarclock_public
+      AUTH_DEFAULT_ROLES: readable

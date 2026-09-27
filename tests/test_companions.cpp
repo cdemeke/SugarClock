@@ -21,7 +21,7 @@ static char text[16];
 static uint16_t screen[8][32];
 unsigned long millis() { return now_ms; }
 AppConfig& config_get() { return cfg; }
-const GlucoseReading& http_get_reading() { return reading; }
+GlucoseReading http_get_reading() { return reading; }
 bool http_has_ever_received() { return ever_received; }
 unsigned long http_time_since_last_reading() { return reading_age; }
 int http_get_failure_count() { return failures; }
@@ -30,7 +30,7 @@ int time_get_hour() { return hour; }
 int time_get_day() { return 31; }
 int time_get_month() { return 10; }
 bool weather_has_data() { return false; }
-const WeatherReading& weather_get_reading() { return weather; }
+WeatherReading weather_get_reading() { return weather; }
 void display_clear() { pixel_count = 0; text[0] = 0; memset(screen, 0, sizeof(screen)); }
 void display_draw_pixel(int x, int y, uint16_t color) {
     assert(x >= 0 && x < 32 && y >= 0 && y < 8);

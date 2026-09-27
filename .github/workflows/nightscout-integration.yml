@@ -1,0 +1,48 @@
+name: Nightscout integration
+
+on:
+  pull_request:
+    paths:
+      - 'include/nightscout*'
+      - 'src/nightscout*'
+      - 'tests/test_nightscout*'
+      - 'tests/nightscout_integration/**'
+      - '.github/workflows/nightscout-integration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-nightscout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NIGHTSCOUT_TEST_TLS_DIR: /tmp/sugarclock-nightscout-tls
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile the production parser and request builders
+        run: |
+          git clone --depth 1 --branch v7.4.3 https://github.com/bblanchon/ArduinoJson.git /tmp/ArduinoJson
+          c++ -std=c++11 -Wno-deprecated-declarations \
+            -Iinclude -I/tmp/ArduinoJson/src \
+            tests/test_nightscout.cpp src/nightscout_logic.cpp \
+            -lcrypto -o /tmp/sugarclock-nightscout-test
+      - name: Start pinned Nightscout and MongoDB with local TLS
+        run: |
+          python tests/nightscout_integration/make_tls.py "$NIGHTSCOUT_TEST_TLS_DIR"
+          docker compose -f tests/nightscout_integration/compose.yml up -d
+      - name: Verify authentication and parse actual synthetic API responses
+        run: |
+          python tests/nightscout_integration/run.py \
+            --parser /tmp/sugarclock-nightscout-test \
+            --ca-file "$NIGHTSCOUT_TEST_TLS_DIR/test.crt"
+      - name: Show service logs on failure
+        if: failure()
+        run: docker compose -f tests/nightscout_integration/compose.yml logs --tail 80
+      - name: Remove disposable services and data
+        if: always()
+        run: docker compose -f tests/nightscout_integration/compose.yml down -v

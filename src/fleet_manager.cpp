@@ -5,6 +5,7 @@
 #include "fleet_policy.h"
 #include "glucose_engine.h"
 #include "http_client.h"
+#include "net_task.h"
 #include "notify_engine.h"
 #include "ota_manager.h"
 #include "ota_trusted_roots.h"
@@ -666,6 +667,22 @@ static bool check_in(uint32_t& next_seconds, bool manual, bool allow_offer) {
 }
 
 static void fleet_worker(void*) {
+    // fleet_loop paused future glucose/weather requests, but the background
+    // network task may still be finishing one. Wait for it so TLS sessions
+    // never overlap; a busy network is not an endpoint failure.
+    if (!net_task_quiesce(25000)) {
+        next_attempt_ms = millis() + 30000;
+        Serial.println("[FLEET] Data request still active; retrying in 30 seconds");
+        worker_running = false;
+        if (!ota_is_busy()) {
+            http_set_paused(false);
+            weather_set_paused(false);
+        }
+        vTaskDelete(nullptr);
+        return;
+    }
+    net_task_resume(); // Pause flags prevent new requests for this visit.
+
     // Consume even if reporting/network fails: a failed visit does not leave a
     // standing permission to install during an unrelated automatic visit.
     portENTER_CRITICAL(&manual_intent_mux);

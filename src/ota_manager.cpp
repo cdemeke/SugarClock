@@ -7,6 +7,7 @@
 #include "display.h"
 #include "glucose_engine.h"
 #include "http_client.h"
+#include "net_task.h"
 #include "improv_serial.h"
 #include "notify_engine.h"
 #include "ota_manifest.h"
@@ -145,7 +146,7 @@ bool ota_is_busy() {
 
 static OtaSafetyInputs collect_safety_inputs() {
     AppConfig& cfg = config_get();
-    const GlucoseReading& reading = http_get_reading();
+    GlucoseReading reading = http_get_reading();
     bool urgent_glucose = reading.valid &&
         (reading.glucose < cfg.thresh_urgent_low || reading.glucose > cfg.thresh_urgent_high);
     TimerState timer_state = timer_get_state();
@@ -439,12 +440,28 @@ static void record_failure(const char* error) {
     Serial.printf("[OTA] Failed: %s\n", error ? error : "unknown");
 }
 
+// Pause future polls and wait until a request already in flight has finished.
+// This runs on the OTA worker, leaving the display and buttons responsive.
+static bool pause_network_for_ota() {
+    http_set_paused(true);
+    weather_set_paused(true);
+    if (!net_task_quiesce(25000)) {
+        http_set_paused(false);
+        weather_set_paused(false);
+        return false;
+    }
+    net_task_resume(); // Pause flags prevent new requests for the entire OTA.
+    return true;
+}
+
 static void run_ota_update() {
     char error[64] = "";
 
     // ota_worker resumes both services after every return, including heap_low.
-    http_set_paused(true);
-    weather_set_paused(true);
+    if (!pause_network_for_ota()) {
+        record_failure("network_busy");
+        return;
+    }
 
     if (!wifi_is_connected()) {
         record_failure("wifi_unavailable");
