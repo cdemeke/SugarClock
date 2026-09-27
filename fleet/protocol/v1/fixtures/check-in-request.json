@@ -14,7 +14,21 @@
   "charging": true,
   "config_revision": "42",
   "config_hash": "a2a4c1",
-  "maintenance_window": {"timezone": "EST5EDT,M3.2.0,M11.1.0", "days": [0, 1, 2, 3, 4], "start": "19:00", "end": "06:00", "automatic_install": true},
+  "maintenance_window": {
+    "timezone": "EST5EDT,M3.2.0,M11.1.0",
+    "days": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "start": "19:00",
+    "end": "06:00",
+    "automatic_install": true
+  },
   "health_codes": [],
-  "future_optional_field": {"ignored": true}
+  "future_optional_field": {
+    "ignored": true
+  }
 }

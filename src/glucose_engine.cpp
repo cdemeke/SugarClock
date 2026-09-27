@@ -9,6 +9,7 @@
 #include "time_engine.h"
 #include "trend_arrows.h"
 #include "weather_client.h"
+#include "weather_render.h"
 #include "ambient_fish.h"
 #include "buzzer.h"
 #include "timer_engine.h"
@@ -18,6 +19,8 @@
 #include "net_check.h"
 #include "sensors.h"
 #include <Arduino.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 #define STALE_WARNING_MS   (10UL * 60 * 1000)   // 10 minutes
 #define FAILURE_STALE_COUNT    5
@@ -67,109 +70,58 @@ static uint16_t color_from_uint32(uint32_t c) {
     return display_color((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF);
 }
 
-// --- Weather particle animation system ---
-struct WeatherParticle {
-    int16_t x10;   // fixed-point x * 10
-    int16_t y10;   // fixed-point y * 10
-    int16_t vx10;  // velocity x * 10
-    int16_t vy10;  // velocity y * 10
-    bool active;
-};
+// The icon renderer uses elapsed time, independent of render frame rate. Unsigned
+// subtraction keeps normal uptime rollover safe; gaps restart at a clean frame.
+static WeatherAnimationState weather_animation = {};
+static TaskHandle_t engine_task = nullptr;
 
-#define MAX_PARTICLES 10
-static WeatherParticle particles[MAX_PARTICLES];
+static void draw_weather_content(uint32_t now) {
+    const AppConfig& cfg = config_get();
+    const uint16_t color = color_from_uint32(cfg.color_weather);
+    if (!weather_has_data()) {
+        weather_animation_reset(weather_animation);
+        display_draw_text("WX...", 4, 0, color);
+        return;
+    }
 
-// Returns animation type: 0=none, 1=rain, 2=drizzle, 3=snow, 4=thunderstorm
-static int weather_anim_type(int condition_id) {
-    if (condition_id >= 200 && condition_id < 300) return 4; // thunderstorm
-    if (condition_id >= 300 && condition_id < 400) return 2; // drizzle
-    if (condition_id >= 500 && condition_id < 600) return 1; // rain
-    if (condition_id >= 600 && condition_id < 700) return 3; // snow
-    return 0;
+    const WeatherReading& wx = weather_get_reading();
+    weather_render(wx.temp, cfg.weather_use_f, wx.condition_id,
+                   weather_animation_elapsed(weather_animation, wx.condition_id, now), color);
 }
 
-static void weather_particles_spawn(int anim_type) {
-    for (int i = 0; i < MAX_PARTICLES; i++) {
-        if (particles[i].active) continue;
+bool engine_low_glucose_lock_active() {
+    const AppConfig& cfg = config_get();
+    const GlucoseReading& reading = http_get_reading();
+    if (!cfg.glucose_only_when_low || !reading.valid) return false;
 
-        // Probability of spawning each frame
-        if (anim_type == 2 && (random(100) > 15)) continue; // drizzle: fewer
-        if (anim_type == 1 && (random(100) > 40)) continue; // rain: moderate
-        if (anim_type == 3 && (random(100) > 30)) continue; // snow: moderate
-        if (anim_type == 4 && (random(100) > 50)) continue; // thunder: lots
-
-        particles[i].active = true;
-        particles[i].x10 = random(0, MATRIX_WIDTH) * 10;
-        particles[i].y10 = 0;
-        particles[i].vx10 = 0;
-
-        if (anim_type == 3) {
-            // Snow: slow, lateral wobble
-            particles[i].vy10 = random(5, 12);
-            particles[i].vx10 = random(-3, 4);
-        } else if (anim_type == 2) {
-            // Drizzle: moderate speed
-            particles[i].vy10 = random(10, 18);
-        } else {
-            // Rain / thunderstorm: fast
-            particles[i].vy10 = random(15, 26);
+    // Match urgent-glucose freshness rules, but allow AP setup to take over.
+    // Brief WiFi drops and cached reachability failures do not invalidate a
+    // fresh glucose reading. Demo readings do not depend on connectivity.
+    if (cfg.data_source != 2) {
+        const unsigned long stale_ms = (unsigned long)cfg.stale_timeout_min * 60000UL;
+        if (http_time_since_last_reading() >= stale_ms ||
+            http_get_failure_count() >= FAILURE_STALE_COUNT ||
+            wifi_is_ap_mode()) {
+            return false;
         }
     }
+
+    // Defensive: configuration does not require these thresholds to be ordered.
+    return reading.glucose < cfg.thresh_low || reading.glucose < cfg.thresh_urgent_low;
 }
 
-static void weather_particles_update_and_draw(int anim_type) {
-    for (int i = 0; i < MAX_PARTICLES; i++) {
-        if (!particles[i].active) continue;
-
-        particles[i].x10 += particles[i].vx10;
-        particles[i].y10 += particles[i].vy10;
-
-        int px = particles[i].x10 / 10;
-        int py = particles[i].y10 / 10;
-
-        if (py >= MATRIX_HEIGHT || px < 0 || px >= MATRIX_WIDTH) {
-            particles[i].active = false;
-            continue;
-        }
-
-        // Color based on type
-        uint16_t color;
-        if (anim_type == 3) {
-            color = display_color(200, 200, 255); // snow: white-blue
-        } else {
-            color = display_color(80, 130, 255);  // rain/drizzle: blue
-        }
-        display_draw_pixel(px, py, color);
-    }
-}
-
-// Thunder flash state
-static unsigned long next_flash_ms = 0;
-static unsigned long flash_end_ms = 0;
-
-// Track last weather render time to detect gaps from blocking fetches
-static unsigned long last_weather_render_ms = 0;
-
-// Called by weather_client just before a blocking HTTP fetch.
-// Clears particle animations and renders a clean frame so the display
-// doesn't show frozen particles during the 1-3 second network call.
+// Freeze a complete compact weather frame before a blocking HTTP fetch, using
+// the same numeric rounding, layout, and current fade level as normal rendering.
 static void on_weather_pre_fetch() {
-    // Reset all particles
-    for (int i = 0; i < MAX_PARTICLES; i++) particles[i].active = false;
-
-    // Only force-render a clean frame if currently showing weather
-    if (current_state == STATE_WEATHER_DISPLAY && weather_has_data()) {
-        AppConfig& cfg = config_get();
-        WeatherReading wx = weather_get_reading();
-
+    // Test Weather API also fetches from AsyncTCP. Only the engine's task may
+    // touch its animation state or the LED buffer; that task keeps rendering
+    // normally while a different task is fetching.
+    if (xTaskGetCurrentTaskHandle() != engine_task) return;
+    weather_animation_reset(weather_animation);
+    if (current_state == STATE_WEATHER_DISPLAY) {
         display_clear();
-        char tbuf[8];
-        int temp_int = (int)(wx.temp + 0.5f);
-        snprintf(tbuf, sizeof(tbuf), "%d*%s", temp_int,
-                 cfg.weather_use_f ? "F" : "C");
-        int tlen = strlen(tbuf);
-        int tx = (MATRIX_WIDTH - tlen * 6) / 2;
-        display_draw_text(tbuf, tx, 0, color_from_uint32(cfg.color_weather));
+        display_set_transition_level(transition_level);
+        draw_weather_content(static_cast<uint32_t>(millis()));
         display_show();
     }
 }
@@ -318,7 +270,9 @@ void engine_snooze_alerts() {
 }
 
 void engine_init() {
+    engine_task = xTaskGetCurrentTaskHandle();
     current_state = STATE_BOOT;
+    weather_animation_reset(weather_animation);
     boot_start_ms = millis();
 
     AppConfig& cfg = config_get();
@@ -341,7 +295,7 @@ void engine_init() {
 
     engine_rebuild_toggle_order();
 
-    // Register pre-fetch callback so weather animations clear before blocking HTTP calls
+    // Keep the compact weather frame coherent during blocking HTTP calls
     weather_set_pre_fetch_callback(on_weather_pre_fetch);
 
     // Show initial boot frame (scrolling animation starts in engine_loop)
@@ -353,6 +307,10 @@ void engine_init() {
 static DisplayState evaluate_state() {
     AppConfig& cfg = config_get();
     unsigned long stale_ms = (unsigned long)cfg.stale_timeout_min * 60UL * 1000UL;
+
+    // Fresh low glucose takes priority over other content and overrides.
+    // Stale readings, repeated glucose fetch failures, or AP setup release it.
+    if (engine_low_glucose_lock_active()) return STATE_GLUCOSE_DISPLAY;
 
     // Boot screen: scroll "SugarClock" across the display
     if (millis() - boot_start_ms < 3000) {
@@ -504,6 +462,13 @@ static void render_state(DisplayState state) {
                 display_set_brightness(effective_brightness());
             }
 
+            // Never replace the low value with a delta-only flash, including
+            // one that was already active when the low reading arrived.
+            if (engine_low_glucose_lock_active()) {
+                delta_flash_active = false;
+                last_seen_glucose = reading.glucose;
+            }
+
             // Check if we should show delta flash (only when data is fresh)
             if (!is_stale && cfg.show_delta && http_has_delta() && reading.glucose != last_seen_glucose && last_seen_glucose > 0) {
                 delta_flash_start_ms = millis();
@@ -580,57 +545,7 @@ static void render_state(DisplayState state) {
         case STATE_WEATHER_DISPLAY: {
             display_set_brightness(effective_brightness());
             display_clear();
-
-            // Detect render gaps caused by blocking weather fetches.
-            // If the last render was more than 500ms ago, a fetch likely just
-            // blocked the loop — reset particles so the animation restarts
-            // cleanly from the top instead of resuming mid-screen.
-            {
-                unsigned long now_wx = millis();
-                if (last_weather_render_ms > 0 &&
-                    (now_wx - last_weather_render_ms > 500)) {
-                    for (int i = 0; i < MAX_PARTICLES; i++)
-                        particles[i].active = false;
-                }
-                last_weather_render_ms = now_wx;
-            }
-
-            if (!weather_has_data()) {
-                display_draw_text("WX...", 4, 0, color_from_uint32(cfg.color_weather));
-            } else {
-                WeatherReading wx = weather_get_reading();
-                int anim = weather_anim_type(wx.condition_id);
-
-                // Spawn and draw weather particles behind text
-                if (anim > 0) {
-                    weather_particles_spawn(anim);
-                    weather_particles_update_and_draw(anim);
-
-                    // Thunder flash
-                    if (anim == 4) {
-                        unsigned long now = millis();
-                        if (now >= next_flash_ms && flash_end_ms == 0) {
-                            flash_end_ms = now + 80;
-                            next_flash_ms = now + random(3000, 5001);
-                        }
-                        if (flash_end_ms > 0 && now < flash_end_ms) {
-                            display_flash(255, 255, 255);
-                            display_show();
-                            break;
-                        }
-                        if (now >= flash_end_ms) flash_end_ms = 0;
-                    }
-                }
-
-                char tbuf[8];
-                int temp_int = (int)(wx.temp + 0.5f);
-                snprintf(tbuf, sizeof(tbuf), "%d*%s", temp_int,
-                         config_get().weather_use_f ? "F" : "C");
-                int tlen = strlen(tbuf);
-                int tx = (MATRIX_WIDTH - tlen * 6) / 2;
-                display_draw_text(tbuf, tx, 0, color_from_uint32(cfg.color_weather));
-            }
-
+            draw_weather_content(static_cast<uint32_t>(millis()));
             display_show();
             break;
         }
@@ -844,7 +759,7 @@ static void render_state(DisplayState state) {
                 ? connection_info_buf
                 : "SugarClock connection information unavailable";
             bool complete = display_scroll_text(
-                text, 0, display_color(0, 200, 200), 55);
+                text, 0, display_color(255, 255, 255), 55);
             display_show();
             if (complete) {
                 connection_info_visible = false;
@@ -975,7 +890,13 @@ void engine_loop() {
 
     // Auto-cycle display modes
     AppConfig& cfg = config_get();
-    if (!connection_info_visible && cfg.auto_cycle_enabled && toggle_count > 1) {
+    const bool low_glucose_active = engine_low_glucose_lock_active();
+    if (low_glucose_active) {
+        // Preserve the selected screen, and give it a full cycle after recovery.
+        last_cycle_ms = millis();
+        connection_info_visible = false;
+    }
+    if (!low_glucose_active && !connection_info_visible && cfg.auto_cycle_enabled && toggle_count > 1) {
         unsigned long cycle_interval_ms = (unsigned long)cfg.auto_cycle_sec * 1000UL;
         if (last_cycle_ms == 0) last_cycle_ms = millis();
         if (millis() - last_cycle_ms >= cycle_interval_ms) {
@@ -988,6 +909,20 @@ void engine_loop() {
 
     DisplayState desired_state = evaluate_state();
     unsigned long now = millis();
+
+    if (low_glucose_active) {
+        // Cancel an in-flight fade immediately: no unrelated frame or dimmed
+        // glucose frame should linger after a low reading is received.
+        if (current_state != STATE_GLUCOSE_DISPLAY) {
+            weather_animation_reset(weather_animation);
+            display_scroll_reset();
+        }
+        current_state = STATE_GLUCOSE_DISPLAY;
+        transition_target = STATE_GLUCOSE_DISPLAY;
+        transition_phase = TRANSITION_NONE;
+        transition_level = 255;
+        transition_start_level = 255;
+    }
 
     if (transition_phase == TRANSITION_NONE && desired_state != current_state) {
         transition_phase = TRANSITION_FADE_OUT;
@@ -1011,6 +946,7 @@ void engine_loop() {
                               engine_state_name(current_state),
                               engine_state_name(transition_target));
                 current_state = transition_target;
+                weather_animation_reset(weather_animation);
                 display_scroll_reset();
                 transition_level = 0;
                 transition_start_level = 0;
@@ -1110,18 +1046,22 @@ void engine_set_default_mode(DisplayState mode) {
     user_mode = mode;
 }
 
-void engine_toggle_mode() {
+bool engine_toggle_mode() {
+    if (engine_low_glucose_lock_active()) return false;
     toggle_index = (toggle_index + 1) % toggle_count;
     user_mode = toggle_order[toggle_index];
     last_cycle_ms = millis(); // reset auto-cycle timer on manual toggle
     Serial.printf("[ENGINE] Toggled to %s\n", engine_state_name(user_mode));
+    return true;
 }
 
-void engine_toggle_mode_prev() {
+bool engine_toggle_mode_prev() {
+    if (engine_low_glucose_lock_active()) return false;
     toggle_index = (toggle_index - 1 + toggle_count) % toggle_count;
     user_mode = toggle_order[toggle_index];
     last_cycle_ms = millis(); // reset auto-cycle timer on manual toggle
     Serial.printf("[ENGINE] Toggled prev to %s\n", engine_state_name(user_mode));
+    return true;
 }
 
 void engine_reset_auto_cycle() {
@@ -1129,9 +1069,10 @@ void engine_reset_auto_cycle() {
 }
 
 void engine_show_connection_info() {
+    if (engine_low_glucose_lock_active()) return;
     if (wifi_is_connected() && strcmp(wifi_get_ip(), "0.0.0.0") != 0) {
         snprintf(connection_info_buf, sizeof(connection_info_buf),
-                 "To connect to SugarClock, visit %s", wifi_get_ip());
+                 "To connect, visit %s", wifi_get_ip());
     } else if (wifi_is_ap_mode()) {
         snprintf(connection_info_buf, sizeof(connection_info_buf),
                  "To set up SugarClock, visit %s", wifi_get_ap_ip());
@@ -1154,6 +1095,7 @@ void engine_dismiss_connection_info() {
 }
 
 void engine_right_button_action() {
+    if (engine_low_glucose_lock_active()) return;
     switch (user_mode) {
         case STATE_TIMER_DISPLAY:
             timer_toggle_start_pause();
@@ -1173,6 +1115,7 @@ void engine_right_button_action() {
 }
 
 void engine_right_long_action() {
+    if (engine_low_glucose_lock_active()) return;
     switch (user_mode) {
         case STATE_TIMER_DISPLAY:
             timer_reset();

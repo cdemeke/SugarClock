@@ -12,6 +12,10 @@ void time_loop();
 // Check if time is available from any source
 bool time_is_available();
 
+// True once network time (SNTP) has been received this boot; RTC time alone
+// doesn't count. Use when correctness depends on the clock, e.g. data age.
+bool time_is_network_synced();
+
 // Get current time components
 int time_get_hour();    // 0-23
 int time_get_minute();  // 0-59

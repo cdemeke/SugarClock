@@ -2,6 +2,7 @@
 #include "config_manager.h"
 #include "wifi_manager.h"
 #include "nightscout_client.h"
+#include "libre_client.h"
 #include <limits.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
@@ -46,6 +47,8 @@ static volatile int last_response_code = 0;
 static char last_response_body[512] = "";         // guarded by data_mutex
 static volatile bool ever_received = false;
 static unsigned long last_poll_ms = 0;            // network task only
+// Same wraparound/pre-boot semantics as GlucoseReading::received_at_ms.
+// ever_received distinguishes an empty history; timestamp zero is valid.
 static volatile unsigned long last_success_ms = 0;
 static volatile bool http_paused = false;
 static bool sensor_age_active = false;  // guarded by data_mutex
@@ -522,6 +525,46 @@ static bool fetch_nightscout_reading() {
     return true;
 }
 
+// FreeStyle Libre: fetch latest reading via LibreLinkUp
+static bool libre_fetch_glucose() {
+    LibreReading reading;
+    bool attempted = false;
+    bool ok = libre_fetch(reading, &attempted);
+
+    last_response_code = libre_last_http_code();
+    set_last_response(libre_last_message());
+
+    if (!ok) {
+        if (attempted) failure_count++;
+        return false;
+    }
+
+    // Date the reading by its sensor timestamp, not by when we polled, so
+    // staleness reflects the reading's real age.
+    unsigned long sensor_ms = millis() - reading.age_sec * 1000UL;
+
+    GlucoseReading r = {};
+    r.glucose = reading.glucose;
+    r.trend = reading.trend;
+    r.timestamp = reading.timestamp;
+    r.received_at_ms = sensor_ms;
+    r.force_mode = -1;
+    r.message[0] = '\0';
+    r.valid = true;
+
+    xSemaphoreTake(data_mutex, portMAX_DELAY);
+    current_reading = r;
+    record_reading(r.glucose, r.timestamp);
+    sensor_age_active = false;
+    delta_available = true;
+    failure_count = 0;
+    ever_received = true;
+    last_success_ms = sensor_ms;
+    xSemaphoreGive(data_mutex);
+    Serial.printf("[LIBRE] Glucose: %d, Trend: %s\n", r.glucose, TREND_NAMES[r.trend]);
+    return true;
+}
+
 static bool demo_generate() {
     const unsigned long now = millis();
     demo_last_update_ms = now;
@@ -551,30 +594,19 @@ static bool do_fetch() {
         return dexcom_fetch_glucose();
     }
     if (cfg.data_source == 2) return demo_generate();
+    if (cfg.data_source == 3) return libre_fetch_glucose();
     if (cfg.data_source == 4) return fetch_nightscout_reading();
-    // Source 3 is reserved for Libre; never send its settings to Custom URL.
-    if (cfg.data_source == 3) {
-        set_last_response("Libre is not available in this firmware branch");
-        last_response_code = 0;
-        ++failure_count;
-        return false;
-    }
     return generic_fetch();
 }
 
-void http_reset_source() {
-    // Caller owns the network gate, so no older request can publish afterwards.
-    xSemaphoreTake(data_mutex, portMAX_DELAY);
+// Caller holds data_mutex.
+static void clear_readings_locked() {
     memset(&current_reading, 0, sizeof(current_reading));
     current_reading.force_mode = -1;
     last_poll_ms = 0;
     last_success_ms = 0;
     failure_count = 0;
-    last_response_code = 0;
-    last_response_body[0] = '\0';
     ever_received = false;
-    dexcom_session_id[0] = '\0';
-    dexcom_session_time_ms = 0;
     history_write_idx = history_count = 0;
     has_prev_reading = false;
     current_delta = prev_glucose = 0;
@@ -583,6 +615,23 @@ void http_reset_source() {
     sensor_age_ms = 0;
     sensor_received_ms = 0;
     delta_available = config_get().data_source != 4;
+}
+
+void http_clear_readings() {
+    // Caller owns the network gate, so no older request can publish afterwards.
+    xSemaphoreTake(data_mutex, portMAX_DELAY);
+    clear_readings_locked();
+    xSemaphoreGive(data_mutex);
+}
+
+void http_reset_source() {
+    // Caller owns the network gate, so no older request can publish afterwards.
+    xSemaphoreTake(data_mutex, portMAX_DELAY);
+    clear_readings_locked();
+    last_response_code = 0;
+    last_response_body[0] = '\0';
+    dexcom_session_id[0] = '\0';
+    dexcom_session_time_ms = 0;
     demo_last_update_ms = 0;
     demo_value = 90;
     // Cancel a queued test when its settings were replaced.
@@ -605,6 +654,7 @@ void http_init() {
         return;
     }
     http_reset_source();
+    libre_reset_session();
 }
 
 void http_poll_tick() {

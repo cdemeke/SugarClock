@@ -18,7 +18,9 @@ class LocationWorker:
         self.consecutive_failures = 0
         self.circuit_until = 0.0
         if not synchronous:
-            threading.Thread(target=self._run, name="fleet-geolocation", daemon=True).start()
+            threading.Thread(
+                target=self._run, name="fleet-geolocation", daemon=True
+            ).start()
 
     def submit(self, device_id, source_ip, checked_at):
         with self.lock:
@@ -75,7 +77,13 @@ class LocationWorker:
                     connection.execute(
                         "UPDATE devices SET detected_city=?, detected_region=?, detected_country_code=?, "
                         "detected_location_checked_at=? WHERE id=?",
-                        (location["city"], location["region"], location["country_code"], checked_at, device_id),
+                        (
+                            location["city"],
+                            "",
+                            location["country_code"],
+                            checked_at,
+                            device_id,
+                        ),
                     )
                 else:
                     connection.execute(

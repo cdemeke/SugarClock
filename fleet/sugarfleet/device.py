@@ -5,7 +5,8 @@ import json
 from flask import Blueprint, current_app, request
 
 from .db import get_db
-from .enrollment import enrollment_is_open, registration_rate_allowed
+from .enrollment import registration_rate_allowed
+from . import telemetry, rollouts
 from .geolocation import public_ip
 from .security import (
     credential_hash_needs_upgrade,
@@ -15,7 +16,6 @@ from .security import (
 )
 from .util import ApiError, error_response, json_body, json_text, now_epoch
 from .validation import validate_checkin, validate_register, validate_result
-
 
 bp = Blueprint("device", __name__, url_prefix="/device/v1")
 
@@ -37,7 +37,9 @@ def _refresh_detected_location(connection, device, now):
 def _credential():
     authorization = request.headers.get("Authorization", "")
     if not authorization.startswith("Bearer "):
-        raise ApiError("device_auth_required", "Bearer device credential is required", 401)
+        raise ApiError(
+            "device_auth_required", "Bearer device credential is required", 401
+        )
     credential = authorization[7:]
     if not valid_device_credential(credential):
         raise ApiError("invalid_device_credential", "device credential is invalid", 401)
@@ -46,24 +48,33 @@ def _credential():
 
 def _authenticated_device(installation_id):
     credential = _credential()
-    device = get_db().execute(
-        "SELECT * FROM devices WHERE installation_id = ?", (installation_id,)
-    ).fetchone()
+    device = (
+        get_db()
+        .execute("SELECT * FROM devices WHERE installation_id = ?", (installation_id,))
+        .fetchone()
+    )
     if device is None or not verify_device_credential(
-        credential, device["credential_hash"], current_app.config["DEVICE_CREDENTIAL_PEPPER"]
+        credential,
+        device["credential_hash"],
+        current_app.config["DEVICE_CREDENTIAL_PEPPER"],
     ):
         raise ApiError("invalid_device_credential", "device credential is invalid", 401)
     if credential_hash_needs_upgrade(device["credential_hash"]):
         connection = get_db()
         connection.execute(
             "UPDATE devices SET credential_hash=? WHERE id=?",
-            (hash_device_credential(credential, current_app.config["DEVICE_CREDENTIAL_PEPPER"]), device["id"]),
+            (
+                hash_device_credential(
+                    credential, current_app.config["DEVICE_CREDENTIAL_PEPPER"]
+                ),
+                device["id"],
+            ),
         )
         connection.commit()
     if device["retired_at"] is not None:
         raise ApiError("device_retired", "device enrollment is retired", 403)
-    if device["verification_state"] != "verified":
-        raise ApiError("device_pending_approval", "device enrollment is awaiting administrator approval", 403)
+    if device["blocked_at"] is not None:
+        raise ApiError("device_blocked", "device is blocked", 403)
     return device
 
 
@@ -78,15 +89,26 @@ def register():
     validate_register(value)
     credential = _credential()
     connection = get_db()
+    if connection.execute(
+        "SELECT 1 FROM blocked_identities WHERE installation_id=?",
+        (value["installation_id"],),
+    ).fetchone():
+        raise ApiError("device_blocked", "device is blocked", 403)
     existing = connection.execute(
         "SELECT * FROM devices WHERE installation_id = ?", (value["installation_id"],)
     ).fetchone()
     now = now_epoch()
     if existing:
         if not verify_device_credential(
-            credential, existing["credential_hash"], current_app.config["DEVICE_CREDENTIAL_PEPPER"]
+            credential,
+            existing["credential_hash"],
+            current_app.config["DEVICE_CREDENTIAL_PEPPER"],
         ):
-            raise ApiError("installation_already_registered", "installation ID is already registered", 409)
+            raise ApiError(
+                "installation_already_registered",
+                "installation ID is already registered",
+                409,
+            )
         if existing["retired_at"] is not None:
             raise ApiError("device_retired", "device enrollment is retired", 403)
         credential_hash = existing["credential_hash"]
@@ -98,27 +120,49 @@ def register():
             "UPDATE devices SET last_seen=?, hardware=?, firmware_version=?, timezone=?, management_protocol=?, "
             "credential_hash=? "
             "WHERE id=?",
-            (now, value["hardware"], value["firmware_version"], value["timezone"],
-             value["management_protocol"], credential_hash, existing["id"]),
+            (
+                now,
+                value["hardware"],
+                value["firmware_version"],
+                value["timezone"],
+                value["management_protocol"],
+                credential_hash,
+                existing["id"],
+            ),
         )
         connection.commit()
         status = "already_registered"
         response_status = 200
     else:
         if not registration_rate_allowed(request.remote_addr, now):
-            raise ApiError("registration_rate_limited", "too many enrollment attempts", 429)
-        if not enrollment_is_open(connection, now):
-            raise ApiError("enrollment_closed", "device enrollment is currently closed", 403)
+            raise ApiError(
+                "registration_rate_limited", "too many enrollment attempts", 429
+            )
+        connection.execute("BEGIN IMMEDIATE")
+        # Another worker may have completed this same first registration after
+        # our optimistic read. Re-enter the authenticated existing-device path.
+        if connection.execute(
+            "SELECT 1 FROM devices WHERE installation_id=?", (value["installation_id"],)
+        ).fetchone():
+            connection.rollback()
+            return register()
+        telemetry.cleanup(connection, now)
         device_count = connection.execute("SELECT COUNT(*) FROM devices").fetchone()[0]
         if device_count >= current_app.config["ENROLLMENT_MAX_DEVICES"]:
-            raise ApiError("device_capacity_reached", "device enrollment capacity has been reached", 503)
+            raise ApiError(
+                "device_capacity_reached",
+                "device enrollment capacity has been reached",
+                503,
+            )
         connection.execute(
             "INSERT INTO devices "
             "(installation_id, credential_hash, hardware, management_protocol, first_seen, last_seen, "
-            "firmware_version, channel, timezone) VALUES (?, ?, ?, ?, ?, ?, ?, 'stable', ?)",
+            "firmware_version, channel, timezone, verification_state) VALUES (?, ?, ?, ?, ?, ?, ?, 'stable', ?, 'verified')",
             (
                 value["installation_id"],
-                hash_device_credential(credential, current_app.config["DEVICE_CREDENTIAL_PEPPER"]),
+                hash_device_credential(
+                    credential, current_app.config["DEVICE_CREDENTIAL_PEPPER"]
+                ),
                 value["hardware"],
                 value["management_protocol"],
                 now,
@@ -146,6 +190,7 @@ def register():
 def check_in():
     value = json_body()
     validate_checkin(value)
+    telemetry.validate_telemetry(value)
     device = _authenticated_device(value["installation_id"])
     now = now_epoch()
     connection = get_db()
@@ -153,8 +198,8 @@ def check_in():
     connection.execute(
         "UPDATE devices SET last_seen=?, firmware_version=?, running_partition=?, boot_partition=?, "
         "previous_partition=?, previous_partition_available=?, channel=?, timezone=COALESCE(?, timezone), "
-        "maintenance_window_json=?, config_revision=?, config_hash=?, last_ota_result=?, "
-        "last_rollback_result=?, uptime_seconds=?, free_heap_bucket=?, wifi_signal_bucket=?, "
+        "maintenance_window_json=?, config_revision=?, config_hash=?, "
+        "uptime_seconds=?, free_heap_bucket=?, wifi_signal_bucket=?, "
         "battery_percent=?, charging=?, health_json=? WHERE id=?",
         (
             now,
@@ -165,11 +210,13 @@ def check_in():
             int(bool(value.get("previous_partition_available", False))),
             value["channel"],
             value.get("timezone"),
-            json_text(value.get("maintenance_window")) if value.get("maintenance_window") else None,
+            (
+                json_text(value.get("maintenance_window"))
+                if value.get("maintenance_window")
+                else None
+            ),
             value.get("config_revision"),
             value.get("config_hash"),
-            value.get("last_ota_result"),
-            value.get("last_rollback_result"),
             value["uptime_seconds"],
             value.get("free_heap_bucket"),
             value.get("wifi_signal_bucket"),
@@ -179,6 +226,12 @@ def check_in():
             device["id"],
         ),
     )
+    telemetry.record(connection, device["id"], value, now)
+    telemetry.maintenance(connection, now)
+    current_device = connection.execute(
+        "SELECT * FROM devices WHERE id=?", (device["id"],)
+    ).fetchone()
+    update_offer = rollouts.offer(connection, current_device)
     connection.execute(
         "UPDATE commands SET status='expired' WHERE device_id=? AND status IN ('queued','delivered') "
         "AND expires_at<=?",
@@ -202,6 +255,7 @@ def check_in():
     return {
         "server_time": now,
         "next_checkin_seconds": current_app.config["DEVICE_CHECKIN_SECONDS"],
+        "update_offer": update_offer,
         "commands": [
             {
                 "id": row["id"],
@@ -225,7 +279,9 @@ def command_result(command_id):
         "SELECT * FROM commands WHERE id=? AND device_id=?", (command_id, device["id"])
     ).fetchone()
     if command is None:
-        raise ApiError("command_not_found", "command does not belong to this device", 404)
+        raise ApiError(
+            "command_not_found", "command does not belong to this device", 404
+        )
     result = {
         "reason": value.get("reason"),
         "config_revision": value.get("config_revision"),
@@ -236,7 +292,9 @@ def command_result(command_id):
         stored = json.loads(command["result_json"] or "{}")
         if command["status"] == value["status"] and stored == result:
             return {"status": "already_recorded"}
-        raise ApiError("command_already_final", "command already has a final result", 409)
+        raise ApiError(
+            "command_already_final", "command already has a final result", 409
+        )
     connection.execute(
         "UPDATE commands SET status=?, acknowledged_at=?, result_json=? WHERE id=?",
         (value["status"], now_epoch(), json_text(result), command_id),
@@ -247,3 +305,17 @@ def command_result(command_id):
     )
     connection.commit()
     return {"status": "recorded"}
+
+
+@bp.post("/updates/<target_id>/authorize")
+def authorize_update(target_id):
+    value = json_body()
+    device = _authenticated_device(value.get("installation_id"))
+    return rollouts.authorize(get_db(), device, target_id)
+
+
+@bp.post("/updates/<target_id>/result")
+def update_result(target_id):
+    value = json_body()
+    device = _authenticated_device(value.get("installation_id"))
+    return rollouts.result(get_db(), device, target_id, value)

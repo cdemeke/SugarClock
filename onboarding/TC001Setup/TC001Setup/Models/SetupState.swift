@@ -4,6 +4,7 @@ import Combine
 /// Represents which glucose data source the user has chosen.
 enum GlucoseSource: String, CaseIterable, Identifiable {
     case dexcom = "Dexcom Share"
+    case libre = "FreeStyle Libre"
     case nightscout = "Nightscout"
     case customURL = "Custom URL"
 
@@ -101,6 +102,10 @@ final class SetupState: ObservableObject {
     @Published var dexcomPassword: String = ""
     @Published var dexcomServer: String = "US"  // "US" or "OUS"
 
+    // FreeStyle Libre (LibreLinkUp follower account)
+    @Published var libreEmail: String = ""
+    @Published var librePassword: String = ""
+
     // Nightscout / Custom URL
     @Published var nightscoutURL: String = ""
     @Published var nightscoutToken: String = ""
@@ -110,6 +115,8 @@ final class SetupState: ObservableObject {
         switch glucoseSource {
         case .dexcom:
             return !dexcomUsername.isEmpty && !dexcomPassword.isEmpty
+        case .libre:
+            return !libreEmail.isEmpty && !librePassword.isEmpty
         case .nightscout:
             return !nightscoutURL.isEmpty
         case .customURL:
@@ -212,6 +219,10 @@ final class SetupState: ObservableObject {
             config["dexcom_username"] = dexcomUsername
             config["dexcom_password"] = dexcomPassword
             config["dexcom_server"] = dexcomServer
+        case .libre:
+            config["data_source"] = 3
+            config["libre_email"] = libreEmail.trimmingCharacters(in: .whitespaces)
+            config["libre_password"] = librePassword
         case .nightscout:
             config["data_source"] = 0
             config["server_url"] = nightscoutURL
