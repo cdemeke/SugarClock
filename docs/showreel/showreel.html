@@ -1,0 +1,936 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SugarClock Showreel</title>
+<style>
+  @font-face { font-family: Fredoka; font-weight: 500; src: url(fonts/Fredoka-500.ttf); }
+  @font-face { font-family: Fredoka; font-weight: 600; src: url(fonts/Fredoka-600.ttf); }
+  @font-face { font-family: Fredoka; font-weight: 700; src: url(fonts/Fredoka-700.ttf); }
+  @font-face { font-family: Inter; font-weight: 400; src: url(fonts/Inter-400.ttf); }
+  @font-face { font-family: Inter; font-weight: 500; src: url(fonts/Inter-500.ttf); }
+  @font-face { font-family: Inter; font-weight: 600; src: url(fonts/Inter-600.ttf); }
+  @font-face { font-family: Inter; font-weight: 700; src: url(fonts/Inter-700.ttf); }
+  html, body { margin: 0; background: #111; }
+  canvas { display: block; width: 100vw; max-width: 1920px; height: auto; margin: 0 auto; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<script type="module">
+/*
+ * SugarClock 15-second app showreel.
+ * Deterministic: window.renderAt(seconds) draws exactly one frame, so the
+ * recorder (render.mjs) can step through it frame by frame. Open this page
+ * directly (served over HTTP) to watch it play in real time.
+ * LED content comes from the demo studio's production-parity renderers.
+ */
+import { renderFrame } from "../demo/pixel-renderer.js";
+
+const W = 1920, H = 1080, BEAT = 0.5, DURATION = 15;
+const cv = document.getElementById("c");
+const ctx = cv.getContext("2d");
+
+const COL = {
+  cream: "#FFF7EE", ink: "#10231A", green: "#1FAE5B", deep: "#0E7A3E",
+  mint: "#C9F7D9", orange: "#FF9F1C", red: "#FF5A5F", yellow: "#FFD23F",
+  sky: "#5CC8FF", grape: "#7B61FF", pink: "#FF8FB1", night: "#131A36",
+  peach: "#FFE1C4", white: "#FFFFFF",
+};
+
+// ---------- math / easing ----------
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+const easeInCubic = (t) => t * t * t;
+const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+const easeOutBack = (t, s = 1.9) => 1 + (s + 1) * Math.pow(t - 1, 3) + s * Math.pow(t - 1, 2);
+const easeOutElastic = (t) =>
+  t === 0 ? 0 : t === 1 ? 1 : Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * ((2 * Math.PI) / 3)) + 1;
+const easeInOutQuint = (t) => (t < 0.5 ? 16 * t ** 5 : 1 - Math.pow(-2 * t + 2, 5) / 2);
+const beatPulse = (t, k = 9) => Math.exp(-((((t % BEAT) + BEAT) % BEAT) * k));
+function rng(seed) {
+  let s = seed >>> 0;
+  return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+}
+function mixHex(a, b, t) {
+  const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+  const r = Math.round(lerp(pa >> 16, pb >> 16, t));
+  const g = Math.round(lerp((pa >> 8) & 255, (pb >> 8) & 255, t));
+  const bl = Math.round(lerp(pa & 255, pb & 255, t));
+  return `rgb(${r},${g},${bl})`;
+}
+
+// ---------- drawing primitives ----------
+function rr(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, r);
+}
+function withT(x, y, s, rot, fn, alpha = 1) {
+  ctx.save();
+  ctx.translate(x, y);
+  if (rot) ctx.rotate(rot);
+  if (s !== 1) ctx.scale(s, s);
+  ctx.globalAlpha *= alpha;
+  fn();
+  ctx.restore();
+}
+function font(size, weight = 700, fam = "Fredoka") {
+  ctx.font = `${weight} ${size}px ${fam}`;
+}
+function text(str, x, y, { size = 60, weight = 700, fam = "Fredoka", color = COL.ink, align = "left", base = "alphabetic", spacing = 0 } = {}) {
+  font(size, weight, fam);
+  ctx.fillStyle = color;
+  ctx.textAlign = align;
+  ctx.textBaseline = base;
+  ctx.letterSpacing = `${spacing}px`;
+  ctx.fillText(str, x, y);
+  ctx.letterSpacing = "0px";
+}
+/** Words pop in one after another with an overshoot. */
+function popWords(str, x, y, t, { size = 90, color = COL.ink, stagger = 0.07, dur = 0.45, weight = 700, fam = "Fredoka", align = "left" } = {}) {
+  font(size, weight, fam);
+  const words = str.split(" ");
+  const space = ctx.measureText(" ").width;
+  const widths = words.map((w) => ctx.measureText(w).width);
+  const total = widths.reduce((a, b) => a + b, 0) + space * (words.length - 1);
+  let cx = align === "center" ? x - total / 2 : align === "right" ? x - total : x;
+  words.forEach((w, i) => {
+    const p = prog(t, i * stagger, i * stagger + dur);
+    if (p > 0) {
+      const s = easeOutBack(p, 2.4);
+      withT(cx + widths[i] / 2, y, s, (1 - easeOutCubic(p)) * 0.25, () => {
+        text(w, 0, (1 - easeOutCubic(p)) * size * 0.5, { size, color, weight, fam, align: "center" });
+      }, clamp(p * 3));
+    }
+    cx += widths[i] + space;
+  });
+}
+/** Letters drop in with bounce. */
+function popLetters(str, x, y, t, { size = 120, color = COL.ink, stagger = 0.035, dur = 0.5 } = {}) {
+  font(size, 700);
+  const total = ctx.measureText(str).width;
+  let cx = x - total / 2;
+  [...str].forEach((ch, i) => {
+    const w = (font(size, 700), ctx.measureText(ch).width);
+    const p = prog(t, i * stagger, i * stagger + dur);
+    if (p > 0) {
+      const e = easeOutElastic(p);
+      withT(cx + w / 2, y - (1 - e) * 160, lerp(0.4, 1, clamp(e)), 0, () => {
+        text(ch, 0, 0, { size, color, align: "center" });
+      }, clamp(p * 4));
+    }
+    cx += w;
+  });
+}
+function pill(x, y, label, { size = 30, bg = COL.white, fg = COL.ink, dot = null, padX = 26, h = null, align = "left", weight = 600, fam = "Inter" } = {}) {
+  font(size, weight, fam);
+  const tw = ctx.measureText(label).width;
+  const hh = h || size * 1.9;
+  const dotW = dot ? size * 0.5 + 14 : 0;
+  const w = tw + padX * 2 + dotW;
+  const x0 = align === "center" ? x - w / 2 : x;
+  rr(x0, y - hh / 2, w, hh, hh / 2);
+  ctx.fillStyle = bg;
+  ctx.fill();
+  if (dot) {
+    ctx.beginPath();
+    ctx.arc(x0 + padX + size * 0.25, y, size * 0.25, 0, 7);
+    ctx.fillStyle = dot;
+    ctx.fill();
+  }
+  text(label, x0 + padX + dotW, y + size * 0.36, { size, weight, fam, color: fg });
+  return w;
+}
+function shadow(blur = 40, y = 18, a = 0.22) {
+  ctx.shadowColor = `rgba(8,20,14,${a})`;
+  ctx.shadowBlur = blur;
+  ctx.shadowOffsetY = y;
+}
+function noShadow() {
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+}
+
+// ---------- LED device ----------
+const glucoseFrame = (value, trend, status, color = null) => {
+  const f = renderFrame({ mode: "glucose", glucose: { value, trend, status } }, 0);
+  return color ? f.map((c) => (c ? color : c)) : f;
+};
+const ledCache = new Map();
+function cached(key, fn) {
+  if (!ledCache.has(key)) ledCache.set(key, fn());
+  return ledCache.get(key);
+}
+/**
+ * Ulanzi TC001-style body: 2.855:1 case, matrix 86.2% of width, 32×8 LEDs.
+ * pixels: 256 CSS colors / null. Drawn centered at (cx, cy).
+ */
+function drawDevice(cx, cy, width, pixels, { scale = 1, rot = 0, alpha = 1, bright = 1, shadowA = 0.28, glow = 1 } = {}) {
+  withT(cx, cy, scale, rot, () => {
+    const w = width, h = width / 2.855;
+    // body
+    shadow(w * 0.06, w * 0.03, shadowA);
+    rr(-w / 2, -h / 2, w, h, h * 0.13);
+    const g = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
+    g.addColorStop(0, "#F7F8F5");
+    g.addColorStop(1, "#DADDD7");
+    ctx.fillStyle = g;
+    ctx.fill();
+    noShadow();
+    // top buttons
+    ctx.fillStyle = "#CFD3CC";
+    [-0.2, -0.13, -0.06].forEach((bx) => {
+      rr(w * bx - w * 0.025, -h / 2 - w * 0.007, w * 0.05, w * 0.012, w * 0.006);
+      ctx.fill();
+    });
+    // glass
+    const inset = w * 0.024;
+    rr(-w / 2 + inset, -h / 2 + inset, w - inset * 2, h - inset * 2, h * 0.09);
+    ctx.fillStyle = "#0A0C0B";
+    ctx.fill();
+    const sheen = ctx.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2);
+    sheen.addColorStop(0, "rgba(255,255,255,0.07)");
+    sheen.addColorStop(0.45, "rgba(255,255,255,0.0)");
+    ctx.fillStyle = sheen;
+    ctx.fill();
+    // matrix
+    const mw = w * 0.862, pitch = mw / 32, mh = pitch * 8;
+    const x0 = -mw / 2, y0 = -mh / 2, cell = pitch * 0.9, r = pitch * 0.14;
+    ctx.fillStyle = "#17191A";
+    for (let i = 0; i < 256; i++) {
+      if (pixels && pixels[i]) continue;
+      rr(x0 + (i % 32) * pitch + (pitch - cell) / 2, y0 + Math.floor(i / 32) * pitch + (pitch - cell) / 2, cell, cell, r);
+      ctx.fill();
+    }
+    if (pixels) {
+      const lit = () => {
+        for (let i = 0; i < 256; i++) {
+          const c = pixels[i];
+          if (!c) continue;
+          ctx.fillStyle = c;
+          rr(x0 + (i % 32) * pitch + (pitch - cell) / 2, y0 + Math.floor(i / 32) * pitch + (pitch - cell) / 2, cell, cell, r);
+          ctx.fill();
+        }
+      };
+      ctx.save();
+      ctx.globalAlpha *= lerp(0.18, 1, bright);
+      lit();
+      if (glow > 0) {
+        ctx.globalCompositeOperation = "lighter";
+        ctx.globalAlpha *= 0.55 * glow;
+        ctx.filter = `blur(${Math.max(1, pitch * 0.55)}px)`;
+        lit();
+        ctx.filter = "none";
+      }
+      ctx.restore();
+      // tiny hot centre on each LED
+      ctx.save();
+      ctx.globalAlpha *= 0.28 * bright;
+      ctx.fillStyle = "#fff";
+      for (let i = 0; i < 256; i++) {
+        if (!pixels[i]) continue;
+        rr(x0 + (i % 32) * pitch + pitch * 0.35, y0 + Math.floor(i / 32) * pitch + pitch * 0.35, pitch * 0.3, pitch * 0.3, pitch * 0.1);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  }, alpha);
+}
+
+// ---------- decorative helpers ----------
+function confettiField(t, seed, n, colors, { speed = 30, sizeMin = 8, sizeMax = 22, alpha = 1 } = {}) {
+  const r = rng(seed);
+  for (let i = 0; i < n; i++) {
+    const x = r() * W, y = r() * H, s = lerp(sizeMin, sizeMax, r()), c = colors[Math.floor(r() * colors.length)];
+    const kind = Math.floor(r() * 3), ph = r() * 6.28, sp = lerp(0.5, 1.4, r());
+    const yy = ((y - t * speed * sp) % (H + 80) + H + 80) % (H + 80) - 40;
+    const xx = x + Math.sin(t * 1.4 + ph) * 18;
+    withT(xx, yy, 1 + beatPulse(t) * 0.15, t * sp + ph, () => {
+      ctx.fillStyle = c;
+      if (kind === 0) { ctx.beginPath(); ctx.arc(0, 0, s / 2, 0, 7); ctx.fill(); }
+      else if (kind === 1) { rr(-s / 2, -s / 2, s, s, s * 0.22); ctx.fill(); }
+      else { ctx.strokeStyle = c; ctx.lineWidth = s * 0.28; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(-s, 0); ctx.quadraticCurveTo(-s / 2, -s * 0.6, 0, 0); ctx.quadraticCurveTo(s / 2, s * 0.6, s, 0); ctx.stroke(); }
+    }, alpha);
+  }
+}
+function blob(x, y, r, color, alpha = 1) {
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, 7);
+  ctx.fill();
+  ctx.restore();
+}
+function dotGrid(color, gap = 48, r = 2.6, offX = 0, offY = 0, alpha = 1) {
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  ctx.fillStyle = color;
+  for (let y = (offY % gap) - gap; y < H + gap; y += gap)
+    for (let x = (offX % gap) - gap; x < W + gap; x += gap) {
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, 7);
+      ctx.fill();
+    }
+  ctx.restore();
+}
+
+// =====================================================================
+// SCENES — each draws a full frame from local time lt (seconds).
+// =====================================================================
+
+// 1. INTRO (0 – 2.0)
+const introPixels = glucoseFrame(102, "up", "range", "#3CE06A");
+const introOrder = (() => {
+  const r = rng(7);
+  return introPixels.map((c, i) => ({ i, c, sx: r() * W, sy: r() < 0.5 ? -80 - r() * 300 : H + 80 + r() * 300, d: r() * 0.35, rot: (r() - 0.5) * 6 }));
+})();
+function sceneIntro(lt) {
+  ctx.fillStyle = COL.cream;
+  ctx.fillRect(0, 0, W, H);
+  confettiField(lt, 11, 26, [COL.green, COL.yellow, COL.pink, COL.sky, COL.orange], { alpha: clamp(lt * 2) * 0.9 });
+
+  // big LED matrix assembling from flying pixels
+  const settle = easeInOutCubic(prog(lt, 0.95, 1.3));
+  const ms = lerp(1, 0.46, settle); // matrix scale
+  const mcy = lerp(470, 330, settle);
+  const pitch = 42 * ms, mw = pitch * 32, mh = pitch * 8;
+  const x0 = W / 2 - mw / 2, y0 = mcy - mh / 2;
+
+  // logo tile grows behind
+  const tileP = prog(lt, 1.0, 1.45);
+  if (tileP > 0) {
+    const s = easeOutBack(tileP, 2.2);
+    withT(W / 2, mcy, s, (1 - tileP) * -0.3, () => {
+      shadow(50, 24, 0.25);
+      rr(-380, -150, 760, 300, 70);
+      const g = ctx.createLinearGradient(0, -150, 0, 150);
+      g.addColorStop(0, "#2FBF63");
+      g.addColorStop(1, "#157A3D");
+      ctx.fillStyle = g;
+      ctx.fill();
+      noShadow();
+      ctx.strokeStyle = "rgba(255,255,255,0.12)";
+      ctx.lineWidth = 2;
+      for (let gx = -380; gx <= 380; gx += 38) { ctx.beginPath(); ctx.moveTo(gx, -150); ctx.lineTo(gx, 150); ctx.stroke(); }
+      for (let gy = -150; gy <= 150; gy += 38) { ctx.beginPath(); ctx.moveTo(-380, gy); ctx.lineTo(380, gy); ctx.stroke(); }
+    });
+  }
+  // unlit grid
+  const gridA = clamp(lt * 3) * (1 - tileP);
+  if (gridA > 0) {
+    ctx.save();
+    ctx.globalAlpha = gridA * 0.18;
+    ctx.fillStyle = COL.ink;
+    for (let i = 0; i < 256; i++) {
+      rr(x0 + (i % 32) * pitch + pitch * 0.08, y0 + Math.floor(i / 32) * pitch + pitch * 0.08, pitch * 0.84, pitch * 0.84, pitch * 0.18);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+  // flying lit pixels
+  const litColor = mixHex("#1FAE5B", "#63FF8E", tileP);
+  for (const p of introOrder) {
+    if (!p.c) continue;
+    const e = easeOutBack(prog(lt, 0.05 + p.d, 0.6 + p.d), 1.3);
+    const tx = x0 + (p.i % 32) * pitch + pitch / 2, ty = y0 + Math.floor(p.i / 32) * pitch + pitch / 2;
+    const x = lerp(p.sx, tx, e), y = lerp(p.sy, ty, e);
+    const s = pitch * 0.84;
+    withT(x, y, 1 + beatPulse(lt - 0.02) * 0.12 * (lt > 0.9 ? 1 : 0), p.rot * (1 - clamp(e)), () => {
+      ctx.fillStyle = litColor;
+      if (tileP > 0) { ctx.shadowColor = "#63FF8E"; ctx.shadowBlur = 14 * tileP; }
+      rr(-s / 2, -s / 2, s, s, s * 0.18);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }, clamp(prog(lt, p.d, p.d + 0.1)));
+  }
+  // wordmark + tagline
+  popLetters("SugarClock", W / 2, 690, lt - 1.15, { size: 150, color: COL.ink, stagger: 0.03 });
+  const tg = prog(lt, 1.45, 1.8);
+  if (tg > 0) {
+    withT(W / 2, 790 + (1 - easeOutCubic(tg)) * 30, 1, 0, () => {
+      text("Your glucose, always in view.", 0, 0, { size: 46, weight: 500, fam: "Inter", color: "#3C5446", align: "center" });
+    }, tg);
+  }
+}
+
+// 2. HERO (2.0 – 4.5)
+function sceneHero(lt) {
+  const g = ctx.createLinearGradient(0, 0, W, H);
+  g.addColorStop(0, "#27C267");
+  g.addColorStop(1, "#0C6E37");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  dotGrid("rgba(255,255,255,0.14)", 54, 2.6, -lt * 30, -lt * 20);
+  blob(1500 + Math.sin(lt * 2) * 20, 250, 360 + beatPulse(lt) * 14, "#3AD679", 0.35);
+  blob(260, 980, 280, "#0A5C2E", 0.35);
+
+  // device
+  const dp = prog(lt, 0.0, 0.7);
+  const dx = 1420, dy = lerp(1300, 560, easeOutBack(dp, 1.4));
+  const rot = lerp(-0.35, -0.04, easeOutCubic(dp)) + Math.sin(lt * 2.2) * 0.012;
+  let pix;
+  if (lt < 0.75) pix = cached("dex", () => renderFrame({ providerLabel: true, mode: "glucose", glucose: { provider: "dexcom" } }, 0));
+  else if (lt < 1.25) pix = cached("g109", () => glucoseFrame(109, "up-right", "range"));
+  else pix = cached("g112", () => glucoseFrame(112, "flat", "range"));
+  const punch = lt > 0.75 ? 1 + 0.05 * Math.exp(-((lt - 0.75) % 0.5) * 12) : 1;
+  // live ripples
+  if (lt > 0.8) {
+    for (let k = 0; k < 3; k++) {
+      const rp = ((lt - 0.8 + k * 0.33) % 1);
+      ctx.save();
+      ctx.globalAlpha = (1 - rp) * 0.4;
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 4;
+      rr(dx - 430 - rp * 160, dy - 150 - rp * 160, 860 + rp * 320, 300 + rp * 320, 60 + rp * 160);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+  drawDevice(dx, dy, 860, pix, { rot, scale: punch, shadowA: 0.35 });
+
+  // "updated" bubble
+  const bp = prog(lt, 1.35, 1.75);
+  if (bp > 0) {
+    withT(1080, 340, easeOutBack(bp, 2.5), (1 - bp) * -0.4, () => {
+      shadow(30, 12, 0.25);
+      rr(-10, -38, 360, 76, 38);
+      ctx.fillStyle = "#fff";
+      ctx.fill();
+      noShadow();
+      blob(34, 0, 11 + beatPulse(lt) * 4, COL.green);
+      text("Updated just now", 60, 11, { size: 28, weight: 600, fam: "Inter", color: COL.ink });
+    });
+  }
+  const mp = prog(lt, 1.55, 1.95);
+  if (mp > 0) {
+    withT(1650, 790, easeOutBack(mp, 2.5), (1 - mp) * 0.5, () => {
+      pill(0, 0, "112 mg/dL · steady", { size: 28, bg: COL.ink, fg: "#fff", align: "center", dot: "#3CE06A" });
+    });
+  }
+
+  // headline
+  const kp = prog(lt, 0.15, 0.45);
+  if (kp > 0) withT(130, 300, easeOutBack(kp), 0, () => pill(0, 0, "LIVE CGM DISPLAY", { size: 24, bg: "rgba(255,255,255,0.18)", fg: "#fff", weight: 700, dot: COL.yellow }), kp);
+  popWords("Your glucose,", 120, 440, lt - 0.3, { size: 92, color: "#fff" });
+  popWords("live on your desk.", 120, 550, lt - 0.55, { size: 92, color: COL.yellow });
+
+  // provider chips
+  const chips = [["Dexcom", COL.sky], ["FreeStyle Libre", COL.orange], ["Nightscout", COL.grape]];
+  let cx = 130;
+  chips.forEach(([label, dot], i) => {
+    const p = prog(lt, 1.0 + i * 0.12, 1.4 + i * 0.12);
+    font(30, 600, "Inter");
+    const w = ctx.measureText(label).width + 52 + 29;
+    if (p > 0) withT(cx + w / 2, 700 + (1 - easeOutCubic(p)) * 60, easeOutBack(p, 2.6), 0, () => pill(0, 0, label, { size: 30, align: "center", dot }), clamp(p * 3));
+    cx += w + 18;
+  });
+  const wp = prog(lt, 1.5, 1.9);
+  if (wp > 0) withT(130, 800, 1, 0, () => text("Works with the CGM you already use", 0, 0, { size: 30, weight: 500, fam: "Inter", color: "rgba(255,255,255,0.85)" }), wp);
+}
+
+// 3. RANGES (4.5 – 7.0)
+const RANGE_STATES = [
+  { at: 0, bg: "#1FAE5B", label: "In range", sub: "112 mg/dL · steady", value: 112, pix: () => glucoseFrame(112, "flat", "range") },
+  { at: 0.8, bg: "#FF9F1C", label: "Heading high", sub: "186 mg/dL · rising", value: 186, pix: () => glucoseFrame(186, "up-right", "high") },
+  { at: 1.6, bg: "#FF5A5F", label: "Urgent low", sub: "54 mg/dL · falling fast", value: 54, pix: () => glucoseFrame(54, "double-down", "low", "#FF3B30") },
+];
+const CGM_POINTS = [[0, 121], [0.08, 116], [0.18, 112], [0.28, 110], [0.36, 128], [0.46, 166], [0.54, 186], [0.6, 192], [0.68, 175], [0.76, 138], [0.84, 96], [0.92, 66], [1, 54]];
+function cgmAt(u) {
+  for (let i = 1; i < CGM_POINTS.length; i++) {
+    const [u1, v1] = CGM_POINTS[i], [u0, v0] = CGM_POINTS[i - 1];
+    if (u <= u1) {
+      const k = (u - u0) / (u1 - u0);
+      const s = k * k * (3 - 2 * k);
+      return lerp(v0, v1, s);
+    }
+  }
+  return 54;
+}
+function sceneRanges(lt) {
+  let si = 0;
+  RANGE_STATES.forEach((s, i) => { if (lt >= s.at) si = i; });
+  const st = RANGE_STATES[si];
+  const since = lt - st.at;
+  // background with burst transitions
+  ctx.fillStyle = si > 0 ? RANGE_STATES[si - 1].bg : st.bg;
+  ctx.fillRect(0, 0, W, H);
+  const burst = si > 0 ? easeOutCubic(prog(since, 0, 0.35)) : 1;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(560, 440, burst * 2300, 0, 7);
+  ctx.fillStyle = st.bg;
+  ctx.fill();
+  ctx.restore();
+  dotGrid("rgba(255,255,255,0.16)", 54, 2.6, lt * 25, 0);
+  // stripes accent
+  ctx.save();
+  ctx.globalAlpha = 0.1;
+  ctx.fillStyle = "#fff";
+  for (let k = 0; k < 6; k++) {
+    const x = ((k * 380 + lt * 200) % 2400) - 300;
+    ctx.beginPath();
+    ctx.moveTo(x, 0); ctx.lineTo(x + 120, 0); ctx.lineTo(x - 420, H); ctx.lineTo(x - 540, H);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // device
+  const enter = easeOutBack(prog(lt, 0, 0.45), 1.6);
+  const punch = 1 + 0.09 * Math.exp(-since * 10);
+  const shake = si === 2 ? Math.sin(lt * 70) * 7 * Math.exp(-since * 3) : 0;
+  // alert rings
+  if (si === 2) {
+    for (let k = 0; k < 3; k++) {
+      const rp = (since * 1.6 + k / 3) % 1;
+      ctx.save();
+      ctx.globalAlpha = (1 - rp) * 0.55;
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.ellipse(560, 440, 440 + rp * 200, 170 + rp * 200, 0, 0, 7);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+  drawDevice(560 + shake, lerp(1200, 440, enter), 820, cached("range" + si, st.pix), { scale: punch, rot: -0.02 });
+
+  // label swap
+  const lp = easeOutBack(prog(since, 0.02, 0.4), 2);
+  withT(170, 790, 1, 0, () => {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(-20, -130, 900, 170);
+    ctx.clip();
+    text(st.label, 0, lerp(150, 0, lp), { size: 118, color: "#fff" });
+    if (si > 0) text(RANGE_STATES[si - 1].label, 0, lerp(0, -150, easeInCubic(prog(since, 0, 0.25))), { size: 118, color: "#fff" });
+    ctx.restore();
+  });
+  withT(176, 870, 1, 0, () => text(st.sub, 0, 0, { size: 38, weight: 600, fam: "Inter", color: "rgba(255,255,255,0.92)" }), clamp(prog(since, 0.1, 0.35)));
+  if (si === 2) {
+    const sp = prog(since, 0.45, 0.75);
+    if (sp > 0) withT(176 + 190, 965, easeOutBack(sp, 2.5), 0, () => {
+      pill(0, 0, "Buzzer · tap to snooze", { size: 32, bg: "#fff", fg: COL.red, align: "center", weight: 700 });
+    });
+  }
+
+  // chart card
+  const cp = easeOutBack(prog(lt, 0.1, 0.6), 1.3);
+  withT(1450, lerp(1400, 540, cp), 1, lerp(0.15, 0.03, cp), () => {
+    const cw = 760, ch = 640;
+    shadow(60, 30, 0.3);
+    rr(-cw / 2, -ch / 2, cw, ch, 44);
+    ctx.fillStyle = "#fff";
+    ctx.fill();
+    noShadow();
+    text("Last 3 hours", -cw / 2 + 48, -ch / 2 + 78, { size: 34, weight: 700, fam: "Inter", color: COL.ink });
+    text("Dexcom · every 5 min", -cw / 2 + 48, -ch / 2 + 118, { size: 24, weight: 500, fam: "Inter", color: "#6B7A70" });
+    // current value
+    const col = si === 0 ? "#16894A" : si === 1 ? "#E08400" : "#E5383D";
+    withT(cw / 2 - 48, -ch / 2 + 110, 1 + 0.12 * Math.exp(-since * 10), 0, () => {
+      text(String(st.value), 0, 0, { size: 84, color: col, align: "right" });
+    });
+    text("mg/dL", cw / 2 - 48, -ch / 2 + 146, { size: 22, weight: 600, fam: "Inter", color: "#6B7A70", align: "right" });
+    // plot
+    const px0 = -cw / 2 + 90, px1 = cw / 2 - 40, py0 = -ch / 2 + 190, py1 = ch / 2 - 80;
+    const vy = (v) => lerp(py1, py0, (v - 40) / (260 - 40));
+    ctx.fillStyle = "rgba(31,174,91,0.13)";
+    ctx.fillRect(px0, vy(180), px1 - px0, vy(70) - vy(180));
+    ctx.strokeStyle = "rgba(16,35,26,0.08)";
+    ctx.lineWidth = 2;
+    [70, 180, 250].forEach((v) => {
+      ctx.beginPath(); ctx.moveTo(px0, vy(v)); ctx.lineTo(px1, vy(v)); ctx.stroke();
+      text(String(v), px0 - 16, vy(v) + 8, { size: 20, weight: 500, fam: "Inter", color: "#8A968E", align: "right" });
+    });
+    ["4 PM", "5 PM", "6 PM", "7 PM"].forEach((lab, i) => text(lab, lerp(px0, px1, i / 3), py1 + 46, { size: 20, weight: 500, fam: "Inter", color: "#8A968E", align: "center" }));
+    // head position synced to the displayed state
+    const u = lt < 0.8 ? lerp(0.05, 0.28, easeOutCubic(prog(lt, 0.2, 0.8))) : lt < 1.6 ? lerp(0.28, 0.56, easeInOutCubic(prog(lt, 0.8, 1.35))) : lerp(0.56, 1, easeInOutCubic(prog(lt, 1.6, 2.3)));
+    const N = 80;
+    // dots for each 5-min reading
+    for (let k = 0; k <= 36; k++) {
+      const uu = k / 36;
+      if (uu > u) break;
+      const v = cgmAt(uu);
+      const c = v < 70 ? "#E5383D" : v > 180 ? "#F29100" : "#1FAE5B";
+      blob(lerp(px0, px1, uu), vy(v), 6.5, c);
+    }
+    ctx.strokeStyle = "rgba(16,35,26,0.25)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    for (let k = 0; k <= N; k++) {
+      const uu = (k / N) * u;
+      const x = lerp(px0, px1, uu), y = vy(cgmAt(uu));
+      k ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    }
+    ctx.stroke();
+    const hx = lerp(px0, px1, u), hy = vy(cgmAt(u));
+    blob(hx, hy, 22 + beatPulse(lt) * 10, col, 0.25);
+    blob(hx, hy, 13, col);
+    blob(hx, hy, 5, "#fff");
+  });
+}
+
+// 4. COMPANIONS (7.0 – 9.5)
+const PETS = [
+  ["goldfish", "Pip", COL.orange], ["ghost", "Boo", COL.sky], ["axolotl", "Mochi", COL.pink], ["dinosaur", "Sprout", COL.green],
+  ["turtle", "Pebble", "#2BB5A0"], ["octopus", "Inky", COL.grape], ["red-panda", "Maple", "#E5733B"],
+];
+function sceneCompanions(lt) {
+  ctx.fillStyle = COL.peach;
+  ctx.fillRect(0, 0, W, H);
+  dotGrid("rgba(255,160,90,0.35)", 60, 3.2, lt * 20, lt * 20);
+  blob(180, 160, 220 + beatPulse(lt) * 12, COL.yellow, 0.55);
+  blob(1780, 950, 260, COL.pink, 0.45);
+  confettiField(lt + 3, 21, 16, [COL.yellow, COL.pink, COL.orange, COL.sky], { speed: -40, alpha: 0.8 });
+
+  popWords("Meet your pixel companions", W / 2, 190, lt - 0.05, { size: 94, align: "center", stagger: 0.06 });
+  const sp = prog(lt, 0.45, 0.75);
+  if (sp > 0) withT(W / 2, 258, 1, 0, () => text("A tiny friend keeps you company while you're in range", 0, 0, { size: 32, weight: 500, fam: "Inter", color: "#6A4A2E", align: "center" }), sp);
+
+  const dw = 390, gapX = 440;
+  const happy = lt > 1.45 && lt < 2.3;
+  PETS.forEach(([kind, name, color], i) => {
+    const row = i < 4 ? 0 : 1;
+    const col = row === 0 ? i : i - 4;
+    const n = row === 0 ? 4 : 3;
+    const x = W / 2 + (col - (n - 1) / 2) * gapX;
+    const y = row === 0 ? 480 : 790;
+    const d = 0.2 + i * 0.075;
+    const p = prog(lt, d, d + 0.5);
+    if (p <= 0) return;
+    const bob = Math.sin((lt + i * 0.3) * 4) * 6;
+    const hop = happy ? -Math.abs(Math.sin((lt - 1.45) * Math.PI * 4 + i * 0.4)) * 22 : 0;
+    const now = Math.floor(lt * 1000) + i * 777;
+    const pix = renderFrame({ mode: "pet", glucose: { status: "range" }, pet: { kind, nap: false, greetingUntil: happy ? now + 1000 : 0 } }, now);
+    const s = easeOutBack(p, 2.1);
+    drawDevice(x, y + bob + hop + (1 - easeOutCubic(p)) * 120, dw, pix, { scale: s, rot: (1 - p) * (i % 2 ? 0.4 : -0.4) + Math.sin(lt * 2 + i) * 0.015, shadowA: 0.22 });
+    const tp = prog(lt, d + 0.2, d + 0.55);
+    if (tp > 0) withT(x, y + 105 + bob * 0.5, easeOutBack(tp, 2.6), 0, () => pill(0, 0, name, { size: 26, bg: color, fg: "#fff", align: "center", weight: 700, fam: "Fredoka" }));
+    // hearts during greeting
+    if (happy) {
+      const hp = ((lt - 1.45) * 1.4 + i * 0.13) % 1;
+      withT(x + 150, y - 60 - hp * 90, 0.8 + hp * 0.4, Math.sin(hp * 6) * 0.2, () => {
+        ctx.fillStyle = COL.red;
+        ctx.beginPath();
+        ctx.moveTo(0, 8);
+        ctx.bezierCurveTo(-22, -8, -12, -26, 0, -12);
+        ctx.bezierCurveTo(12, -26, 22, -8, 0, 8);
+        ctx.fill();
+      }, 1 - hp);
+    }
+  });
+}
+
+// 5. MORE THAN A NUMBER (9.5 – 11.5)
+const MORE = [
+  { label: "Clock", color: COL.yellow, frame: (ms) => renderFrame({ mode: "time", clock: { hour24: false } }, new Date(2026, 8, 28, 7, 42, 0).getTime() + ms) },
+  { label: "Weather", color: COL.sky, frame: (ms) => renderFrame({ mode: "weather", weather: { temperature: 64, unit: "F", condition: "rain", animationStartedAt: 0 } }, ms + 400) },
+  { label: "Focus timer", color: COL.orange, frame: (ms) => renderFrame({ mode: "pomodoro", pomodoro: { phase: "work", durationMs: 1500000, remainingMs: 1497000 - ms, running: true } }, ms) },
+  { label: "Countdown", color: COL.pink, frame: (ms) => renderFrame({ mode: "event", modeStartedAt: 0, event: { name: "TRIP", remainingMs: 3 * 86400000 - 3600000 } }, ms) },
+  { label: "Weather", color: COL.sky, frame: (ms) => renderFrame({ mode: "weather", weather: { temperature: 71, unit: "F", condition: "partly-cloudy", animationStartedAt: 0 } }, ms) },
+];
+function sceneMore(lt) {
+  ctx.fillStyle = COL.grape;
+  ctx.fillRect(0, 0, W, H);
+  const g = ctx.createRadialGradient(W / 2, H * 0.1, 50, W / 2, H * 0.2, 1300);
+  g.addColorStop(0, "rgba(255,255,255,0.25)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  dotGrid("rgba(255,255,255,0.14)", 54, 2.6, -lt * 120, 0);
+
+  popWords("More than a number", W / 2, 200, lt - 0.05, { size: 100, color: "#fff", align: "center" });
+  const sp = prog(lt, 0.35, 0.65);
+  if (sp > 0) withT(W / 2, 268, 1, 0, () => text("Time, weather and timers rotate between readings", 0, 0, { size: 32, weight: 500, fam: "Inter", color: "rgba(255,255,255,0.88)", align: "center" }), sp);
+
+  // conveyor
+  const enter = 1 - easeOutCubic(prog(lt, 0, 0.7));
+  const drift = lt * 260;
+  const dw = 560, gap = 640;
+  MORE.forEach((m, i) => {
+    const x = 330 + i * gap - drift + enter * 1500;
+    if (x < -400 || x > W + 400) return;
+    const y = 620 + Math.sin(lt * 3 + i) * 10;
+    const focus = 1 - clamp(Math.abs(x - W / 2) / 900);
+    const s = lerp(0.82, 1.08, easeInOutCubic(focus));
+    drawDevice(x, y, dw, m.frame(Math.floor(lt * 1000)), { scale: s, rot: (x - W / 2) / 9000, shadowA: 0.35 });
+    withT(x, y + 150 * s, s, 0, () => pill(0, 0, m.label, { size: 28, bg: m.color, fg: COL.ink, align: "center", weight: 700, fam: "Fredoka" }), 0.6 + focus * 0.4);
+  });
+}
+
+// 6. PHONE SETUP (11.5 – 13.5)
+function toggle(x, y, on, t = 1) {
+  const w = 76, h = 44;
+  rr(x, y - h / 2, w, h, h / 2);
+  ctx.fillStyle = mixHex("#D4D4D8", "#16894A", on ? t : 0);
+  ctx.fill();
+  const kx = lerp(x + h / 2, x + w - h / 2, on ? easeOutBack(t, 2) : 0);
+  shadow(6, 2, 0.25);
+  blob(kx, y, h / 2 - 5, "#fff");
+  noShadow();
+}
+function scenePhone(lt) {
+  const tapAt = 0.95, saveAt = 1.45;
+  const nightT = easeInOutCubic(prog(lt, 1.0, 1.5));
+  ctx.fillStyle = mixHex("#D8F1FF", "#131A36", nightT);
+  ctx.fillRect(0, 0, W, H);
+  // sun / moon
+  withT(1780, lerp(150, 1200, nightT), 1, 0, () => { blob(0, 0, 110 + beatPulse(lt) * 6, COL.yellow); blob(0, 0, 150, COL.yellow, 0.25); });
+  withT(1790, lerp(-200, 150, nightT), 1, -0.3, () => {
+    blob(0, 0, 90, "#FFF4C7");
+    blob(38, -24, 78, mixHex("#D8F1FF", "#131A36", nightT));
+  });
+  // stars
+  const r = rng(99);
+  for (let i = 0; i < 60; i++) {
+    const x = r() * W, y = r() * H * 0.7, s = lerp(1.5, 4, r()), ph = r() * 6;
+    blob(x, y, s * (0.8 + 0.3 * Math.sin(lt * 6 + ph)), "#fff", nightT * 0.8);
+  }
+  // clouds (day)
+  [[300, 180, 1], [900, 120, 0.8], [1300, 330, 0.7]].forEach(([x, y, s], i) => {
+    withT(x + lt * 40 * (i + 1), y, s, 0, () => {
+      ctx.fillStyle = "#fff";
+      [[0, 0, 60], [60, -20, 70], [130, 0, 55], [60, 20, 60]].forEach(([a, b, rr_]) => { ctx.beginPath(); ctx.arc(a, b, rr_, 0, 7); ctx.fill(); });
+    }, 1 - nightT);
+  });
+
+  // phone
+  const pp = easeOutBack(prog(lt, 0, 0.55), 1.3);
+  const phx = 560, phy = lerp(1500, 560, pp);
+  withT(phx, phy, 1, lerp(0.25, -0.05, pp), () => {
+    const pw = 470, ph = 940;
+    shadow(80, 40, 0.4);
+    rr(-pw / 2, -ph / 2, pw, ph, 72);
+    ctx.fillStyle = "#15171A";
+    ctx.fill();
+    noShadow();
+    const sw = pw - 36, sh = ph - 36;
+    ctx.save();
+    rr(-sw / 2, -sh / 2, sw, sh, 56);
+    ctx.clip();
+    ctx.fillStyle = "#F3F7F4";
+    ctx.fillRect(-sw / 2, -sh / 2, sw, sh);
+    const L = -sw / 2 + 28, top = -sh / 2;
+    // status bar
+    text("7:42", L + 20, top + 50, { size: 22, weight: 700, fam: "Inter", color: COL.ink });
+    rr(-60, top + 22, 120, 34, 17); ctx.fillStyle = "#000"; ctx.fill();
+    // header
+    rr(-sw / 2, top + 76, sw, 110, 0); ctx.fillStyle = "#fff"; ctx.fill();
+    rr(L, top + 100, 60, 60, 16); ctx.fillStyle = "#16894A"; ctx.fill();
+    text("112", L + 30, top + 138, { size: 22, weight: 700, color: "#7CFF9E", align: "center" });
+    text("SugarClock", L + 78, top + 126, { size: 28, weight: 700, color: COL.ink });
+    text("Settings · Display", L + 78, top + 156, { size: 18, weight: 500, fam: "Inter", color: "#52525B" });
+    // cards
+    const card = (y, h, fn, d) => {
+      const cp = easeOutBack(prog(lt, d, d + 0.35), 1.8);
+      if (cp <= 0) return;
+      withT(0, y + (1 - cp) * 40, 1, 0, () => {
+        rr(-sw / 2 + 20, 0, sw - 40, h, 22);
+        ctx.fillStyle = "#fff";
+        ctx.fill();
+        ctx.strokeStyle = "#E4E4E7";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        fn();
+      }, clamp(cp * 2));
+    };
+    const lx = L + 16, rx = sw / 2 - 44 - 76;
+    card(top + 210, 150, () => {
+      text("Display brightness", lx, 50, { size: 22, weight: 600, fam: "Inter", color: COL.ink });
+      rr(lx, 86, sw - 110, 10, 5); ctx.fillStyle = "#E4E4E7"; ctx.fill();
+      const v = lerp(0.72, 0.28, nightT);
+      rr(lx, 86, (sw - 110) * v, 10, 5); ctx.fillStyle = "#16894A"; ctx.fill();
+      shadow(6, 2, 0.25); blob(lx + (sw - 110) * v, 91, 15, "#fff"); noShadow();
+      text("Adjust brightness automatically", lx, 132, { size: 17, weight: 500, fam: "Inter", color: "#52525B" });
+    }, 0.3);
+    card(top + 380, 170, () => {
+      text("Night mode", lx, 52, { size: 22, weight: 600, fam: "Inter", color: COL.ink });
+      text("Dims 10 PM – 7 AM", lx, 84, { size: 18, weight: 500, fam: "Inter", color: "#52525B" });
+      toggle(rx, 62, lt > tapAt, easeOutCubic(prog(lt, tapAt, tapAt + 0.25)));
+      text("Night brightness", lx, 136, { size: 18, weight: 500, fam: "Inter", color: "#52525B" });
+      text("20", sw / 2 - 60, 136, { size: 18, weight: 700, fam: "Inter", color: COL.ink, align: "right" });
+    }, 0.42);
+    card(top + 570, 150, () => {
+      text("Show Only Blood", lx, 50, { size: 22, weight: 600, fam: "Inter", color: COL.ink });
+      text("Sugar When Low", lx, 78, { size: 22, weight: 600, fam: "Inter", color: COL.ink });
+      text("Keeps lows on screen", lx, 116, { size: 18, weight: 500, fam: "Inter", color: "#52525B" });
+      toggle(rx, 64, true, 1);
+    }, 0.54);
+    // save button
+    const bp = easeOutBack(prog(lt, 0.66, 0.95), 2);
+    if (bp > 0) {
+      const press = lt > saveAt ? 1 - 0.06 * Math.exp(-(lt - saveAt) * 10) : 1;
+      withT(0, top + 790, bp * press, 0, () => {
+        rr(-(sw - 40) / 2, -34, sw - 40, 68, 34);
+        ctx.fillStyle = "#16894A";
+        ctx.fill();
+        text(lt > saveAt + 0.08 ? "Saved ✓" : "Save settings", 0, 10, { size: 26, weight: 700, fam: "Inter", color: "#fff", align: "center" });
+      });
+    }
+    ctx.restore();
+    // finger taps
+    const tap = (at, x, y) => {
+      const tp = prog(lt, at - 0.25, at + 0.35);
+      if (tp <= 0 || tp >= 1) return;
+      const down = prog(lt, at - 0.25, at);
+      blob(x, y, lerp(46, 30, easeOutCubic(down)), "rgba(16,35,26,0.28)", 1 - prog(lt, at + 0.05, at + 0.35));
+      const rp = prog(lt, at, at + 0.35);
+      if (rp > 0) {
+        ctx.save();
+        ctx.globalAlpha = 1 - rp;
+        ctx.strokeStyle = "#16894A";
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.arc(x, y, 20 + rp * 60, 0, 7);
+        ctx.stroke();
+        ctx.restore();
+      }
+    };
+    tap(tapAt, rx + 56, top + 380 + 62);
+    tap(saveAt, 0, top + 790);
+  });
+
+  // device + captions
+  const dp = easeOutBack(prog(lt, 0.15, 0.65), 1.5);
+  const bright = lerp(1, 0.35, nightT);
+  drawDevice(1320, lerp(1400, 610, dp), 820, cached("g104", () => glucoseFrame(104, "flat", "range")), { rot: 0.03, bright, glow: lerp(1, 1.6, nightT), shadowA: lerp(0.3, 0.6, nightT) });
+  const c1 = 1 - prog(lt, 1.0, 1.2);
+  if (c1 > 0) popWords("Set it up from your phone", 1320, 340, lt - 0.3, { size: 76, color: COL.ink, align: "center", stagger: 0.06 });
+  if (lt > 1.05) popWords("Dims itself at night", 1320, 340, lt - 1.1, { size: 76, color: "#FFF4C7", align: "center", stagger: 0.07 });
+  const bt = prog(lt, 1.35, 1.65);
+  if (bt > 0) withT(1320, 850, easeOutBack(bt, 2.5), 0, () => pill(0, 0, "Auto brightness · Night mode", { size: 28, bg: "rgba(255,255,255,0.14)", fg: "#fff", align: "center", dot: COL.yellow }));
+}
+
+// 7. OUTRO (13.5 – 15.0)
+const logoImg = new Image();
+logoImg.src = "../images/logo.png";
+function sceneOutro(lt) {
+  ctx.fillStyle = COL.cream;
+  ctx.fillRect(0, 0, W, H);
+  // radiating burst
+  ctx.save();
+  ctx.translate(W / 2, 360);
+  ctx.rotate(lt * 0.4);
+  ctx.globalAlpha = 0.5;
+  for (let k = 0; k < 16; k++) {
+    ctx.rotate((Math.PI * 2) / 16);
+    ctx.fillStyle = k % 2 ? COL.mint : "#FFE9A8";
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(1400, -150);
+    ctx.lineTo(1400, 150);
+    ctx.fill();
+  }
+  ctx.restore();
+  const vg = ctx.createRadialGradient(W / 2, 400, 200, W / 2, 400, 1100);
+  vg.addColorStop(0, "rgba(255,247,238,0.2)");
+  vg.addColorStop(1, "rgba(255,247,238,1)");
+  ctx.fillStyle = vg;
+  ctx.fillRect(0, 0, W, H);
+
+  // confetti burst
+  const r = rng(314);
+  for (let i = 0; i < 70; i++) {
+    const a = r() * Math.PI * 2, sp = lerp(500, 1300, r()), c = [COL.green, COL.yellow, COL.pink, COL.sky, COL.orange, COL.grape][i % 6];
+    const tt = clamp(lt - 0.05, 0, 2);
+    const x = W / 2 + Math.cos(a) * sp * tt * (1 - tt * 0.3);
+    const y = 360 + Math.sin(a) * sp * tt * (1 - tt * 0.3) + 500 * tt * tt;
+    const s = lerp(10, 22, r());
+    withT(x, y, 1, tt * 8 + a, () => { ctx.fillStyle = c; rr(-s / 2, -s / 3, s, s * 0.66, 3); ctx.fill(); }, 1 - clamp((tt - 0.9) * 1.5));
+  }
+
+  const lp = prog(lt, 0, 0.45);
+  if (lp > 0 && logoImg.complete) {
+    withT(W / 2, 360, easeOutElastic(lp) * (1 + beatPulse(lt) * 0.03), (1 - easeOutCubic(lp)) * -0.6, () => {
+      shadow(60, 26, 0.3);
+      ctx.drawImage(logoImg, -150, -150, 300, 300);
+      noShadow();
+    });
+  }
+  popLetters("SugarClock", W / 2, 680, lt - 0.18, { size: 150, stagger: 0.028 });
+  const tg = prog(lt, 0.55, 0.85);
+  if (tg > 0) withT(W / 2, 770 + (1 - easeOutCubic(tg)) * 30, 1, 0, () => text("Free, open-source glucose clock · No subscriptions", 0, 0, { size: 38, weight: 500, fam: "Inter", color: "#3C5446", align: "center" }), tg);
+  const up = prog(lt, 0.7, 1.05);
+  if (up > 0) withT(W / 2, 880, easeOutBack(up, 2.5), 0, () => pill(0, 0, "sugarclock.com", { size: 38, bg: COL.green, fg: "#fff", align: "center", weight: 700, fam: "Fredoka", padX: 40 }));
+}
+
+// ---------- timeline & transitions ----------
+const SCENES = [
+  { start: 0, fn: sceneIntro },
+  { start: 2.0, fn: sceneHero, wipe: "circle", ox: W / 2, oy: 330, color: COL.green },
+  { start: 4.5, fn: sceneRanges, wipe: "bars", color: COL.yellow },
+  { start: 7.0, fn: sceneCompanions, wipe: "circle", ox: 560, oy: 440, color: COL.orange },
+  { start: 9.5, fn: sceneMore, wipe: "diag", color: COL.pink },
+  { start: 11.5, fn: scenePhone, wipe: "bars", color: COL.sky },
+  { start: 13.5, fn: sceneOutro, wipe: "circle", ox: 1320, oy: 610, color: COL.yellow },
+];
+const TRANS = 0.42;
+function clipShape(kind, p, s) {
+  ctx.beginPath();
+  if (kind === "circle") {
+    ctx.arc(s.ox, s.oy, easeInOutQuint(p) * 2400, 0, 7);
+  } else if (kind === "bars") {
+    const n = 6, bh = H / n;
+    for (let i = 0; i < n; i++) {
+      const q = easeInOutCubic(clamp(p * 1.6 - i * 0.12));
+      if (i % 2) ctx.rect(W - q * W, i * bh, q * W + 2, bh + 1);
+      else ctx.rect(0, i * bh, q * W, bh + 1);
+    }
+  } else {
+    const q = easeInOutQuint(p) * (W + H + 200);
+    ctx.moveTo(-200, -100);
+    ctx.lineTo(q - 200, -100);
+    ctx.lineTo(q - 200 - H, H + 100);
+    ctx.lineTo(-200, H + 100);
+  }
+}
+function renderAt(t) {
+  t = clamp(t, 0, DURATION - 1e-6);
+  ctx.save();
+  ctx.clearRect(0, 0, W, H);
+  let i = 0;
+  SCENES.forEach((s, k) => { if (t >= s.start - TRANS / 2) i = k; });
+  const cur = SCENES[i];
+  const inT = t - (cur.start - TRANS / 2);
+  if (i > 0 && inT < TRANS) {
+    const prev = SCENES[i - 1];
+    prev.fn(t - prev.start);
+    const p = inT / TRANS;
+    // colored leading layer, then the next scene slightly behind it
+    ctx.save();
+    clipShape(cur.wipe, clamp(p * 1.15), cur);
+    ctx.fillStyle = cur.color;
+    ctx.fill();
+    ctx.restore();
+    ctx.save();
+    clipShape(cur.wipe, clamp(p * 1.15 - 0.15), cur);
+    ctx.clip();
+    cur.fn(Math.max(0, t - cur.start));
+    ctx.restore();
+  } else {
+    cur.fn(Math.max(0, t - cur.start));
+  }
+  // final fade to cream
+  const f = prog(t, DURATION - 0.12, DURATION);
+  if (f > 0) { ctx.fillStyle = `rgba(255,247,238,${f * 0.0})`; ctx.fillRect(0, 0, W, H); }
+  ctx.restore();
+}
+
+window.renderAt = renderAt;
+window.DURATION = DURATION;
+window.ready = Promise.all([document.fonts.load("700 40px Fredoka"), document.fonts.load("600 40px Fredoka"), document.fonts.load("500 40px Inter"), document.fonts.load("600 40px Inter"), document.fonts.load("700 40px Inter"), logoImg.decode().catch(() => {})]);
+
+// live preview when opened directly
+if (!new URLSearchParams(location.search).has("record")) {
+  window.ready.then(() => {
+    const t0 = performance.now();
+    const loop = () => { renderAt(((performance.now() - t0) / 1000) % DURATION); requestAnimationFrame(loop); };
+    loop();
+  });
+}
+</script>
+</body>
+</html>
