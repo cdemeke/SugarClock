@@ -292,7 +292,7 @@ The server endpoint should return JSON in this format:
 }
 ```
 
-Supported trend values: `RisingFast`, `Rising`, `Flat`, `Falling`, `FallingFast`
+Supported trend values: `RisingFast` (↑↑), `Rising` (↑), `FortyFiveUp` (↗), `Flat` (→), `FortyFiveDown` (↘), `Falling` (↓), `FallingFast` (↓↓). Dexcom/Nightscout names `DoubleUp`, `SingleUp`, `SingleDown`, and `DoubleDown` are also accepted (case-insensitive).
 
 ---
 

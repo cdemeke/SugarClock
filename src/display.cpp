@@ -243,7 +243,7 @@ void display_draw_glucose_delta(int delta, int trend, uint16_t color, bool use_m
 }
 
 void display_draw_trend(int trend, int x, int y, uint16_t color) {
-    if (trend < 0 || trend > 4) return;
+    if (trend < 0 || trend >= TREND_UNKNOWN) return;
 
     const uint8_t* bitmap = TREND_BITMAPS[trend];
     for (int row = 0; row < 7; row++) {

@@ -94,14 +94,14 @@ int main() {
 
     AppConfig cfg = {};
     GlucoseReading reading_fixture = {};
-    // Both units, every supported reading, and all five actual trend bitmaps.
+    // Both units, every supported reading, and all seven actual trend bitmaps.
     // The six-pixel glyph advance exposes overflow and arrow collisions.
     for (bool mmol : {false, true, false}) {
         for (int mgdl = 1; mgdl <= 600; ++mgdl) {
             char expected[8];
             format_glucose_value(expected, sizeof(expected), mgdl, mmol);
             int x = (MATRIX_WIDTH - static_cast<int>(std::strlen(expected)) * 6 - 6) / 2;
-            for (int trend = 0; trend < 5; ++trend) {
+            for (int trend = 0; trend < TREND_UNKNOWN; ++trend) {
                 int arrow_x = display_draw_glucose(mgdl, 1, mmol);
                 assert(arrow_x > x + static_cast<int>(std::strlen(expected) - 1) * 6 + 4);
                 assert(arrow_x + 4 < MATRIX_WIDTH);
