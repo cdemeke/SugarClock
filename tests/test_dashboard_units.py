@@ -39,6 +39,16 @@ for(let value=-500;value<=600;value++)console.log(GlucoseFormat.value(value,!!mm
         actual = subprocess.check_output(['node', '-e', script, str(ROOT / 'data/www/glucose-format.js')], text=True)
         self.assertEqual(expected, actual)
 
+    def test_source_trend_symbols(self):
+        script = r'''const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const html=fs.readFileSync(process.argv[1],'utf8');
+const declaration=html.match(/const trendMap = .*?;/)[0];
+vm.runInThisContext(declaration+`;globalThis.actual=trendMap;`);
+assert.deepEqual(actual, {RisingFast:'↑↑',Rising:'↑',FortyFiveUp:'↗',Flat:'→',
+    FortyFiveDown:'↘',Falling:'↓',FallingFast:'↓↓',Unknown:'?'});
+'''
+        subprocess.run(['node', '-e', script, str(ROOT / 'data/www/display.html')], check=True)
+
     def test_review_example_and_nonfinite_reading(self):
         script = '''require(process.argv[1]);
 const assert=require('node:assert/strict');
