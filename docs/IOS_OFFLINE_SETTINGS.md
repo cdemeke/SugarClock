@@ -74,6 +74,9 @@ result unconfirmed. A subsequent explicit update is a new user action.
 ## Build 22 verification
 
 - Complete signed Simulator build and signed iPhone Release archive **1.0.0 (22)** passed.
+- Build 22 uploaded successfully and was confirmed **Testing** in the existing
+  Internal TestFlight group on October 1, 2026, with test instructions saved.
+  Availability does not establish installation or physical phone acceptance.
 - **126 Swift tests passed**, including offline restoration, multi-screen draft
   state, concurrent later edits, read-only preflight retries, bounded waiting,
   cancellation during preflight, background/switch/removal, missing fields,

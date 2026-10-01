@@ -36,6 +36,9 @@ static bool was_connected = false;
 static NetCheckResult res_dns = NC_UNKNOWN;
 static NetCheckResult res_data = NC_UNKNOWN;
 static NetCheckResult res_ntp = NC_UNKNOWN;
+// Direct probes from the active run remain useful if an unrelated provider
+// request fails between stages. Keep them separate from HTTP-derived evidence.
+static NetCheckResult run_dns = NC_UNKNOWN, run_data = NC_UNKNOWN;
 static unsigned long last_run_ms = 0;
 static char summary[128] = "";
 static char data_host[96] = "";
@@ -149,6 +152,7 @@ static bool probe_ntp() {
 void netcheck_init() {
     step = STEP_IDLE;
     res_dns = res_data = res_ntp = NC_UNKNOWN;
+    run_dns = run_data = NC_UNKNOWN;
     summary[0] = '\0';
     was_connected = false;
     last_run_ms = 0;
@@ -163,6 +167,7 @@ void netcheck_request() {
     if (!wifi_is_connected()) return;
     resolve_data_host();
     res_dns = res_data = res_ntp = NC_UNKNOWN;
+    run_dns = run_data = NC_UNKNOWN;
     if (provider_response_ok) res_dns = res_data = NC_OK;
     summary[0] = '\0';
     step = STEP_WAIT_SETTLE;
@@ -218,9 +223,17 @@ void netcheck_loop() {
         } else if (cfg.glucose_enabled && cfg.data_source != 2) {
             // A failed request does not identify DNS failure or a firewall, but
             // previously successful reachability is no longer current evidence.
-            // Keep the normal probe schedule: immediate extra TLS work would
-            // interrupt Bluetooth again for every failed provider request.
-            res_dns = res_data = NC_UNKNOWN;
+            // Preserve direct results from the diagnostic run already underway;
+            // discarding DNS after that stage finishes leaves an incomplete run.
+            // Completed runs keep their normal schedule rather than introducing
+            // an extra TLS interruption for every failed provider request.
+            const bool active = step != STEP_IDLE && step != STEP_DONE;
+            res_dns = active ? run_dns : NC_UNKNOWN;
+            res_data = active ? run_data : NC_UNKNOWN;
+            if (active && (step == STEP_DATA || step == STEP_NTP)) {
+                if (res_dns == NC_UNKNOWN) step = STEP_DNS;
+                else if (res_data == NC_UNKNOWN) step = STEP_DATA;
+            }
             summary[0] = '\0';
         }
     }
@@ -241,7 +254,7 @@ void netcheck_loop() {
     // so they must not be chained inside a single loop iteration.
     switch (step) {
         case STEP_DNS:
-            res_dns = probe_dns() ? NC_OK : NC_FAIL;
+            res_dns = run_dns = probe_dns() ? NC_OK : NC_FAIL;
             step = (res_dns == NC_OK) ? STEP_DATA : STEP_DONE;
             break;
         case STEP_DATA:
@@ -250,7 +263,7 @@ void netcheck_loop() {
             if(provider_response_ok) res_data=NC_OK;
             else {
                 if(!ble_acquire_network()) return;
-                res_data = probe_data() ? NC_OK : NC_FAIL;
+                res_data = run_data = probe_data() ? NC_OK : NC_FAIL;
                 ble_release_network();
             }
             step = STEP_NTP;

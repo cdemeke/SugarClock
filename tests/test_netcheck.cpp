@@ -121,4 +121,33 @@ int main() {
  netcheck_loop();++generation;netcheck_loop();assert(netcheck_data()==NC_UNKNOWN);
  responseWifiGeneration=wifi_connection_generation();++generation;netcheck_loop();
  assert(netcheck_data()==NC_OK && netcheck_dns()==NC_OK);
+
+ // A failed provider result between successful DNS and the data probe must not
+ // discard DNS evidence and finish silently with UNKNOWN for 15 minutes.
+ netcheck_init();netcheck_loop();now+=SETTLE_MS;netcheck_loop();
+ netcheck_loop();assert(step==STEP_DATA && netcheck_dns()==NC_OK);
+ dataOk=true;before=probes;
+ responseCode=-1;++generation;netcheck_loop();
+ assert(step==STEP_NTP && netcheck_dns()==NC_OK && netcheck_data()==NC_OK);
+ netcheck_loop();assert(!netcheck_running() && probes==before+1);
+ assert(strstr(netcheck_summary(),"all reachable"));
+
+ // The same interleaving after the direct TLS probe retains both direct results
+ // and never repeats an already completed TLS operation.
+ netcheck_init();netcheck_loop();now+=SETTLE_MS;netcheck_loop();netcheck_loop();
+ before=probes;netcheck_loop();assert(step==STEP_NTP && probes==before+1);
+ ++generation;netcheck_loop();
+ assert(!netcheck_running() && probes==before+1);
+ assert(netcheck_dns()==NC_OK && netcheck_data()==NC_OK);
+ assert(strstr(netcheck_summary(),"all reachable"));
+
+ // If HTTP success skipped the probes, a later failure must resume the missing
+ // stages, not claim direct evidence that was never gathered.
+ netcheck_init();netcheck_loop();responseCode=200;++generation;netcheck_loop();
+ now+=SETTLE_MS;netcheck_loop();assert(step==STEP_NTP);
+ responseCode=-1;++generation;before=probes;netcheck_loop();
+ assert(step==STEP_DATA && netcheck_dns()==NC_OK && netcheck_data()==NC_UNKNOWN);
+ netcheck_loop();netcheck_loop();
+ assert(!netcheck_running() && probes==before+1);
+ assert(strstr(netcheck_summary(),"all reachable"));
 }

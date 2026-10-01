@@ -136,3 +136,19 @@ legacy USB preservation. See [the acceptance checklist](BLE_ACCEPTANCE.md).
 PR #29 still conflicts with newer mainline changes and requires integration
 and revalidation before merge. A short USB observation is not long-term BLE
 qualification or a guarantee of an uninterrupted radio connection.
+
+## Follow-up diagnostic review (source only)
+
+A provider failure arriving between DNS and data probes could clear the completed
+DNS result without scheduling that stage again, leaving an incomplete summary.
+The follow-up preserves completed direct-probe results during the active run
+and resumes stages previously skipped using HTTP success. Completed TLS probes
+are not repeated, and finished runs retain the usual retry schedule.
+
+Three interleaving regression scenarios were added; the lost-DNS case fails
+against the prior source. All **70 repository host tests** pass. The ordinary
+ESP32 build passes at **1,589,776 bytes**, leaving **245,232 bytes** in each
+unchanged 1,835,008-byte application slot. This follow-up is committed for review
+and **has not been flashed**; the physical observations above refer to the
+previous 1,589,664-byte installed 0.3.4 binary. App build 22 uses the existing
+protocol and does not require this diagnostic change.
