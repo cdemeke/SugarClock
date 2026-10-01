@@ -77,21 +77,39 @@ import Combine
         }
         try Task.checkCancellation()
         peripheral=p;p.delegate=self;lifecycle.begin(id);state="Connecting…"
-        central.scanForPeripherals(withServices:[Self.service],options:nil)
+        // Core Bluetooth already watches for this known peripheral while connect
+        // is pending. Avoid a second discovery scan and cancellation every 20 s.
+        central.stopScan()
+        let generation=lifecycle.generation
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 connecting=continuation;central.connect(p)
-                connectionTimer=Task {
-                    do {try await Task.sleep(nanoseconds:20_000_000_000)} catch {return}
-                    self.fail(ClockError.timeout);self.close()
-                }
+                startConnectionTimer(SessionPolicy.connectionTimeout)
             }
         } onCancel: {
-            Task { @MainActor [weak self] in self?.close() }
+            Task { @MainActor [weak self] in
+                guard let self,self.lifecycle.generation==generation else {return}
+                self.close()
+            }
         }
         try Task.checkCancellation()
     }
-    public func centralManager(_ central:CBCentralManager,didConnect peripheral:CBPeripheral) { guard self.peripheral === peripheral,lifecycle.didConnect(peripheral.identifier) else {return};central.stopScan();peripheral.discoverServices([Self.service]) }
+    private func startConnectionTimer(_ duration:UInt64) {
+        connectionTimer?.cancel()
+        let generation=lifecycle.generation
+        connectionTimer=Task {
+            do {try await Task.sleep(nanoseconds:duration)} catch {return}
+            guard self.lifecycle.generation==generation else {return}
+            self.fail(ClockError.timeout);self.close()
+        }
+    }
+    public func centralManager(_ central:CBCentralManager,didConnect peripheral:CBPeripheral) {
+        guard self.peripheral === peripheral,lifecycle.didConnect(peripheral.identifier) else {return}
+        central.stopScan()
+        // Discovery gets its own budget even if the clock only just reappeared.
+        startConnectionTimer(SessionPolicy.discoveryTimeout)
+        peripheral.discoverServices([Self.service])
+    }
     public func peripheral(_ peripheral:CBPeripheral,didDiscoverServices error:Error?) {
         guard self.peripheral === peripheral, lifecycle.phase == .discovering else {return}
         if let error {fail(error);return}
@@ -115,12 +133,31 @@ import Combine
     public func write(_ packet:Data) async throws {
         guard let peripheral,let rx,connected else {throw ClockError.disconnected}
         guard writing==nil,reading==nil else {throw ClockError.busy}
-        try await withCheckedThrowingContinuation { writing=$0;startOperationTimer();peripheral.writeValue(packet,for:rx,type:.withResponse) }
+        try Task.checkCancellation()
+        let generation=lifecycle.generation
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { writing=$0;startOperationTimer();peripheral.writeValue(packet,for:rx,type:.withResponse) }
+        } onCancel: { self.cancelOperation(generation:generation) }
+        try Task.checkCancellation()
     }
     public func read() async throws -> Data {
         guard let peripheral,let tx,connected else {throw ClockError.disconnected}
         guard writing==nil,reading==nil else {throw ClockError.busy}
-        return try await withCheckedThrowingContinuation {reading=$0;startOperationTimer();peripheral.readValue(for:tx)}
+        try Task.checkCancellation()
+        let generation=lifecycle.generation
+        let data=try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation {reading=$0;startOperationTimer();peripheral.readValue(for:tx)}
+        } onCancel: { self.cancelOperation(generation:generation) }
+        try Task.checkCancellation()
+        return data
+    }
+    private nonisolated func cancelOperation(generation:UInt64) {
+        Task { @MainActor [weak self] in
+            guard let self,self.lifecycle.generation==generation else {return}
+            // Draining the connection prevents a late GATT callback from being
+            // mistaken for the next operation. It cannot close a newer session.
+            self.close()
+        }
     }
     public func peripheral(_ peripheral:CBPeripheral,didWriteValueFor characteristic:CBCharacteristic,error:Error?) {
         guard self.peripheral === peripheral, lifecycle.phase == .ready, characteristic === rx else {return}

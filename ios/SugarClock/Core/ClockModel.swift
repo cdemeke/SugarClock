@@ -71,11 +71,12 @@ private struct PendingSave {
     private var unconfirmedChange=false
     private var foreground=true
     private var automaticReconnect=true
-    private var schemaFirmware=""
+    private var schemaIdentity:SchemaIdentity?
+    private var schemaProgressIdentity:SchemaIdentity?
+    private var schemaProgress=SchemaProgress()
     private var client:ClockClient?
     private let transport:ClockConnectionTransport
     private let preferences:UserDefaults
-    private static let connectionAttemptLimit=5
     private let retryDelay:UInt64
     private var updateMonitor:Task<Void,Never>?
     private var reconnectTask:Task<Void,Never>?
@@ -147,13 +148,14 @@ private struct PendingSave {
                 self.busy=false;self.reconnecting=false;self.reconnectTask=nil
                 if Task.isCancelled {self.startReconnect()}
             }
-            for attempt in 0..<Self.connectionAttemptLimit {
+            var failures=0
+            while !Task.isCancelled {
                 do {
                     try Task.checkCancellation()
                     guard self.foreground else {throw CancellationError()}
-                    if attempt>0 {
+                    if failures>0 {
                         self.connectionState="Waiting for clock…"
-                        try await Task.sleep(nanoseconds:self.retryDelay)
+                        try await Task.sleep(nanoseconds:SessionPolicy.retryDelay(afterFailures:failures,base:self.retryDelay))
                     }
                     try await self.establish(id)
                     self.connectionState="Connected";self.sessionReady=true
@@ -168,15 +170,14 @@ private struct PendingSave {
                         return
                     }
                     // Only connection/read operations are retried, never a save or command.
-                    if !Self.canRetryConnection(error) || attempt==Self.connectionAttemptLimit-1 {
+                    if !Self.canRetryConnection(error) {
                         self.automaticReconnect=false
                         self.finishPendingAsUnconfirmed()
                         self.connectionState="Couldn't connect"
-                        self.message=Self.canRetryConnection(error)
-                            ? "Move closer and try again."
-                            : error.localizedDescription
+                        self.message=Self.connectionErrorMessage(error)
                         return
                     }
+                    failures=min(failures+1,5)
                 }
             }
         }
@@ -188,7 +189,25 @@ private struct PendingSave {
             default:return false
             }
         }
-        return (error as NSError).domain == CBErrorDomain
+        let native=error as NSError
+        guard native.domain == CBErrorDomain else {return false}
+        return [CBError.connectionTimeout, .peripheralDisconnected, .connectionFailed, .connectionLimitReached, .unknown]
+            .contains { $0.rawValue==native.code }
+    }
+    static func connectionErrorMessage(_ error:Error)->String {
+        let native=error as NSError
+        if native.domain==CBErrorDomain {
+            switch native.code {
+            case CBError.peerRemovedPairingInformation.rawValue:
+                return "Pairing has changed. Forget SugarClock in iPhone Bluetooth Settings, then hold the clock’s middle button for 3 seconds and pair again."
+            case CBError.encryptionTimedOut.rawValue:
+                return "Pairing timed out. Open the clock’s pairing window and retry with its displayed code."
+            case CBError.tooManyLEPairedDevices.rawValue:
+                return "Bluetooth pairing storage is full. See Help for resetting clock bonds without erasing settings."
+            default:break
+            }
+        }
+        return error.localizedDescription
     }
     func connect(_ id:UUID) async {
         guard updateMonitor==nil else {return}
@@ -208,7 +227,7 @@ private struct PendingSave {
             finishPendingAsUnconfirmed();pendingSave=nil;lastSettingsRefresh=nil
             sessionReady=false;unconfirmedChange=false
             selected=clocks.first(where:{$0.peripheral==id})
-            settings=[:];status=[:];hello=[:];fields=[];schemaFirmware="";networks=[];wifiScanMessage=""
+            settings=[:];status=[:];hello=[:];fields=[];schemaIdentity=nil;networks=[];wifiScanMessage=""
         }
         if sessionReady,transport.connected,selected?.peripheral==id {return}
         launchConnection(id)
@@ -230,7 +249,7 @@ private struct PendingSave {
         if let known=clocks.first(where:{$0.peripheral==id}),known.id != identity {
             throw ClockError.unavailable("This clock's identity changed. Remove it from My Clocks and add it again.")
         }
-        if selected?.id != identity {settings=[:];status=[:];fields=[];schemaFirmware=""}
+        if selected?.id != identity {settings=[:];status=[:];fields=[];schemaIdentity=nil}
         let saved=clocks.first(where:{$0.id==identity}) ?? SavedClock(id:identity,peripheral:id,nickname:greeting["name"] as? String ?? "SugarClock")
         selected=SavedClock(id:identity,peripheral:id,nickname:saved.nickname)
         if let index=clocks.firstIndex(where:{$0.id==identity}) {clocks[index]=selected!}
@@ -257,12 +276,23 @@ private struct PendingSave {
         }
     }
     private func loadSchema(_ hello:[String:Any],client:ClockClient) async throws {
-        let version=hello["firmware"] as? String ?? ""
-        guard (hello["capabilities"] as? [String] ?? []).contains("schema") else {fields=[];schemaFirmware="";return}
-        if !fields.isEmpty,schemaFirmware==version {return}
-        let loaded=try await client.schema()
+        let identity=SchemaIdentity(hello)
+        guard (hello["capabilities"] as? [String] ?? []).contains("schema") else {fields=[];schemaIdentity=nil;return}
+        if let identity,!fields.isEmpty,schemaIdentity==identity {return}
+        let cache=SchemaCache(preferences:preferences)
+        if let identity,let cached=cache.read(identity) {
+            fields=cached;schemaIdentity=identity;return
+        }
+        // A changed boot/version invalidates old bounds, even if a development
+        // image kept its marketing version. Never expose a partially read schema.
+        fields=[];schemaIdentity=nil
+        if identity==nil || schemaProgressIdentity != identity {
+            schemaProgress=SchemaProgress();schemaProgressIdentity=identity
+        }
+        let loaded=try await client.schema(progress:schemaProgress)
         try Task.checkCancellation()
-        fields=loaded;schemaFirmware=version
+        fields=loaded;schemaIdentity=identity
+        if let identity {cache.store(loaded,identity:identity)}
     }
     private func refreshSettings() async throws {
         guard let client else {throw ClockError.disconnected}
@@ -450,11 +480,12 @@ private struct PendingSave {
         return false
     }
     func disconnect() {
-        stopReconnecting();pendingSave=nil;lastSettingsRefresh=nil;selected=nil;settings=[:];status=[:];fields=[];hello=[:];schemaFirmware="";networks=[];wifiScanMessage=""
+        stopReconnecting();pendingSave=nil;lastSettingsRefresh=nil;selected=nil;settings=[:];status=[:];fields=[];hello=[:];schemaIdentity=nil;networks=[];wifiScanMessage=""
         remember()
     }
     func remove(_ clock:SavedClock) {
         if selected?.id==clock.id {disconnect()}
-        clocks.removeAll(where:{$0.id==clock.id});saveReceipts.removeValue(forKey:clock.id);remember()
+        clocks.removeAll(where:{$0.id==clock.id});saveReceipts.removeValue(forKey:clock.id)
+        SchemaCache(preferences:preferences).remove(clock.id);remember()
     }
 }

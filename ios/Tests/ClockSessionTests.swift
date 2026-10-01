@@ -1,5 +1,6 @@
 import XCTest
 import Combine
+import CoreBluetooth
 @testable import SugarClockCore
 
 @MainActor private final class SessionTransport:ClockConnectionTransport {
@@ -12,6 +13,14 @@ import Combine
     var packetLimit=180
     var attempts=0
     var failures=0
+    var connectionError:Error?
+    var firmware="1"
+    var bootID:UInt32=1
+    var schemaRequests:[Int]=[]
+    var schemaPages=1
+    var failSchemaPage:Int?
+    var schemaFailuresRemaining=0
+    var rebootOnSchemaFailure=false
     var failNextRead=false
     var failSave=false
     var failStatus=false
@@ -37,6 +46,7 @@ import Combine
     private var offset=0
     func connect(id:UUID) async throws {
         attempts+=1
+        if let connectionError {throw connectionError}
         if holdConnection {try await withCheckedThrowingContinuation {waiting=$0}}
         if failures>0 {failures-=1;throw ClockError.timeout}
         connected=true
@@ -58,13 +68,17 @@ import Combine
         if op=="settings.patch",failSave {throw ClockError.timeout}
         var reply:[String:Any]=["v":1,"id":Int(frame.id),"state":"applied"]
         switch op {
-        case "hello":reply["device_id"]=identity;reply["name"]="Bedside Clock";reply["firmware"]="1";reply["capabilities"]=["settings.patch","schema"]
+        case "hello":reply["device_id"]=identity;reply["name"]="Bedside Clock";reply["firmware"]=firmware;reply["boot_id"]=bootID;reply["hardware"]="tc001";reply["capabilities"]=["settings.patch","schema"]
         case "settings.get":
             if failSettingsAfterSave,operations.contains("settings.patch") {failSettingsAfterSave=false;throw ClockError.timeout}
             reply["settings"]=storedSettings
             if let durable {reply["saved"]=durable}
         case "status.get":if failStatus {throw ClockError.timeout};reply["status"]=["data_received":true,"ota":["state":"idle"]]
-        case "schema.get":reply["fields"]=[["key":"brightness","type":"int"],["key":"dexcom_password","type":"secret"]];reply["more"]=false
+        case "schema.get":
+            let page=request["page"] as! Int;schemaRequests.append(page)
+            if page==failSchemaPage,schemaFailuresRemaining>0 {schemaFailuresRemaining-=1;if rebootOnSchemaFailure {bootID+=1};throw ClockError.timeout}
+            reply["fields"]=page==0 ? [["key":"brightness","type":"int"],["key":"dexcom_password","type":"secret"]]:[["key":"page_\(page)","type":"bool"]]
+            reply["more"]=page+1<schemaPages
         case "wifi.scan":if scanStartFails {reply["error"]="scan_failed"}
         case "wifi.results":
             if scanResultsFail {reply["error"]="scan_failed"}
@@ -265,17 +279,105 @@ import Combine
         XCTAssertFalse(radio.operations.contains("settings.patch"))
         model.suspend()
     }
-    func testTimeoutExhaustionStopsAndExplicitRetryRecovers() async {
+    func testRecoveryContinuesPastFiveAttemptsWithoutResendingMutations() async {
         let (model,radio,_,id)=fixture();radio.failures=10
         await model.connect(id)
-        try? await Task.sleep(nanoseconds:20_000_000)
-        XCTAssertEqual(radio.attempts,5)
-        XCTAssertFalse(model.busy)
-        XCTAssertEqual(model.connectionState,"Couldn't connect")
+        XCTAssertEqual(radio.attempts,11)
+        XCTAssertTrue(model.canSend)
         XCTAssertEqual(model.clocks.count,1)
+        XCTAssertFalse(radio.operations.contains("settings.patch"))
+        model.suspend()
+    }
+    func testPermanentPairingErrorStopsInsteadOfPromptingForever() async {
+        let (model,radio,_,id)=fixture()
+        radio.connectionError=NSError(domain:CBErrorDomain,code:CBError.peerRemovedPairingInformation.rawValue)
+        await model.connect(id)
+        XCTAssertEqual(radio.attempts,1)
+        XCTAssertFalse(model.reconnecting)
+        XCTAssertFalse(model.canSend)
+        XCTAssertTrue(model.message.contains("Forget SugarClock"))
+        model.suspend()
+    }
+    func testCompletedSchemaSurvivesAppRecreationButSettingsAreAlwaysFresh() async {
+        let (model,radio,defaults,id)=fixture()
+        radio.schemaPages=5
+        await model.connect(id)
+        XCTAssertEqual(radio.schemaRequests,[0,1,2,3,4])
+        XCTAssertEqual(radio.operations.count,8)
+        model.suspend()
+        radio.storedSettings["brightness"]=91
+        let restored=ClockModel(enableBluetooth:false,transport:radio,preferences:defaults,retryDelay:0)
+        XCTAssertTrue(restored.settings.isEmpty)
+        await restored.connect(id)
+        XCTAssertEqual(radio.schemaRequests,[0,1,2,3,4])
+        XCTAssertEqual(restored.settings["brightness"] as? Int,91)
+        XCTAssertTrue(restored.canSend)
+        XCTAssertEqual(Array(radio.operations.dropFirst(8)),["hello","settings.get","status.get"])
+        restored.suspend()
+    }
+    func testRebootAndFirmwareChangeInvalidateSchemaEvenWithoutVersionBump() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id)
+        model.suspend();radio.bootID=2
+        await model.connect(id) // Suspended sessions must not initiate work.
+        XCTAssertEqual(radio.schemaRequests,[0])
+        model.resume();await settle {model.canSend}
+        XCTAssertEqual(radio.schemaRequests,[0,0])
+        model.suspend();radio.firmware="2";model.resume();await settle {model.canSend}
+        XCTAssertEqual(radio.schemaRequests,[0,0,0])
+        model.suspend()
+    }
+    func testInterruptedSchemaResumesOnlyAfterVerifyingSameBoot() async {
+        let (model,radio,_,id)=fixture()
+        radio.schemaPages=3;radio.failSchemaPage=1;radio.schemaFailuresRemaining=1
+        await model.connect(id)
+        XCTAssertEqual(radio.attempts,2)
+        XCTAssertEqual(radio.schemaRequests,[0,1,1,2])
+        XCTAssertEqual(model.fields.count,4)
+        XCTAssertTrue(model.canSend)
+        model.suspend()
+    }
+    func testInterruptedSchemaRestartsAfterClockReboots() async {
+        let (model,radio,_,id)=fixture()
+        radio.schemaPages=3;radio.failSchemaPage=1;radio.schemaFailuresRemaining=1;radio.rebootOnSchemaFailure=true
+        await model.connect(id)
+        XCTAssertEqual(radio.schemaRequests,[0,1,0,1,2])
+        XCTAssertEqual(model.fields.count,4)
+        XCTAssertTrue(model.canSend)
+        model.suspend()
+    }
+    func testCancelDuringBackoffStopsAllLaterAttemptsAndAllowsRetry() async {
+        let (_,radio,defaults,id)=fixture()
+        let model=ClockModel(enableBluetooth:false,loadSaved:false,transport:radio,preferences:defaults,retryDelay:100_000_000)
+        model.clocks=[SavedClock(id:"clock-a",peripheral:id,nickname:"Bedside")];model.selected=model.clocks[0]
+        radio.failures=100
+        let attempt=Task {await model.connect(id)}
+        await settle {model.connectionState=="Waiting for clock…"}
+        model.cancelConnection();await attempt.value
+        try? await Task.sleep(nanoseconds:120_000_000)
+        XCTAssertEqual(radio.attempts,1)
+        XCTAssertFalse(model.busy)
         radio.failures=0
         await model.retrySelected()
         XCTAssertTrue(model.canSend)
+        model.suspend()
+    }
+    func testCorruptSchemaCacheFallsBackToDevice() async {
+        let (model,radio,defaults,id)=fixture()
+        defaults.set(Data("not JSON".utf8),forKey:"schema.v1.clock-a")
+        await model.connect(id)
+        XCTAssertEqual(radio.schemaRequests,[0])
+        XCTAssertTrue(model.canSend)
+        model.suspend()
+    }
+    func testRemovingClockDeletesSchemaCache() async {
+        let (model,radio,defaults,id)=fixture()
+        await model.connect(id)
+        XCTAssertNotNil(defaults.data(forKey:"schema.v1.clock-a"))
+        model.remove(model.clocks[0])
+        XCTAssertNil(defaults.data(forKey:"schema.v1.clock-a"))
+        XCTAssertTrue(model.fields.isEmpty)
+        XCTAssertFalse(radio.connected)
         model.suspend()
     }
     func testStaleConnectedLinkIsReplacedByHealthCheck() async {

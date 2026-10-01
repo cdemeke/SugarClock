@@ -69,6 +69,14 @@ public struct Reassembly {
     func read() async throws -> Data
     func close()
 }
+/// Checkpoints are private metadata until the last schema page arrives. The
+/// session coordinator discards them whenever verified boot identity changes.
+@MainActor public final class SchemaProgress {
+    fileprivate var fields:[[String:Any]]=[]
+    fileprivate var page=0
+    fileprivate var complete=false
+    public init() {}
+}
 @MainActor public final class ClockClient {
     public let transport: ClockTransport
     private var nextID: UInt16=1
@@ -76,14 +84,20 @@ public struct Reassembly {
     public var requestTimeout:TimeInterval
     private let pollDelay:UInt64
     public init(transport: ClockTransport,timeout:TimeInterval=45,pollDelay:UInt64=200_000_000) { self.transport=transport;self.requestTimeout=timeout;self.pollDelay=pollDelay }
-    /// Publish a schema only when every page has arrived in this connection.
-    public func schema() async throws -> [[String:Any]] {
-        var fields:[[String:Any]]=[]
-        for page in 0..<11 {
-            let response=try await request("schema.get",fields:["page":page])
-            guard let items=response["fields"] as? [[String:Any]],let more=response["more"] as? Bool else {throw ClockError.malformed}
-            fields += items
-            if !more {return fields}
+    /// Publish only a complete schema; verified same-boot checkpoints can resume.
+    public func schema(progress:SchemaProgress?=nil) async throws -> [[String:Any]] {
+        let progress=progress ?? SchemaProgress()
+        if progress.complete {return progress.fields}
+        while progress.page<11 {
+            let response=try await request("schema.get",fields:["page":progress.page])
+            guard let items=response["fields"] as? [[String:Any]],items.count<=16,
+                  let more=response["more"] as? Bool,!more || !items.isEmpty else {throw ClockError.malformed}
+            let combined=progress.fields+items
+            let keys=combined.compactMap {$0["key"] as? String}
+            guard keys.count==combined.count,Set(keys).count==keys.count else {throw ClockError.malformed}
+            try Task.checkCancellation()
+            progress.fields=combined;progress.page+=1;progress.complete = !more
+            if !more {return progress.fields}
         }
         throw ClockError.oversized
     }
@@ -98,12 +112,15 @@ public struct Reassembly {
             try Task.checkCancellation();try await transport.write(packet.data)
         }
         var assembly=Reassembly();let deadline=Date().addingTimeInterval(requestTimeout)
+        var emptyReads=0
         while Date()<deadline {
             try Task.checkCancellation()
             let frame=try Frame(data:await transport.read())
             if frame.id != id || frame.total==0 {
-                try await Task.sleep(nanoseconds:pollDelay);continue
+                emptyReads+=1
+                try await Task.sleep(nanoseconds:SessionPolicy.mailboxDelay(emptyReads:emptyReads,maximum:pollDelay));continue
             }
+            emptyReads=0
             let complete=try assembly.append(frame,expectedID:id)
             if complete {
                 guard let response=try JSONSerialization.jsonObject(with:assembly.bytes) as? [String:Any],
