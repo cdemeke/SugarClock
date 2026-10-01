@@ -9,6 +9,8 @@
 
 // LED array
 static CRGB leds[MATRIX_NUM_LEDS];
+// Keep low-brightness corrections out of the drawing buffer and browser frame.
+static CRGB output_leds[MATRIX_NUM_LEDS];
 
 // NeoMatrix instance
 // Ulanzi TC001 uses row-major serpentine (zigzag) layout, top-left origin
@@ -60,7 +62,7 @@ void display_init() {
 #ifdef ARDUINO_ARCH_ESP32
     frame_epoch = esp_random(); // ETags must not collide across device reboots.
 #endif
-    FastLED.addLeds<WS2812B, PIN_MATRIX_DATA, GRB>(leds, MATRIX_NUM_LEDS);
+    FastLED.addLeds<WS2812B, PIN_MATRIX_DATA, GRB>(output_leds, MATRIX_NUM_LEDS);
     // Keep FastLED's global brightness stable. Per-frame output scaling in
     // display_show() avoids rapid global brightness writes, which can produce
     // colored sparkle artifacts on some WS2812 matrices.
@@ -79,8 +81,27 @@ void display_clear() {
 }
 
 void display_show() {
+    static_assert(FASTLED_SCALE8_FIXED == 1, "Low-brightness floor requires fixed FastLED scaling");
     uint8_t output_brightness = (uint8_t)(((uint16_t)current_brightness *
         transition_level + 127) / 255);
+    const uint8_t minimum = output_brightness == 0 ? 0 :
+        (256u + output_brightness) / (output_brightness + 1u);
+    for (int i = 0; i < MATRIX_NUM_LEDS; ++i) {
+        output_leds[i] = leds[i];
+        if (output_brightness == 0) continue; // Preserve off and transition black frames.
+        const CRGB& source = leds[i];
+        uint8_t peak = source.r > source.g ? source.r : source.g;
+        if (source.b > peak) peak = source.b;
+        // FastLED 3.10.3's fixed scale8 is channel * (brightness + 1) / 256.
+        // If every channel would truncate to zero, retain one output unit on
+        // the strongest channel(s). Black stays black; already-visible colors
+        // are unchanged. Equal peaks stay equal (e.g. gray remains neutral).
+        if (peak != 0 && peak < minimum) {
+            if (source.r == peak) output_leds[i].r = minimum;
+            if (source.g == peak) output_leds[i].g = minimum;
+            if (source.b == peak) output_leds[i].b = minimum;
+        }
+    }
     FastLED.show(output_brightness);
     static_assert(MATRIX_WIDTH == 32 && MATRIX_HEIGHT == 8, "Update DisplayFrame dimensions");
     const uint32_t now = static_cast<uint32_t>(millis());

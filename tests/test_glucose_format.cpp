@@ -42,9 +42,9 @@ int main() {
     display_draw_pixel(3, 1, display_color(255, 0, 0));
     display_draw_pixel(1, 0, display_color(0, 255, 0));
     display_draw_pixel(31, 7, display_color(0, 0, 255));
-    assert(FastLED.pixels[60].r == 255); // Hardware address of logical (3, 1).
     display_set_brightness(10);
     display_show();
+    assert(FastLED.pixels[60].r == 255); // Hardware address of logical (3, 1).
     DisplayFrame published;
     display_copy_frame(published);
     assert(published.sequence == initial.sequence);
@@ -189,5 +189,54 @@ int main() {
         struct { char text[8]; char sentinel; } small = {{}, 'X'};
         format_glucose_delta(small.text, sizeof(small.text), mgdl, true);
         assert(small.sentinel == 'X' && small.text[7] == '\0');
+    }
+
+    // Exercise the real display output path at low brightness. The stub does
+    // not implement Framebuffer_GFX gamma, so inject post-gamma frame pixels
+    // directly through the drawing matrix used by production display.cpp.
+    // White, default green, stale gray, dim custom red, yellow, and black.
+    const CRGB colors[] = {{255,255,255}, {9,110,20}, {54,65,54},
+                           {1,0,0}, {235,151,0}, {0,0,0}, {40,40,40}};
+    display_set_transition_level(255);
+    display_clear();
+    // The matrix stub exposes its drawing storage separately from output LEDs.
+    for (int i = 0; i < 7; ++i) drawing().buffer[i] = colors[i];
+    for (int brightness = 1; brightness <= 255; ++brightness) {
+        display_set_brightness(brightness);
+        display_show();
+        assert(FastLED.brightness == brightness);
+        for (int i = 0; i < 7; ++i) {
+            const CRGB& output = FastLED.last[i];
+            const int r = output.r * (brightness + 1) / 256;
+            const int g = output.g * (brightness + 1) / 256;
+            const int b = output.b * (brightness + 1) / 256;
+            if (i == 5) assert(r == 0 && g == 0 && b == 0);
+            else assert(r > 0 || g > 0 || b > 0);
+            if (i == 0) assert(r == brightness && g == brightness && b == brightness);
+            if (i == 6) assert(r == g && g == b);
+            // Never change the original frame or accumulate output correction.
+            assert(std::memcmp(&drawing().buffer[i], &colors[i], sizeof(CRGB)) == 0);
+            const bool was_visible = colors[i].r * (brightness + 1) / 256 ||
+                colors[i].g * (brightness + 1) / 256 || colors[i].b * (brightness + 1) / 256;
+            if (was_visible) assert(std::memcmp(&output, &colors[i], sizeof(CRGB)) == 0);
+        }
+        CRGB first[256];
+        std::memcpy(first, FastLED.last, sizeof(first));
+        display_show();
+        assert(std::memcmp(first, FastLED.last, sizeof(first)) == 0);
+    }
+    display_set_brightness(1);
+    fake_ms += 6000;
+    display_request_frame();
+    display_show();
+    DisplayFrame low_frame;
+    display_copy_frame(low_frame);
+    assert(std::memcmp(low_frame.rgb, colors, sizeof(colors)) == 0);
+    for (int mode = 0; mode < 2; ++mode) {
+        display_set_brightness(mode == 0 ? 0 : 1);
+        display_set_transition_level(mode == 0 ? 255 : 0);
+        display_show();
+        assert(FastLED.brightness == 0);
+        assert(std::memcmp(FastLED.last, colors, sizeof(colors)) == 0);
     }
 }
