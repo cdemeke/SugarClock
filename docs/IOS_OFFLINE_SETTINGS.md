@@ -170,3 +170,7 @@ reliability or physical display appearance.
 Signed Simulator and Release archive builds passed. Simulator screenshots verified
 per-field removal controls, the pet grid at standard/accessibility sizes, persistent
 unconfirmed-save feedback and confirmation expiry without shifting the editor.
+
+Build **1.0.0 (24)** uploaded successfully and is confirmed **Testing** in the
+existing Internal TestFlight group on October 1, 2026. Test instructions saved.
+Build ID: `d0ac33ac-d9f7-4a6b-b145-8b2cebfd57a9`.

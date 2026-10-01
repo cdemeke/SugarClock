@@ -135,13 +135,14 @@ acceptance](../docs/IOS_OFFLINE_SETTINGS.md). This supersedes earlier statements
 that all settings/drafts exist only in memory. Existing firmware 0.3.4 works
 with this app update; no new firmware flash is required.
 
-## Build 23: compact updates, syncing and seven Pixel Pets
+## Build 24: quiet settings and visual Pixel Pets
 
 Pending edits now appear in a floating bottom bar with **Update clock** and
-**Review**. Review opens a sheet with an X beside each change and an Update clock
-actions. Cached settings remain editable while the app shows **Syncing with
-clock…**; fresh durable reads remove ordinary edits already satisfied by the
-clock without another write. Secret changes and uncertain attempts stay explicit.
+**Review**. Review opens a sheet with an X beside each change and an **Update clock**
+action. Cached settings remain editable through quiet automatic reconnections.
+A single reserved line briefly confirms success or keeps actionable errors
+visible; tap for details. Fresh durable reads remove ordinary edits already
+satisfied by the clock without another write. Secret changes and uncertain attempts stay explicit.
 
 The Pixel Pets grid uses production names and artwork for Pip, Boo, Mochi,
 Sprout, Pebble, Inky and Maple. All seven require firmware 0.3.5 or compatible
