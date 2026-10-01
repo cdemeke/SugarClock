@@ -116,3 +116,21 @@ App Store Connect confirmed **1.0.0 (21)** as **Testing** in the existing
 **Internal** group on October 1, 2026. Test notes are saved. Install build 21
 for the phone checks; its availability does not establish installation or
 physical Bluetooth reliability.
+
+### Offline edits and Update clock (build 22)
+
+After loading a clock once, its settings and pending edits are available across
+screens and app restarts. **Review changes** compares proposals with the last
+clock values. **Update clock** captures all current edits and waits up to 90
+seconds for a foreground connection before validating and sending one batch.
+Cancel keeps edits; later edits remain pending; an attempted update is never
+automatically resent. Wi-Fi retains its separate trial-connect action.
+
+The entire workspace uses device-only, when-unlocked Keychain storage. Normal
+responses contain configured indicators, and only explicit pending replacements
+contain new secret values. The app clears those values on confirmation or
+discard. **126 Swift tests passed**, and the real Keychain backend passed the
+signed Simulator smoke check. See [behavior, privacy, tests and physical
+acceptance](../docs/IOS_OFFLINE_SETTINGS.md). This supersedes earlier statements
+that all settings/drafts exist only in memory. Existing firmware 0.3.4 works
+with this app update; no new firmware flash is required.

@@ -2,7 +2,7 @@ import Foundation
 
 /// Editor state is independent of view rendering. Only explicit user changes
 /// enter a patch; displaying converted thresholds never changes saved integers.
-public struct SettingsDraft:Equatable {
+public struct SettingsDraft:Equatable,Codable {
     public private(set) var text:[String:String]=[:]
     public private(set) var booleans:[String:Bool]=[:]
     public private(set) var secrets:[String:Int]=[:]
@@ -11,12 +11,18 @@ public struct SettingsDraft:Equatable {
     private var initialBool:[String:Bool]=[:]
     private var secretKeys:Set<String>=[]
     private var originalThresholds:[String:Int]=[:]
+    private var fieldTypes:[String:String]=[:]
+    private var initialSecretConfigured:[String:Bool]=[:]
     private var usesMMOL=false
     public init(settings:[String:Any]=[:],fields:[[String:Any]]=[]) {
         usesMMOL=settings["use_mmol"] as? Bool ?? false
         for field in fields {
             guard let key=field["key"] as? String else {continue}
-            if field["type"] as? String=="secret" {secretKeys.insert(key)}
+            fieldTypes[key]=field["type"] as? String ?? "text"
+            if field["type"] as? String=="secret" {
+                secretKeys.insert(key)
+                initialSecretConfigured[key]=settings[key+"_configured"] as? Bool ?? false
+            }
             if Self.threshold(key),let n=settings[key] as? Int {originalThresholds[key]=n}
             if field["type"] as? String=="bool" {booleans[key]=settings[key] as? Bool ?? false}
             else if field["type"] as? String != "secret" {
@@ -83,14 +89,48 @@ public struct SettingsDraft:Equatable {
         }
         booleans[key]=value;mark(key,value != initialBool[key])
     }
-    public mutating func setSecretAction(_ value:Int,key:String) {secrets[key]=value;mark(key,value != 0)}
+    public mutating func setSecretAction(_ value:Int,key:String) {
+        secrets[key]=value;mark(key,value != 0)
+        // An explicitly discarded/cleared replacement must not linger in storage.
+        if value != 1 {text.removeValue(forKey:key)}
+    }
+    /// Explicitly use the clock's current value for one reviewed change. Keep
+    /// every other edit's original conflict baseline, even if the clock changed
+    /// those fields too. A removed field is forgotten without retaining secrets.
+    public mutating func discardChange(_ key:String,settings:[String:Any],fields:[[String:Any]]) {
+        if key=="use_mmol" {
+            // This changes presentation, not the physical meaning of other edits.
+            setBool(settings[key] as? Bool ?? usesMMOL,key:key)
+        }
+        text.removeValue(forKey:key);booleans.removeValue(forKey:key);secrets.removeValue(forKey:key)
+        initialText.removeValue(forKey:key);initialBool.removeValue(forKey:key)
+        originalThresholds.removeValue(forKey:key);initialSecretConfigured.removeValue(forKey:key)
+        secretKeys.remove(key);fieldTypes.removeValue(forKey:key);changed.remove(key)
+        guard let field=fields.first(where:{$0["key"] as? String==key}),
+              let type=field["type"] as? String,["secret","bool","int","text","string"].contains(type) else {return}
+        fieldTypes[key]=type
+        if type=="secret" {
+            secretKeys.insert(key)
+            initialSecretConfigured[key]=settings[key+"_configured"] as? Bool ?? false
+        } else if type=="bool" {
+            booleans[key]=settings[key] as? Bool ?? false;initialBool[key]=booleans[key]
+        } else {
+            if Self.threshold(key),let number=settings[key] as? Int {
+                originalThresholds[key]=number
+                text[key]=usesMMOL ? String(format:"%.2f",Double(number)/18):String(number)
+            } else {text[key]=settings[key].map {String(describing:$0)} ?? ""}
+            initialText[key]=text[key]
+        }
+    }
     private mutating func mark(_ key:String,_ dirty:Bool) {if dirty {changed.insert(key)} else {changed.remove(key)}}
     public func patch(fields:[[String:Any]]) throws -> [String:Any] {
+        try validateChangedSchema(fields)
         var result:[String:Any]=[:]
         for field in fields {
             guard let key=field["key"] as? String,changed.contains(key) else {continue}
             switch field["type"] as? String {
             case "secret":
+                guard [1,2].contains(secrets[key] ?? 0) else {throw DraftError.invalid(key)}
                 if secrets[key]==2 {result[key]=NSNull()}
                 else if secrets[key]==1 {
                     let value=text[key] ?? ""
@@ -117,10 +157,114 @@ public struct SettingsDraft:Equatable {
         }
         return result
     }
+
+    private func validateChangedSchema(_ fields:[[String:Any]]) throws {
+        var seen:Set<String>=[]
+        var supported:[String:String]=[:]
+        for field in fields {
+            guard let key=field["key"] as? String else {continue}
+            guard seen.insert(key).inserted else {throw DraftError.unsupported(key)}
+            supported[key]=field["type"] as? String ?? "text"
+        }
+        for key in changed {
+            guard let current=supported[key],let original=fieldTypes[key],current==original,
+                  ["secret","bool","int","text","string"].contains(current) else {throw DraftError.unsupported(key)}
+        }
+    }
+
+    /// Validate the offline edit against freshly read clock values before sending.
+    /// A clock edit to an unrelated field is safe; a different value on an edited
+    /// field requires the user to review it. Secret values are never read back.
+    public func validatedPatch(settings:[String:Any],fields:[[String:Any]]) throws ->[String:Any] {
+        var result=try patch(fields:fields)
+        var candidate=settings.merging(result,uniquingKeysWith:{$1})
+        let mode=candidate["default_mode"] as? Int
+        let unavailableMode=(mode==1 && candidate["time_display_enabled"] as? Bool==false)
+            || (mode==3 && candidate["ambient_enabled"] as? Bool==false)
+        if unavailableMode {
+            if changed.contains("default_mode") {throw DraftError.invalid("default_mode")}
+            // Mirror the firmware normalization in the expected readback.
+            if fieldTypes["default_mode"] != nil {result["default_mode"]=0;candidate["default_mode"]=0}
+        }
+        let thresholdKeys=["thresh_urgent_low","thresh_low","thresh_high","thresh_urgent_high"]
+        let thresholds=thresholdKeys.compactMap {candidate[$0] as? Int}
+        if thresholds.count==4,!(thresholds[0]<=thresholds[1] && thresholds[1]<thresholds[2] && thresholds[2]<=thresholds[3]) {
+            throw DraftError.invalid("glucose_threshold_order")
+        }
+        if let low=candidate["alert_low"] as? Int,let high=candidate["alert_high"] as? Int,low>=high {throw DraftError.invalid("alert_threshold_order")}
+        for (key,desired) in result {
+            let current=settings[key]
+            let unchanged:Bool
+            let alreadyDesired:Bool
+            switch fieldTypes[key] {
+            case "secret":
+                let configured=settings[key+"_configured"] as? Bool ?? false
+                unchanged=configured==(initialSecretConfigured[key] ?? false)
+                alreadyDesired=false // Configured is not proof of a particular value.
+            case "bool":
+                unchanged=(current as? Bool)==initialBool[key]
+                alreadyDesired=(current as? Bool)==(desired as? Bool)
+            case "int":
+                let initial=originalThresholds[key].map(Double.init) ?? initialText[key].flatMap(Double.init)
+                unchanged=(current as? NSNumber)?.doubleValue==initial
+                alreadyDesired=(current as? NSNumber)?.doubleValue==(desired as? NSNumber)?.doubleValue
+            default:
+                unchanged=(current as? String)==initialText[key]
+                alreadyDesired=(current as? String)==(desired as? String)
+            }
+            guard unchanged || alreadyDesired else {throw DraftError.conflict(key)}
+        }
+        return result
+    }
+
+    /// Refresh the displayed baseline only after conflicts have been checked.
+    /// Dirty fields and pending replacement secrets retain their exact intent.
+    public func rebasedKeepingEdits(settings:[String:Any],fields:[[String:Any]]) throws ->SettingsDraft {
+        try validateChangedSchema(fields)
+        var next=SettingsDraft(settings:settings,fields:fields)
+        if changed.contains("use_mmol"),let value=booleans["use_mmol"] {next.setBool(value,key:"use_mmol")}
+        for key in changed where key != "use_mmol" {
+            if secretKeys.contains(key) {
+                next.setSecretAction(secrets[key] ?? 0,key:key)
+                if secrets[key]==1,let value=text[key] {next.setText(value,key:key)}
+            } else if fieldTypes[key]=="bool",let value=booleans[key] {next.setBool(value,key:key)}
+            else if let value=text[key] {
+                if Self.threshold(key),usesMMOL != next.usesMMOL,let mgdl=thresholdMGDL(key) {
+                    next.setText(next.usesMMOL ? String(format:"%.2f",mgdl/18):String(format:"%.0f",mgdl),key:key)
+                } else {next.setText(value,key:key)}
+            }
+        }
+        return next
+    }
+
+    func validateForStorage() throws {
+        let dictionaries=[text,initialText]
+        guard fieldTypes.count<=192,changed.count<=192,secretKeys.count<=192,
+              dictionaries.allSatisfy({$0.count<=192 && $0.allSatisfy({$0.key.utf8.count<=96 && $0.value.utf8.count<=8192})}),
+              booleans.count<=192,initialBool.count<=192,secrets.count<=192,originalThresholds.count<=192,
+              initialSecretConfigured.count<=192,
+              Set(text.keys).union(initialText.keys).union(booleans.keys).union(initialBool.keys).union(secrets.keys).union(changed).isSubset(of:Set(fieldTypes.keys)),
+              secrets.values.allSatisfy({[0,1,2].contains($0)}),
+              secretKeys.allSatisfy({fieldTypes[$0]=="secret"}) else {throw LocalSettingsStoreError.tooLarge}
+    }
+
+    /// Called before persistence so unused secret text cannot survive a discard.
+    func withoutUnusedSecretText()->SettingsDraft {
+        var next=self
+        for key in secretKeys where secrets[key] != 1 {next.text.removeValue(forKey:key)}
+        return next
+    }
+
 }
 public enum DraftError:LocalizedError {
     case invalid(String)
+    case unsupported(String)
+    case conflict(String)
     public var errorDescription:String? {
-        switch self {case .invalid(let key):return "Check \(key.replacingOccurrences(of:"_",with:" ")) and its allowed range or length."}
+        switch self {
+        case .invalid(let key):return "Check \(key.replacingOccurrences(of:"_",with:" ")) and its allowed range or length."
+        case .unsupported(let key):return "The clock no longer supports the edited \(key.replacingOccurrences(of:"_",with:" ")) setting. Review or discard the change before updating."
+        case .conflict(let key):return "\(key.replacingOccurrences(of:"_",with:" ").capitalized) changed on the clock. Review its current value before updating."
+        }
     }
 }

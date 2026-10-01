@@ -12,6 +12,9 @@ struct ScreenshotPreview:View {
             else {
                 NavigationStack {
                     switch screen {
+                    case "keychain-smoke":SugarScreen {Text(KeychainSmokeCheck.run()).accessibilityIdentifier("keychain-check-result")}
+                    case "pending-review":PendingSettingsReview()
+                    case "offline-edit", "waiting-update", "waiting-update-large":SettingEditor(field:["key":"brightness","type":"int","min":1,"max":255])
                     case "display", "display-accessibility":ConfigurationView(category:SettingsCategory.all.first {$0.id=="display"}!)
                     case "time", "time-off", "time-large":ConfigurationView(category:SettingsCategory.all.first {$0.id=="time"}!)
                     case "companions", "companions-off", "companions-ghost", "companions-large":ConfigurationView(category:SettingsCategory.all.first {$0.id=="companions"}!)
@@ -30,7 +33,7 @@ struct ScreenshotPreview:View {
             }
         }
         .tint(SugarTheme.accent)
-        .dynamicTypeSize(["time-large","display-accessibility","saved-large","loading-large","companions-large"].contains(screen) ? .accessibility3:.large)
+        .dynamicTypeSize(["time-large","display-accessibility","saved-large","loading-large","companions-large","waiting-update-large"].contains(screen) ? .accessibility3:.large)
         .safeAreaInset(edge:.bottom) {
             Label("SCREENSHOT PREVIEW · SAMPLE DATA",systemImage:"photo")
                 .font(.system(size:10,weight:.semibold)).frame(maxWidth:.infinity).padding(10)
@@ -115,6 +118,18 @@ struct ScreenshotPreview:View {
         if screen=="clocks-connecting" {model.previewConnection(ready:false);model.busy=true;model.reconnecting=true;model.connectionState="Connecting…"}
         if screen=="offline" {model.message="Move closer and try again."}
         if screen=="operation" {model.busy=true;model.operationTitle="Refreshing settings…"}
+        model.previewSettingsUpdate(.idle)
+        model.setDraft(SettingsDraft(settings:model.settings,fields:model.fields))
+        if ["pending-review","pending-home","offline-edit","waiting-update","waiting-update-large"].contains(screen) {
+            var draft=model.settingsDraft
+            draft.setText("120",key:"brightness")
+            draft.setBool(true,key:"use_24h")
+            draft.setText("1",key:"ambient_creature")
+            model.setDraft(draft)
+            model.previewConnection(ready:false)
+            model.connectionState="Not connected"
+        }
+        if ["waiting-update","waiting-update-large"].contains(screen) {model.previewSettingsUpdate(.waiting)}
         model.updateMessage="Sample state: firmware is up to date."
         return model
     }

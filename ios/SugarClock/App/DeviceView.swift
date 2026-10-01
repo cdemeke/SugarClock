@@ -27,6 +27,7 @@ struct DeviceView:View {
             }
             OperationFeedback()
             if model.hasLoadedSettings {
+                PendingSettingsCard()
                 serviceList("Enabled services",services.filter {$0.enabled(in:model.settings)==true})
                 serviceList("Additional services",services.filter {$0.enabled(in:model.settings)==false})
                 serviceList("Services",services.filter {$0.enabled(in:model.settings)==nil})
@@ -102,7 +103,7 @@ struct AllSettingsView:View {
                 ForEach(advancedFields.indices,id:\.self) {index in
                     let field=advancedFields[index]
                     if let key=field["key"] as? String {
-                        NavigationLink {SettingEditor(field:field)} label:{DestinationRow(title:label(key),subtitle:"Edit on clock",symbol:"slider.horizontal.3")}.buttonStyle(.plain)
+                        NavigationLink {SettingEditor(field:field)} label:{DestinationRow(title:label(key),subtitle:"Edit on this iPhone",symbol:"slider.horizontal.3")}.buttonStyle(.plain)
                         if index<advancedFields.count-1 {Divider()}
                     }
                 }
@@ -122,21 +123,12 @@ struct SettingsPage:View {
     let sections:[(String,[String])]
     var overrideFields:[[String:Any]]?=nil
     var headerToggleKey:String?=nil
-    @State private var draft=SettingsDraft()
-    @State private var loaded=false
-    @State private var validation=""
-    @State private var submittedDraft:SettingsDraft?
-    private var receipt:SaveReceipt? {model.saveReceipt(for:Set(sections.flatMap{$0.1}))}
-    private var saveTitle:String {
-        switch receipt?.phase {
-        case .saving:return "Saving…"
-        case .checking:return "Checking save…"
-        case .saved where draft.changed.isEmpty:return "Saved on clock"
-        default:return "Save changes"
-        }
+    private var draft:SettingsDraft {model.settingsDraft}
+    private var draftBinding:Binding<SettingsDraft> {
+        Binding(get:{model.settingsDraft},set:{model.setDraft($0)})
     }
-    private var confirming:Bool {
-        receipt?.phase == .saving || receipt?.phase == .checking
+    private func setBool(_ value:Bool,key:String) {
+        var edited=draft;edited.setBool(value,key:key);model.setDraft(edited)
     }
     var fields:[[String:Any]] {
         let keys=Set(sections.flatMap{$0.1})
@@ -148,9 +140,9 @@ struct SettingsPage:View {
             OperationFeedback()
             if let key=headerToggleKey,fields.contains(where:{$0["key"] as? String==key}) {
                 SugarCard {
-                    Toggle(isOn:Binding(get:{draft.booleans[key] ?? false},set:{draft.setBool($0,key:key)})) {
+                    Toggle(isOn:Binding(get:{draft.booleans[key] ?? false},set:{setBool($0,key:key)})) {
                         Text(sections.first?.0 ?? title).font(.headline)
-                    }.tint(SugarTheme.accent).accessibilityValue(draft.booleans[key] == true ? "Enabled":"Disabled")
+                    }.tint(SugarTheme.accent).disabled(!model.canEditSettingsDraft).accessibilityValue(draft.booleans[key] == true ? "Enabled":"Disabled")
                     if key=="glucose_enabled" {Text("Turning this off stops readings and disables glucose alerts. Your source settings are kept.").font(.footnote).foregroundStyle(SugarTheme.secondary)}
                 }
             }
@@ -177,11 +169,11 @@ struct SettingsPage:View {
                     SugarCard(title:headerToggleKey == nil ? section.0:nil) {
                         ForEach(available.indices,id:\.self) {index in
                             if hasAlertToggle,available[index]["key"] as? String=="alert_enabled" {
-                                Toggle(isOn:Binding(get:{draft.booleans["alert_enabled"] ?? false},set:{draft.setBool($0,key:"alert_enabled")})) {
+                                Toggle(isOn:Binding(get:{draft.booleans["alert_enabled"] ?? false},set:{setBool($0,key:"alert_enabled")})) {
                                     Text(section.0).font(.headline)
-                                }.tint(SugarTheme.accent).accessibilityValue(draft.booleans["alert_enabled"] == true ? "Enabled":"Disabled")
+                                }.tint(SugarTheme.accent).disabled(!model.canEditSettingsDraft).accessibilityValue(draft.booleans["alert_enabled"] == true ? "Enabled":"Disabled")
                             } else {
-                                DraftField(field:available[index],draft:$draft,settings:model.settings)
+                                DraftField(field:available[index],draft:draftBinding,settings:model.settings).disabled(!model.canEditSettingsDraft)
                             }
                             if index<available.count-1 {Divider()}
                         }
@@ -193,48 +185,107 @@ struct SettingsPage:View {
                     Text(model.fields.isEmpty ? "Connect to load these settings." : "These settings are not supported by the connected firmware.").foregroundStyle(SugarTheme.secondary)
                 }
             }
-            else {
-                VStack(alignment:.leading,spacing:10) {
-                    Button {save()} label:{
-                        HStack {
-                            if case .saved = receipt?.phase,draft.changed.isEmpty {Image(systemName:"checkmark.circle.fill")}
-                            Text(saveTitle)
-                        }
-                    }
-                    .buttonStyle(SugarButtonStyle()).disabled(!model.canSend || draft.changed.isEmpty || confirming)
-                    if let receipt {SaveConfirmation(receipt:receipt)}
-                    if !draft.changed.isEmpty {
-                        Text(model.sessionReady ? "Unsaved changes":"Your edits are kept here. Tap Save once the clock reconnects.")
-                            .font(.caption).foregroundStyle(SugarTheme.secondary)
-                    }
-                }
-            }
-            if !validation.isEmpty {Text(validation).font(.subheadline).foregroundStyle(.red).accessibilityLabel("Save error: \(validation)")}
-        }.onAppear {
-            if !loaded,!fields.isEmpty {draft=SettingsDraft(settings:model.settings,fields:fields);loaded=true}
-        }.onChange(of:model.fields.count) { _,_ in
-            if !loaded,!fields.isEmpty {draft=SettingsDraft(settings:model.settings,fields:fields);loaded=true}
-        }.onChange(of:receipt?.phase) {_,phase in
-            if case .saved = phase,let submittedDraft {
-                draft.confirm(submitted:submittedDraft,settings:model.settings,fields:fields)
-                self.submittedDraft=nil
-            }
-        }.onDisappear {draft=SettingsDraft();submittedDraft=nil;loaded=false}
+            else {PendingSettingsCard()}
+        }
     }
-    private func save() {
-        do {
-            let patch=try draft.patch(fields:fields)
-            guard !patch.isEmpty else {return}
-            validation=""
-            let submitted=draft
-            submittedDraft=submitted
-            Task {
-                if await model.save(patch),submittedDraft==submitted {
-                    draft.confirm(submitted:submitted,settings:model.settings,fields:fields)
-                    submittedDraft=nil
+}
+
+/// A per-clock draft is shared across every editor. Tapping Update captures all
+/// current edits; navigation never sends or discards them.
+struct PendingSettingsCard:View {
+    @EnvironmentObject var model:ClockModel
+    var showsReview=true
+    @State private var confirmDiscard=false
+    private var receipt:SaveReceipt? {
+        model.saveReceipt(for:Set(model.fields.compactMap {$0["key"] as? String}))
+    }
+    var body:some View {
+        SugarCard(title:model.pendingChangeCount==0 ? "Settings on this iPhone":"Pending changes") {
+            if model.pendingChangeCount>0 {
+                Text("\(model.pendingChangeCount) \(model.pendingChangeCount==1 ? "change":"changes") on this iPhone")
+                    .font(.headline).accessibilityAddTraits(.updatesFrequently)
+                Text(model.settingsUpdatePhase == .idle ? "Keep editing across screens. Nothing is sent until you tap Update clock.":"Your update is in progress. Any new edits stay pending for your next update.")
+                    .font(.footnote).foregroundStyle(SugarTheme.secondary)
+                if showsReview {
+                    NavigationLink {PendingSettingsReview()} label:{Label("Review changes",systemImage:"list.bullet.rectangle")}
+                        .font(.subheadline)
+                }
+            } else {
+                Text("No pending changes").font(.subheadline).foregroundStyle(SugarTheme.secondary)
+            }
+            switch model.settingsUpdatePhase {
+            case .waiting:
+                HStack(spacing:8) {SugarSpinner();Text("Waiting for clock…")}
+                Text("Keep SugarClock open and your clock nearby. We’ll connect and check its settings before sending your changes.")
+                    .font(.footnote).foregroundStyle(SugarTheme.secondary)
+                Button("Cancel update") {model.cancelSettingsUpdate()}.buttonStyle(SugarButtonStyle(prominent:false))
+            case .sending:
+                HStack(spacing:8) {SugarSpinner();Text("Updating clock…")}
+                Text("Checking that your changes were saved. Any further edits stay pending.")
+                    .font(.footnote).foregroundStyle(SugarTheme.secondary)
+            case .idle:
+                if model.pendingChangeCount>0 {
+                    Button {Task {await model.updateSettings()}} label:{Label("Update clock",systemImage:"arrow.up.circle")}
+                        .buttonStyle(SugarButtonStyle()).disabled(!model.canRequestSettingsUpdate)
+                    Button("Discard pending changes",role:.destructive) {confirmDiscard=true}.font(.footnote)
                 }
             }
-        } catch {validation=error.localizedDescription}
+            if model.settingsUpdatePhase == .idle,let receipt {SaveConfirmation(receipt:receipt)}
+            if !model.draftStorageMessage.isEmpty {
+                Text(model.draftStorageMessage).font(.footnote).foregroundStyle(.orange)
+            }
+            if model.settingsUpdatePhase == .idle,!model.settingsUpdateMessage.isEmpty {
+                Text(model.settingsUpdateMessage).font(.footnote).foregroundStyle(SugarTheme.secondary)
+                    .accessibilityLabel("Update result: \(model.settingsUpdateMessage)")
+            }
+        }.confirmationDialog("Discard all pending changes for this clock?",isPresented:$confirmDiscard,titleVisibility:.visible) {
+            Button("Discard changes",role:.destructive) {model.discardSettingsChanges()}
+        } message:{Text("The clock’s saved settings will stay unchanged.")}
+    }
+}
+
+struct PendingSettingsReview:View {
+    @EnvironmentObject var model:ClockModel
+    private var keys:[String] {model.settingsDraft.changed.sorted()}
+    var body:some View {
+        SugarScreen {
+            Text("These changes belong to \(model.selected?.nickname ?? "this clock"). The clock value is the last value read, which may be older while disconnected.")
+                .font(.subheadline).foregroundStyle(SugarTheme.secondary)
+            if let date=model.lastSettingsRefresh {
+                (Text("Last read ") + Text(date,style:.date) + Text(" at ") + Text(date,style:.time))
+                    .font(.caption).foregroundStyle(SugarTheme.secondary)
+            }
+            ForEach(keys,id:\.self) {key in
+                SugarCard(title:label(key)) {
+                    DetailRow(title:"On clock",value:clockValue(key))
+                    DetailRow(title:"Your change",value:draftValue(key))
+                    Button("Use clock value") {
+                        var draft=model.settingsDraft
+                        draft.discardChange(key,settings:model.settings,fields:model.fields)
+                        model.setDraft(draft)
+                    }.font(.footnote).disabled(!model.canEditSettingsDraft || model.settingsUpdatePhase != .idle)
+                    if key=="glucose_enabled",model.settingsDraft.booleans[key]==false {
+                        Text("Glucose alerts will also be disabled.").font(.footnote).foregroundStyle(SugarTheme.secondary)
+                    }
+                }
+            }
+            PendingSettingsCard(showsReview:false)
+        }.navigationTitle("Review changes")
+    }
+    private func secret(_ key:String)->Bool {
+        model.settingsDraft.secrets[key] != nil || model.fields.first {$0["key"] as? String==key}?["type"] as? String=="secret"
+    }
+    private func clockValue(_ key:String)->String {
+        if secret(key) {return model.settings[key+"_configured"] as? Bool==true ? "Configured":"Not configured"}
+        guard let value=model.settings[key] else {return "Not available"}
+        if model.fields.first(where:{$0["key"] as? String==key})?["type"] as? String=="bool" {return value as? Bool==true ? "On":"Off"}
+        if model.settingsDraft.mmol(key),let n=value as? Int {return String(format:"%.2f mmol/L",Double(n)/18)}
+        return String(describing:value)+(SettingsDraft.threshold(key) ? " mg/dL":"")
+    }
+    private func draftValue(_ key:String)->String {
+        if secret(key) {return model.settingsDraft.secrets[key]==2 ? "Clear saved value":"Replace with a new value"}
+        if let value=model.settingsDraft.booleans[key] {return value ? "On":"Off"}
+        return (model.settingsDraft.text[key] ?? "")+(SettingsDraft.threshold(key) ? (model.settingsDraft.mmol(key) ? " mmol/L":" mg/dL"):"")
     }
 }
 
@@ -277,8 +328,8 @@ struct DraftField:View {
         VStack(alignment:.leading,spacing:10) {
             if type=="bool" {
                 Toggle(label(key),isOn:Binding(get:{draft.booleans[key] ?? false},set:{draft.setBool($0,key:key)})).font(.subheadline).tint(SugarTheme.accent)
-                    .disabled(key=="alert_enabled" && settings["glucose_enabled"] as? Bool==false)
-                if key=="alert_enabled",settings["glucose_enabled"] as? Bool==false {Text("Turn on Blood Sugar readings to enable alerts.").font(.footnote).foregroundStyle(SugarTheme.secondary)}
+                    .disabled(key=="alert_enabled" && draft.booleans["glucose_enabled"]==false)
+                if key=="alert_enabled",draft.booleans["glucose_enabled"]==false {Text("Turn on Blood Sugar readings to enable alerts.").font(.footnote).foregroundStyle(SugarTheme.secondary)}
             } else {
                 Text(label(key)).font(.subheadline.weight(.medium)).foregroundStyle(SugarTheme.secondary)
                 if type=="secret" {
@@ -287,7 +338,7 @@ struct DraftField:View {
                         Text("Leave unchanged").tag(0);Text("Replace").tag(1);Text("Clear").tag(2)
                     }.pickerStyle(.menu).fieldSurface()
                     if draft.secrets[key]==1 {SecureField("Replacement value",text:text).textInputAutocapitalization(.never).autocorrectionDisabled().fieldSurface()}
-                    if draft.secrets[key]==2 {Text("This saved value will be cleared when you save.").font(.footnote).foregroundStyle(.red)}
+                    if draft.secrets[key]==2 {Text("This saved value will be cleared when you update the clock.").font(.footnote).foregroundStyle(.red)}
                 } else if key=="ambient_creature" {
                     CompanionPicker(value:text,minimum:field["min"] as? Int ?? 0,maximum:field["max"] as? Int ?? 1)
                 } else if key=="countdown_target" {
@@ -314,7 +365,7 @@ struct DraftField:View {
             if key=="auto_update_hour" {Text("Uses your clock’s time zone. Updates may wait until the clock is ready.").font(.footnote).foregroundStyle(SugarTheme.secondary)}
             if key=="auto_brightness" {Text("Adjusts brightness to room lighting. The middle button switches to manual brightness.").font(.caption).foregroundStyle(SugarTheme.secondary)}
             if key=="brightness" {Text("Turn off auto brightness to use a fixed level.").font(.caption).foregroundStyle(SugarTheme.secondary)}
-            if key=="server_url" {Text("Use the full JSON endpoint. The URL and any credentials stay on your clock.").font(.footnote).foregroundStyle(SugarTheme.secondary)}
+            if key=="server_url" {Text("Use the full JSON endpoint. Pending replacements are stored securely on this iPhone until updated or discarded.").font(.footnote).foregroundStyle(SugarTheme.secondary)}
         }
     }
 }

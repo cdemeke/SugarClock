@@ -7,6 +7,7 @@ struct SavedClock: Codable, Identifiable {
     var peripheral: UUID
     var nickname: String
 }
+enum SettingsUpdatePhase:Equatable {case idle,waiting,sending}
 enum SavePhase:Equatable {
     case saving, checking, saved(Date), unconfirmed, failed(String)
 }
@@ -40,6 +41,24 @@ private struct PendingSave {
     @Published private(set) var lastSettingsRefresh:Date?
     @Published private(set) var lastStatusRefresh:Date?
     private var pendingSave:PendingSave?
+    @Published private(set) var settingsDraft=SettingsDraft()
+    @Published private(set) var settingsUpdatePhase:SettingsUpdatePhase = .idle
+    @Published private(set) var settingsUpdateMessage=""
+    @Published private(set) var draftStorageMessage=""
+    private var draftClockID:String?
+    private var localRestoreFailed=false
+    private var localPersistenceFailed=false
+    var canEditSettingsDraft:Bool {selected != nil && hasLoadedSettings && !localRestoreFailed}
+    private var submittedSettingsDraft:SettingsDraft?
+    private let localSettingsStore:LocalSettingsStore
+    private var settingsUpdateTask:Task<Void,Never>?
+    private var settingsUpdateID=UUID()
+    var pendingChangeCount:Int {settingsDraft.changed.count}
+    var canRequestSettingsUpdate:Bool {
+        foreground && canEditSettingsDraft && pendingChangeCount>0 &&
+        settingsUpdatePhase == .idle && updateMonitor==nil && !updatingClock && (!busy || reconnecting || checkingConnection)
+    }
+
     var hasLoadedSettings:Bool {!settings.isEmpty && !fields.isEmpty}
     var quietReconnect:Bool {reconnecting && hasLoadedSettings}
     var connectionSummary:String {
@@ -48,6 +67,12 @@ private struct PendingSave {
         return connectionState
     }
     #if DEBUG
+    func previewSettingsUpdate(_ phase:SettingsUpdatePhase) {
+        guard ProcessInfo.processInfo.environment["SUGARCLOCK_SCREENSHOT"] != nil else {return}
+        settingsUpdatePhase=phase
+        if lastSettingsRefresh==nil {lastSettingsRefresh=Date().addingTimeInterval(-120)}
+        settingsUpdateMessage=phase == .waiting ? "Waiting for your clock. You can keep editing.":""
+    }
     func previewConnection(ready:Bool) {
         guard ProcessInfo.processInfo.environment["SUGARCLOCK_SCREENSHOT"] != nil else {return}
         sessionReady=ready
@@ -88,15 +113,20 @@ private struct PendingSave {
     @Published var updateMessage=""
     @Published private(set) var updatingClock=false
     init(enableBluetooth:Bool=true,loadSaved:Bool=true,transport:ClockConnectionTransport?=nil,
-         preferences:UserDefaults = .standard,retryDelay:UInt64=2_000_000_000) {
+         preferences:UserDefaults = .standard,retryDelay:UInt64=2_000_000_000,localSettingsStore:LocalSettingsStore?=nil) {
         bluetooth=BluetoothTransport(enableRadio:enableBluetooth)
         self.transport=transport ?? bluetooth
         self.preferences=preferences;self.retryDelay=retryDelay
+        if let localSettingsStore {self.localSettingsStore=localSettingsStore}
+        else if enableBluetooth {self.localSettingsStore=KeychainLocalSettingsStore()}
+        else {self.localSettingsStore=MemoryLocalSettingsStore()}
+
         if loadSaved,let data=preferences.data(forKey:"clocks.v1"),let saved=try? JSONDecoder().decode([SavedClock].self,from:data) {
             clocks=saved
             // Warm up the only saved clock without choosing for a multi-clock household.
             selected=saved.count==1 ? saved.first:nil
         }
+        if let selected {restoreLocalSettings(for:selected)}
         connectionSubscription=self.transport.connectionPublisher.dropFirst().removeDuplicates().sink { [weak self] connected in
             Task { @MainActor [weak self] in
                 guard let self,!connected,!self.transport.connected else {return}
@@ -112,6 +142,155 @@ private struct PendingSave {
                 self.startReconnect()
             }
         }
+    }
+    func setDraft(_ draft:SettingsDraft) {
+        guard let selected,canEditSettingsDraft else {return}
+        settingsDraft=draft;draftClockID=selected.id
+        persistLocalSettings()
+    }
+    func discardSettingsChanges() {
+        guard settingsUpdatePhase != .sending else {return}
+        cancelSettingsUpdate()
+        let previous=settingsDraft,previousSubmission=submittedSettingsDraft,previousRestoreFailure=localRestoreFailed
+        settingsDraft=SettingsDraft(settings:settings,fields:fields)
+        submittedSettingsDraft=nil;localRestoreFailed=false
+        if persistLocalSettings() {settingsUpdateMessage="Local changes discarded."}
+        else {
+            settingsDraft=previous;submittedSettingsDraft=previousSubmission;localRestoreFailed=previousRestoreFailure
+            settingsUpdateMessage="Couldn’t discard the saved local changes securely. Unlock your iPhone and try again."
+        }
+    }
+    private func restoreLocalSettings(for clock:SavedClock) {
+        settingsUpdateMessage="";draftStorageMessage=""
+        draftClockID=clock.id;settingsDraft=SettingsDraft();submittedSettingsDraft=nil;localRestoreFailed=false;localPersistenceFailed=false
+        do {
+            guard let snapshot=try localSettingsStore.load(clockID:clock.id) else {return}
+            settings=try snapshot.settings();fields=try snapshot.fields()
+            settingsDraft=snapshot.draft;lastSettingsRefresh=snapshot.lastSynced
+            submittedSettingsDraft=snapshot.submittedDraft
+            if let submitted=snapshot.submittedDraft {
+                saveReceipts[clock.id]=SaveReceipt(id:UUID(),clockID:clock.id,keys:submitted.changed,phase:.unconfirmed)
+                settingsUpdateMessage="An earlier update was not confirmed. Review the clock’s settings before updating again."
+            }
+            draftStorageMessage=""
+        } catch {localRestoreFailed=true;draftStorageMessage="Couldn’t unlock this clock’s saved local changes. Unlock your iPhone and reopen the app."}
+    }
+    private func refreshLocalDraft() {
+        guard let selected,hasLoadedSettings else {return}
+        if localRestoreFailed,draftClockID==selected.id {
+            do {
+                if let snapshot=try localSettingsStore.load(clockID:selected.id) {
+                    settingsDraft=snapshot.draft;submittedSettingsDraft=snapshot.submittedDraft
+                }
+                localRestoreFailed=false
+            } catch {return} // Never overwrite a workspace we could not decrypt/read.
+        }
+        if draftClockID != selected.id {
+            localRestoreFailed=false;draftClockID=selected.id;settingsDraft=SettingsDraft(settings:settings,fields:fields);submittedSettingsDraft=nil
+        } else if settingsDraft.changed.isEmpty {
+            settingsDraft=SettingsDraft(settings:settings,fields:fields)
+        }
+        persistLocalSettings()
+    }
+    @discardableResult private func persistLocalSettings() -> Bool {
+        guard let selected,draftClockID==selected.id,!localRestoreFailed,hasLoadedSettings,let synced=lastSettingsRefresh else {return false}
+        do {
+            let snapshot=try LocalSettingsSnapshot(settings:settings,fields:fields,draft:settingsDraft,lastSynced:synced,submittedDraft:submittedSettingsDraft)
+            try localSettingsStore.save(snapshot,clockID:selected.id)
+            draftStorageMessage="";localPersistenceFailed=false;return true
+        } catch {
+            localPersistenceFailed=true
+            draftStorageMessage="Couldn’t save local changes securely. Keep this screen open and try again after unlocking your iPhone."
+            return false
+        }
+    }
+    func cancelSettingsUpdate() {
+        guard settingsUpdatePhase == .waiting else {return}
+        settingsUpdateTask?.cancel()
+        settingsUpdateMessage="Update cancelled. Your local changes are kept."
+    }
+    func updateSettings(timeout:TimeInterval=90,pollDelay:UInt64=100_000_000) async {
+        guard canRequestSettingsUpdate,let clock=selected else {return}
+        let submitted=settingsDraft,requestID=UUID()
+        settingsUpdateID=requestID;settingsUpdatePhase = .waiting
+        settingsUpdateMessage="Waiting for your clock. You can keep editing."
+        automaticReconnect=true;startReconnect()
+        let task=Task { [self] in
+            var ownsBusy=false
+            let deadline=Task { @MainActor [weak self] in
+                do {try await Task.sleep(nanoseconds:UInt64(max(0,min(timeout,90))*1_000_000_000))} catch {return}
+                guard let self,self.settingsUpdateID==requestID,self.settingsUpdatePhase == .waiting else {return}
+                self.settingsUpdateMessage="The clock didn’t reconnect in time. Your local changes are kept; tap Update clock to try again."
+                self.settingsUpdateTask?.cancel()
+            }
+            defer {
+                deadline.cancel()
+                if ownsBusy {busy=false}
+                settingsUpdatePhase = .idle;settingsUpdateTask=nil
+                if !sessionReady {startReconnect()}
+            }
+            do {
+                var preparedPatch:[String:Any]?
+                while preparedPatch==nil {
+                    while !readyForOperation {
+                        try Task.checkCancellation()
+                        guard foreground,selected?.id==clock.id,selected?.peripheral==clock.peripheral,updateMonitor==nil else {throw CancellationError()}
+                        if !automaticReconnect,!reconnecting {throw ClockError.unavailable("Reconnect to the clock, then tap Update clock again.")}
+                        try await Task.sleep(nanoseconds:pollDelay)
+                    }
+                    try Task.checkCancellation()
+                    guard foreground,selected?.id==clock.id,selected?.peripheral==clock.peripheral else {throw CancellationError()}
+                    busy=true;ownsBusy=true
+                    settingsUpdateMessage="Checking the clock’s current settings…"
+                    do {
+                        try await refreshSettings()
+                        try Task.checkCancellation()
+                        guard foreground,selected?.id==clock.id,selected?.peripheral==clock.peripheral,
+                              (hello["capabilities"] as? [String] ?? []).contains("settings.patch") else {throw ClockError.unavailable("Reconnect to compatible firmware before updating.")}
+                        let patch=try submitted.validatedPatch(settings:settings,fields:fields)
+                        let envelope=try JSONSerialization.data(withJSONObject:["v":1,"id":65535,"op":"settings.patch","patch":patch])
+                        guard envelope.count<=min(Frame.maximum,hello["max_message"] as? Int ?? Frame.maximum) else {throw ClockError.oversized}
+                        preparedPatch=patch
+                    } catch {
+                        try Task.checkCancellation()
+                        guard Self.canRetryConnection(error) else {throw error}
+                        // Read-only preparation can reconnect within the same
+                        // deadline. This loop ends permanently before any write.
+                        busy=false;ownsBusy=false;sessionReady=false;client=nil;transport.close()
+                        settingsUpdateMessage="Waiting for your clock. Your update has not been sent."
+                        startReconnect()
+                    }
+                }
+                let patch=preparedPatch!
+                guard !patch.isEmpty else {settingsUpdateMessage="These settings already match your clock.";return}
+                let previousSubmission=submittedSettingsDraft
+                submittedSettingsDraft=submitted
+                guard persistLocalSettings() else {
+                    submittedSettingsDraft=previousSubmission
+                    throw ClockError.unavailable("Update not sent because your local changes could not be saved securely.")
+                }
+                try Task.checkCancellation()
+                settingsUpdatePhase = .sending;deadline.cancel()
+                settingsUpdateMessage="Updating clock…"
+                busy=false;ownsBusy=false
+                let saved=await save(patch,fromSettingsUpdate:true)
+                if saved {settingsUpdateMessage="Updated on clock."}
+                else if case .failed(let detail)=saveReceipts[clock.id]?.phase {
+                    submittedSettingsDraft=nil;persistLocalSettings();settingsUpdateMessage=detail
+                } else {settingsUpdateMessage="Update not confirmed. Your local changes are kept; check the saved settings before trying again."}
+            } catch {
+                if !(error is CancellationError) {
+                    settingsUpdateMessage=error.localizedDescription
+                    if Self.canRetryConnection(error) {sessionReady=false;client=nil;transport.close()}
+                }
+            }
+        }
+        settingsUpdateTask=task
+        await task.value
+    }
+    static func isUncertainPersistence(_ error:Error)->Bool {
+        if case ClockError.rejected(let detail)=error {return detail=="persistence_failed" || detail.hasPrefix("persistence_failed:")}
+        return false
     }
     func remember() {
         if let data=try? JSONEncoder().encode(clocks) {preferences.set(data,forKey:"clocks.v1")}
@@ -220,7 +399,10 @@ private struct PendingSave {
         return error.localizedDescription
     }
     func connect(_ id:UUID) async {
-        guard updateMonitor==nil else {return}
+        guard updateMonitor==nil,settingsUpdatePhase != .sending else {return}
+        if selected?.peripheral != id,let pending=settingsUpdateTask {
+            cancelSettingsUpdate();await pending.value
+        }
         if selected?.peripheral==id,let task=reconnectTask,!task.isCancelled {await task.value;return}
         guard canChooseAnotherClock else {return}
         let request=UUID();selectionRequest=request
@@ -238,6 +420,9 @@ private struct PendingSave {
             sessionReady=false;unconfirmedChange=false
             selected=clocks.first(where:{$0.peripheral==id})
             settings=[:];status=[:];hello=[:];fields=[];schemaIdentity=nil;networks=[];wifiScanMessage=""
+            settingsDraft=SettingsDraft();draftClockID=nil;submittedSettingsDraft=nil;localRestoreFailed=false;localPersistenceFailed=false
+            settingsUpdateMessage="";draftStorageMessage=""
+            if let selected {restoreLocalSettings(for:selected)}
         }
         if sessionReady,transport.connected,selected?.peripheral==id {return}
         launchConnection(id)
@@ -289,9 +474,10 @@ private struct PendingSave {
         if let index=clocks.firstIndex(where:{$0.id==identity}) {clocks[index]=confirmed}
         else {clocks.append(confirmed)}
         remember()
+        refreshLocalDraft()
     }
     func checkConnection() async {
-        guard foreground,!busy,reconnectTask==nil,updateMonitor==nil,sessionReady,client != nil else {return}
+        guard foreground,!busy,settingsUpdateTask==nil,reconnectTask==nil,updateMonitor==nil,sessionReady,client != nil else {return}
         busy=true;checkingConnection=true
         defer {busy=false;checkingConnection=false;if !sessionReady {startReconnect()}}
         do {
@@ -326,6 +512,7 @@ private struct PendingSave {
         try Task.checkCancellation()
         settings=loaded;lastSettingsRefresh=Date()
         verifyPendingSave(loaded,durable:response["saved"] as? Bool == true)
+        if !reconnecting {refreshLocalDraft()}
     }
     func refresh() async throws {
         try await refreshSettings()
@@ -354,6 +541,11 @@ private struct PendingSave {
         // success when the clock also acknowledged the original mutation.
         if matches, pending.acknowledged || !pending.containsSecrets {
             saveReceipts[pending.clockID]?.phase = .saved(Date())
+            if draftClockID==pending.clockID,let submitted=submittedSettingsDraft {
+                settingsDraft.confirm(submitted:submitted,settings:loaded,fields:fields)
+                submittedSettingsDraft=nil
+                persistLocalSettings()
+            }
             pendingSave=nil
         } else {
             saveReceipts[pending.clockID]?.phase = pending.acknowledged
@@ -367,11 +559,13 @@ private struct PendingSave {
             saveReceipts[pending.clockID]?.phase = .unconfirmed
         }
     }
-    var canSend:Bool {sessionReady && transport.connected && !busy && updateMonitor==nil}
-    var canChooseAnotherClock:Bool {updateMonitor==nil && !updatingClock && (!busy || reconnecting)}
+    private var readyForOperation:Bool {sessionReady && transport.connected && !busy && updateMonitor==nil}
+    var canSend:Bool {readyForOperation && settingsUpdatePhase == .idle}
+    var canChooseAnotherClock:Bool {updateMonitor==nil && !updatingClock && settingsUpdatePhase != .sending && !localPersistenceFailed && (!busy || reconnecting || settingsUpdatePhase == .waiting)}
     /// Add Clock owns discovery; an unrelated saved clock must not monopolize it.
     func prepareToAddClock() async -> Bool {
         guard canChooseAnotherClock else {return false}
+        if let updating=settingsUpdateTask {cancelSettingsUpdate();await updating.value}
         let pending=reconnectTask
         stopReconnecting()
         let request=selectionRequest
@@ -385,6 +579,7 @@ private struct PendingSave {
         stopReconnecting()
     }
     func stopReconnecting() {
+        cancelSettingsUpdate()
         selectionRequest=UUID()
         automaticReconnect=false;reconnectTask?.cancel();updateMonitor?.cancel()
         finishPendingAsUnconfirmed()
@@ -409,8 +604,8 @@ private struct PendingSave {
             }
         }
     }
-    @discardableResult func save(_ patch:[String:Any]) async -> Bool {
-        guard let clock=selected,!patch.isEmpty,canSend,let client else {return false}
+    @discardableResult func save(_ patch:[String:Any],fromSettingsUpdate:Bool=false) async -> Bool {
+        guard let clock=selected,!patch.isEmpty,readyForOperation,(settingsUpdatePhase == .idle || fromSettingsUpdate),let client else {return false}
         let receipt=SaveReceipt(id:UUID(),clockID:clock.id,keys:Set(patch.keys),phase:.saving)
         saveReceipts[clock.id]=receipt
         pendingSave=nil;busy=true;operationTitle="Saving…";message=""
@@ -432,7 +627,7 @@ private struct PendingSave {
             if case .saved = saveReceipts[clock.id]?.phase {return true}
             return false
         } catch {
-            if Self.canRetryConnection(error) || !foreground || error is CancellationError {
+            if Self.canRetryConnection(error) || Self.isUncertainPersistence(error) || !foreground || error is CancellationError {
                 pendingSave=PendingSave(receiptID:receipt.id,clockID:clock.id,expected:expected,acknowledged:acknowledged,containsSecrets:!secretKeys.isDisjoint(with:patch.keys))
                 // Recovery may continue while the clock is out of range. The save's
                 // outcome is already unknown; do not leave a checking spinner up.
@@ -522,9 +717,17 @@ private struct PendingSave {
     }
     func disconnect() {
         stopReconnecting();pendingSave=nil;lastSettingsRefresh=nil;lastStatusRefresh=nil;selected=nil;settings=[:];status=[:];fields=[];hello=[:];schemaIdentity=nil;networks=[];wifiScanMessage=""
+        settingsDraft=SettingsDraft();draftClockID=nil;submittedSettingsDraft=nil;localRestoreFailed=false;localPersistenceFailed=false
+        settingsUpdateMessage="";draftStorageMessage=""
         remember()
     }
     func remove(_ clock:SavedClock) {
+        guard canChooseAnotherClock else {return}
+        // Keep the library entry available for retry if secure deletion fails.
+        do {try localSettingsStore.remove(clockID:clock.id)} catch {
+            draftStorageMessage="Couldn’t remove this clock’s encrypted local changes. Unlock your iPhone and try again."
+            return
+        }
         if selected?.id==clock.id {disconnect()}
         clocks.removeAll(where:{$0.id==clock.id});saveReceipts.removeValue(forKey:clock.id)
         SchemaCache(preferences:preferences).remove(clock.id);remember()

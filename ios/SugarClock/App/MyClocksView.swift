@@ -47,7 +47,7 @@ struct ClockLibraryView:View {
                         .buttonStyle(.plain)
                         // Read-only recovery can be interrupted by choosing another clock.
                         .disabled(!model.canChooseAnotherClock && model.selected?.peripheral != clock.peripheral)
-                        .contextMenu {Button("Remove clock",role:.destructive) {model.remove(clock)}}
+                        .contextMenu {Button("Remove clock",role:.destructive) {model.remove(clock)}.disabled(!model.canChooseAnotherClock)}
                     }
                 }
             }
@@ -98,6 +98,7 @@ struct DiscoveryView:View {
 
 struct TroubleshootingView:View {
     private let topics:[(String,String)]=[
+        ("Edit while the clock is offline","Connect once to load a clock’s settings. You can then edit across screens, review pending changes and tap Update clock when ready. Keep the app open near the clock while it connects. Cancelling or closing the app before sending keeps your edits for later; they are never sent automatically when you reopen."),
         ("Clock not found","Bluetooth-capable firmware must be installed first. Older firmware cannot be discovered here. Use the Mac USB installer or the clock’s existing signed Wi-Fi updater."),
         ("Pair a new phone","Hold the middle button for 3 seconds, then release. Enter the fresh code on the clock. Urgent alerts take priority; retry when the clock can show its code."),
         ("Replace a phone or reset pairing","Hold the middle button for 10 seconds, then release to remove Bluetooth bonds. Wi-Fi, glucose, alerts, display settings and certificates remain. Also forget SugarClock in iOS Bluetooth Settings before pairing again."),

@@ -177,7 +177,7 @@ struct OperationFeedback:View {
                 }
             }
         }
-        if model.busy,!model.reconnecting,!model.checkingConnection,!model.scanningWiFi,model.operationTitle != "Saving…" {
+        if model.busy,!model.reconnecting,!model.checkingConnection,!model.scanningWiFi,model.settingsUpdatePhase == .idle,model.operationTitle != "Saving…" {
             HStack(spacing:8) {
                 SugarSpinner()
                     .frame(width:statusIconSize,height:statusIconSize).accessibilityHidden(true)
