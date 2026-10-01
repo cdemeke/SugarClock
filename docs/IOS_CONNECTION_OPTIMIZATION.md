@@ -20,7 +20,7 @@ The firmware's existing 60-second idle / ten-minute session limits and bounded B
 - In the five-page schema test, reopening the app on the same boot sends **3 requests instead of 8**: hello, settings and status; all five schema requests are avoided. This is a measured request-count reduction, not a measured 62.5% reduction in radio connection time.
 - **62 repository host tests passed**, including BLE/security, persistence, Wi-Fi, OTA and TLS checks after resolving pinned firmware libraries.
 - Complete Debug simulator build including assets: passed (Xcode 27.0, build 27A266a).
-- Signed iPhone Release archives **1.0.0 (17)** and **1.0.0 (18)**: passed. Build 17 uploaded successfully; build 18 includes the review corrections below. Final upload/availability evidence is recorded below.
+- Signed iPhone Release archives **1.0.0 (17)** and **1.0.0 (18)**: passed. Both builds uploaded successfully to App Store Connect. Xcode confirmed build 18 was accepted for processing at 23:14 UTC. Build 18 includes the review corrections below. TestFlight availability and tester-group assignment remain unverified because App Store Connect requires browser sign-in.
 - Existing companion firmware compiled with its unchanged pinned platform/libraries: **1,588,144 bytes**, **246,864 bytes** remaining in the 1,835,008-byte slot. No partition or firmware source changes were required for these app optimizations. Local PlatformIO runner was 6.2.0; the repository's CI runner remains pinned to 6.1.19.
 
 Logs and archive are local under `/private/tmp/sugarclock-connection-*`. Raw device backups are private and excluded from the repository.
