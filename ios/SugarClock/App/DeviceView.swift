@@ -203,7 +203,10 @@ struct SettingsPage:View {
                     }
                     .buttonStyle(SugarButtonStyle()).disabled(!model.canSend || draft.changed.isEmpty || confirming)
                     if let receipt {SaveConfirmation(receipt:receipt)}
-                    if !draft.changed.isEmpty {Text("Unsaved changes").font(.caption).foregroundStyle(SugarTheme.secondary)}
+                    if !draft.changed.isEmpty {
+                        Text(model.sessionReady ? "Unsaved changes":"Your edits are kept here. Tap Save once the clock reconnects.")
+                            .font(.caption).foregroundStyle(SugarTheme.secondary)
+                    }
                 }
             }
             if !validation.isEmpty {Text(validation).font(.subheadline).foregroundStyle(.red).accessibilityLabel("Save error: \(validation)")}
@@ -320,6 +323,12 @@ struct StatusSection:View {
     @EnvironmentObject var model:ClockModel
     var body:some View {
         SugarCard(title:"Connection & data confirmation") {
+            if let refreshed=model.lastStatusRefresh {
+                (Text("Last checked ") + Text(refreshed,style:.time)).font(.caption).foregroundStyle(SugarTheme.secondary)
+            }
+            if !model.sessionReady {
+                Text("Showing the last received status while the clock reconnects.").font(.caption).foregroundStyle(SugarTheme.secondary)
+            }
             DetailRow(title:"Wi-Fi / DHCP",value:model.status["wifi"] as? String ?? "Unknown")
             Divider()
             DetailRow(title:"Wi-Fi trial",value:model.status["trial"] as? String ?? "Unknown")

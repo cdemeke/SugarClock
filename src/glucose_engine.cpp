@@ -402,10 +402,13 @@ static DisplayState evaluate_state() {
             return STATE_NO_WIFI;
         }
 
-        // Associated but the network is filtering us. Distinct from NO_DATA so
-        // the user is told what to fix rather than watching a stale reading.
+        // A stale reachability probe must not replace fresh glucose or its
+        // alerts. Keep the diagnostic only when no usable reading is available.
         if (wifi_is_connected() &&
-            (netcheck_dns() == NC_FAIL || netcheck_data() == NC_FAIL)) {
+            (netcheck_dns() == NC_FAIL || netcheck_data() == NC_FAIL) &&
+            (!http_get_reading().valid || !http_has_ever_received() ||
+             http_time_since_last_reading() >= stale_ms ||
+             http_get_failure_count() >= FAILURE_STALE_COUNT)) {
             return STATE_NET_LIMITED;
         }
 

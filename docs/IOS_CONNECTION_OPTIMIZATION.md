@@ -50,3 +50,19 @@ The attached clock had firmware 0.2.13 without the BLE service. A fresh private 
 Installed existing companion firmware **0.3.2**, binary SHA-256 `fe4ea04cfe9ad61e3303db2beb9314053085f2348b42e247cb0cacb6e296e529`. This is the PR's companion candidate, not a merge of newer mainline-only firmware features. A 90-second observation confirmed one boot, completed setup, six provider reading receipts and five BLE initializations, with no captured panic/allocation-failure signatures. Minimum reported heap was **42,036 bytes**; observed largest free block at HTTPS operation boundaries was **55,284 bytes**. These samples do not measure the smallest block during the request. No phone authentication occurred during the capture. Serial observation ended and the clock was left running.
 
 Actual glucose values, credentials and passkeys were neither collected in the sanitized smoke summary nor committed. The complete flash backup remains private under `SugarClock Backups/connection-20260930`.
+
+
+## Less disruptive recovery and Add Clock — build 19 (October 1, 2026)
+
+Warm reconnection now sends **two readiness requests: hello and settings.get**, instead of three, when the verified device boot, firmware, hardware, protocol and capabilities match the previously loaded session. The app still reads the clock's actual settings before permitting a save and reuses only verified schema metadata. The last status snapshot is timestamped and refreshed by the foreground health check or an explicit refresh; it is not presented as a new reading. A clock reboot or changed firmware/capabilities refreshes status and schema. This supersedes the status-on-every-reconnect behavior above, without changing durable save verification or replaying mutations.
+
+Add Clock drains any unrelated saved-clock recovery before discovery. Its pending connection is cancellable both with **Stop connecting** and by leaving the screen, and adding a new clock stops after three unsuccessful attempts with actionable retry guidance. Saved clocks retain persistent foreground recovery with capped backoff. Choosing Add Clock clears the active selection but preserves every saved clock and nickname; an existing clock remains available from My Clocks. The app prefers the advertised local name in discovery. Loaded editors remain usable through interruptions and explicitly retain unsaved edits until the owner can tap Save after reconnection.
+
+Verification for build 19:
+
+- **89 Swift tests passed**, including six new regressions for bounded new-clock attempts, cancellation, handing discovery control away from a saved clock, protecting writes/OTA from interruption, same-boot reconnect request counts and fresh status after a reboot.
+- Complete Debug simulator build, including production SwiftUI views and assets: **passed**.
+- Signed iPhone Release archive **1.0.0 (19)**: **succeeded**.
+- App Store Connect confirmed build **19** as **Testing** in the existing **Internal** TestFlight group on **October 1, 2026**. This confirms tester availability, not installation or successful radio testing on the owner's phone.
+
+The corresponding firmware **0.3.3** recovery work is recorded in [BLE_RECOVERY_2026-10-01.md](BLE_RECOVERY_2026-10-01.md). The TC001 still requires bounded Bluetooth pauses for encrypted network work; the app improvements do not promise an uninterrupted radio connection. Use build 19 for the physical acceptance steps above, including pairing the intended USB clock, repeated foreground glucose polls, two confirmed brightness saves, and background/foreground return. Physical iPhone UI, RF timing and long-session reliability remain unverified for this build.

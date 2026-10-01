@@ -17,6 +17,7 @@ import Combine
     private let requestUUID=CBUUID(string:"ca7c0002-63a2-4b7c-9a5b-763e4e0c1000")
     private let responseUUID=CBUUID(string:"ca7c0003-63a2-4b7c-9a5b-763e4e0c1000")
     @Published public private(set) var devices:[CBPeripheral]=[]
+    @Published public private(set) var advertisedNames:[UUID:String]=[:]
     @Published public private(set) var state="Starting Bluetooth"
     @Published public private(set) var connected=false
     @Published public private(set) var poweredOn=false
@@ -40,7 +41,7 @@ import Combine
     public var packetLimit:Int {min(180,peripheral?.maximumWriteValueLength(for:.withResponse) ?? 20)}
     public func scan() {
         guard central?.state == .poweredOn else { return }
-        devices=[]
+        devices=[];advertisedNames=[:]
         state="Looking for nearby clocks"
         central.scanForPeripherals(withServices:[Self.service],options:[CBCentralManagerScanOptionAllowDuplicatesKey:false])
     }
@@ -55,7 +56,13 @@ import Combine
         }
     }
     public func centralManager(_ central:CBCentralManager,didDiscover peripheral:CBPeripheral,advertisementData:[String:Any],rssi RSSI:NSNumber) {
+        if let name=advertisementData[CBAdvertisementDataLocalNameKey] as? String,!name.isEmpty {
+            advertisedNames[peripheral.identifier]=String(name.prefix(64))
+        }
         if let index=devices.firstIndex(where:{$0.identifier==peripheral.identifier}) {devices[index]=peripheral} else {devices.append(peripheral)}
+    }
+    public func displayName(for device:CBPeripheral)->String {
+        advertisedNames[device.identifier] ?? device.name ?? "SugarClock"
     }
     public func connect(id:UUID) async throws {
         guard central?.state == .poweredOn else {throw ClockError.unavailable(state)}

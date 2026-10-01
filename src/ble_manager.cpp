@@ -1,5 +1,6 @@
 #include "ble_manager.h"
 #include "ble_protocol.h"
+#include "ble_discovery.h"
 #include "ble_memory_policy.h"
 #include "config_patch.h"
 #include "settings_apply.h"
@@ -88,11 +89,17 @@ class ServerCallbacks:public NimBLEServerCallbacks {
   // and calls onConnect. Use the peer's verified security, and initialize the
   // session only once so a late connect event preserves an in-flight request.
   secure=peerAuthorized(c);
-  Serial.printf("[BLE] Phone connected handle=%u secure=%d\n",unsigned(c.getConnHandle()),int(secure.load()));
-  s->updateConnParams(c.getConnHandle(),24,48,0,400);
+  Serial.printf("[BLE] Phone connected handle=%u secure=%d interval_us=%u latency=%u timeout_ms=%u mtu=%u\n",
+   unsigned(c.getConnHandle()),int(secure.load()),unsigned(c.getConnInterval())*1250,
+   unsigned(c.getConnLatency()),unsigned(c.getConnTimeout())*10,unsigned(c.getMTU()));
+  // Apple accessory guidance now requires a 6–18 second supervision timeout.
+  // This is one request per connection; the central chooses the actual values.
+  s->updateConnParams(c.getConnHandle(),24,48,0,600);
  }
  void onDisconnect(NimBLEServer*,NimBLEConnInfo& c,int reason) override {
-  Serial.printf("[BLE] Phone disconnected handle=%u reason=%d network=%d\n",unsigned(c.getConnHandle()),reason,int(networkLease.load()));
+  Serial.printf("[BLE] Phone disconnected handle=%u reason=%d network=%d interval_us=%u latency=%u timeout_ms=%u\n",
+   unsigned(c.getConnHandle()),reason,int(networkLease.load()),unsigned(c.getConnInterval())*1250,
+   unsigned(c.getConnLatency()),unsigned(c.getConnTimeout())*10);
   if(connection!=c.getConnHandle()) return;
   secure=false;connection=BLE_HS_CONN_HANDLE_NONE;passkeyUntil=0;
   Guard g;++sessionEpoch;clearMailbox(); // queued but unexecuted work is canceled; Wi-Fi/OTA already started continues.
@@ -109,7 +116,17 @@ class ServerCallbacks:public NimBLEServerCallbacks {
   }
   if(!beginSession(c)) return;
   secure=true;passkeyUntil=0;windowUntil=0;
-  Serial.printf("[BLE] Phone authenticated handle=%u\n",unsigned(c.getConnHandle()));
+  Serial.printf("[BLE] Phone authenticated handle=%u interval_us=%u latency=%u timeout_ms=%u mtu=%u\n",
+   unsigned(c.getConnHandle()),unsigned(c.getConnInterval())*1250,unsigned(c.getConnLatency()),
+   unsigned(c.getConnTimeout())*10,unsigned(c.getMTU()));
+ }
+ void onConnParamsUpdate(NimBLEConnInfo& c) override {
+  Serial.printf("[BLE] Link parameters handle=%u interval_us=%u latency=%u timeout_ms=%u\n",
+   unsigned(c.getConnHandle()),unsigned(c.getConnInterval())*1250,unsigned(c.getConnLatency()),
+   unsigned(c.getConnTimeout())*10);
+ }
+ void onMTUChange(uint16_t mtu,NimBLEConnInfo& c) override {
+  Serial.printf("[BLE] Link MTU handle=%u mtu=%u\n",unsigned(c.getConnHandle()),unsigned(mtu));
  }
 } serverCallbacks;
 class Characteristics:public NimBLECharacteristicCallbacks {
@@ -213,7 +230,7 @@ void ble_init() {
  Serial.println("[BLE TEST] Coexistence enabled for ordinary network requests; OTA still suspends BLE");
 #endif
  if(!mutex) {mutex=xSemaphoreCreateMutexStatic(&storage);bootID=esp_random();}
- snprintf(identity,sizeof(identity),"%012llX",ESP.getEfuseMac());snprintf(name,sizeof(name),"SugarClock-%.6s",identity+6);
+ snprintf(identity,sizeof(identity),"%012llX",ESP.getEfuseMac());scble::discovery_name(name,sizeof(name),identity);
  if(!NimBLEDevice::init(name)) { Serial.println("[BLE] Unavailable; normal clock operation continues");return; }
  NimBLEDevice::setDeviceCallbacks(&deviceCallbacks);
  if(config_bond_reset_pending() && NimBLEDevice::deleteAllBonds()) config_bond_reset_finished();
@@ -229,12 +246,16 @@ void ble_init() {
  tx=service->createCharacteristic(scble::Response,NIMBLE_PROPERTY::READ|NIMBLE_PROPERTY::READ_ENC|NIMBLE_PROPERTY::READ_AUTHEN,scble::MaxPacket);
  if(!service || !rx || !tx) { NimBLEDevice::deinit(true);server=nullptr;return; }
  rx->setCallbacks(&characteristics);tx->setCallbacks(&characteristics);if(!server->start()) {NimBLEDevice::deinit(true);server=nullptr;return;}
- auto* adv=NimBLEDevice::getAdvertising();adv->addServiceUUID(scble::Service);adv->setName(name);adv->enableScanResponse(true);
+ auto* adv=NimBLEDevice::getAdvertising();
+ if(!scble::configure_advertisement(*adv,scble::Service,name)) {
+  Serial.println("[BLE] Advertisement unavailable; normal clock operation continues");
+  NimBLEDevice::deinit(true);server=nullptr;tx=nullptr;return;
+ }
  Serial.printf("[BLE MEM] free=%u min=%u largest=%u\n",ESP.getFreeHeap(),ESP.getMinFreeHeap(),heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
  enabled=true;if(!config_has_wifi() && NimBLEDevice::getNumBonds()==0) ble_pairing_window();adv->start();
 }
-void ble_pairing_window() { if(enabled) windowUntil=millis()+120000; }
-void ble_reset_bonds() { if(enabled) resetRequested=true; }
+void ble_pairing_window() { if(enabled || suspended) windowUntil=millis()+120000; }
+void ble_reset_bonds() { if(enabled || suspended) resetRequested=true; }
 bool ble_is_connected() { return connection!=BLE_HS_CONN_HANDLE_NONE; }
 void ble_suspend_for_ota() {
  if(!enabled) return;

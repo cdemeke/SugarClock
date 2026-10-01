@@ -5,6 +5,7 @@ import Foundation
 enum SessionPolicy {
     static let connectionTimeout: UInt64 = 60_000_000_000
     static let discoveryTimeout: UInt64 = 15_000_000_000
+    static let newClockMaximumAttempts = 3
     static func retryDelay(afterFailures count: Int, base: UInt64 = 2_000_000_000) -> UInt64 {
         let multiplier = UInt64(1 << min(max(count - 1, 0), 4))
         return min(base, 30_000_000_000 / multiplier) * multiplier

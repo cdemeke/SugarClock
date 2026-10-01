@@ -4,6 +4,16 @@ import tempfile
 import unittest
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 class BLEHostTests(unittest.TestCase):
+    def test_discovery_and_admission_during_network_pause(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source=(ROOT/'src/ble_manager.cpp').read_text()
+            implementation=source[source.index('void ble_pairing_window()'):source.index('bool ble_is_connected()')]
+            (pathlib.Path(tmp)/'ble_admission.inc').write_text(implementation)
+            exe=str(pathlib.Path(tmp)/'ble-discovery')
+            subprocess.run(['c++','-std=c++17','-Wall','-Wextra','-Werror','-Iinclude','-I'+tmp,
+                            'tests/test_ble_discovery.cpp','-o',exe],cwd=ROOT,check=True)
+            subprocess.run([exe],cwd=ROOT,check=True)
+
     def test_actual_network_lease_in_both_profiles(self):
         with tempfile.TemporaryDirectory() as tmp:
             source=(ROOT/'src/ble_manager.cpp').read_text()

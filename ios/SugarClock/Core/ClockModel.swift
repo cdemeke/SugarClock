@@ -38,6 +38,7 @@ private struct PendingSave {
     @Published var message=""
     @Published private(set) var saveReceipts:[String:SaveReceipt]=[:]
     @Published private(set) var lastSettingsRefresh:Date?
+    @Published private(set) var lastStatusRefresh:Date?
     private var pendingSave:PendingSave?
     var hasLoadedSettings:Bool {!settings.isEmpty && !fields.isEmpty}
     var quietReconnect:Bool {reconnecting && hasLoadedSettings}
@@ -141,6 +142,9 @@ private struct PendingSave {
         launchConnection(selected.peripheral)
     }
     private func launchConnection(_ id:UUID) {
+        // Saved clocks recover for as long as the app is in the foreground. A new
+        // clock must return control if its pairing window closes or it goes away.
+        let addingNewClock = !clocks.contains(where:{$0.peripheral==id})
         reconnecting=true;busy=true;message="";sessionReady=false
         connectionState="Connecting…"
         reconnectTask=Task {
@@ -178,6 +182,12 @@ private struct PendingSave {
                         return
                     }
                     failures=min(failures+1,5)
+                    if addingNewClock,failures>=SessionPolicy.newClockMaximumAttempts {
+                        self.automaticReconnect=false
+                        self.connectionState="Couldn’t finish adding clock"
+                        self.message="Move closer, hold the clock’s middle button for 3 seconds, then release and tap it to try again. If it was already added, open it from My Clocks."
+                        return
+                    }
                 }
             }
         }
@@ -224,7 +234,7 @@ private struct PendingSave {
         guard !busy else {return}
         automaticReconnect=true
         if selected?.peripheral != id {
-            finishPendingAsUnconfirmed();pendingSave=nil;lastSettingsRefresh=nil
+            finishPendingAsUnconfirmed();pendingSave=nil;lastSettingsRefresh=nil;lastStatusRefresh=nil
             sessionReady=false;unconfirmedChange=false
             selected=clocks.first(where:{$0.peripheral==id})
             settings=[:];status=[:];hello=[:];fields=[];schemaIdentity=nil;networks=[];wifiScanMessage=""
@@ -249,7 +259,9 @@ private struct PendingSave {
         if let known=clocks.first(where:{$0.peripheral==id}),known.id != identity {
             throw ClockError.unavailable("This clock's identity changed. Remove it from My Clocks and add it again.")
         }
-        if selected?.id != identity {settings=[:];status=[:];fields=[];schemaIdentity=nil}
+        let greetedIdentity=SchemaIdentity(greeting)
+        let needsStatus=status.isEmpty || greetedIdentity==nil || SchemaIdentity(hello) != greetedIdentity
+        if selected?.id != identity {settings=[:];status=[:];fields=[];schemaIdentity=nil;lastSettingsRefresh=nil;lastStatusRefresh=nil}
         let saved=clocks.first(where:{$0.id==identity}) ?? SavedClock(id:identity,peripheral:id,nickname:greeting["name"] as? String ?? "SugarClock")
         selected=SavedClock(id:identity,peripheral:id,nickname:saved.nickname)
         if let index=clocks.firstIndex(where:{$0.id==identity}) {clocks[index]=selected!}
@@ -259,18 +271,20 @@ private struct PendingSave {
         // Pairing may need 45 seconds; subsequent reads fail promptly on a stale link.
         next.requestTimeout=15;transport.operationTimeout=15
         connectionState="Loading settings…"
-        try await refresh()
+        try await refreshSettings()
+        // Reconnection needs current configuration and bounds, not a second
+        // status snapshot. Keep the last timestamped status until the health
+        // check (or an explicit refresh), leaving more of each BLE window usable.
+        if needsStatus {try await refreshStatus()}
         try await loadSchema(greeting,client:next)
         try Task.checkCancellation()
     }
     func checkConnection() async {
-        guard foreground,!busy,reconnectTask==nil,updateMonitor==nil,sessionReady,let client else {return}
+        guard foreground,!busy,reconnectTask==nil,updateMonitor==nil,sessionReady,client != nil else {return}
         busy=true;checkingConnection=true
         defer {busy=false;checkingConnection=false;if !sessionReady {startReconnect()}}
         do {
-            let response=try await client.request("status.get")
-            try Task.checkCancellation()
-            status=response["status"] as? [String:Any] ?? [:]
+            try await refreshStatus()
         } catch {
             sessionReady=false;self.client=nil;transport.close()
         }
@@ -304,10 +318,13 @@ private struct PendingSave {
     }
     func refresh() async throws {
         try await refreshSettings()
+        try await refreshStatus()
+    }
+    private func refreshStatus() async throws {
         guard let client else {throw ClockError.disconnected}
         let loadedStatus=try await client.request("status.get")["status"] as? [String:Any] ?? [:]
         try Task.checkCancellation()
-        status=loadedStatus
+        status=loadedStatus;lastStatusRefresh=Date()
     }
     private func verifyPendingSave(_ loaded:[String:Any],durable:Bool) {
         guard let pending=pendingSave,pending.clockID==selected?.id,
@@ -341,6 +358,17 @@ private struct PendingSave {
     }
     var canSend:Bool {sessionReady && transport.connected && !busy && updateMonitor==nil}
     var canChooseAnotherClock:Bool {updateMonitor==nil && !updatingClock && (!busy || reconnecting)}
+    /// Add Clock owns discovery; an unrelated saved clock must not monopolize it.
+    func prepareToAddClock() async -> Bool {
+        guard canChooseAnotherClock else {return false}
+        let pending=reconnectTask
+        stopReconnecting()
+        let request=selectionRequest
+        await pending?.value
+        guard selectionRequest==request,foreground,!Task.isCancelled,!busy,updateMonitor==nil else {return false}
+        disconnect()
+        return true
+    }
     func cancelConnection() {
         guard updateMonitor==nil,reconnectTask != nil else {return}
         stopReconnecting()
@@ -482,7 +510,7 @@ private struct PendingSave {
         return false
     }
     func disconnect() {
-        stopReconnecting();pendingSave=nil;lastSettingsRefresh=nil;selected=nil;settings=[:];status=[:];fields=[];hello=[:];schemaIdentity=nil;networks=[];wifiScanMessage=""
+        stopReconnecting();pendingSave=nil;lastSettingsRefresh=nil;lastStatusRefresh=nil;selected=nil;settings=[:];status=[:];fields=[];hello=[:];schemaIdentity=nil;networks=[];wifiScanMessage=""
         remember()
     }
     func remove(_ clock:SavedClock) {

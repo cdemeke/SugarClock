@@ -16,9 +16,12 @@ DisplayState toggle_order[12];int toggle_count=0,toggle_index=0;
 char message_buf[64]{};
 struct GlucoseReading {bool valid=true;int glucose=40,force_mode=-1;char message[64]{};} reading;
 GlucoseReading http_get_reading() {return reading;}
-int http_get_failure_count() {return 0;}
-bool http_has_ever_received() {return true;}
-unsigned long http_time_since_last_reading() {return 0;}
+int failures=0;
+bool ever=true;
+unsigned long readingAge=0;
+int http_get_failure_count() {return failures;}
+bool http_has_ever_received() {return ever;}
+unsigned long http_time_since_last_reading() {return readingAge;}
 bool sysmon_has_data() {return false;}
 bool time_is_available() {return true;}
 bool wifi_is_ap_mode() {return false;}
@@ -26,7 +29,8 @@ bool wifi_is_connected() {return true;}
 bool config_has_wifi() {return true;}
 bool config_has_server() {return true;}
 constexpr int NC_FAIL=2;
-int netcheck_dns() {return 1;}int netcheck_data() {return 1;}
+int dnsResult=1,dataResult=1;
+int netcheck_dns() {return dnsResult;}int netcheck_data() {return dataResult;}
 bool notify_has_active() {return false;}
 unsigned beeps=0;
 void buzzer_beep(int,int,int) {++beeps;}
@@ -37,9 +41,20 @@ int main() {
  cfg.time_display_enabled=true;cfg.ambient_enabled=true;
  engine_rebuild_toggle_order();assert(toggle_count==4);
  check_alerts();assert(beeps==1);assert(urgent_glucose_is_active());
+ // A failed earlier reachability probe cannot obscure recovered fresh glucose,
+ // including urgent low readings. Actual missing/stale data retains diagnostics.
+ dataResult=NC_FAIL;
+ assert(evaluate_state()==STATE_GLUCOSE_DISPLAY);
+ now+=2000;check_alerts();assert(beeps==2);
+ dnsResult=NC_FAIL;assert(evaluate_state()==STATE_GLUCOSE_DISPLAY);
+ readingAge=20UL*60*1000;assert(evaluate_state()==STATE_NET_LIMITED);
+ readingAge=0;failures=FAILURE_STALE_COUNT;assert(evaluate_state()==STATE_NET_LIMITED);
+ failures=0;reading.valid=false;assert(evaluate_state()==STATE_NET_LIMITED);
+ reading.valid=true;ever=false;assert(evaluate_state()==STATE_NET_LIMITED);
+ ever=true;dnsResult=dataResult=1;
  cfg.glucose_enabled=false;now+=2000;
  // Even an old valid urgent reading or a forced glucose view cannot override Off.
- check_alerts();assert(beeps==1);assert(!urgent_glucose_is_active());
+ check_alerts();assert(beeps==2);assert(!urgent_glucose_is_active());
  state_forced=true;reading.force_mode=STATE_GLUCOSE_DISPLAY;
  engine_rebuild_toggle_order();assert(toggle_count==2 && user_mode==STATE_TIME_DISPLAY);
  assert(evaluate_state()==STATE_TIME_DISPLAY);

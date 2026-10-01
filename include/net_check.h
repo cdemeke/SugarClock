@@ -21,6 +21,10 @@ void netcheck_loop();
 // Queue a full run (also happens automatically after every new connection)
 void netcheck_request();
 
+// Invalidate old-source evidence from any settings callback. Work is performed
+// by netcheck_loop; this never starts a network request in the caller.
+void netcheck_configuration_changed();
+
 bool netcheck_running();
 
 NetCheckResult netcheck_dns();

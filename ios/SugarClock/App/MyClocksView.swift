@@ -56,7 +56,7 @@ struct ClockLibraryView:View {
                     .buttonStyle(SugarButtonStyle(prominent:false))
             }
             NavigationLink(value:ClockRoute.add) {Label("Add clock",systemImage:"plus")}
-                .buttonStyle(SugarButtonStyle(prominent:false))
+                .buttonStyle(SugarButtonStyle(prominent:false)).disabled(!model.canChooseAnotherClock)
             NavigationLink {TroubleshootingView()} label:{Label("Help",systemImage:"questionmark.circle")}
         }.navigationTitle("My Clocks")
     }
@@ -77,13 +77,22 @@ struct DiscoveryView:View {
                 Button {Task {
                     await model.connect(device.identifier)
                     if model.sessionReady,model.selected?.peripheral==device.identifier {onConnected(device.identifier)}
-                }} label:{DestinationRow(title:device.name ?? "SugarClock",subtitle:"Tap to pair",symbol:"plus.circle")}
+                }} label:{DestinationRow(title:bluetooth.displayName(for:device),subtitle:"Tap to pair",symbol:"plus.circle")}
                     .buttonStyle(.plain).disabled(model.busy || model.updatingClock)
             }
             if newDevices.isEmpty {Text(bluetooth.poweredOn ? "No new clocks nearby":"Turn on Bluetooth to find your clock.").font(.subheadline).foregroundStyle(SugarTheme.secondary)}
+            if model.reconnecting {
+                Button("Stop connecting") {model.cancelConnection()}
+                    .buttonStyle(SugarButtonStyle(prominent:false))
+            }
             Button {bluetooth.scan()} label:{Label("Search nearby",systemImage:"magnifyingglass")}
                 .buttonStyle(SugarButtonStyle(prominent:false)).disabled(model.busy || model.updatingClock)
-        }.onAppear {if !model.busy {bluetooth.scan()}}
+        }.task {
+            if await model.prepareToAddClock(),!Task.isCancelled {bluetooth.scan()}
+        }.onDisappear {
+            // Successful pairing navigates to settings with its connection intact.
+            if !model.sessionReady {model.cancelConnection()}
+        }
     }
 }
 
