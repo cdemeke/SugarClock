@@ -335,6 +335,7 @@ static bool apply_config_patch(JsonObjectConst changes) {
             (strcmp(name, "default_mode") == 0 && value.is<int>() && value.as<int>() >= 0 && value.as<int>() <= 3) ||
             (strcmp(name, "ambient_enabled") == 0 && value.is<bool>()) ||
             (strcmp(name, "ambient_creature") == 0 && value.is<int>() && value.as<int>() >= 0 && value.as<int>() <= 1) ||
+            (strcmp(name, "ambient_character") == 0 && value.is<int>() && value.as<int>() >= 0 && value.as<int>() <= 6) ||
             (strcmp(name, "ambient_seasonal") == 0 && value.is<bool>()) ||
             (strcmp(name, "notify_enabled") == 0 && value.is<bool>()) ||
             (strcmp(name, "auto_cycle_enabled") == 0 && value.is<bool>()) ||

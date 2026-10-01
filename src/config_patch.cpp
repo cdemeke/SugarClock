@@ -36,6 +36,7 @@ const Field fields[] = {
     {"default_mode",offsetof(AppConfig,default_mode),sizeof(((AppConfig*)0)->default_mode),Kind::Int,0,3,false},
     {"ambient_enabled",offsetof(AppConfig,ambient_enabled),sizeof(((AppConfig*)0)->ambient_enabled),Kind::Bool,0,2147483647,false},
     {"ambient_creature",offsetof(AppConfig,ambient_creature),sizeof(((AppConfig*)0)->ambient_creature),Kind::Int,0,1,false},
+    {"ambient_character",offsetof(AppConfig,ambient_creature),sizeof(((AppConfig*)0)->ambient_creature),Kind::Int,0,6,false},
     {"ambient_seasonal",offsetof(AppConfig,ambient_seasonal),sizeof(((AppConfig*)0)->ambient_seasonal),Kind::Bool,0,2147483647,false},
     {"alert_enabled",offsetof(AppConfig,alert_enabled),sizeof(((AppConfig*)0)->alert_enabled),Kind::Bool,0,2147483647,false},
     {"alert_low",offsetof(AppConfig,alert_low),sizeof(((AppConfig*)0)->alert_low),Kind::Int,20,600,false},
@@ -87,7 +88,7 @@ const Field fields[] = {
 }
 void config_schema(JsonArray a) {
  for(const auto& f:fields) {
-  if(!strncmp(f.name,"wifi_",5)) continue;
+  if(!strncmp(f.name,"wifi_",5) || !strcmp(f.name,"ambient_creature")) continue;
   JsonObject o=a.add<JsonObject>(); o["key"]=f.name;
   o["type"]=f.secret?"secret":f.kind==Kind::Text?"text":f.kind==Kind::Bool?"bool":"int";
   if(f.kind==Kind::Text) o["max_length"]=f.size-1;
@@ -97,6 +98,7 @@ void config_schema(JsonArray a) {
 void config_public(JsonObject o,const AppConfig& c) {
  for(const auto& f:fields) {
   const char* p=(const char*)&c+f.offset;
+  if(!strcmp(f.name,"ambient_creature")) {o[f.name]=c.ambient_creature==1 ? 1:0;continue;}
   if(f.secret) { o[std::string(f.name)+"_configured"]=*p!=0; continue; }
   switch(f.kind) {
    case Kind::Text:o[f.name]=p;break;
@@ -111,6 +113,8 @@ void config_public(JsonObject o,const AppConfig& c) {
 const char* config_patch(AppConfig& c,JsonObjectConst patch,bool web) {
  if(patch.isNull()) return "invalid_patch";
  for(JsonPairConst pair:patch) {
+  // Match production precedence, independent of JSON key order.
+  if(!strcmp(pair.key().c_str(),"ambient_creature") && !patch["ambient_character"].isNull()) continue;
   const Field* fp=nullptr;
   for(const auto& f:fields) if(!strcmp(pair.key().c_str(),f.name)) { fp=&f;break; }
   if(!fp) return "unsupported_field";

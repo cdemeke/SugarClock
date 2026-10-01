@@ -32,6 +32,7 @@ struct BrandIcon:View {
 }
 
 struct SugarScreen<Content:View>:View {
+    var settingsDock=false
     @ViewBuilder let content:Content
     var body:some View {
         ScrollView {
@@ -47,6 +48,7 @@ struct SugarScreen<Content:View>:View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(SugarTheme.background,for:.navigationBar)
         .scrollDismissesKeyboard(.interactively)
+        .modifier(ClockSettingsDock(enabled:settingsDock))
     }
 }
 
@@ -149,13 +151,14 @@ struct SugarSpinner:View {
 
 struct OperationFeedback:View {
     @EnvironmentObject var model:ClockModel
+    var showsSettingsFeedback=false
     @ScaledMetric(relativeTo:.subheadline) private var statusIconSize:CGFloat=20
     var body:some View {
         VStack(alignment:.leading,spacing:8) {
         if model.selected != nil || model.reconnecting {
             HStack(spacing:8) {
                 Group {
-                    if model.reconnecting || (model.updatingClock && !model.sessionReady) {
+                    if model.syncingSettings || (model.updatingClock && !model.sessionReady) {
                         SugarSpinner()
                     } else {
                         Image(systemName:model.sessionReady ? "checkmark.circle.fill":"exclamationmark.circle")
@@ -171,7 +174,9 @@ struct OperationFeedback:View {
                 }
             }
             .frame(minHeight:28)
-            if model.hasLoadedSettings,!model.sessionReady {
+            if model.syncingSettings,model.canEditSettingsDraft {
+                Text("You can keep editing.").font(.caption).foregroundStyle(SugarTheme.secondary)
+            } else if model.hasLoadedSettings,!model.sessionReady {
                 if let refreshed=model.lastSettingsRefresh {
                     (Text("Last synced ") + Text(refreshed,style:.time)).font(.caption).foregroundStyle(SugarTheme.secondary)
                 }
@@ -186,6 +191,7 @@ struct OperationFeedback:View {
             }
             .frame(minHeight:28)
         }
+        if showsSettingsFeedback {PendingSettingsFeedback()}
         if !model.message.isEmpty {
             Text(model.message).font(.footnote).foregroundStyle(SugarTheme.secondary)
                 .accessibilityLabel("Operation result: \(model.message)")

@@ -9,7 +9,6 @@
 #include "trend_arrows.h"
 #include "weather_client.h"
 #include "ambient_fish.h"
-#include "ambient_ghost.h"
 #include "buzzer.h"
 #include "timer_engine.h"
 #include "notify_engine.h"
@@ -343,7 +342,6 @@ void engine_init() {
     transition_start_level = 255;
 
     ambient_fish_init();
-    ambient_ghost_init();
 
     engine_rebuild_toggle_order();
 
@@ -672,11 +670,7 @@ static void render_state(DisplayState state) {
 
         case STATE_AMBIENT_CREATURE_DISPLAY: {
             display_set_brightness(effective_brightness());
-            if (cfg.ambient_creature == 1) {
-                ambient_ghost_render();
-            } else {
-                ambient_fish_render();
-            }
+            ambient_fish_render();
             display_show();
             break;
         }
@@ -1251,11 +1245,7 @@ void engine_right_long_action() {
             stopwatch_reset();
             break;
         case STATE_AMBIENT_CREATURE_DISPLAY:
-            if (config_get().ambient_creature == 1) {
-                ambient_ghost_interact();
-            } else {
-                ambient_fish_interact();
-            }
+            ambient_fish_interact();
             engine_reset_auto_cycle();
             break;
         default:

@@ -20,14 +20,13 @@ struct DeviceView:View {
         }
     }
     var body:some View {
-        SugarScreen {
+        SugarScreen(settingsDock:true) {
             HStack(spacing:14) {
                 BrandIcon(name:"BrandLogo",size:56)
                 Text(model.selected?.nickname ?? "SugarClock").font(.title2.bold())
             }
-            OperationFeedback()
+            OperationFeedback(showsSettingsFeedback:true)
             if model.hasLoadedSettings {
-                PendingSettingsCard()
                 serviceList("Enabled services",services.filter {$0.enabled(in:model.settings)==true})
                 serviceList("Additional services",services.filter {$0.enabled(in:model.settings)==false})
                 serviceList("Services",services.filter {$0.enabled(in:model.settings)==nil})
@@ -47,7 +46,7 @@ struct ClockDetailsView:View {
     @EnvironmentObject var model:ClockModel
     @State private var nickname=""
     var body:some View {
-        SugarScreen {
+        SugarScreen(settingsDock:true) {
             SugarCard(title:"Name") {
                 TextField("Clock name",text:$nickname).fieldSurface()
                 Button("Save name") {
@@ -86,18 +85,19 @@ struct SettingEditor:View {
     let field:[String:Any]
     var body:some View {
         SettingsPage(title:label(field["key"] as? String ?? "Setting"),subtitle:"",sections:[("Preference",[field["key"] as? String ?? ""])],overrideFields:[field])
+            .navigationTitle(label(field["key"] as? String ?? "Setting"))
     }
 }
 struct AllSettingsView:View {
     @EnvironmentObject var model:ClockModel
     private var advancedFields:[[String:Any]] {
-        model.fields.filter {
+        SettingsCategory.preferredFields(model.fields).filter {
             let key=$0["key"] as? String ?? ""
             return !key.hasPrefix("night_") && !key.hasPrefix("notify_")
         }
     }
     var body:some View {
-        SugarScreen {
+        SugarScreen(settingsDock:true) {
             PageHeading(title:"Additional Settings",subtitle:"Options available on your clock’s firmware.")
             SugarCard {
                 ForEach(advancedFields.indices,id:\.self) {index in
@@ -113,7 +113,7 @@ struct AllSettingsView:View {
 }
 
 func label(_ key:String)->String {
-    ["weather_enabled":"Enabled","weather_city":"Location","weather_api_key":"OpenWeather API key","weather_use_f":"Use Fahrenheit","weather_poll_min":"Refresh interval (minutes)","timer_enabled":"Enabled","timer_work_min":"Focus (minutes)","timer_break_min":"Short break (minutes)","timer_long_break_min":"Long break (minutes)","timer_sessions":"Sessions before a long break","timer_buzzer":"Sound","stopwatch_enabled":"Enabled","countdown_enabled":"Enabled","countdown_name":"Event name","countdown_target":"Event date and time","sysmon_enabled":"Enabled","sysmon_label":"Label","sysmon_display_mode":"Display style","sysmon_warn_pct":"Warning (%)","sysmon_crit_pct":"Critical (%)","glucose_enabled":"Blood sugar readings","timezone":"Time zone","use_24h":"24-hour time","date_on_time_screen":"Show date","date_format":"Date format","ambient_enabled":"Enabled","ambient_seasonal":"Seasonal surprises","alert_enabled":"Enabled","time_display_enabled":"Enabled","auto_cycle_enabled":"Auto cycle","auto_cycle_sec":"Seconds per screen","alert_low":"Low glucose alert","alert_high":"High glucose alert","alert_snooze_min":"Snooze (minutes)","use_mmol":"Use mmol/L","data_source":"Source","auto_update_hour":"Update time","auto_update_enabled":"Automatic updates","dexcom_us":"Dexcom US server","server_url":"Server URL","auth_token":"Auth token","ambient_creature":"Pet","default_mode":"Default view","wifi_security":"Wi-Fi security","poll_interval":"Poll interval (seconds)","stale_timeout_min":"Stale timeout (minutes)","show_delta":"Show glucose change (delta)","auto_brightness":"Auto brightness","thresh_urgent_low":"Urgent low","thresh_low":"Low","thresh_high":"High","thresh_urgent_high":"Urgent high"][key] ?? key.replacingOccurrences(of:"_",with:" ").capitalized
+    ["weather_enabled":"Enabled","weather_city":"Location","weather_api_key":"OpenWeather API key","weather_use_f":"Use Fahrenheit","weather_poll_min":"Refresh interval (minutes)","timer_enabled":"Enabled","timer_work_min":"Focus (minutes)","timer_break_min":"Short break (minutes)","timer_long_break_min":"Long break (minutes)","timer_sessions":"Sessions before a long break","timer_buzzer":"Sound","stopwatch_enabled":"Enabled","countdown_enabled":"Enabled","countdown_name":"Event name","countdown_target":"Event date and time","sysmon_enabled":"Enabled","sysmon_label":"Label","sysmon_display_mode":"Display style","sysmon_warn_pct":"Warning (%)","sysmon_crit_pct":"Critical (%)","glucose_enabled":"Blood sugar readings","timezone":"Time zone","use_24h":"24-hour time","date_on_time_screen":"Show date","date_format":"Date format","ambient_enabled":"Enabled","ambient_seasonal":"Seasonal surprises","alert_enabled":"Enabled","time_display_enabled":"Enabled","auto_cycle_enabled":"Auto cycle","auto_cycle_sec":"Seconds per screen","alert_low":"Low glucose alert","alert_high":"High glucose alert","alert_snooze_min":"Snooze (minutes)","use_mmol":"Use mmol/L","data_source":"Source","auto_update_hour":"Update time","auto_update_enabled":"Automatic updates","dexcom_us":"Dexcom US server","server_url":"Server URL","auth_token":"Auth token","ambient_creature":"Pet","ambient_character":"Pet","default_mode":"Default view","wifi_security":"Wi-Fi security","poll_interval":"Poll interval (seconds)","stale_timeout_min":"Stale timeout (minutes)","show_delta":"Show glucose change (delta)","auto_brightness":"Auto brightness","thresh_urgent_low":"Urgent low","thresh_low":"Low","thresh_high":"High","thresh_urgent_high":"Urgent high"][key] ?? key.replacingOccurrences(of:"_",with:" ").capitalized
 }
 
 struct SettingsPage:View {
@@ -132,12 +132,13 @@ struct SettingsPage:View {
     }
     var fields:[[String:Any]] {
         let keys=Set(sections.flatMap{$0.1})
-        return (overrideFields ?? model.fields).filter {keys.contains($0["key"] as? String ?? "")}
+        return SettingsCategory.preferredFields(overrideFields ?? model.fields)
+            .filter {keys.contains($0["key"] as? String ?? "")}
     }
     var body:some View {
-        SugarScreen {
+        SugarScreen(settingsDock:true) {
             if !subtitle.isEmpty {Text(subtitle).font(.subheadline).foregroundStyle(SugarTheme.secondary)}
-            OperationFeedback()
+            OperationFeedback(showsSettingsFeedback:true)
             if let key=headerToggleKey,fields.contains(where:{$0["key"] as? String==key}) {
                 SugarCard {
                     Toggle(isOn:Binding(get:{draft.booleans[key] ?? false},set:{setBool($0,key:key)})) {
@@ -185,107 +186,7 @@ struct SettingsPage:View {
                     Text(model.fields.isEmpty ? "Connect to load these settings." : "These settings are not supported by the connected firmware.").foregroundStyle(SugarTheme.secondary)
                 }
             }
-            else {PendingSettingsCard()}
         }
-    }
-}
-
-/// A per-clock draft is shared across every editor. Tapping Update captures all
-/// current edits; navigation never sends or discards them.
-struct PendingSettingsCard:View {
-    @EnvironmentObject var model:ClockModel
-    var showsReview=true
-    @State private var confirmDiscard=false
-    private var receipt:SaveReceipt? {
-        model.saveReceipt(for:Set(model.fields.compactMap {$0["key"] as? String}))
-    }
-    var body:some View {
-        SugarCard(title:model.pendingChangeCount==0 ? "Settings on this iPhone":"Pending changes") {
-            if model.pendingChangeCount>0 {
-                Text("\(model.pendingChangeCount) \(model.pendingChangeCount==1 ? "change":"changes") on this iPhone")
-                    .font(.headline).accessibilityAddTraits(.updatesFrequently)
-                Text(model.settingsUpdatePhase == .idle ? "Keep editing across screens. Nothing is sent until you tap Update clock.":"Your update is in progress. Any new edits stay pending for your next update.")
-                    .font(.footnote).foregroundStyle(SugarTheme.secondary)
-                if showsReview {
-                    NavigationLink {PendingSettingsReview()} label:{Label("Review changes",systemImage:"list.bullet.rectangle")}
-                        .font(.subheadline)
-                }
-            } else {
-                Text("No pending changes").font(.subheadline).foregroundStyle(SugarTheme.secondary)
-            }
-            switch model.settingsUpdatePhase {
-            case .waiting:
-                HStack(spacing:8) {SugarSpinner();Text("Waiting for clock…")}
-                Text("Keep SugarClock open and your clock nearby. We’ll connect and check its settings before sending your changes.")
-                    .font(.footnote).foregroundStyle(SugarTheme.secondary)
-                Button("Cancel update") {model.cancelSettingsUpdate()}.buttonStyle(SugarButtonStyle(prominent:false))
-            case .sending:
-                HStack(spacing:8) {SugarSpinner();Text("Updating clock…")}
-                Text("Checking that your changes were saved. Any further edits stay pending.")
-                    .font(.footnote).foregroundStyle(SugarTheme.secondary)
-            case .idle:
-                if model.pendingChangeCount>0 {
-                    Button {Task {await model.updateSettings()}} label:{Label("Update clock",systemImage:"arrow.up.circle")}
-                        .buttonStyle(SugarButtonStyle()).disabled(!model.canRequestSettingsUpdate)
-                    Button("Discard pending changes",role:.destructive) {confirmDiscard=true}.font(.footnote)
-                }
-            }
-            if model.settingsUpdatePhase == .idle,let receipt {SaveConfirmation(receipt:receipt)}
-            if !model.draftStorageMessage.isEmpty {
-                Text(model.draftStorageMessage).font(.footnote).foregroundStyle(.orange)
-            }
-            if model.settingsUpdatePhase == .idle,!model.settingsUpdateMessage.isEmpty {
-                Text(model.settingsUpdateMessage).font(.footnote).foregroundStyle(SugarTheme.secondary)
-                    .accessibilityLabel("Update result: \(model.settingsUpdateMessage)")
-            }
-        }.confirmationDialog("Discard all pending changes for this clock?",isPresented:$confirmDiscard,titleVisibility:.visible) {
-            Button("Discard changes",role:.destructive) {model.discardSettingsChanges()}
-        } message:{Text("The clock’s saved settings will stay unchanged.")}
-    }
-}
-
-struct PendingSettingsReview:View {
-    @EnvironmentObject var model:ClockModel
-    private var keys:[String] {model.settingsDraft.changed.sorted()}
-    var body:some View {
-        SugarScreen {
-            Text("These changes belong to \(model.selected?.nickname ?? "this clock"). The clock value is the last value read, which may be older while disconnected.")
-                .font(.subheadline).foregroundStyle(SugarTheme.secondary)
-            if let date=model.lastSettingsRefresh {
-                (Text("Last read ") + Text(date,style:.date) + Text(" at ") + Text(date,style:.time))
-                    .font(.caption).foregroundStyle(SugarTheme.secondary)
-            }
-            ForEach(keys,id:\.self) {key in
-                SugarCard(title:label(key)) {
-                    DetailRow(title:"On clock",value:clockValue(key))
-                    DetailRow(title:"Your change",value:draftValue(key))
-                    Button("Use clock value") {
-                        var draft=model.settingsDraft
-                        draft.discardChange(key,settings:model.settings,fields:model.fields)
-                        model.setDraft(draft)
-                    }.font(.footnote).disabled(!model.canEditSettingsDraft || model.settingsUpdatePhase != .idle)
-                    if key=="glucose_enabled",model.settingsDraft.booleans[key]==false {
-                        Text("Glucose alerts will also be disabled.").font(.footnote).foregroundStyle(SugarTheme.secondary)
-                    }
-                }
-            }
-            PendingSettingsCard(showsReview:false)
-        }.navigationTitle("Review changes")
-    }
-    private func secret(_ key:String)->Bool {
-        model.settingsDraft.secrets[key] != nil || model.fields.first {$0["key"] as? String==key}?["type"] as? String=="secret"
-    }
-    private func clockValue(_ key:String)->String {
-        if secret(key) {return model.settings[key+"_configured"] as? Bool==true ? "Configured":"Not configured"}
-        guard let value=model.settings[key] else {return "Not available"}
-        if model.fields.first(where:{$0["key"] as? String==key})?["type"] as? String=="bool" {return value as? Bool==true ? "On":"Off"}
-        if model.settingsDraft.mmol(key),let n=value as? Int {return String(format:"%.2f mmol/L",Double(n)/18)}
-        return String(describing:value)+(SettingsDraft.threshold(key) ? " mg/dL":"")
-    }
-    private func draftValue(_ key:String)->String {
-        if secret(key) {return model.settingsDraft.secrets[key]==2 ? "Clear saved value":"Replace with a new value"}
-        if let value=model.settingsDraft.booleans[key] {return value ? "On":"Off"}
-        return (model.settingsDraft.text[key] ?? "")+(SettingsDraft.threshold(key) ? (model.settingsDraft.mmol(key) ? " mmol/L":" mg/dL"):"")
     }
 }
 
@@ -339,7 +240,7 @@ struct DraftField:View {
                     }.pickerStyle(.menu).fieldSurface()
                     if draft.secrets[key]==1 {SecureField("Replacement value",text:text).textInputAutocapitalization(.never).autocorrectionDisabled().fieldSurface()}
                     if draft.secrets[key]==2 {Text("This saved value will be cleared when you update the clock.").font(.footnote).foregroundStyle(.red)}
-                } else if key=="ambient_creature" {
+                } else if key=="ambient_creature" || key=="ambient_character" {
                     CompanionPicker(value:text,minimum:field["min"] as? Int ?? 0,maximum:field["max"] as? Int ?? 1)
                 } else if key=="countdown_target" {
                     CountdownDateField(value:text)

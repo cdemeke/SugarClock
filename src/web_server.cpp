@@ -182,7 +182,8 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     doc["time_display_enabled"] = cfg.time_display_enabled;
     doc["default_mode"] = cfg.default_mode;
     doc["ambient_enabled"] = cfg.ambient_enabled;
-    doc["ambient_creature"] = cfg.ambient_creature;
+    doc["ambient_character"] = cfg.ambient_creature;
+    doc["ambient_creature"] = cfg.ambient_creature == 1 ? 1 : 0;
     doc["ambient_seasonal"] = cfg.ambient_seasonal;
 
     // Alerts

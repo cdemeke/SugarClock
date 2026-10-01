@@ -9,8 +9,9 @@ and separates pending edits from confirmed settings.
 
 1. Change display, glucose source, alerts, time or other supported settings.
    Navigation retains the draft. Viewing settings does not change values.
-2. Open **Review changes** to compare each proposal with the last clock value.
-   Secret replacements are never displayed there. **Use clock value** removes
+2. Use the compact bottom bar: **Update clock** shows the pending count;
+   **Review** opens a sheet comparing each proposal with the last clock value.
+   Secret replacements are never displayed there. **Remove change** removes
    just that proposal, preserving other edits. Discarding all changes requires
    an explicit confirmation.
 3. Tap **Update clock** once to submit the current batch. It can be tapped while
@@ -21,6 +22,19 @@ and separates pending edits from confirmed settings.
 5. After sending, the app requires durable acknowledgment/readback before it
    reports success. Edits made after tapping Update remain pending for a later
    update. An uncertain result stays unconfirmed; no mutation is replayed.
+
+The bar stays available across settings screens and reserves scroll space above
+the home indicator and keyboard. Dismissing the review sheet changes nothing.
+While waiting, the bar offers Cancel; after sending, it shows progress without
+promising that an already-sent update can be cancelled. Errors remain reachable
+even if no edits remain.
+
+During reconnection the app says **Syncing with clock…** and keeps cached fields
+editable. Fresh authenticated settings marked `saved: true` remove non-secret
+proposals already satisfied by the clock. Other edits, original conflict
+baselines and uncertain submission markers remain. Secret configured flags
+never establish replacement equality. No write is needed if all ordinary
+proposals already match.
 
 Wi-Fi replacement retains its separate **Test connection, then save** workflow.
 It uses the clock's trial connection and only replaces the previous network
@@ -61,7 +75,7 @@ the user are omitted. Threshold unit presentation retains exact mg/dL values.
 Firmware normalization of disabled services is accounted for in confirmation.
 
 A change to an edited field since its local baseline requires review instead
-of being silently overwritten. Choose Use clock value for that field, then
+of being silently overwritten. Choose Remove change for that field, then
 edit it again if needed. This comparison is best effort: protocol v1 has no
 atomic revision/compare-and-swap operation, and secret configured flags cannot
 reveal whether an already-configured secret changed elsewhere.
@@ -111,3 +125,22 @@ not establish locked-device behavior on a physical iPhone.
 Simulator checks and automated state-machine tests cannot establish physical
 Bluetooth reliability. This is an app-only change using existing firmware
 0.3.4/protocol v1; no new USB flash is required.
+
+## Build 23 verification
+
+- **143 Swift tests passed** across the complete app core suite.
+- Signed Simulator build and signed iPhone archive **1.0.0 (23)** passed.
+- Simulator screenshots checked offline/syncing bottom bars, the review sheet,
+  accessibility text sizes and the seven-pet selector using sample data.
+- Firmware **0.3.5** and filesystem artifact build passed; all **74 host tests**
+  passed. Firmware size is **1,593,712 bytes**, leaving **241,296 bytes** in each
+  unchanged OTA slot.
+- Production pet IDs/artwork and rollback limitations are documented in
+  [Pixel Pets compatibility](PIXEL_PETS_BLE.md). Old two-pet firmware remains
+  supported; the extra pets require compatible clock firmware.
+
+Physical iPhone checks remain: dismiss/reopen the sheet with drafts intact,
+remove one/all changes, cancel while waiting, update across natural network
+pauses, confirm same-value reconciliation, select each pet on the clock and
+verify VoiceOver/keyboard navigation. The simulator does not establish BLE
+reliability or physical display appearance.

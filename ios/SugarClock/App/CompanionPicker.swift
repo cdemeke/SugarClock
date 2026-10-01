@@ -4,30 +4,29 @@ struct CompanionPicker:View {
     @Binding var value:String
     var minimum=0
     var maximum=1
+    private var choices:[PixelPetArtwork] {
+        PixelPetArtwork.allCases.filter {$0.rawValue>=minimum && $0.rawValue<=maximum}
+    }
+    private var selected:PixelPetArtwork? {Int(value).flatMap(PixelPetArtwork.init(rawValue:))}
     var body:some View {
-        VStack(alignment:.leading,spacing:12) {
-            ForEach(PixelPetArtwork.allCases.filter {$0.rawValue>=minimum && $0.rawValue<=maximum}) {artwork in
-                let selected=value==String(artwork.rawValue)
-                Button {value=String(artwork.rawValue)} label:{
-                    VStack(alignment:.leading,spacing:12) {
-                        HStack {
-                            Text(artwork.name).font(.subheadline.weight(.semibold))
-                            Spacer()
-                            Image(systemName:selected ? "checkmark.circle.fill":"circle")
-                                .foregroundStyle(selected ? SugarTheme.accent:SugarTheme.secondary)
-                        }
-                        PixelPetDisplay(artwork:artwork)
-                    }
-                    .padding(12).foregroundStyle(SugarTheme.text)
-                    .background(selected ? SugarTheme.accent.opacity(0.08):SugarTheme.input,in:RoundedRectangle(cornerRadius:14))
-                    .overlay {RoundedRectangle(cornerRadius:14).strokeBorder(selected ? SugarTheme.accent:SugarTheme.border,lineWidth:selected ? 2:1)}
+        VStack(alignment:.leading,spacing:16) {
+            Picker("Pixel Pet",selection:$value) {
+                ForEach(choices) {pet in Text("\(pet.name) — \(pet.species)").tag(String(pet.rawValue))}
+                if !choices.contains(where:{String($0.rawValue)==value}) {
+                    Text("Current pet (\(value))").tag(value)
                 }
-                .buttonStyle(.plain)
-                .accessibilityElement(children:.ignore)
-                .accessibilityLabel(artwork.name)
-                .accessibilityValue(artwork.description)
-                .accessibilityAddTraits(selected ? [.isSelected]:[])
-                .accessibilityHint("Select this pet. Save changes to update your clock.")
+            }.pickerStyle(.menu).labelsHidden().frame(maxWidth:.infinity,alignment:.leading)
+                .fieldSurface().accessibilityLabel("Choose a Pixel Pet")
+                .accessibilityHint("Choose a pet, then tap Update clock to send your change.")
+            if let selected {
+                PixelPetDisplay(artwork:selected)
+                    .accessibilityHidden(false).accessibilityLabel("\(selected.name) preview")
+                    .accessibilityValue(selected.description)
+                Text(selected.description).font(.subheadline).foregroundStyle(SugarTheme.secondary)
+            }
+            if maximum<(PixelPetArtwork.allCases.map(\.rawValue).max() ?? 1) {
+                Text("Update your clock’s firmware for more pets.")
+                    .font(.footnote).foregroundStyle(SugarTheme.secondary)
             }
         }
     }

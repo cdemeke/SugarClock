@@ -158,6 +158,42 @@ public struct SettingsDraft:Equatable,Codable {
         return result
     }
 
+    /// Reconcile a fresh, durable readback with current editor intent. This is
+    /// not proof that a previous request ran: callers retain its receipt/marker.
+    /// Each field is checked separately so unrelated conflicts keep their old
+    /// baselines. Derived effects must already match too (for example disabling
+    /// glucose also disables its alert). Secret flags cannot establish equality.
+    @discardableResult public mutating func reconcileConfirmedValues(settings:[String:Any],fields:[[String:Any]]) ->Set<String> {
+        let original=self
+        var matched:Set<String>=[]
+        for key in original.changed where !original.secretKeys.contains(key) {
+            var isolated=original;isolated.changed=[key]
+            guard let requested=try? isolated.validatedPatch(settings:settings,fields:fields),!requested.isEmpty else {continue}
+            func sameValue(_ current:Any?,_ desired:Any,key:String)->Bool {
+                guard !original.secretKeys.contains(key),let current else {return false}
+                switch original.fieldTypes[key] {
+                case "bool":return (current as? Bool)==(desired as? Bool)
+                case "int":return (current as? NSNumber)?.doubleValue==(desired as? NSNumber)?.doubleValue
+                case "text","string":return (current as? String)==(desired as? String)
+                default:return false
+                }
+            }
+            let matches=requested.allSatisfy {sameValue(settings[$0.key],$0.value,key:$0.key)}
+            // Removing a controlling edit must not expose a contradictory dirty
+            // dependent value that the original batch would have normalized.
+            let preservesOtherIntent=requested.allSatisfy {dependent,value in
+                guard dependent != key,original.changed.contains(dependent) else {return true}
+                var other=original;other.changed=[dependent]
+                guard let desired=try? other.patch(fields:fields)[dependent] else {return false}
+                return sameValue(desired,value,key:dependent)
+            }
+            if matches,preservesOtherIntent {matched.insert(key)}
+        }
+        for key in matched {discardChange(key,settings:settings,fields:fields)}
+        if changed.isEmpty {self=SettingsDraft(settings:settings,fields:fields)}
+        return matched
+    }
+
     private func validateChangedSchema(_ fields:[[String:Any]]) throws {
         var seen:Set<String>=[]
         var supported:[String:String]=[:]

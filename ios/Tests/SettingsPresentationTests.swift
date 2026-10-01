@@ -2,6 +2,22 @@ import XCTest
 @testable import SugarClockCore
 
 final class SettingsPresentationTests:XCTestCase {
+    func testCanonicalPetFieldWinsWithoutOfferingUnsupportedLegacyChoices() throws {
+        let legacy:[[String:Any]]=[["key":"ambient_creature","type":"int","min":0,"max":1]]
+        let canonical:[[String:Any]]=[["key":"ambient_character","type":"int","min":0,"max":6]]
+        XCTAssertEqual(SettingsCategory.preferredFields(legacy).compactMap {$0["key"] as? String},["ambient_creature"])
+        let fields=SettingsCategory.preferredFields(legacy+canonical)
+        XCTAssertEqual(fields.compactMap {$0["key"] as? String},["ambient_character"])
+        let category=try XCTUnwrap(SettingsCategory.all.first {$0.id=="companions"})
+        XCTAssertTrue(category.sections[0].1.contains("ambient_character"))
+        var draft=SettingsDraft(settings:["ambient_character":6,"ambient_creature":0],fields:fields)
+        XCTAssertTrue(try draft.patch(fields:fields).isEmpty)
+        draft.setText("2",key:"ambient_character")
+        XCTAssertEqual(Set(try draft.patch(fields:fields).keys),["ambient_character"])
+        var old=SettingsDraft(settings:["ambient_creature":1],fields:legacy)
+        old.setText("6",key:"ambient_creature")
+        XCTAssertThrowsError(try old.patch(fields:legacy))
+    }
     func testUpdateTimesKeepWholeHourWireValuesAndDistinguishNoonFromMidnight() throws {
         XCTAssertEqual(ClockUpdateTime.choices.count,24)
         XCTAssertEqual(ClockUpdateTime.choices[0],"12:00 AM")

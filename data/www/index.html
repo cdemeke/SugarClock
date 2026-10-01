@@ -260,10 +260,15 @@
                     </div>
                     <div class="card-details collapsed" id="ambient-details">
                         <div class="form-group" style="margin-bottom:16px;">
-                            <label for="ambient_creature">Creature</label>
-                            <select id="ambient_creature">
-                                <option value="0">Fish</option>
-                                <option value="1">Ghost</option>
+                            <label for="ambient_character">Creature</label>
+                            <select id="ambient_character">
+                                <option value="0">Pip — Goldfish</option>
+                                <option value="1">Boo — Ghost</option>
+                                <option value="2">Mochi — Axolotl</option>
+                                <option value="3">Sprout — Dinosaur</option>
+                                <option value="4">Pebble — Turtle</option>
+                                <option value="5">Inky — Octopus</option>
+                                <option value="6">Maple — Red panda</option>
                             </select>
                             <div class="hint">Choose the companion shown in the ambient display view.</div>
                         </div>
@@ -844,6 +849,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
     <div class="toast" id="toast"></div>
 
+    <script src="/companions.js"></script>
     <script>
         function switchTab(id) {
             document.querySelectorAll('.tab-btn').forEach(b => {
@@ -901,53 +907,19 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             const canvas = document.getElementById('ambient-creature-preview');
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
-            const creatures = {
-                0: {
-                    sprite: [
-                        '....C...................Y.......',
-                        '..........OOOOOOOOO....Y........',
-                        '..C.....OOOOOOOOOOOOOOY.........',
-                        '.......O.OOOOOOOOOOOOOOO........',
-                        '........OOOOOOOOOOOOOOY.........',
-                        '..........OOOOOOOOO....Y........',
-                        '............CCCCC.......Y.......',
-                        '................................'
-                    ],
-                    palette: {O: '#f07832', Y: '#ffd166', C: '#55d9e8'},
-                    kicker: 'A tiny swimmer for your clock',
-                    description: 'This warm little fish swims, naps, and reacts to the time of day. Fresh weather data adds quiet effects to its water, and it always stays silent.',
-                    label: 'A warm orange pixel-art fish with a yellow tail and cyan bubbles'
-                },
-                1: {
-                    sprite: [
-                        '............LLLLLLLL............',
-                        '..........LLLLLLLLLLLL..........',
-                        '.........LLLLLLLLLLLLLL.........',
-                        '........LLLL.LLLLLL.LLLL........',
-                        '.....LLLLLLLLLLLLLLLLLLLLLL.....',
-                        '........LLLLLLL..LLLLLLL........',
-                        '........LLLLLLLLLLLLLLLL........',
-                        '........LLL.LLL.LLL.LLLL........'
-                    ],
-                    palette: {L: '#b48cff'},
-                    kicker: 'A gentle visitor for your clock',
-                    description: 'This soft lavender ghost floats, naps, and reacts to the time of day. Fresh weather data adds tiny accessories and effects, and it always stays silent.',
-                    label: 'A soft lavender pixel-art ghost with simple eyes and a scalloped base'
-                }
-            };
-            const selected = creatures[document.getElementById('ambient_creature').value] || creatures[0];
-            const palette = {'.': '#07090d', ...selected.palette};
+            const id = Number(document.getElementById('ambient_character').value);
+            const selected = PixelCompanions.valid(id) ? id : 0;
+            const name = PixelCompanions.names[selected];
+            const pixels = PixelCompanions.frame(selected, 0, false, false, 2, 0);
             ctx.imageSmoothingEnabled = false;
-            selected.sprite.forEach((row, y) => {
-                [...row].forEach((pixel, x) => {
-                    ctx.fillStyle = palette[pixel];
-                    ctx.fillRect(x, y, 1, 1);
-                });
-            });
-            document.getElementById('ambient-kicker').textContent = selected.kicker;
-            document.getElementById('ambient-description').textContent = selected.description;
-            document.getElementById('ambient-matrix').setAttribute('aria-label', selected.label);
-            canvas.setAttribute('aria-label', selected.label);
+            pixels.forEach((row,y) => row.forEach((pixel,x) => {
+                ctx.fillStyle = PixelCompanions.palette[pixel] || '#07090d';
+                ctx.fillRect(x,y,1,1);
+            }));
+            document.getElementById('ambient-kicker').textContent = name;
+            document.getElementById('ambient-description').textContent = 'A quiet pixel companion that moves, rests, and responds to the clock’s right button. Urgent glucose readings take priority.';
+            document.getElementById('ambient-matrix').setAttribute('aria-label', name + ' preview');
+            canvas.setAttribute('aria-label', name + ' preview');
         }
 
         function setupToggleCards() {
@@ -1280,7 +1252,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 document.getElementById('auto_cycle_enabled').checked = c.auto_cycle_enabled !== false;
                 document.getElementById('auto_cycle_sec').value = c.auto_cycle_sec || 10;
                 document.getElementById('ambient_enabled').checked = c.ambient_enabled || false;
-                document.getElementById('ambient_creature').value = String(c.ambient_creature || 0);
+                document.getElementById('ambient_character').value = String(c.ambient_character ?? c.ambient_creature ?? 0);
                 document.getElementById('ambient_seasonal').checked = c.ambient_seasonal !== false;
                 updateAmbientDisplaySetting();
                 drawAmbientCreaturePreview();
@@ -1406,7 +1378,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 auto_cycle_enabled: document.getElementById('auto_cycle_enabled').checked,
                 auto_cycle_sec: parseInt(document.getElementById('auto_cycle_sec').value),
                 ambient_enabled: document.getElementById('ambient_enabled').checked,
-                ambient_creature: parseInt(document.getElementById('ambient_creature').value),
+                ambient_character: parseInt(document.getElementById('ambient_character').value),
                 ambient_seasonal: document.getElementById('ambient_seasonal').checked,
                 thresh_urgent_low: parseInt(document.getElementById('thresh_urgent_low').value),
                 thresh_low: parseInt(document.getElementById('thresh_low').value),
@@ -1657,7 +1629,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
         document.getElementById('ambient_enabled')
             .addEventListener('change', updateAmbientDisplaySetting);
-        document.getElementById('ambient_creature')
+        document.getElementById('ambient_character')
             .addEventListener('change', drawAmbientCreaturePreview);
         updateAmbientDisplaySetting();
         drawAmbientCreaturePreview();

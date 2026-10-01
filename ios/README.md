@@ -134,3 +134,17 @@ signed Simulator smoke check. See [behavior, privacy, tests and physical
 acceptance](../docs/IOS_OFFLINE_SETTINGS.md). This supersedes earlier statements
 that all settings/drafts exist only in memory. Existing firmware 0.3.4 works
 with this app update; no new firmware flash is required.
+
+## Build 23: compact updates, syncing and seven Pixel Pets
+
+Pending edits now appear in a floating bottom bar with **Update clock** and
+**Review**. Review opens a sheet with per-change removal, discard-all and update
+actions. Cached settings remain editable while the app shows **Syncing with
+clock…**; fresh durable reads remove ordinary edits already satisfied by the
+clock without another write. Secret changes and uncertain attempts stay explicit.
+
+The Pixel Pets menu uses production names and artwork for Pip, Boo, Mochi,
+Sprout, Pebble, Inky and Maple. All seven require firmware 0.3.5 or compatible
+`ambient_character` schema; older firmware keeps its two supported choices.
+See [offline update verification](../docs/IOS_OFFLINE_SETTINGS.md) and
+[pet compatibility and migration](../docs/PIXEL_PETS_BLE.md).

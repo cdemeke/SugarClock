@@ -62,6 +62,11 @@ struct SettingsCategory:Identifiable {
     let subtitle:String
     let symbol:String
     let sections:[(String,[String])]
+    /// The legacy field is a lossy fish/ghost alias. Never offer both selectors.
+    static func preferredFields(_ fields:[[String:Any]])->[[String:Any]] {
+        guard fields.contains(where:{$0["key"] as? String=="ambient_character"}) else {return fields}
+        return fields.filter {$0["key"] as? String != "ambient_creature"}
+    }
     var enableKey:String? {
         ["glucose":"glucose_enabled","time":"time_display_enabled","companions":"ambient_enabled","weather":"weather_enabled","pomodoro":"timer_enabled","stopwatch":"stopwatch_enabled","countdown":"countdown_enabled","system":"sysmon_enabled"][id]
     }
@@ -85,7 +90,7 @@ struct SettingsCategory:Identifiable {
         .init(id:"time",title:"Time",subtitle:"Time zone and clock format",symbol:"moon.stars",sections:[
             ("Time display",["time_display_enabled","timezone","use_24h","date_on_time_screen","date_format"])]),
         .init(id:"companions",title:"Pixel Pets",subtitle:"A little company on your display",symbol:"sparkles",sections:[
-            ("Pixel Pets",["ambient_enabled","ambient_creature","ambient_seasonal"])]),
+            ("Pixel Pets",["ambient_enabled","ambient_character","ambient_creature","ambient_seasonal"])]),
         .init(id:"weather",title:"Weather",subtitle:"Requires an OpenWeather API key and a location.",symbol:"cloud.sun",sections:[
             ("Weather",["weather_enabled","weather_city","weather_api_key","weather_use_f","weather_poll_min"])]),
         .init(id:"pomodoro",title:"Pomodoro",subtitle:"Set your focus and break periods. Use the clock’s buttons to control the timer.",symbol:"timer",sections:[

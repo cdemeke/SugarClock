@@ -40,6 +40,8 @@ private struct PendingSave {
     @Published private(set) var saveReceipts:[String:SaveReceipt]=[:]
     @Published private(set) var lastSettingsRefresh:Date?
     @Published private(set) var lastStatusRefresh:Date?
+    @Published private var refreshingSettings=false
+    private var settingsDurable=false
     private var pendingSave:PendingSave?
     @Published private(set) var settingsDraft=SettingsDraft()
     @Published private(set) var settingsUpdatePhase:SettingsUpdatePhase = .idle
@@ -61,9 +63,10 @@ private struct PendingSave {
 
     var hasLoadedSettings:Bool {!settings.isEmpty && !fields.isEmpty}
     var quietReconnect:Bool {reconnecting && hasLoadedSettings}
+    var syncingSettings:Bool {!updatingClock && (reconnecting || checkingConnection || refreshingSettings)}
     var connectionSummary:String {
+        if syncingSettings,hasLoadedSettings {return "Syncing with clock…"}
         if sessionReady {return "Connected"}
-        if quietReconnect {return "Reconnecting"}
         return connectionState
     }
     #if DEBUG
@@ -162,6 +165,7 @@ private struct PendingSave {
     }
     private func restoreLocalSettings(for clock:SavedClock) {
         settingsUpdateMessage="";draftStorageMessage=""
+        settingsDurable=false
         draftClockID=clock.id;settingsDraft=SettingsDraft();submittedSettingsDraft=nil;localRestoreFailed=false;localPersistenceFailed=false
         do {
             guard let snapshot=try localSettingsStore.load(clockID:clock.id) else {return}
@@ -189,6 +193,8 @@ private struct PendingSave {
             localRestoreFailed=false;draftClockID=selected.id;settingsDraft=SettingsDraft(settings:settings,fields:fields);submittedSettingsDraft=nil
         } else if settingsDraft.changed.isEmpty {
             settingsDraft=SettingsDraft(settings:settings,fields:fields)
+        } else if settingsDurable {
+            settingsDraft.reconcileConfirmedValues(settings:settings,fields:fields)
         }
         persistLocalSettings()
     }
@@ -247,7 +253,9 @@ private struct PendingSave {
                         try Task.checkCancellation()
                         guard foreground,selected?.id==clock.id,selected?.peripheral==clock.peripheral,
                               (hello["capabilities"] as? [String] ?? []).contains("settings.patch") else {throw ClockError.unavailable("Reconnect to compatible firmware before updating.")}
-                        let patch=try submitted.validatedPatch(settings:settings,fields:fields)
+                        var remaining=submitted
+                        if settingsDurable {remaining.reconcileConfirmedValues(settings:settings,fields:fields)}
+                        let patch:[String:Any]=remaining.changed.isEmpty ? [:]:try remaining.validatedPatch(settings:settings,fields:fields)
                         let envelope=try JSONSerialization.data(withJSONObject:["v":1,"id":65535,"op":"settings.patch","patch":patch])
                         guard envelope.count<=min(Frame.maximum,hello["max_message"] as? Int ?? Frame.maximum) else {throw ClockError.oversized}
                         preparedPatch=patch
@@ -417,7 +425,7 @@ private struct PendingSave {
         automaticReconnect=true
         if selected?.peripheral != id {
             finishPendingAsUnconfirmed();pendingSave=nil;lastSettingsRefresh=nil;lastStatusRefresh=nil
-            sessionReady=false;unconfirmedChange=false
+            sessionReady=false;unconfirmedChange=false;settingsDurable=false
             selected=clocks.first(where:{$0.peripheral==id})
             settings=[:];status=[:];hello=[:];fields=[];schemaIdentity=nil;networks=[];wifiScanMessage=""
             settingsDraft=SettingsDraft();draftClockID=nil;submittedSettingsDraft=nil;localRestoreFailed=false;localPersistenceFailed=false
@@ -494,9 +502,10 @@ private struct PendingSave {
         if let identity,let cached=cache.read(identity) {
             fields=cached;schemaIdentity=identity;return
         }
-        // A changed boot/version invalidates old bounds, even if a development
-        // image kept its marketing version. Never expose a partially read schema.
-        fields=[];schemaIdentity=nil
+        // Keep complete cached fields available for local editing while fresh
+        // bounds load. The session cannot send until the new schema completes;
+        // partially loaded pages are never exposed or treated as verified.
+        schemaIdentity=nil
         if identity==nil || schemaProgressIdentity != identity {
             schemaProgress=SchemaProgress();schemaProgressIdentity=identity
         }
@@ -507,11 +516,12 @@ private struct PendingSave {
     }
     private func refreshSettings() async throws {
         guard let client else {throw ClockError.disconnected}
+        refreshingSettings=true;defer {refreshingSettings=false}
         let response=try await client.request("settings.get")
         guard let loaded=response["settings"] as? [String:Any] else {throw ClockError.malformed}
         try Task.checkCancellation()
-        settings=loaded;lastSettingsRefresh=Date()
-        verifyPendingSave(loaded,durable:response["saved"] as? Bool == true)
+        settings=loaded;lastSettingsRefresh=Date();settingsDurable=response["saved"] as? Bool == true
+        verifyPendingSave(loaded,durable:settingsDurable)
         if !reconnecting {refreshLocalDraft()}
     }
     func refresh() async throws {
@@ -716,7 +726,7 @@ private struct PendingSave {
         return false
     }
     func disconnect() {
-        stopReconnecting();pendingSave=nil;lastSettingsRefresh=nil;lastStatusRefresh=nil;selected=nil;settings=[:];status=[:];fields=[];hello=[:];schemaIdentity=nil;networks=[];wifiScanMessage=""
+        stopReconnecting();pendingSave=nil;lastSettingsRefresh=nil;lastStatusRefresh=nil;settingsDurable=false;selected=nil;settings=[:];status=[:];fields=[];hello=[:];schemaIdentity=nil;networks=[];wifiScanMessage=""
         settingsDraft=SettingsDraft();draftClockID=nil;submittedSettingsDraft=nil;localRestoreFailed=false;localPersistenceFailed=false
         settingsUpdateMessage="";draftStorageMessage=""
         remember()

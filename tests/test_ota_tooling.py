@@ -66,10 +66,12 @@ class WebAssetTests(unittest.TestCase):
                 pages.append(stream.read())
 
         self.assertEqual(pages[0], pages[1])
-        self.assertIn('<select id="ambient_creature">', pages[0])
-        self.assertIn('<option value="0">Fish</option>', pages[0])
-        self.assertIn('<option value="1">Ghost</option>', pages[0])
-        self.assertIn("ambient_creature: parseInt", pages[0])
+        self.assertIn('<select id="ambient_character">', pages[0])
+        self.assertIn('<option value="0">Pip — Goldfish</option>', pages[0])
+        self.assertIn('<option value="1">Boo — Ghost</option>', pages[0])
+        self.assertIn('<option value="6">Maple — Red panda</option>', pages[0])
+        self.assertIn("ambient_character: parseInt", pages[0])
+        self.assertNotIn("ambient_creature: parseInt", pages[0])
 
 
 class OtaManifestTests(unittest.TestCase):

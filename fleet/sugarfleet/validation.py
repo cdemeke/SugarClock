@@ -49,6 +49,7 @@ CONFIG_FIELDS = {
     "default_mode": (int, 0, 3),
     "ambient_enabled": (bool, None, None),
     "ambient_creature": (int, 0, 1),
+    "ambient_character": (int, 0, 6),
     "ambient_seasonal": (bool, None, None),
     "notify_enabled": (bool, None, None),
     "auto_cycle_enabled": (bool, None, None),

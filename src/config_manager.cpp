@@ -1,5 +1,6 @@
 #include "config_manager.h"
 #include "config_transaction.h"
+#include "companion.h"
 #include <Preferences.h>
 #include <Arduino.h>
 #include <LittleFS.h>
@@ -281,10 +282,7 @@ void config_init() {
         bool previous_ambient_seasonal = prefs.getBool("cat_season", true);
         bool previous_fish_seasonal = prefs.getBool("fish_season", previous_ambient_seasonal);
         config.ambient_enabled = prefs.getBool("amb_en", previous_fish_enabled);
-        config.ambient_creature = prefs.getInt("amb_kind", 0);
-        if (config.ambient_creature < 0 || config.ambient_creature > 1) {
-            config.ambient_creature = 0;
-        }
+        config.ambient_creature = companion_or_default(prefs.getInt("pal_type", prefs.getInt("amb_kind", 0)));
         config.ambient_seasonal = prefs.getBool("amb_season", previous_fish_seasonal);
 
         // Alerts
@@ -450,7 +448,9 @@ bool config_save() {
     ok = (prefs.putBool("time_en", config.time_display_enabled) > 0) && ok;
     ok = (prefs.putInt("def_mode", config.default_mode) > 0) && ok;
     ok = (prefs.putBool("amb_en", config.ambient_enabled) > 0) && ok;
-    ok = (prefs.putInt("amb_kind", config.ambient_creature) > 0) && ok;
+    ok = (prefs.putInt("pal_type", companion_or_default(config.ambient_creature)) > 0) && ok;
+    // Older fish/ghost firmware gets its original supported compatibility value.
+    ok = (prefs.putInt("amb_kind", config.ambient_creature == COMPANION_GHOST ? 1 : 0) > 0) && ok;
     ok = (prefs.putBool("amb_season", config.ambient_seasonal) > 0) && ok;
 
     // Alerts

@@ -1125,6 +1125,101 @@ private final class FailingLocalSettingsStore:LocalSettingsStore {
         XCTAssertEqual(model.pendingChangeCount,0)
         model.suspend()
     }
+    func testFreshDurableSyncReconcilesMatchingEditAndPersistsItWithoutAWrite() async throws {
+        let store=MemoryLocalSettingsStore()
+        let (model,radio,_,id)=fixture(store:store)
+        radio.extraSchemaFields=[["key":"ambient_enabled","type":"bool"]]
+        radio.storedSettings["ambient_enabled"]=false
+        await model.connect(id);editBrightness(model,"99")
+        radio.storedSettings["brightness"]=99;radio.storedSettings["ambient_enabled"]=true
+        try await model.refresh()
+        XCTAssertEqual(model.pendingChangeCount,0)
+        XCTAssertEqual(model.settingsDraft.booleans["ambient_enabled"],true)
+        XCTAssertEqual(model.settingsDraft.text["brightness"],"99")
+        XCTAssertTrue(try XCTUnwrap(store.load(clockID:"clock-a")).draft.changed.isEmpty)
+        XCTAssertFalse(radio.operations.contains("settings.patch"))
+        XCTAssertNil(model.saveReceipt(for:["brightness"]))
+        model.suspend()
+    }
+    func testNonDurableReadbackDoesNotReconcileEvenWhenValuesMatch() async throws {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id);editBrightness(model,"99")
+        radio.storedSettings["brightness"]=99;radio.durable=false
+        try await model.refresh()
+        XCTAssertEqual(model.pendingChangeCount,1)
+        radio.durable=nil;try await model.refresh()
+        XCTAssertEqual(model.pendingChangeCount,1)
+        radio.durable=true;try await model.refresh()
+        XCTAssertEqual(model.pendingChangeCount,0)
+        XCTAssertFalse(radio.operations.contains("settings.patch"))
+        model.suspend()
+    }
+    func testUpdatePreflightSkipsAlreadySatisfiedSnapshotWithoutResending() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id);editBrightness(model,"99")
+        radio.storedSettings["brightness"]=99
+        await model.updateSettings(pollDelay:1_000_000)
+        XCTAssertEqual(model.pendingChangeCount,0)
+        XCTAssertFalse(radio.operations.contains("settings.patch"))
+        XCTAssertTrue(model.settingsUpdateMessage.contains("already match"))
+        model.suspend()
+    }
+    func testCachedSnapshotCannotClearEditsAndFreshSyncRetainsUncertainEvidence() async throws {
+        let store=MemoryLocalSettingsStore()
+        let (model,radio,defaults,id)=fixture(store:store)
+        await model.connect(id);editBrightness(model,"99")
+        let submitted=model.settingsDraft
+        let cached=try LocalSettingsSnapshot(settings:["brightness":99,"dexcom_password_configured":true],fields:model.fields,draft:submitted,submittedDraft:submitted)
+        try store.save(cached,clockID:"clock-a");model.suspend()
+        let restored=ClockModel(enableBluetooth:false,transport:radio,preferences:defaults,retryDelay:0,localSettingsStore:store)
+        XCTAssertEqual(restored.pendingChangeCount,1)
+        XCTAssertEqual(restored.saveReceipt(for:["brightness"])?.phase,.unconfirmed)
+        radio.storedSettings["brightness"]=99
+        await restored.connect(id)
+        XCTAssertEqual(restored.pendingChangeCount,0)
+        XCTAssertEqual(restored.saveReceipt(for:["brightness"])?.phase,.unconfirmed)
+        XCTAssertNotNil(try store.load(clockID:"clock-a")?.submittedDraft)
+        XCTAssertFalse(radio.operations.contains("settings.patch"))
+        restored.suspend()
+    }
+    func testLaterEditDuringSyncIsNotClearedByEarlierMatchingClockValue() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id);editBrightness(model,"99")
+        radio.storedSettings["brightness"]=99;radio.holdSettings=true
+        let refreshing=Task {try? await model.refresh()}
+        await settle {radio.waiting != nil}
+        XCTAssertTrue(model.syncingSettings)
+        XCTAssertEqual(model.connectionSummary,"Syncing with clock…")
+        XCTAssertTrue(model.canEditSettingsDraft)
+        editBrightness(model,"120")
+        radio.holdSettings=false
+        let pending=radio.waiting;radio.waiting=nil;pending?.resume()
+        await refreshing.value
+        XCTAssertEqual(model.settingsDraft.text["brightness"],"120")
+        XCTAssertEqual(model.pendingChangeCount,1)
+        XCTAssertFalse(model.syncingSettings)
+        model.suspend()
+    }
+    func testCachedEditorsStayAvailableWhileRefreshedSchemaLoads() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id)
+        radio.bootID+=1;radio.holdSchema=true;radio.close()
+        await settle {radio.waiting != nil && radio.operations.last=="schema.get"}
+        XCTAssertTrue(model.hasLoadedSettings)
+        XCTAssertTrue(model.canEditSettingsDraft)
+        XCTAssertTrue(model.syncingSettings)
+        XCTAssertEqual(model.connectionSummary,"Syncing with clock…")
+        XCTAssertFalse(model.canSend)
+        editBrightness(model,"120")
+        radio.holdSchema=false
+        let pending=radio.waiting;radio.waiting=nil;pending?.resume()
+        await settle {model.sessionReady}
+        XCTAssertEqual(model.settingsDraft.text["brightness"],"120")
+        XCTAssertEqual(model.pendingChangeCount,1)
+        XCTAssertFalse(radio.operations.contains("settings.patch"))
+        model.suspend()
+        XCTAssertFalse(model.syncingSettings)
+    }
     func testSwitchingClockCannotReusePreviousSettings() async {
         let (model,radio,_,id)=fixture()
         await model.connect(id)

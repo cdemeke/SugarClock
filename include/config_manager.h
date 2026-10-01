@@ -56,7 +56,7 @@ struct AppConfig {
 
     // Ambient creature display
     bool ambient_enabled;      // include the ambient creature in navigation/auto-cycle, default false
-    int ambient_creature;      // 0=fish, 1=ghost; default fish
+    int ambient_creature;      // Internal stable-layout slot; canonical ambient_character IDs 0...6
     bool ambient_seasonal;     // Halloween/New Year surprises, default true
 
     // Alerts (buzzer on PIN 15)

@@ -42,7 +42,7 @@ struct ClockLibraryView:View {
                 SugarCard {
                     ForEach(model.clocks) {clock in
                         Button {openClock(clock)} label:{
-                            DestinationRow(title:clock.nickname,subtitle:clock.id==model.selected?.id ? model.connectionSummary:"",symbol:"clock",loading:clock.id==model.selected?.id && (model.reconnecting || (model.updatingClock && !model.sessionReady)))
+                            DestinationRow(title:clock.nickname,subtitle:clock.id==model.selected?.id ? model.connectionSummary:"",symbol:"clock",loading:clock.id==model.selected?.id && (model.syncingSettings || (model.updatingClock && !model.sessionReady)))
                         }
                         .buttonStyle(.plain)
                         // Read-only recovery can be interrupted by choosing another clock.
@@ -52,7 +52,7 @@ struct ClockLibraryView:View {
                 }
             }
             if model.reconnecting,!model.updatingClock {
-                Button("Stop connecting") {model.cancelConnection()}
+                Button("Stop syncing") {model.cancelConnection()}
                     .buttonStyle(SugarButtonStyle(prominent:false))
             }
             NavigationLink(value:ClockRoute.add) {Label("Add clock",systemImage:"plus")}
@@ -82,7 +82,7 @@ struct DiscoveryView:View {
             }
             if newDevices.isEmpty {Text(bluetooth.poweredOn ? "No new clocks nearby":"Turn on Bluetooth to find your clock.").font(.subheadline).foregroundStyle(SugarTheme.secondary)}
             if model.reconnecting {
-                Button("Stop connecting") {model.cancelConnection()}
+                Button("Stop syncing") {model.cancelConnection()}
                     .buttonStyle(SugarButtonStyle(prominent:false))
             }
             Button {bluetooth.scan()} label:{Label("Search nearby",systemImage:"magnifyingglass")}
