@@ -11,9 +11,9 @@ and separates pending edits from confirmed settings.
    Navigation retains the draft. Viewing settings does not change values.
 2. Use the compact bottom bar: **Update clock** shows the pending count;
    **Review** opens a sheet comparing each proposal with the last clock value.
-   Secret replacements are never displayed there. **Remove change** removes
-   just that proposal, preserving other edits. Discarding all changes requires
-   an explicit confirmation.
+   Secret replacements are never displayed there. The **X** beside each field
+   removes just that proposal, preserving other edits. There is no discard-all
+   control in the review sheet.
 3. Tap **Update clock** once to submit the current batch. It can be tapped while
    disconnected. The app waits up to 90 seconds in the foreground, reconnects,
    reads the current settings and validates the batch before sending.
@@ -29,8 +29,12 @@ While waiting, the bar offers Cancel; after sending, it shows progress without
 promising that an already-sent update can be cancelled. Errors remain reachable
 even if no edits remain.
 
-During reconnection the app says **Syncing with clock…** and keeps cached fields
-editable. Fresh authenticated settings marked `saved: true` remove non-secret
+Settings screens keep cached fields editable and routine reconnects quiet. A
+reserved single status line prevents layout shifts. **Updated on clock** appears
+for five seconds after confirmed persistence; there is no persistent Connected
+or last-save row. Errors and uncertain saves stay visible in that line; tap it
+for full details and connection retry. Explicit update progress stays in the
+bottom control. Fresh authenticated settings marked `saved: true` remove non-secret
 proposals already satisfied by the clock. Other edits, original conflict
 baselines and uncertain submission markers remain. Secret configured flags
 never establish replacement equality. No write is needed if all ordinary
@@ -75,7 +79,7 @@ the user are omitted. Threshold unit presentation retains exact mg/dL values.
 Firmware normalization of disabled services is accounted for in confirmation.
 
 A change to an edited field since its local baseline requires review instead
-of being silently overwritten. Choose Remove change for that field, then
+of being silently overwritten. Tap the X beside that field, then
 edit it again if needed. This comparison is best effort: protocol v1 has no
 atomic revision/compare-and-swap operation, and secret configured flags cannot
 reveal whether an already-configured secret changed elsewhere.
@@ -146,3 +150,23 @@ remove one/all changes, cancel while waiting, update across natural network
 pauses, confirm same-value reconciliation, select each pet on the clock and
 verify VoiceOver/keyboard navigation. The simulator does not establish BLE
 reliability or physical display appearance.
+
+
+## Build 24 UI refinement
+
+- Each pending field has an accessible 44-point X button; the update footer has
+  no bulk discard action. Existing single-field discard coverage verifies other
+  edits and secret handling remain intact.
+- One settings-feedback policy prioritizes storage errors, uncertain/failed saves
+  and connection errors over short-lived success. Receipts remain intact after
+  their confirmation disappears. Routine cached-settings sync is silent.
+- Supported pets appear together in a two-column grid, or one column at
+  accessibility text sizes. Only the selected pet animates; Reduce Motion pauses
+  it. Older firmware still shows only the choices advertised by its schema.
+- 149 Swift tests passed, including six new feedback-policy tests.
+- Physical iPhone VoiceOver, status transitions and pet-selection checks remain
+  pending. This app-only update needs no firmware flash.
+
+Signed Simulator and Release archive builds passed. Simulator screenshots verified
+per-field removal controls, the pet grid at standard/accessibility sizes, persistent
+unconfirmed-save feedback and confirmation expiry without shifting the editor.

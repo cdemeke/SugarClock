@@ -24,7 +24,7 @@ struct ScreenshotPreview:View {
                     case "wifi":WiFiView()
                     case "firmware":FirmwareView()
                     case "update-time":SettingEditor(field:["key":"auto_update_hour","type":"int","min":0,"max":23])
-                    case "brightness", "saved", "saved-large", "checking":SettingEditor(field:["key":"brightness","type":"int","min":1,"max":255])
+                    case "brightness", "saved", "saved-large", "saved-expired", "save-unconfirmed", "checking":SettingEditor(field:["key":"brightness","type":"int","min":1,"max":255])
                     case "secret":SettingEditor(field:["key":"dexcom_password","type":"secret","max_length":63])
                     case "troubleshooting":TroubleshootingView()
                     default:DeviceView()
@@ -119,6 +119,8 @@ struct ScreenshotPreview:View {
         }
         model.previewConnection(ready:!["checking","quiet","loading","loading-large","offline"].contains(screen))
         if ["saved","saved-large"].contains(screen) {model.previewSave(.saved(Date()))}
+        if screen=="saved-expired" {model.previewSave(.saved(Date().addingTimeInterval(-60)))}
+        if screen=="save-unconfirmed" {model.previewSave(.unconfirmed)}
         if screen=="checking" {model.previewSave(.checking)}
         if ["checking","quiet","loading","loading-large"].contains(screen) {model.reconnecting=true;model.connectionState="Loading settings…"}
         if ["loading","loading-large"].contains(screen) {model.settings=[:];model.fields=[]}

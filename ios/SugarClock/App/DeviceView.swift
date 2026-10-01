@@ -190,24 +190,6 @@ struct SettingsPage:View {
     }
 }
 
-struct SaveConfirmation:View {
-    let receipt:SaveReceipt
-    var body:some View {
-        switch receipt.phase {
-        case .saving:HStack(spacing:8) {SugarSpinner();Text("Saving…").font(.footnote).foregroundStyle(SugarTheme.secondary)}
-        case .checking:
-            HStack(spacing:8) {SugarSpinner();Text("Checking save…").font(.footnote).foregroundStyle(SugarTheme.secondary)}
-        case .saved(let date):
-            Label {Text("Last save confirmed at ") + Text(date,style:.time)} icon:{Image(systemName:"checkmark.circle.fill")}
-                .font(.footnote).foregroundStyle(SugarTheme.accent).accessibilityAddTraits(.updatesFrequently)
-        case .unconfirmed:
-            Text("Couldn't confirm the save. Refresh the connection before retrying.").font(.footnote).foregroundStyle(.orange)
-        case .failed(let detail):
-            Text(detail).font(.footnote).foregroundStyle(.red)
-        }
-    }
-}
-
 struct DraftField:View {
     let field:[String:Any]
     @Binding var draft:SettingsDraft

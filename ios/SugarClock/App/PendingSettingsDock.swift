@@ -90,26 +90,52 @@ struct PendingSettingsBar:View {
 
 struct PendingSettingsFeedback:View {
     @EnvironmentObject var model:ClockModel
+    @State private var showingDetails=false
+    @State private var feedbackDate=Date()
+    var includesConnection=false
+    private var receipt:SavePhase? {model.selected.flatMap {model.saveReceipts[$0.id]?.phase}}
     var body:some View {
-        if !model.draftStorageMessage.isEmpty {
-            Text(model.draftStorageMessage).font(.footnote).foregroundStyle(.orange)
+        // One expiry tick hides a successful receipt without deleting its audit state.
+        Group {
+            let feedback=SettingsFeedback.resolve(phase:receipt,now:feedbackDate,
+                storage:model.draftStorageMessage,
+                update:model.settingsUpdatePhase == .idle ? model.settingsUpdateMessage:"",
+                message:includesConnection ? model.message:"",
+                updating:model.settingsUpdatePhase != .idle,
+                loaded:model.hasLoadedSettings,ready:model.sessionReady,
+                syncing:model.syncingSettings,includesConnection:includesConnection)
+            HStack(spacing:8) {
+                if let feedback {
+                    Button {showingDetails=true} label:{
+                        Label(feedback.title,systemImage:feedback.attention ? "exclamationmark.circle":"checkmark.circle")
+                            .lineLimit(1).truncationMode(.tail).frame(maxWidth:.infinity,alignment:.leading)
+                    }.buttonStyle(.plain)
+                        .foregroundStyle(feedback.attention ? .orange:SugarTheme.secondary)
+                        .accessibilityLabel(feedback.title).accessibilityHint("Show details")
+                        .alert(feedback.title,isPresented:$showingDetails) {
+                            if includesConnection,!model.sessionReady,!model.reconnecting,!model.updatingClock {
+                                Button("Retry connection") {Task {await model.retrySelected()}}
+                            }
+                            Button("OK",role:.cancel) {}
+                        } message:{Text(feedback.detail)}
+                }
+            }.font(.footnote).frame(maxWidth:.infinity,minHeight:includesConnection || feedback != nil ? 44:0,alignment:.leading)
         }
-        if model.settingsUpdatePhase == .idle {
-            if let id=model.selected?.id,let receipt=model.saveReceipts[id] {
-                SaveConfirmation(receipt:receipt)
-            }
-            if !model.settingsUpdateMessage.isEmpty {
-                Text(model.settingsUpdateMessage).font(.footnote).foregroundStyle(SugarTheme.secondary)
-                    .accessibilityLabel("Update result: \(model.settingsUpdateMessage)")
-            }
+        .task(id:receipt) {
+            feedbackDate=Date()
+            guard case .saved(let date)=receipt else {return}
+            let remaining=date.addingTimeInterval(SettingsFeedback.successDuration).timeIntervalSinceNow
+            guard remaining>0 else {return}
+            do {try await Task.sleep(for:.seconds(remaining))} catch {return}
+            feedbackDate=Date()
         }
     }
+
 }
 
 struct PendingSettingsReview:View {
     @EnvironmentObject var model:ClockModel
     @Environment(\.dismiss) private var dismiss
-    @State private var confirmDiscard=false
     private var keys:[String] {model.settingsDraft.changed.sorted()}
     var body:some View {
         SugarScreen {
@@ -126,16 +152,24 @@ struct PendingSettingsReview:View {
                     .foregroundStyle(SugarTheme.secondary)
             }
             ForEach(keys,id:\.self) {key in
-                SugarCard(title:label(key),spacing:10) {
-                    DetailRow(title:"On clock",value:clockValue(key))
-                    DetailRow(title:"Your change",value:draftValue(key))
-                    Button("Remove change",role:.destructive) {
+                SugarCard(spacing:10) {
+                    HStack {
+                        Text(label(key)).font(.headline)
+                        Spacer()
+                        Button(role:.destructive) {
                         var draft=model.settingsDraft
                         draft.discardChange(key,settings:model.settings,fields:model.fields)
                         model.setDraft(draft)
-                    }.font(.subheadline).frame(minHeight:44)
-                        .disabled(!model.canEditSettingsDraft || model.settingsUpdatePhase != .idle)
-                        .accessibilityLabel("Remove \(label(key)) change")
+                        } label:{
+                            Image(systemName:"xmark").font(.subheadline.weight(.semibold))
+                                .frame(width:44,height:44).contentShape(Rectangle())
+                        }.buttonStyle(.plain).foregroundStyle(SugarTheme.secondary)
+                            .disabled(!model.canEditSettingsDraft || model.settingsUpdatePhase != .idle)
+                            .accessibilityLabel("Discard \(label(key)) change")
+                    }
+                    Divider()
+                    DetailRow(title:"On clock",value:clockValue(key))
+                    DetailRow(title:"Your change",value:draftValue(key))
                     if key=="glucose_enabled",model.settingsDraft.booleans[key]==false {
                         Text("Glucose alerts will also be disabled.").font(.footnote).foregroundStyle(SugarTheme.secondary)
                     }
@@ -156,15 +190,10 @@ struct PendingSettingsReview:View {
                     if model.pendingChangeCount>0 {
                         Button("Update clock") {Task {await model.updateSettings()}}
                             .buttonStyle(SugarButtonStyle()).disabled(!model.canRequestSettingsUpdate)
-                        Button("Discard all changes",role:.destructive) {confirmDiscard=true}
-                            .font(.subheadline).frame(minHeight:44).disabled(!model.canEditSettingsDraft)
                     }
                 }
             }.frame(maxWidth:720).padding(.horizontal,20).padding(.vertical,12)
                 .frame(maxWidth:.infinity).background(.regularMaterial)
-        }
-        .confirmationDialog("Discard all pending changes?",isPresented:$confirmDiscard,titleVisibility:.visible) {
-            Button("Discard changes",role:.destructive) {model.discardSettingsChanges()}
         }
     }
     private func secret(_ key:String)->Bool {

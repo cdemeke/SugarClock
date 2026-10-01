@@ -154,6 +154,9 @@ struct OperationFeedback:View {
     var showsSettingsFeedback=false
     @ScaledMetric(relativeTo:.subheadline) private var statusIconSize:CGFloat=20
     var body:some View {
+        if showsSettingsFeedback {
+            PendingSettingsFeedback(includesConnection:true)
+        } else {
         VStack(alignment:.leading,spacing:8) {
         if model.selected != nil || model.reconnecting {
             HStack(spacing:8) {
@@ -174,13 +177,6 @@ struct OperationFeedback:View {
                 }
             }
             .frame(minHeight:28)
-            if model.syncingSettings,model.canEditSettingsDraft {
-                Text("You can keep editing.").font(.caption).foregroundStyle(SugarTheme.secondary)
-            } else if model.hasLoadedSettings,!model.sessionReady {
-                if let refreshed=model.lastSettingsRefresh {
-                    (Text("Last synced ") + Text(refreshed,style:.time)).font(.caption).foregroundStyle(SugarTheme.secondary)
-                }
-            }
         }
         if model.busy,!model.reconnecting,!model.checkingConnection,!model.scanningWiFi,model.settingsUpdatePhase == .idle,model.operationTitle != "Saving…" {
             HStack(spacing:8) {
@@ -191,11 +187,11 @@ struct OperationFeedback:View {
             }
             .frame(minHeight:28)
         }
-        if showsSettingsFeedback {PendingSettingsFeedback()}
         if !model.message.isEmpty {
             Text(model.message).font(.footnote).foregroundStyle(SugarTheme.secondary)
                 .accessibilityLabel("Operation result: \(model.message)")
         }
         }
+    }
     }
 }
