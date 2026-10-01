@@ -75,3 +75,22 @@ struct SchemaCache {
         }
     }
 }
+
+/// Keep scanning until the requested identifier actually arrives, rather than
+/// throwing immediately and having coordinator cleanup cancel the scan.
+@MainActor enum PeripheralDiscovery {
+    static func resolve<T>(lookup:()->T?,start:()->Void,stop:()->Void,available:()->Bool,
+                           timeout:TimeInterval=20,poll:UInt64=100_000_000) async throws -> T {
+        try Task.checkCancellation()
+        if let known=lookup() {return known}
+        start();defer {stop()}
+        let deadline=Date().addingTimeInterval(timeout)
+        while Date()<deadline {
+            try Task.checkCancellation()
+            guard available() else {throw ClockError.disconnected}
+            if let found=lookup() {return found}
+            try await Task.sleep(nanoseconds:poll)
+        }
+        throw ClockError.timeout
+    }
+}

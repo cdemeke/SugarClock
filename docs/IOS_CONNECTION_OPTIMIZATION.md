@@ -16,15 +16,35 @@ The firmware's existing 60-second idle / ten-minute session limits and bounded B
 ## Verification
 
 - Baseline: 66 Swift tests passed.
-- Candidate: **78 Swift tests passed**. New coverage includes recovery after ten transient failures, cancellation during backoff and explicit retry, permanent pairing errors, cache reuse after app recreation with fresh settings, corrupt cache, cache removal/privacy, boot/version/capability invalidation and interrupted schema continuation/restart. Existing save durability, secret handling, clock switching, background return and OTA ownership tests still pass.
+- Candidate after review: **83 Swift tests passed**. New coverage includes recovery after ten transient failures, cancellation during backoff and explicit retry, permanent pairing errors, cache reuse after app recreation with fresh settings, corrupt cache, cache removal/privacy, boot/version/capability invalidation and interrupted schema continuation/restart. Existing save durability, secret handling, clock switching, background return and OTA ownership tests still pass.
 - In the five-page schema test, reopening the app on the same boot sends **3 requests instead of 8**: hello, settings and status; all five schema requests are avoided. This is a measured request-count reduction, not a measured 62.5% reduction in radio connection time.
 - **62 repository host tests passed**, including BLE/security, persistence, Wi-Fi, OTA and TLS checks after resolving pinned firmware libraries.
 - Complete Debug simulator build including assets: passed (Xcode 27.0, build 27A266a).
-- Signed iPhone Release archive **1.0.0 (17)**: passed. Xcode upload to App Store Connect succeeded; Apple accepted the package for processing. TestFlight availability/group assignment requires separate confirmation in App Store Connect.
+- Signed iPhone Release archives **1.0.0 (17)** and **1.0.0 (18)**: passed. Build 17 uploaded successfully; build 18 includes the review corrections below. Final upload/availability evidence is recorded below.
 - Existing companion firmware compiled with its unchanged pinned platform/libraries: **1,588,144 bytes**, **246,864 bytes** remaining in the 1,835,008-byte slot. No partition or firmware source changes were required for these app optimizations. Local PlatformIO runner was 6.2.0; the repository's CI runner remains pinned to 6.1.19.
 
 Logs and archive are local under `/private/tmp/sugarclock-connection-*`. Raw device backups are private and excluded from the repository.
 
+## Pull request integration
+
+The update is pushed to PR #29 and its Greptile review was requested. The companion branch already conflicts with newer mainline firmware, web, fleet and display changes; GitHub reports it as conflicting. Local tests above cover this branch, not a future merged tree. Resolve and reverify that integration before merging or promoting firmware. Unrelated edits in the original checkout were left untouched.
+
 ## Physical acceptance still required
 
-Use TestFlight build 17 with BLE-capable firmware. Record time from selecting the clock to ready for both the first connection and a force-quit/reopen on the same clock boot. Repeat after rebooting the clock to exercise cache invalidation. Keep the app foreground for at least two glucose polls, leave/re-enter radio range beyond the previous five-attempt limit, toggle phone Bluetooth, and verify Stop connecting plus Retry. Save brightness twice and verify the clock and saved readback each time; repeat after background/foreground return. Include two clocks, wrong pairing code/stale bonds, interrupted saves, OTA reboot/rollback, and alerts during long sessions. Automated tests and compilation do not establish real iPhone RF reliability or end-to-end speed.
+Use TestFlight build 18 with BLE-capable firmware. Record time from selecting the clock to ready for both the first connection and a force-quit/reopen on the same clock boot. Repeat after rebooting the clock to exercise cache invalidation. Keep the app foreground for at least two glucose polls, leave/re-enter radio range beyond the previous five-attempt limit, toggle phone Bluetooth, and verify Stop connecting plus Retry. Save brightness twice and verify the clock and saved readback each time; repeat after background/foreground return. Include two clocks, wrong pairing code/stale bonds, interrupted saves, OTA reboot/rollback, and alerts during long sessions. Automated tests and compilation do not establish real iPhone RF reliability or end-to-end speed.
+
+## Greptile review corrections (build 18)
+
+A saved peripheral missing from Core Bluetooth's cache now gets a bounded 20-second rediscovery window. The scan remains active until the matching identifier appears, timeout, power loss or cancellation; it no longer starts a scan and immediately closes it. Discovery uses a production helper covered by discovery, cancellation and power-loss tests.
+
+An interrupted save is immediately **unconfirmed** while foreground recovery continues. A later durable readback can resolve it, but no command is resent. Foreground retries remaining persistent is intentional for this request, with capped backoff, Stop connecting, clock switching and background cancellation. It does not prevent navigation or editing existing drafts.
+
+New transport tests instantiate the production BluetoothTransport with its radio disabled and drive its actual read/write continuation and cancellation/completion boundaries. They cancel a pending operation, start a replacement session, deliver old-generation completions/cancellation, and verify that only the current completion finishes the new request. They also check operation backpressure. These tests do not emulate Core Bluetooth's OS delegate scheduling or establish RF reliability; that still needs the iPhone.
+
+## USB device installation and smoke test
+
+The attached clock had firmware 0.2.13 without the BLE service. A fresh private 4 MiB backup was completed before installation. The initial 460,800-baud read failed with corrupt serial data; the complete read, flash and verification at 115,200 baud succeeded. The partition table matched this build. OTA metadata selected valid ota_0 (sequence 7), so only the application at `0x10000` was written. The first 64 KiB captured immediately before flashing matched byte-for-byte afterward, covering bootloader, partitions, NVS and OTA metadata. The filesystem and second application slot were outside the write range.
+
+Installed existing companion firmware **0.3.2**, binary SHA-256 `fe4ea04cfe9ad61e3303db2beb9314053085f2348b42e247cb0cacb6e296e529`. This is the PR's companion candidate, not a merge of newer mainline-only firmware features. A 90-second observation confirmed one boot, completed setup, six provider reading receipts and five BLE initializations, with no captured panic/allocation-failure signatures. Minimum reported heap was **42,036 bytes**; observed largest free block at HTTPS operation boundaries was **55,284 bytes**. These samples do not measure the smallest block during the request. No phone authentication occurred during the capture. Serial observation ended and the clock was left running.
+
+Actual glucose values, credentials and passkeys were neither collected in the sanitized smoke summary nor committed. The complete flash backup remains private under `SugarClock Backups/connection-20260930`.

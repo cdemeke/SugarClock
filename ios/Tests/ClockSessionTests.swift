@@ -420,6 +420,19 @@ import CoreBluetooth
         XCTAssertEqual(model.saveReceipt(for:["brightness"])?.phase,.unconfirmed)
         model.suspend()
     }
+    func testInterruptedSaveIsUnconfirmedWhileRecoveryWaitsForMissingClock() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id)
+        radio.failSave=true;radio.holdConnection=true
+        let saved=await model.save(["brightness":99])
+        XCTAssertFalse(saved)
+        await settle {radio.waiting != nil}
+        XCTAssertTrue(model.reconnecting)
+        XCTAssertEqual(model.saveReceipt(for:["brightness"])?.phase,.unconfirmed)
+        XCTAssertEqual(radio.operations.filter {$0=="settings.patch"}.count,1)
+        model.suspend()
+        await settle {!model.busy}
+    }
     func testSaveConfirmationDoesNotDependOnStatusAndSurvivesReconnect() async {
         let (model,radio,_,id)=fixture()
         await model.connect(id);radio.failStatus=true

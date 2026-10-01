@@ -395,7 +395,9 @@ private struct PendingSave {
         } catch {
             if Self.canRetryConnection(error) || !foreground || error is CancellationError {
                 pendingSave=PendingSave(receiptID:receipt.id,clockID:clock.id,expected:expected,acknowledged:acknowledged,containsSecrets:!secretKeys.isDisjoint(with:patch.keys))
-                saveReceipts[clock.id]?.phase = foreground ? .checking : .unconfirmed
+                // Recovery may continue while the clock is out of range. The save's
+                // outcome is already unknown; do not leave a checking spinner up.
+                saveReceipts[clock.id]?.phase = .unconfirmed
                 sessionReady=false;self.client=nil;transport.close()
             } else {
                 saveReceipts[clock.id]?.phase = .failed(error.localizedDescription)

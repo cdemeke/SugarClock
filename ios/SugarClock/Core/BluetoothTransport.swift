@@ -63,8 +63,10 @@ import Combine
         preparing=true;defer {preparing=false}
         let previous=peripheral
         close()
-        let p=central.retrievePeripherals(withIdentifiers:[id]).first ?? devices.first(where:{$0.identifier==id})
-        guard let p else {scan();throw ClockError.disconnected}
+        let p=try await PeripheralDiscovery.resolve(
+            lookup:{self.central.retrievePeripherals(withIdentifiers:[id]).first ?? self.devices.first(where:{$0.identifier==id})},
+            start:{self.scan()}, stop:{self.central.stopScan()},
+            available:{self.central.state == .poweredOn})
         // Core Bluetooth cancels asynchronously. Do not connect the same peripheral
         // until cancellation finishes, or a late callback can strand the new attempt.
         for old in [previous,p].compactMap({$0}) {
@@ -76,7 +78,7 @@ import Combine
             guard old.state == .disconnected else {throw ClockError.timeout}
         }
         try Task.checkCancellation()
-        peripheral=p;p.delegate=self;lifecycle.begin(id);state="Connecting…"
+        peripheral=p;p.delegate=self;beginConnection(id);state="Connecting…"
         // Core Bluetooth already watches for this known peripheral while connect
         // is pending. Avoid a second discovery scan and cancellation every 20 s.
         central.stopScan()
@@ -94,6 +96,10 @@ import Combine
         }
         try Task.checkCancellation()
     }
+    // These operation boundaries are shared with transport-level tests. Radio
+    // objects stay private; tests drive the same continuation/cancellation path.
+    func beginConnection(_ id:UUID) {lifecycle.begin(id)}
+    var sessionGeneration:UInt64 {lifecycle.generation}
     private func startConnectionTimer(_ duration:UInt64) {
         connectionTimer?.cancel()
         let generation=lifecycle.generation
@@ -133,25 +139,33 @@ import Combine
     public func write(_ packet:Data) async throws {
         guard let peripheral,let rx,connected else {throw ClockError.disconnected}
         guard writing==nil,reading==nil else {throw ClockError.busy}
+        try await awaitWrite {peripheral.writeValue(packet,for:rx,type:.withResponse)}
+    }
+    func awaitWrite(start:()->Void) async throws {
+        guard writing==nil,reading==nil else {throw ClockError.busy}
         try Task.checkCancellation()
         let generation=lifecycle.generation
         try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { writing=$0;startOperationTimer();peripheral.writeValue(packet,for:rx,type:.withResponse) }
+            try await withCheckedThrowingContinuation { writing=$0;startOperationTimer();start() }
         } onCancel: { self.cancelOperation(generation:generation) }
         try Task.checkCancellation()
     }
     public func read() async throws -> Data {
         guard let peripheral,let tx,connected else {throw ClockError.disconnected}
         guard writing==nil,reading==nil else {throw ClockError.busy}
+        return try await awaitRead {peripheral.readValue(for:tx)}
+    }
+    func awaitRead(start:()->Void) async throws -> Data {
+        guard writing==nil,reading==nil else {throw ClockError.busy}
         try Task.checkCancellation()
         let generation=lifecycle.generation
         let data=try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation {reading=$0;startOperationTimer();peripheral.readValue(for:tx)}
+            try await withCheckedThrowingContinuation {reading=$0;startOperationTimer();start()}
         } onCancel: { self.cancelOperation(generation:generation) }
         try Task.checkCancellation()
         return data
     }
-    private nonisolated func cancelOperation(generation:UInt64) {
+    nonisolated func cancelOperation(generation:UInt64) {
         Task { @MainActor [weak self] in
             guard let self,self.lifecycle.generation==generation else {return}
             // Draining the connection prevents a late GATT callback from being
@@ -161,13 +175,21 @@ import Combine
     }
     public func peripheral(_ peripheral:CBPeripheral,didWriteValueFor characteristic:CBCharacteristic,error:Error?) {
         guard self.peripheral === peripheral, lifecycle.phase == .ready, characteristic === rx else {return}
+        completeWrite(error:error,generation:lifecycle.generation)
+    }
+    func completeWrite(error:Error?,generation:UInt64) {
+        guard generation==lifecycle.generation else {return}
         operationTimer?.cancel();let c=writing;writing=nil
         if let error {c?.resume(throwing:error)} else {c?.resume()}
     }
     public func peripheral(_ peripheral:CBPeripheral,didUpdateValueFor characteristic:CBCharacteristic,error:Error?) {
         guard self.peripheral === peripheral, lifecycle.phase == .ready, characteristic === tx else {return}
+        completeRead(data:characteristic.value,error:error,generation:lifecycle.generation)
+    }
+    func completeRead(data:Data?,error:Error?,generation:UInt64) {
+        guard generation==lifecycle.generation else {return}
         operationTimer?.cancel();let c=reading;reading=nil
-        if let error {c?.resume(throwing:error)} else if let data=characteristic.value {c?.resume(returning:data)} else {c?.resume(throwing:ClockError.malformed)}
+        if let error {c?.resume(throwing:error)} else if let data {c?.resume(returning:data)} else {c?.resume(throwing:ClockError.malformed)}
     }
     public func centralManager(_ central:CBCentralManager,didFailToConnect peripheral:CBPeripheral,error:Error?) {
         guard self.peripheral === peripheral, lifecycle.phase == .connecting else {return}

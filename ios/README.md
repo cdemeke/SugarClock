@@ -83,6 +83,8 @@ All 42 Swift tests pass, including acknowledgment loss, false/missing durability
 
 Loading, Connected and reconnect/failure messages share one row with their status icon. The home header no longer duplicates connection text, initial settings pages avoid a second loading message, and the loading state has no Cancel button. Retry remains available after attempts stop. Loaded settings still use a quiet reconnect indicator and last-sync information. The Debug screenshot fixture covers loading, connected, quiet reconnect, failure and large-text loading; this presentation change does not alter retry limits or firmware radio scheduling.
 
-### Faster foreground recovery (build 17)
+### Faster foreground recovery (build 18)
 
 Known clocks stay pending through short network pauses and transient failures keep retrying with capped backoff while the app is foreground. Completed schema metadata is reused across app launches only after verifying the same device boot; settings and status are always read fresh. Interrupted schema reads resume completed pages only on that same boot. Stop connecting, clock switching, security-error guidance, confirmed saves and OTA ownership remain available. See [implementation, results and phone test steps](../docs/IOS_CONNECTION_OPTIMIZATION.md). This section supersedes the historical three-/five-attempt limits above.
+
+Build 18 also keeps rediscovery running when iOS no longer has a saved peripheral cached, and shows interrupted saves as unconfirmed while recovery continues. The production transport cancellation boundaries now have direct unit coverage.
