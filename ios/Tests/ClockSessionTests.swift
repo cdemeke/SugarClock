@@ -24,6 +24,7 @@ import CoreBluetooth
     var failNextRead=false
     var failSave=false
     var failStatus=false
+    var failSettings=false
     var failSettingsAfterSave=false
     var loseSaveAck=false
     var ignorePatch=false
@@ -36,6 +37,7 @@ import CoreBluetooth
     var scanResultsReads=0
     var holdSave=false
     var holdHello=false
+    var holdSchema=false
     var holdConnection=false
     var waiting:CheckedContinuation<Void,Error>?
     var identity="clock-a"
@@ -70,6 +72,7 @@ import CoreBluetooth
         switch op {
         case "hello":reply["device_id"]=identity;reply["name"]="Bedside Clock";reply["firmware"]=firmware;reply["boot_id"]=bootID;reply["hardware"]="tc001";reply["capabilities"]=["settings.patch","schema"]
         case "settings.get":
+            if failSettings {throw ClockError.timeout}
             if failSettingsAfterSave,operations.contains("settings.patch") {failSettingsAfterSave=false;throw ClockError.timeout}
             reply["settings"]=storedSettings
             if let durable {reply["saved"]=durable}
@@ -100,6 +103,7 @@ import CoreBluetooth
     }
     func read() async throws -> Data {
         if holdHello,operations.last=="hello" {try await withCheckedThrowingContinuation {waiting=$0}}
+        if holdSchema,operations.last=="schema.get" {try await withCheckedThrowingContinuation {waiting=$0}}
         if failNextRead {failNextRead=false;throw ClockError.timeout}
         guard connected else {throw ClockError.disconnected}
         let end=min(offset+172,response.count)
@@ -645,6 +649,110 @@ import CoreBluetooth
         radio.isPoweredOn=false;radio.isPoweredOn=true
         await Task.yield();await Task.yield()
         XCTAssertEqual(radio.attempts,SessionPolicy.newClockMaximumAttempts)
+        model.suspend()
+    }
+    func testPartialAdditionStaysBoundedAcrossRetryAndAppRecreation() async throws {
+        for failsDuringSchema in [false,true] {
+            let (model,radio,defaults,_)=fixture()
+            model.clocks=[];model.disconnect()
+            let newID=UUID()
+            radio.failSettings = !failsDuringSchema
+            radio.failSchemaPage=failsDuringSchema ? 0:nil
+            radio.schemaFailuresRemaining=100
+            await model.connect(newID)
+            XCTAssertEqual(radio.attempts,3)
+            XCTAssertEqual(radio.operations.filter {$0=="hello"}.count,3)
+            XCTAssertEqual(model.selected?.peripheral,newID) // Verified, not added yet.
+            XCTAssertFalse(model.sessionReady)
+            XCTAssertFalse(model.busy)
+            XCTAssertTrue(model.clocks.isEmpty)
+            let firstSaved=try JSONDecoder().decode([SavedClock].self,from:try XCTUnwrap(defaults.data(forKey:"clocks.v1")))
+            XCTAssertTrue(firstSaved.isEmpty)
+
+            await model.retrySelected()
+            XCTAssertEqual(radio.attempts,6)
+            XCTAssertFalse(model.busy)
+            XCTAssertTrue(model.clocks.isEmpty)
+            model.suspend()
+
+            let restored=ClockModel(enableBluetooth:false,transport:radio,preferences:defaults,retryDelay:0)
+            restored.resume()
+            await Task.yield();await Task.yield()
+            XCTAssertEqual(radio.attempts,6)
+            XCTAssertNil(restored.selected)
+            XCTAssertTrue(restored.clocks.isEmpty)
+            await restored.connect(newID)
+            XCTAssertEqual(radio.attempts,9)
+            XCTAssertFalse(restored.busy)
+            XCTAssertTrue(restored.clocks.isEmpty)
+
+            radio.failSettings=false;radio.schemaFailuresRemaining=0
+            await restored.retrySelected()
+            XCTAssertTrue(restored.sessionReady)
+            XCTAssertEqual(restored.clocks.count,1)
+            XCTAssertEqual(restored.clocks[0].peripheral,newID)
+            let completed=try JSONDecoder().decode([SavedClock].self,from:try XCTUnwrap(defaults.data(forKey:"clocks.v1")))
+            XCTAssertEqual(completed.map(\.peripheral),[newID])
+            XCTAssertEqual(completed.map(\.nickname),["Bedside Clock"])
+            restored.suspend()
+        }
+    }
+    func testFailedPeripheralReplacementPreservesExistingNicknameAndIdentifier() async throws {
+        let (model,radio,defaults,oldID)=fixture()
+        model.clocks[0].nickname="My custom bedside name";model.selected=model.clocks[0];model.remember()
+        let replacementID=UUID()
+        radio.failSchemaPage=0;radio.schemaFailuresRemaining=100
+        await model.connect(replacementID)
+        XCTAssertEqual(radio.attempts,3)
+        XCTAssertEqual(model.clocks.map(\.peripheral),[oldID])
+        XCTAssertEqual(model.clocks.map(\.nickname),["My custom bedside name"])
+        let saved=try JSONDecoder().decode([SavedClock].self,from:try XCTUnwrap(defaults.data(forKey:"clocks.v1")))
+        XCTAssertEqual(saved.map(\.peripheral),[oldID])
+        XCTAssertEqual(saved.map(\.nickname),["My custom bedside name"])
+        radio.schemaFailuresRemaining=0
+        await model.retrySelected()
+        XCTAssertTrue(model.sessionReady)
+        XCTAssertEqual(model.clocks.map(\.peripheral),[replacementID])
+        XCTAssertEqual(model.clocks.map(\.nickname),["My custom bedside name"])
+        XCTAssertEqual(model.clocks.map(\.id),["clock-a"])
+        model.suspend()
+    }
+    func testRenameDuringReplacementSchemaLoadKeepsVerifiedPeripheralAndLatestName() async throws {
+        let (model,radio,defaults,oldID)=fixture()
+        model.remember()
+        let replacementID=UUID()
+        radio.holdSchema=true
+        let replacing=Task {await model.connect(replacementID)}
+        await settle {radio.waiting != nil && radio.operations.last=="schema.get"}
+        XCTAssertEqual(model.selected?.peripheral,replacementID)
+        XCTAssertEqual(model.clocks[0].peripheral,oldID)
+        // Match Save name in ClockDetailsView while a read-only session is loading.
+        model.clocks[0].nickname="Renamed during connection"
+        model.selected=model.clocks[0]
+        model.remember()
+        radio.holdSchema=false
+        let pending=radio.waiting;radio.waiting=nil;pending?.resume()
+        await replacing.value
+        XCTAssertTrue(model.canSend)
+        XCTAssertEqual(model.selected?.id,"clock-a")
+        XCTAssertEqual(model.selected?.peripheral,replacementID)
+        XCTAssertEqual(model.selected?.nickname,"Renamed during connection")
+        XCTAssertEqual(model.clocks.map(\.peripheral),[replacementID])
+        XCTAssertEqual(model.clocks.map(\.nickname),["Renamed during connection"])
+        let saved=try JSONDecoder().decode([SavedClock].self,from:try XCTUnwrap(defaults.data(forKey:"clocks.v1")))
+        XCTAssertEqual(saved.map(\.peripheral),[replacementID])
+        XCTAssertEqual(saved.map(\.nickname),["Renamed during connection"])
+        model.suspend()
+    }
+    func testSavedClockKeepsRecoveringAfterRepeatedPostHelloSchemaFailures() async {
+        let (model,radio,_,id)=fixture()
+        radio.failSchemaPage=0;radio.schemaFailuresRemaining=4
+        await model.connect(id)
+        XCTAssertEqual(radio.attempts,5)
+        XCTAssertEqual(radio.operations.filter {$0=="hello"}.count,5)
+        XCTAssertTrue(model.sessionReady)
+        XCTAssertEqual(model.clocks.count,1)
+        XCTAssertEqual(model.clocks[0].peripheral,id)
         model.suspend()
     }
     func testAddClockDrainsSavedClockRecoveryAndDoesNotReconnectIt() async {

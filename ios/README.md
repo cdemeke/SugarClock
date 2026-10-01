@@ -97,3 +97,22 @@ On a previously loaded clock with the same verified boot, firmware and capabilit
 Add Clock stops an unrelated saved-clock connection attempt before discovery, offers **Stop connecting**, cancels an unfinished connection when leaving the screen, and returns control after three failed attempts to add a new clock. Saved-clock recovery continues while foreground, with the existing cancellation and backoff. Discovery prefers the clock's advertised local name so nearby clocks can be distinguished.
 
 **89 Swift tests passed**, the complete simulator build passed, and the signed Release archive succeeded. **1.0.0 (19)** is confirmed **Testing** in the existing Internal TestFlight group as of October 1, 2026. Phone installation and physical iPhone UI/radio acceptance have not been confirmed for this build. See [connection verification](../docs/IOS_CONNECTION_OPTIMIZATION.md) and [the corresponding firmware 0.3.3 recovery changes](../docs/BLE_RECOVERY_2026-10-01.md). This section supersedes the build 18 requirement to fetch status on every reconnect and its unlimited new-clock retries; saved-clock recovery remains persistent.
+
+### Reliable completion of Add Clock (build 21)
+
+New clocks enter My Clocks only after all required initial reads succeed. A
+failed setup stays bounded across Retry and app recreation, while existing
+saved clocks keep recovering in the foreground. Replacing a cached Bluetooth
+identifier preserves the nickname and saves the new identifier only after
+completion, including when renamed during loading. This complements build 19's
+shorter same-boot reconnect, preserved edits and explicit save confirmation.
+
+**93 Swift tests passed**, along with the complete simulator build and signed
+iPhone Release archive. Build 21 supersedes builds 19 and 20; firmware 0.3.4
+contains the accompanying crash and glucose-display recovery. See
+[verification and remaining phone checks](../docs/BLE_RECOVERY_2026-10-01.md).
+
+App Store Connect confirmed **1.0.0 (21)** as **Testing** in the existing
+**Internal** group on October 1, 2026. Test notes are saved. Install build 21
+for the phone checks; its availability does not establish installation or
+physical Bluetooth reliability.

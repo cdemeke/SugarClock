@@ -66,3 +66,29 @@ Verification for build 19:
 - App Store Connect confirmed build **19** as **Testing** in the existing **Internal** TestFlight group on **October 1, 2026**. This confirms tester availability, not installation or successful radio testing on the owner's phone.
 
 The corresponding firmware **0.3.3** recovery work is recorded in [BLE_RECOVERY_2026-10-01.md](BLE_RECOVERY_2026-10-01.md). The TC001 still requires bounded Bluetooth pauses for encrypted network work; the app improvements do not promise an uninterrupted radio connection. Use build 19 for the physical acceptance steps above, including pairing the intended USB clock, repeated foreground glucose polls, two confirmed brightness saves, and background/foreground return. Physical iPhone UI, RF timing and long-session reliability remain unverified for this build.
+
+## Complete additions and peripheral replacement — build 21
+
+Greptile identified that saving a device immediately after hello let an incomplete
+addition become an unlimited saved-clock retry after the next explicit attempt.
+Build 21 persists additions only after settings, required status and schema load
+successfully. An authenticated but incomplete device can be retried in memory,
+but does not survive as a saved clock after app recreation. Previously saved
+clocks keep persistent foreground recovery and retain their old identifier and
+nickname until a replacement connection fully succeeds. Renaming during a
+replacement keeps both the latest nickname and the newly verified peripheral ID.
+Existing records from older builds remain preserved because they contain no
+completion marker; this update does not guess which were incomplete or reset bonds.
+
+**93 Swift tests passed**, including regressions for settings/schema failures
+after hello, repeated attempts and recreation, eventual success, existing-clock
+retries beyond three, failed replacement and renaming during schema loading.
+The final complete simulator build and signed Release archive passed. Build 20
+was uploaded during review; build 21 supersedes it with the rename correction.
+Firmware 0.3.4 adds event/connection-epoch validation for recovered network
+status; see [the physical evidence and limits](BLE_RECOVERY_2026-10-01.md).
+
+App Store Connect confirmed **1.0.0 (21)** as **Testing** in the existing
+**Internal** group on October 1, 2026. Test notes are saved. Install build 21
+for the phone checks; its availability does not establish installation or
+physical Bluetooth reliability.

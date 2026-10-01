@@ -1,6 +1,6 @@
 # Bluetooth and glucose display recovery — October 1, 2026
 
-Candidate: firmware **0.3.3**, iOS **1.0.0 (19)**, BLE protocol **1**.
+Candidate: firmware **0.3.4**, iOS **1.0.0 (21)**, BLE protocol **1**.
 The ESP32 toolchain, NimBLE 2.5.0 dependency, partitions, settings format,
 bond storage and signed Wi-Fi OTA path remain compatible with 0.3.2.
 
@@ -24,7 +24,13 @@ bond storage and signed Wi-Fi OTA path remain compatible with 0.3.2.
   readings for 15 minutes. New provider responses now update reachability;
   source/network changes discard old evidence. Fresh readings take precedence
   over an old failed probe. Authentication errors prove reachability only,
-  never successful provider authentication or valid glucose.
+  never successful provider authentication or valid glucose. Wi-Fi event callbacks
+  invalidate evidence even when an entire reconnect occurs while the main loop
+  is occupied. Each HTTP attempt captures the Wi-Fi connection epoch before
+  launch and publishes it atomically with the response code, so a late response
+  from the previous connection cannot establish reachability for the new one.
+  Failed transport results clear old success to unknown without adding an
+  immediate extra TLS request or erasing a valid glucose reading.
 - Discovery tried to pack a full name alongside a 128-bit service UUID into
   one legacy advertising payload and ignored the failure. Names now go into
   the scan response. The suffix uses the varying eFuse bytes rather than the
@@ -46,20 +52,27 @@ weaken pairing, suppress alerts or postpone glucose indefinitely. Existing
 transfer/pairing protection has a 45-second ceiling, and auxiliary management
 work can reuse an existing network pause.
 
-Build 19 reuses a verified same-boot schema and timestamped status while
+Build 21 retains the build 19 optimization: it reuses a verified same-boot schema and timestamped status while
 requiring a fresh settings read before enabling commands. A reboot, update or
 capability change refreshes status/schema. The settings editor preserves
 unsaved edits during recovery, labels old status, and never replays saves.
 Add Clock cancels unrelated saved-device recovery, supports Stop connecting,
-cancels when dismissed, and limits initial attempts to three. Saved clocks
+cancels when dismissed, and limits initial attempts to three. A new clock enters the saved library only after its settings, required status
+and schema load successfully; an interrupted attempt cannot silently become
+unlimited saved-clock recovery. Successful peripheral replacement preserves
+the latest nickname even when renamed during loading. Existing saved clocks
 retain foreground recovery with bounded retry delay. See
 [iOS connection optimization](IOS_CONNECTION_OPTIMIZATION.md).
 
 ## Automated/build evidence
 
-- 89 Swift tests passed; complete simulator build and signed Release archive
-  passed. Build 19 uploaded and was confirmed **Testing** in the existing
-  Internal TestFlight group. Phone installation and UI acceptance are separate.
+- 93 Swift tests passed; complete simulator build and signed Release archive
+  passed. New coverage includes post-hello setup failures across retries and app
+  recreation, peripheral replacement, concurrent renaming and persistent
+  saved-clock recovery. Build **1.0.0 (21)** is confirmed **Testing** in the
+  existing Internal TestFlight group on October 1, 2026; test notes are saved.
+  Build 20 was uploaded during review and is superseded by build 21. Phone
+  installation and UI acceptance are separate.
 - 70 repository host tests passed, including BLE security/session ordering,
   persistence/migration, Wi-Fi, scheduling, OTA and TLS tests. Final reachability
   and glucose display regressions passed again after the last adjustment.
@@ -69,10 +82,10 @@ retain foreground recovery with bounded retry delay. See
   repeat builds and interrupted writes are covered; CI reruns after resolving
   the pinned library.
 - Firmware and installer filesystem builds and the layout check passed.
-  Firmware size is **1,589,408 bytes**, leaving **245,600 bytes** in each
-  1,835,008-byte OTA application slot: **1,264 bytes** above the tested 0.3.2
+  Firmware size is **1,589,664 bytes**, leaving **245,344 bytes** in each
+  1,835,008-byte OTA application slot: **1,520 bytes** above the tested 0.3.2
   baseline. SHA-256:
-  `b23e9f642337b247722a15dabae28051264bd9246e7ec07187af7e6750701838`.
+  `0cd3be36e119390f59534788ca618248f85712e810a46fcc723e54a8d5cbd75d`.
 
 ## Installation and physical verification
 
@@ -92,9 +105,26 @@ Readback after reboot confirmed the restored source/interval and preservation
 of every other field returned by the configuration endpoint. The first seven-minute capture recorded five real provider receipts, 12 phone
 authentications, one boot and no captured crash. It also recorded eight
 disconnects, including supervision timeouts after network pauses; this was
-**not** a clean phone reliability pass. The subsequent timing correction and
-negotiated-parameter diagnostics were added to investigate that remaining issue. No public
-firmware release or installer artifact is promoted by this development install.
+**not** a clean phone reliability pass. The subsequent 0.3.3 timing correction and negotiated-parameter diagnostics
+were observed for six minutes: three real provider receipts, one boot, zero
+captured faults and no phone connection. The lifetime minimum free heap was
+43,592 bytes; the smallest sampled largest free block was 55,284 bytes. These
+are observation-window measurements, not the smallest block inside HTTPS,
+and do not establish the effect of the timing correction on an iPhone.
+No public firmware release or installer artifact is promoted by this
+development install.
+
+The final **0.3.4** installation repeated the app-only flash, hash verification
+and byte-identical 64 KiB metadata check using a fresh snapshot. A **180.2-second**
+observation recorded one boot, one real Dexcom receipt, one captured network
+pause and **zero captured faults**. The device reported firmware 0.3.4, HTTP
+200, `GLUCOSE`, valid data and zero provider failures. The restored Dexcom source,
+60-second fallback and configured password were confirmed after reboot.
+Nine memory samples recorded a lifetime minimum heap of **42,108 bytes** and
+a smallest sampled largest free block of **55,284 bytes**. No phone connected
+during this final observation, so negotiated timing and app build 21 reliability
+remain pending phone acceptance. USB observation was stopped; the clock was
+left running.
 
 ## Remaining qualification
 

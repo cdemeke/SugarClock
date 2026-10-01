@@ -9,6 +9,8 @@ uint32_t millis() {return now;}
 struct Config {int data_source=1,poll_interval_sec=60;bool glucose_enabled=true;} config;
 using AppConfig=Config;
 uint32_t dexcom_fallback_seconds=60;
+uint32_t wifi_generation=10,fetch_wifi_generation=0;
+uint32_t wifi_connection_generation() {return wifi_generation;}
 int polling_source=0;
 bool glucoseExpected=false;
 bool http_dexcom_due_within(uint32_t) {return glucoseExpected;}
@@ -56,13 +58,17 @@ int main() {
  force_requested=true;online=false;http_loop();assert(force_requested && !fetch_running);
  online=true;lease=true;http_loop();assert(force_requested && !fetch_running);
  lease=false;http_loop();assert(glucoseTasks==1 && fetch_running && !force_requested);
+ assert(fetch_wifi_generation==10);
+ ++wifi_generation;http_loop();assert(fetch_wifi_generation==10); // Never relabel an active result.
  // An active glucose task prevents the management scheduler from overlapping it.
  pausedWindow=true;next_attempt_ms=now;fleet_loop();assert(fleetTasks==0);
  fetch_running=false;fetch_complete=true;lease=false;http_paused=true;
  http_loop();assert(publications==1 && fetch_generation==1);
+ assert(fetch_wifi_generation==10);
  http_paused=false;
  // Task creation failure releases the lease and schedules a paced retry.
  force_requested=true;failTask=true;http_loop();
+ assert(fetch_wifi_generation==11); // New attempts capture the new connection.
  assert(!lease && !fetch_running && last_response_code==-1000);
  assert(!dexcom_schedule.ready(now+59999) && dexcom_schedule.ready(now+60000));
  failTask=false;failure_count=0;

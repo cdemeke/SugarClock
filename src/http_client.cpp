@@ -31,6 +31,7 @@ static scnet::DexcomSchedule dexcom_schedule;
 static uint32_t dexcom_fallback_seconds=60;
 static int polling_source=0;
 static unsigned long last_success_ms = 0;
+static uint32_t fetch_wifi_generation = 0;
 static std::atomic<bool> http_paused{false};
 static std::atomic<bool> fetch_running{false},fetch_complete{false},force_requested{false};
 static portMUX_TYPE published_mux=portMUX_INITIALIZER_UNLOCKED;
@@ -40,6 +41,7 @@ struct PublishedHTTP {
  int failure_count=0,code=0,delta=0,history_count=0,history_write=0;
  bool ever=false;
  unsigned long last_success=0;
+ uint32_t wifi_generation=0;
 };
 static PublishedHTTP published;
 static std::atomic<unsigned long> fetch_generation{0};
@@ -463,6 +465,7 @@ static void publish_result() {
  published.failure_count=failure_count;published.code=last_response_code;published.delta=current_delta;
  published.history_count=history_count;published.history_write=history_write_idx;
  published.ever=ever_received;published.last_success=last_success_ms;
+ published.wifi_generation=fetch_wifi_generation;
  portEXIT_CRITICAL(&published_mux);
 }
 static void fetch_worker(void* parameter) {
@@ -524,6 +527,7 @@ void http_loop() {
     if(!ble_acquire_network()) {if(force) force_requested=true;return;}
     dexcom_fallback_seconds=uint32_t(max(15,cfg.poll_interval_sec));
     last_poll_ms=millis();fetch_running=true;
+    fetch_wifi_generation=wifi_connection_generation();
     if(xTaskCreate(fetch_worker,"glucose_https",14336,reinterpret_cast<void*>(static_cast<intptr_t>(cfg.data_source)),1,nullptr)!=pdPASS) {
         if(cfg.data_source==1) dexcom_schedule.complete(millis(),0,0,false,60);
         ble_release_network();fetch_running=false;last_response_code=-1000;++failure_count;publish_result();
@@ -535,6 +539,12 @@ GlucoseReading http_get_reading() {
 }
 int http_get_failure_count() {portENTER_CRITICAL(&published_mux);int n=published.failure_count;portEXIT_CRITICAL(&published_mux);return n;}
 int http_get_last_response_code() {portENTER_CRITICAL(&published_mux);int n=published.code;portEXIT_CRITICAL(&published_mux);return n;}
+HttpReachabilityResult http_get_reachability_result() {
+ portENTER_CRITICAL(&published_mux);
+ HttpReachabilityResult result{published.code,published.wifi_generation};
+ portEXIT_CRITICAL(&published_mux);
+ return result;
+}
 const char* http_get_last_response_body() {return "Response bodies omitted from diagnostics";}
 bool http_has_ever_received() {portENTER_CRITICAL(&published_mux);bool b=published.ever;portEXIT_CRITICAL(&published_mux);return b;}
 unsigned long http_time_since_last_reading() {

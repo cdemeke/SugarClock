@@ -264,9 +264,6 @@ private struct PendingSave {
         if selected?.id != identity {settings=[:];status=[:];fields=[];schemaIdentity=nil;lastSettingsRefresh=nil;lastStatusRefresh=nil}
         let saved=clocks.first(where:{$0.id==identity}) ?? SavedClock(id:identity,peripheral:id,nickname:greeting["name"] as? String ?? "SugarClock")
         selected=SavedClock(id:identity,peripheral:id,nickname:saved.nickname)
-        if let index=clocks.firstIndex(where:{$0.id==identity}) {clocks[index]=selected!}
-        else {clocks.append(selected!)}
-        remember()
         client=next;hello=greeting
         // Pairing may need 45 seconds; subsequent reads fail promptly on a stale link.
         next.requestTimeout=15;transport.operationTimeout=15
@@ -278,6 +275,20 @@ private struct PendingSave {
         if needsStatus {try await refreshStatus()}
         try await loadSchema(greeting,client:next)
         try Task.checkCancellation()
+        // Hello proves identity, not a completed addition. Keep an incomplete
+        // clock out of the durable library so retry or app relaunch cannot turn
+        // its bounded setup into endless saved-clock recovery. Existing entries
+        // (including nickname and old peripheral ID) survive failed reconnects.
+        // A local rename can replace selected with the older library record
+        // while reads await. Commit the identity/peripheral verified by this
+        // attempt, retaining the latest user-chosen name without that old ID.
+        let nickname=clocks.first(where:{$0.id==identity})?.nickname
+            ?? (selected?.id==identity ? selected?.nickname:nil) ?? saved.nickname
+        let confirmed=SavedClock(id:identity,peripheral:id,nickname:nickname)
+        selected=confirmed
+        if let index=clocks.firstIndex(where:{$0.id==identity}) {clocks[index]=confirmed}
+        else {clocks.append(confirmed)}
+        remember()
     }
     func checkConnection() async {
         guard foreground,!busy,reconnectTask==nil,updateMonitor==nil,sessionReady,client != nil else {return}

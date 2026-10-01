@@ -14,6 +14,9 @@ class NetcheckTests(unittest.TestCase):
                   source[source.index("void netcheck_init()"):]]
         with tempfile.TemporaryDirectory() as tmp:
             (pathlib.Path(tmp) / "netcheck.inc").write_text("\n".join(blocks))
+            wifi = (ROOT / "src/wifi_manager.cpp").read_text()
+            (pathlib.Path(tmp) / "wifi_event.inc").write_text(
+                wifi[wifi.index("static void on_wifi_event("):wifi.index("// Configure the 802.1X")])
             exe = str(pathlib.Path(tmp) / "netcheck")
             subprocess.run(["c++", "-std=c++17", "-Wall", "-Wextra", "-Werror",
                             "-Iinclude", "-I" + tmp, "tests/test_netcheck.cpp", "-o", exe],

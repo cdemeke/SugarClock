@@ -44,6 +44,11 @@ int http_get_failure_count();
 // Get last HTTP response code
 int http_get_last_response_code();
 
+// Code and Wi-Fi epoch are read together, so a late result from an old network
+// cannot establish reachability for a replacement connection.
+struct HttpReachabilityResult { int response_code; uint32_t wifi_generation; };
+HttpReachabilityResult http_get_reachability_result();
+
 // Get last raw response body (for debug)
 const char* http_get_last_response_body();
 

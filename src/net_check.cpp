@@ -172,8 +172,9 @@ void netcheck_request() {
 void netcheck_loop() {
     bool connected = wifi_is_connected();
 
-    // A response from the previous source must not establish reachability for
-    // replacement settings. http_loop discards any in-flight old-source result.
+    // Wi-Fi callbacks also set this flag, since a whole reconnect can occur
+    // while network workers gate this loop. A response from the previous source
+    // or connection cannot establish reachability for the replacement.
     if (configuration_changed.exchange(false)) {
         observed_fetch_generation = http_fetch_generation();
         provider_response_ok = false;
@@ -206,12 +207,21 @@ void netcheck_loop() {
     if (generation != observed_fetch_generation) {
         observed_fetch_generation = generation;
         const AppConfig& cfg = config_get();
+        const HttpReachabilityResult result = http_get_reachability_result();
         provider_response_ok = cfg.glucose_enabled && cfg.data_source != 2 &&
-                               http_get_last_response_code() > 0;
+                               result.response_code > 0 &&
+                               result.wifi_generation == wifi_connection_generation();
         if (provider_response_ok) {
             res_dns = res_data = NC_OK;
             if (step == STEP_DNS || step == STEP_DATA) step = STEP_NTP;
             if (step == STEP_DONE || step == STEP_IDLE) build_summary();
+        } else if (cfg.glucose_enabled && cfg.data_source != 2) {
+            // A failed request does not identify DNS failure or a firewall, but
+            // previously successful reachability is no longer current evidence.
+            // Keep the normal probe schedule: immediate extra TLS work would
+            // interrupt Bluetooth again for every failed provider request.
+            res_dns = res_data = NC_UNKNOWN;
+            summary[0] = '\0';
         }
     }
     if (step == STEP_DONE || step == STEP_IDLE) {

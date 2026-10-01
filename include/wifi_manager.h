@@ -66,6 +66,10 @@ void wifi_loop();
 // Check if currently connected
 bool wifi_is_connected();
 
+// Monotonic event epoch: changes on disconnect and successful IP acquisition,
+// including transitions that occur entirely while the main loop is occupied.
+uint32_t wifi_connection_generation();
+
 // Get IP address as string
 const char* wifi_get_ip();
 

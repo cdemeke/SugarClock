@@ -2,9 +2,11 @@
 #include "wifi_trial_policy.h"
 #include "config_manager.h"
 #include "captive_portal.h"
+#include "net_check.h"
 #include <WiFi.h>
 #include <esp_wifi.h>
 #include <Arduino.h>
+#include <atomic>
 
 // The 802.1X ("enterprise") client API was renamed between ESP-IDF releases.
 // platformio.ini pins no framework version, so support whichever header the
@@ -64,6 +66,8 @@ static bool boot_connect_pending = false;
 static volatile int last_disconnect_reason = 0;
 static volatile uint32_t disconnect_count = 0;
 static volatile bool assoc_done = false;
+static std::atomic<uint32_t> connection_generation{0};
+uint32_t wifi_connection_generation() { return connection_generation.load(); }
 
 // Trial state
 static WifiTrialParams trial_params;
@@ -129,11 +133,18 @@ static void on_wifi_event(WiFiEvent_t event, WiFiEventInfo_t info) {
             assoc_done = true;
             break;
         case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
+            ++connection_generation;
             last_disconnect_reason = info.wifi_sta_disconnected.reason;
             disconnect_count++;
             assoc_done = false;
+            // The main loop may be occupied by network work for the entire
+            // reconnect. Retire old reachability evidence at the event boundary.
+            // This hook only sets an atomic flag; probes remain in the main loop.
+            netcheck_configuration_changed();
             break;
         case ARDUINO_EVENT_WIFI_STA_GOT_IP:
+            ++connection_generation;
+            netcheck_configuration_changed();
             break;
         default:
             break;
