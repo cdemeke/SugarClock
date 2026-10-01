@@ -47,3 +47,39 @@ is retained for upgrading again. **Changing the pet in rolled-back firmware does
 not replace the retained canonical selection**: upgrading restores the last
 seven-pet selection. This limitation affects the pet selection only. No cloud
 service deployment or release publication is part of this change.
+
+## Build and connected-clock verification, October 1, 2026
+
+- App 1.0.0 (23): 143 Swift tests passed, signed Simulator build and signed
+  iPhone archive passed. Uploaded successfully and confirmed Testing in the
+  existing Internal TestFlight group; test instructions were saved.
+- Firmware 0.3.5: 74 repository host tests passed. Production renderer tests
+  exercise all seven pets, 28,350 frame combinations and 77 shared Swift/C++
+  frames, with urgent/stale/missing-data safeguards.
+- Normal firmware build: 1,593,712 bytes, with 241,296 bytes headroom in the
+  unchanged 1,835,008-byte slot. SHA-256:
+  `faa674c82a82b020f4b888f70325ed138a21ad66128512bb9a44489e93a3709f`.
+  The installer filesystem artifact also built successfully.
+
+The authorized USB clock install used a fresh private 4 MiB backup. A fast
+backup attempt encountered corrupt serial data; the complete retry at 115,200
+baud succeeded before any write. USB identity, partition layout, active slot
+and valid OTA sequence were verified. Only the active application at `0x10000`
+was written, and esptool verified its flash hash. The first 64 KiB were then
+read back and matched the backup exactly before reboot, preserving bootloader,
+partitions, NVS/settings/bonds and OTA metadata. The other application slot and
+filesystem/certificates were outside the write range. No filesystem image was
+flashed and no public firmware release was published.
+
+After reboot the clock reported 0.3.5, Wi-Fi connected, GLUCOSE display state,
+valid real-provider data and zero provider failures. Readback at 19 seconds
+uptime reported a reading four seconds old. All 76 existing configuration
+fields matched the pre-install snapshot; the only added response field was
+`ambient_character`. Raw backups, configurations and glucose values remain
+private and are not checked into the repository.
+
+This short observation confirms startup, preservation and data recovery, not
+physical iPhone reliability or the appearance of every pet on LEDs. Long-session
+BLE, per-pet selection from the phone, alerts, OTA/rollback and VoiceOver still
+need physical acceptance. PR #29 also requires mainline conflict integration
+and revalidation before merge.

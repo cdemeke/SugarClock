@@ -130,6 +130,8 @@ Bluetooth reliability. This is an app-only change using existing firmware
 
 - **143 Swift tests passed** across the complete app core suite.
 - Signed Simulator build and signed iPhone archive **1.0.0 (23)** passed.
+- Build 23 is confirmed **Testing** in the existing Internal TestFlight group,
+  with test instructions saved on October 1, 2026.
 - Simulator screenshots checked offline/syncing bottom bars, the review sheet,
   accessibility text sizes and the seven-pet selector using sample data.
 - Firmware **0.3.5** and filesystem artifact build passed; all **74 host tests**
