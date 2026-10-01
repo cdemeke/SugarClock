@@ -29,6 +29,7 @@ for config in ('Debug','Release'):
  SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; ALWAYS_SEARCH_USER_PATHS = NO; SDKROOT = iphoneos; IPHONEOS_DEPLOYMENT_TARGET = 17.0; TARGETED_DEVICE_FAMILY = "1,2";
  SWIFT_VERSION = 5.0; PRODUCT_NAME = SugarClock; PRODUCT_BUNDLE_IDENTIFIER = com.sugarclock.companion;
  GENERATE_INFOPLIST_FILE = YES; ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+ INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
  INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "SugarClock uses Bluetooth to securely pair with and configure your nearby clocks.";
  INFOPLIST_KEY_UILaunchScreen_Generation = YES; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
  INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
