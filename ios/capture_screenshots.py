@@ -13,6 +13,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--app', required=True, type=Path, help='Built Debug iOS Simulator .app')
 parser.add_argument('--device', required=True, help='Booted simulator UUID')
 parser.add_argument('--output', type=Path, default=Path(__file__).resolve().parents[1] / 'docs/screenshots')
+parser.add_argument('--launch-kit', action='store_true', help='Capture the six launch-kit screens at the simulator native size')
 parser.add_argument('--simctl', help='Optional installed simctl binary when the Xcode wrapper cannot run')
 args = parser.parse_args()
 app = args.app.resolve()
@@ -45,6 +46,10 @@ screens = [('01-my-clocks', 'clocks'), ('02-device-settings', 'device'), ('03-wi
            ('08-firmware-dark', 'firmware'), ('09-display', 'display'),
            ('10-blood-sugar-dark', 'glucose'), ('11-display-dark', 'display'),
            ('12-blood-sugar', 'glucose'), ('13-large-text', 'display-accessibility')]
+if args.launch_kit:
+    screens = [('01-clocks', 'clocks'), ('02-settings', 'device'),
+               ('03-pending', 'pending-review'), ('04-pets-dark', 'companions-maple'),
+               ('05-display', 'brightness'), ('06-glucose-dark', 'glucose')]
 for filename, screen in screens:
     sim('terminate', args.device, identifier, check=False)
     sim('ui', args.device, 'appearance', 'dark' if filename.endswith('dark') else 'light')

@@ -1,0 +1,24 @@
+{
+  "locale": "en-US",
+  "name": "SugarClock",
+  "subtitle": "Your clock, your way",
+  "promotional_text": "Set up your SugarClock nearby, personalize its display, and review changes before updating. Requires a compatible SugarClock device.",
+  "keywords": "bluetooth,clock,display,companion,glucose,settings,pixel,pets,brightness",
+  "description": "Make your SugarClock feel like yours.\n\nSugarClock is the iOS companion for a Ulanzi TC001 running Bluetooth-capable SugarClock firmware. Hardware is required and sold separately. Use your iPhone or iPad to find a nearby clock, pair using the code on its display, and manage its settings.\n\nKEEP YOUR CLOCKS TOGETHER\nSave and name multiple clocks. Return to the one you want without looking up its IP address or joining a temporary Wi-Fi network.\n\nEDIT AT YOUR PACE\nAfter loading a clock once, continue editing its saved settings even while disconnected. Review pending changes, remove individual edits, then tap Update clock. The app confirms when settings have been saved on the clock.\n\nMAKE IT YOURS\nAdjust brightness, units, display preferences, time settings and clock alerts. Choose from seven Pixel Pets on compatible firmware. Configure Wi-Fi, Dexcom Share or a custom URL / compatible Nightscout source without replacing credentials you leave unchanged.\n\nLET YOUR CLOCK GET ON WITH ITS DAY\nYour clock fetches readings using its own Wi-Fi. Its display and configured alerts continue to run when the app is closed. The app uses foreground Bluetooth sessions and can request signed firmware updates through the clock's supported Wi-Fi update service.\n\nBEFORE YOU START\nRequires iOS/iPadOS 17 or later and compatible SugarClock firmware. Older clocks may need a USB or supported OTA upgrade before the app can discover them. Wi-Fi, internet access and a working provider connection are required for new readings. Provider accounts, terms and availability are separate from SugarClock. New Libre-specific settings currently remain in the clock's web interface.\n\nNo SugarClock account or subscription is required. Firmware fleet reporting and data-provider connections are described in the privacy policy.\n\nSugarClock configures a companion display. It does not measure glucose, calculate insulin doses, or replace your primary glucose device, its alarms, or professional medical advice. Consult your healthcare professional for medical decisions.",
+  "proposed_urls": {
+    "marketing": "https://sugarclock.com/ios/",
+    "support": "https://sugarclock.com/ios/support/",
+    "privacy": "https://sugarclock.com/ios/privacy/"
+  },
+  "publication_status": "Draft; proposed URLs are not published by this PR.",
+  "owner_required": {
+    "copyright": "REQUIRED: year and legal rights holder",
+    "support_contact": "REQUIRED: public support contact",
+    "privacy_contact": "REQUIRED: public privacy contact",
+    "review_contact": "REQUIRED: reachable reviewer name, email and phone",
+    "category": "REQUIRED: owner selection matching actual functionality",
+    "medical_device_status": "REQUIRED: owner/regulatory determination where applicable",
+    "age_rating": "REQUIRED: complete Apple questionnaire; do not infer rating"
+  },
+  "release_mode": "Manual release recommended; do not publish without owner authorization"
+}

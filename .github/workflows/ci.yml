@@ -13,6 +13,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - name: Launch metadata and committed asset validation
+        run: python3 ios/launch-kit/verify.py
       - name: Site analytics tests
         run: node --test tests/test_site_analytics.cjs tests/test_video_*.mjs
 
