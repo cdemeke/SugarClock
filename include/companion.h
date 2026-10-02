@@ -151,7 +151,8 @@ inline void companion_frame(int id, uint32_t ms, bool sleepy, bool happy, char (
     }
     int left=14, right=-1;
     for (int y=0; y<8; ++y) for (int x=0; x<14; ++x) if (pet[y][x] != '.') {
-        if (x<left) left=x; if (x>right) right=x;
+        if (x<left) left=x;
+        if (x>right) right=x;
     }
     int offset = ((style == COMPANION_ONLY ? 32 : 14) - (right-left+1))/2 - left;
     for (int y=0; y<8; ++y) for (int x=0; x<14; ++x)
