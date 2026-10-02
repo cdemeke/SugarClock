@@ -189,7 +189,9 @@ void engine_rebuild_toggle_order() {
         toggle_order[toggle_count++] = STATE_TREND_DISPLAY;
     }
     if (cfg.time_display_enabled) toggle_order[toggle_count++] = STATE_TIME_DISPLAY;
-    if (cfg.weather_enabled) toggle_order[toggle_count++] = STATE_WEATHER_DISPLAY;
+    // Never cycle into a permanent loading placeholder when weather is unconfigured
+    // or its first fetch failed. The periodic rebuild admits it once data arrives.
+    if (cfg.weather_enabled && weather_has_data()) toggle_order[toggle_count++] = STATE_WEATHER_DISPLAY;
     if (cfg.ambient_enabled) toggle_order[toggle_count++] = STATE_AMBIENT_CREATURE_DISPLAY;
     if (cfg.timer_enabled) toggle_order[toggle_count++] = STATE_TIMER_DISPLAY;
     if (cfg.stopwatch_enabled) toggle_order[toggle_count++] = STATE_STOPWATCH_DISPLAY;
@@ -328,7 +330,7 @@ void engine_init() {
     AppConfig& cfg = config_get();
     if (cfg.default_mode == 3 && cfg.ambient_enabled) {
         default_mode = STATE_AMBIENT_CREATURE_DISPLAY;
-    } else if (cfg.default_mode == 2 && cfg.weather_enabled) {
+    } else if (cfg.default_mode == 2 && cfg.weather_enabled && weather_has_data()) {
         default_mode = STATE_WEATHER_DISPLAY;
     } else if (cfg.default_mode == 1 && cfg.time_display_enabled) {
         default_mode = STATE_TIME_DISPLAY;
@@ -1167,7 +1169,7 @@ void engine_set_default_mode(DisplayState mode) {
     if (mode == STATE_TIME_DISPLAY && !config_get().time_display_enabled) {
         mode = STATE_GLUCOSE_DISPLAY;
     }
-    if (mode == STATE_WEATHER_DISPLAY && !config_get().weather_enabled) {
+    if (mode == STATE_WEATHER_DISPLAY && (!config_get().weather_enabled || !weather_has_data())) {
         mode = STATE_GLUCOSE_DISPLAY;
     }
     if (mode == STATE_AMBIENT_CREATURE_DISPLAY && !config_get().ambient_enabled) {

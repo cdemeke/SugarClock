@@ -22,6 +22,8 @@ unsigned long readingAge=0;
 int http_get_failure_count() {return failures;}
 bool http_has_ever_received() {return ever;}
 unsigned long http_time_since_last_reading() {return readingAge;}
+bool weatherReady=false;
+bool weather_has_data() {return weatherReady;}
 bool sysmon_has_data() {return false;}
 bool time_is_available() {return true;}
 bool wifi_is_ap_mode() {return false;}
@@ -40,6 +42,19 @@ int main() {
  cfg.thresh_urgent_low=55;cfg.thresh_urgent_high=300;cfg.stale_timeout_min=20;
  cfg.time_display_enabled=true;cfg.ambient_enabled=true;
  engine_rebuild_toggle_order();assert(toggle_count==4);
+ // Enabled-but-empty weather must not occupy a manual or auto-cycle slot.
+ cfg.weather_enabled=true;user_mode=STATE_WEATHER_DISPLAY;
+ engine_rebuild_toggle_order();assert(toggle_count==4 && user_mode==STATE_GLUCOSE_DISPLAY);
+ for(int i=0;i<toggle_count;++i) assert(toggle_order[i]!=STATE_WEATHER_DISPLAY);
+ // First successful fetch adds weather; loss of data removes a selected weather
+ // screen without disturbing glucose/time/pet availability.
+ weatherReady=true;engine_rebuild_toggle_order();assert(toggle_count==5);
+ assert(toggle_order[3]==STATE_WEATHER_DISPLAY);
+ user_mode=STATE_WEATHER_DISPLAY;weatherReady=false;
+ engine_rebuild_toggle_order();assert(toggle_count==4 && user_mode==STATE_GLUCOSE_DISPLAY);
+ weatherReady=true;cfg.weather_enabled=false;
+ engine_rebuild_toggle_order();assert(toggle_count==4);
+ weatherReady=false;
  check_alerts();assert(beeps==1);assert(urgent_glucose_is_active());
  // A failed earlier reachability probe cannot obscure recovered fresh glucose,
  // including urgent low readings. Actual missing/stale data retains diagnostics.
