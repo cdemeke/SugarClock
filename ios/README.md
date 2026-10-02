@@ -31,7 +31,7 @@ Enterprise PEAP/TTLS settings and an existing CA are preserved/supported. This p
 
 ## App Store and marketing preparation
 
-The [launch kit](launch-kit/README.md) includes a responsive marketing-page draft, support/privacy drafts, English App Store metadata, reviewer hardware instructions, and reproducible iPhone/iPad screenshots plus share artwork. The [submission packet](launch-kit/APP_STORE_SUBMISSION.md) separates completed materials from owner declarations, the missing in-app privacy link, and physical review checks. Public URLs and publication remain pending. The [privacy worksheet](launch-kit/PRIVACY_WORKSHEET.md) describes the current build 24 storage behavior and supersedes earlier in-memory-only statements below.
+The [launch kit](launch-kit/README.md) includes the [app companion page in the marketing site](../docs/app.html), support/privacy drafts, English App Store metadata, reviewer hardware instructions, and reproducible iPhone/iPad screenshots plus share artwork. The [submission packet](launch-kit/APP_STORE_SUBMISSION.md) separates completed materials from owner declarations, the missing in-app privacy link, and physical review checks. Public URLs and publication remain pending. The [privacy worksheet](launch-kit/PRIVACY_WORKSHEET.md) describes the current build 24 storage behavior and supersedes earlier in-memory-only statements below.
 
 ## TestFlight setup and distribution
 

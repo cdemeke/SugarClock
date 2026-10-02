@@ -8,6 +8,7 @@ import json
 import struct
 
 ROOT = Path(__file__).resolve().parent
+SITE = ROOT.parents[1] / "docs"
 metadata=json.loads((ROOT/'app-store-metadata.json').read_text())
 for field,limit in [('name',30),('subtitle',30),('promotional_text',170),('description',4000)]:
     assert 0 < len(metadata[field]) <= limit, (field,len(metadata[field]))
@@ -24,13 +25,17 @@ class Page(HTMLParser):
         if tag=='meta' and attrs.get('name')=='robots':self.noindex='noindex' in attrs.get('content','')
         for key in ('href','src'):
             if key in attrs:self.links.append(attrs[key])
-for file in (ROOT/'site').glob('*.html'):
-    page=Page(file);page.feed(file.read_text());assert page.noindex,file
+for file in [*(ROOT/'site').glob('*.html'), SITE/'app.html']:
+    page=Page(file);page.feed(file.read_text())
+    if file.parent==ROOT/'site':assert page.noindex,file
     for url in page.links:
         target=urlsplit(url)
         if target.scheme or target.netloc:continue
-        if target.path:assert (file.parent/unquote(target.path)).resolve().exists(),(file,url)
-        elif target.fragment:assert target.fragment in page.ids,(file,url)
+        linked=(file.parent/unquote(target.path)).resolve() if target.path else file
+        assert linked.exists(),(file,url)
+        if target.fragment:
+            destination=Page(linked);destination.feed(linked.read_text())
+            assert target.fragment in destination.ids,(file,url)
 
 manifest=json.loads((ROOT/'asset-manifest.json').read_text())
 assert len(manifest['files'])==16
@@ -42,4 +47,12 @@ for record in manifest['files']:
     assert content[25]==2, ('alpha channel',record['file'])
     assert hashlib.sha256(content).hexdigest()==record['sha256']
 assert (ROOT/'assets/app-icon-1024.png').read_bytes()==(ROOT.parent/'SugarClock/Assets.xcassets/AppIcon.appiconset/icon_appstore.png').read_bytes()
+for name in ('01-clocks','02-settings','03-pending','04-pets-dark','05-display'):
+    assert (SITE/f'images/app/{name}.png').read_bytes()==(ROOT/f'screenshots/{name}.png').read_bytes()
+assert (SITE/'images/app/social-1200x630.png').read_bytes()==(ROOT/'assets/social-1200x630.png').read_bytes()
+for name in ('index.html','faq.html'):
+    html=(SITE/name).read_text()
+    assert 'href="app.html"' in html[:html.index('</nav>')]
+    assert 'href="app.html"' in html[html.index('<footer'):]
+assert 'href="style.css"' in (SITE/'app.html').read_text()
 print('Launch kit verified: metadata bounds, page links/alt text/draft markers, 16 opaque image exports and hashes, icon provenance.')

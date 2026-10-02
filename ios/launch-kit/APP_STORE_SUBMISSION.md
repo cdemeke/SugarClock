@@ -4,7 +4,7 @@ Draft prepared October 2, 2026 against app 1.0.0 (24) and PR #29. This packet pr
 
 ## What is ready in this PR
 
-- Responsive marketing-page implementation: [site/index.html](site/index.html).
+- Responsive marketing-page implementation: [docs/app.html](../../docs/app.html).
 - Support and privacy drafts with visible unresolved owner fields.
 - Copyable English metadata: [app-store-metadata.json](app-store-metadata.json).
 - Six current iPhone screenshots and six iPad screenshots of real SwiftUI views, using explicit synthetic fixtures. These are design/marketing review assets, not proof of physical pairing.
@@ -18,7 +18,7 @@ Draft prepared October 2, 2026 against app 1.0.0 (24) and PR #29. This packet pr
 | --- | --- | --- |
 | App record and signing | Existing bundle `com.sugarclock.companion`, marketing version 1.0.0, build 24 | Owner verifies the actual App Store Connect record/team, agreements, signing and intended distribution regions. No signing credentials belong in Git. |
 | Product-page text | Name, subtitle, promotion, keywords and description in JSON | Review claims and localization; fill rights-holder copyright and category. Description makes required hardware explicit. |
-| Product URLs | Local marketing, support and privacy HTML | Owner approves final content/contact; publish stable HTTPS URLs and check them logged out. Proposed `/ios/` URLs are placeholders, not live claims. |
+| Product URLs | Local marketing, support and privacy HTML | Owner approves final content/contact; publish stable HTTPS URLs and check them logged out. Marketing is prepared at `/app.html`; the separate proposed support/privacy routes remain unpublished. |
 | Visuals | iPhone 6.9-inch and iPad 13-inch native captures plus designed panels | Check against the exact submitted Release UI and device set; replace fixtures with sanitized hardware captures where needed. Verify no credentials/personal readings. |
 | Review access | Hardware walkthrough and demo-video shot list | Provide a functioning clock with compatible firmware, power and reviewer instructions, or coordinate the review setup with Apple. Record a real phone/clock video. |
 | Privacy | Data-flow worksheet and draft policy | Confirm fleet deployment/retention/subprocessors and final App Privacy answers. Publish policy and add an accessible privacy-policy link inside the app. **That in-app link is not implemented by this kit.** |

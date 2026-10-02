@@ -1276,3 +1276,6 @@ h6 {
     max-width: 340px;
   }
 }
+
+/* Deep link used by the app companion page; leave room for the sticky nav. */
+#installation-reporting { scroll-margin-top: 144px; }
