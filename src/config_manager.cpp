@@ -17,10 +17,8 @@ static bool config_loaded = false;
 static AppConfig committed;
 static bool durable=false;
 bool config_is_durable() {return durable;}
-static StaticSemaphore_t mutex_storage;
-static SemaphoreHandle_t config_mutex = nullptr;
-void config_lock() { if(config_mutex) xSemaphoreTakeRecursive(config_mutex,portMAX_DELAY); }
-void config_unlock() { if(config_mutex) xSemaphoreGiveRecursive(config_mutex); }
+void config_lock() { config_libre_mutex().lock(); }
+void config_unlock() { config_libre_mutex().unlock(); }
 
 
 static void config_set_defaults() {
@@ -49,11 +47,17 @@ static void config_set_defaults() {
     config.dexcom_password[0] = '\0';
     config.dexcom_us = true;
 
+    // FreeStyle Libre
+    config.libre_email[0] = '\0';
+    config.libre_password[0] = '\0';
+    config.libre_region[0] = '\0';
+
     config.poll_interval_sec = 60;
 
     // Display
     config.brightness = 40;
     config.auto_brightness = true;
+    config.glucose_only_when_low = false;
     config.show_delta = false;
     config.use_mmol = false;
 
@@ -71,9 +75,11 @@ static void config_set_defaults() {
     // Default mode
     config.default_mode = 0; // glucose
 
-    // Ambient creature
+    // Pixel companion
     config.ambient_enabled = false;
-    config.ambient_creature = 0;
+    config.ambient_character = COMPANION_FISH;
+    config.ambient_style = COMPANION_TEXT;
+    config.ambient_use_glucose_colors = false;
     config.ambient_seasonal = true;
 
     // Alerts
@@ -214,10 +220,13 @@ static void config_check_littlefs_overlay() {
         const char* srv = doc["dexcom_server"];
         config.dexcom_us = (strcmp(srv, "US") == 0);
     }
+    config_update_libre_credentials(config, doc["libre_email"] | (const char*)nullptr,
+                                   doc["libre_password"] | (const char*)nullptr);
     if (doc["server_url"].is<const char*>())     strncpy(config.server_url, doc["server_url"], sizeof(config.server_url));
     if (doc["auth_token"].is<const char*>())     strncpy(config.auth_token, doc["auth_token"], sizeof(config.auth_token));
     if (doc["timezone"].is<const char*>())       strncpy(config.timezone, doc["timezone"], sizeof(config.timezone));
     if (doc["time_display_enabled"].is<bool>()) config.time_display_enabled = doc["time_display_enabled"];
+    if (doc["glucose_only_when_low"].is<bool>()) config.glucose_only_when_low = doc["glucose_only_when_low"];
     if (doc["use_mmol"].is<bool>())              config.use_mmol = doc["use_mmol"];
     if (doc["brightness"].is<int>())             config.brightness = doc["brightness"];
     if (doc["alert_low"].is<int>())              config.alert_low = doc["alert_low"];
@@ -231,7 +240,7 @@ static void config_check_littlefs_overlay() {
 }
 
 void config_init() {
-    config_mutex=xSemaphoreCreateRecursiveMutexStatic(&mutex_storage);
+
     prefs.begin(CONFIG_NAMESPACE, false);
 
     // Check if config exists
@@ -261,9 +270,15 @@ void config_init() {
         prefs.getString("dex_user", config.dexcom_username, sizeof(config.dexcom_username));
         prefs.getString("dex_pass", config.dexcom_password, sizeof(config.dexcom_password));
         config.dexcom_us = prefs.getBool("dex_us", true);
+        prefs.getString("llu_email", config.libre_email, sizeof(config.libre_email));
+        prefs.getString("llu_pass", config.libre_password, sizeof(config.libre_password));
+        prefs.getString("llu_region", config.libre_region, sizeof(config.libre_region));
+        prefs.getString("llu_patient", config.libre_patient_id, sizeof(config.libre_patient_id));
+        prefs.getString("llu_name", config.libre_patient_name, sizeof(config.libre_patient_name));
         config.poll_interval_sec = prefs.getInt("poll_int", 60);
         config.brightness = prefs.getUChar("brightness", 40);
         config.auto_brightness = prefs.getBool("auto_brt", true);
+        config.glucose_only_when_low = prefs.getBool("low_only", false);
         config.show_delta = prefs.getBool("show_delta", false);
         config.use_mmol = prefs.getBool("use_mmol", false);
         config.thresh_urgent_low = prefs.getInt("t_ulow", 70);
@@ -275,15 +290,17 @@ void config_init() {
         config.time_display_enabled = prefs.getBool("time_en", true);
         config.default_mode = prefs.getInt("def_mode", 0);
 
-        // Earlier preview builds used mascot-specific keys. Keep those values
+        // The first preview build used mascot-specific keys. Keep those values
         // as one-way fallbacks so test devices retain their saved preferences.
         bool previous_ambient_enabled = prefs.getBool("cat_en", false);
-        bool previous_fish_enabled = prefs.getBool("fish_en", previous_ambient_enabled);
         bool previous_ambient_seasonal = prefs.getBool("cat_season", true);
+        bool previous_fish_enabled = prefs.getBool("fish_en", previous_ambient_enabled);
         bool previous_fish_seasonal = prefs.getBool("fish_season", previous_ambient_seasonal);
         config.ambient_enabled = prefs.getBool("amb_en", previous_fish_enabled);
         config.ambient_creature = companion_or_default(prefs.getInt("pal_type", prefs.getInt("amb_kind", 0)));
         config.ambient_seasonal = prefs.getBool("amb_season", previous_fish_seasonal);
+        config.ambient_style = companion_style_or_default(prefs.getInt("pal_style", COMPANION_TEXT));
+        config.ambient_use_glucose_colors = prefs.getBool("pal_colors", false);
 
         // Alerts
         config.alert_enabled = config.glucose_enabled && prefs.getBool("alert_en", false);
@@ -382,18 +399,21 @@ void config_init() {
 
     // Single NVS blob is the redo journal. It survives interruption while mirroring
     // legacy keys. Unknown keys are never removed. Old firmware ignores this key.
-    const size_t journal_size=prefs.getBytesLength("pending_v1");
+    const char* journal_key=prefs.isKey("pending_v2") ? "pending_v2":"pending_v1";
+    const size_t journal_size=prefs.getBytesLength(journal_key);
     static_assert(alignof(AppConfig)==4,"Legacy journal migration requires the ESP32 layout");
     const size_t legacy_size=offsetof(AppConfig,glucose_enabled);
-    if(journal_size==sizeof(AppConfig) || journal_size==legacy_size) {
+    if(journal_size==sizeof(AppConfig) || journal_size==legacy_size || journal_size==offsetof(AppConfig,ambient_style)) {
         AppConfig recovered=config;
         recovered.glucose_enabled=true;
-        if(prefs.getBytes("pending_v1", &recovered,journal_size)==journal_size && recovered.magic==CONFIG_MAGIC) config=recovered;
-        if(!config.glucose_enabled) config.alert_enabled=false;
-        config_save();
+        if(prefs.getBytes(journal_key, &recovered,journal_size)==journal_size && recovered.magic==CONFIG_MAGIC) {
+            config=recovered;
+            if(!config.glucose_enabled) config.alert_enabled=false;
+            if(config_save() && prefs.isKey("pending_v1")) prefs.remove("pending_v1");
+        }
     }
     committed=config;
-    durable=durable || (magic==CONFIG_MAGIC && !prefs.isKey("pending_v1"));
+    durable=durable || (magic==CONFIG_MAGIC && !prefs.isKey("pending_v2") && !prefs.isKey("pending_v1"));
     // Check for config.json overlay from LittleFS (injected by setup app)
     config_check_littlefs_overlay();
     config_loaded = true;
@@ -405,7 +425,7 @@ void config_init() {
 bool config_save() {
     ConfigGuard guard;
     auto result=config_transaction(
-      [] {return prefs.putBytes("pending_v1",&config,sizeof(config))==sizeof(config);},
+      [] {return prefs.putBytes("pending_v2",&config,sizeof(config))==sizeof(config);},
       [] {
     bool ok=true;
     ok = (prefs.putUInt("magic", CONFIG_MAGIC) > 0) && ok;
@@ -433,6 +453,19 @@ bool config_save() {
     ok = (prefs.putString("dex_pass", config.dexcom_password) == strlen(config.dexcom_password)) && ok;
     ok = (prefs.getString("dex_pass", "__missing__") == config.dexcom_password) && ok;
     ok = (prefs.putBool("dex_us", config.dexcom_us) > 0) && ok;
+    ok = (prefs.putString("llu_email", config.libre_email) == strlen(config.libre_email)) && ok;
+    ok = (prefs.getString("llu_email", "__missing__") == config.libre_email) && ok;
+    ok = (prefs.putString("llu_pass", config.libre_password) == strlen(config.libre_password)) && ok;
+    ok = (prefs.getString("llu_pass", "__missing__") == config.libre_password) && ok;
+    ok = (prefs.putString("llu_region", config.libre_region) == strlen(config.libre_region)) && ok;
+    ok = (prefs.getString("llu_region", "__missing__") == config.libre_region) && ok;
+    ok = (prefs.putString("llu_patient", config.libre_patient_id) == strlen(config.libre_patient_id)) && ok;
+    ok = (prefs.getString("llu_patient", "__missing__") == config.libre_patient_id) && ok;
+    ok = (prefs.putString("llu_name", config.libre_patient_name) == strlen(config.libre_patient_name)) && ok;
+    ok = (prefs.getString("llu_name", "__missing__") == config.libre_patient_name) && ok;
+    ok = (prefs.putBool("low_only", config.glucose_only_when_low) > 0) && ok;
+    ok = (prefs.putInt("pal_style", config.ambient_style) > 0) && ok;
+    ok = (prefs.putBool("pal_colors", config.ambient_use_glucose_colors) > 0) && ok;
     ok = (prefs.putInt("poll_int", config.poll_interval_sec) > 0) && ok;
     ok = (prefs.putUChar("brightness", config.brightness) > 0) && ok;
     ok = (prefs.putBool("auto_brt", config.auto_brightness) > 0) && ok;
@@ -531,7 +564,12 @@ bool config_save() {
 
     // Journal is retained on failure for recovery; do not report a saved value.
     return ok;
-      }, [] {return prefs.remove("pending_v1");});
+      }, [] {
+        // Remove the predecessor first: a power loss must leave the newer
+        // journal available, never an obsolete redo record on its own.
+        if(prefs.isKey("pending_v1") && !prefs.remove("pending_v1")) return false;
+        return prefs.remove("pending_v2");
+      });
     durable=result==ConfigCommit::Saved;
     if(!durable) {
         if(result==ConfigCommit::Rejected && committed.magic==CONFIG_MAGIC) config=committed;
@@ -567,11 +605,17 @@ bool config_has_wifi() {
 bool config_has_server() {
     if (config.data_source == 2) return true;  // demo mode needs no config
     if (config.data_source == 1) return config_has_dexcom();
+    if (config.data_source == 3) return config_has_libre();
     return strlen(config.server_url) > 0;
 }
 
 bool config_has_dexcom() {
     return strlen(config.dexcom_username) > 0 && strlen(config.dexcom_password) > 0;
+}
+
+bool config_has_libre() {
+    LibreConfigLock lock(config_libre_mutex());
+    return strlen(config.libre_email) > 0 && strlen(config.libre_password) > 0;
 }
 
 bool config_has_enterprise() {

@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>SugarClock · Demo studio</title>
+    <link rel="icon" href="../favicon.ico" />
+    <link rel="stylesheet" href="studio.css?v=anchored-layout-2" />
+  </head>
+  <body>
+    <header>
+      <a href="../index.html" class="brand"
+        >sugarclock<span> / demo studio</span></a
+      ><button id="film">Filming mode <kbd>F</kbd></button>
+    </header>
+    <main>
+      <section class="stage" aria-label="Virtual device">
+        <virtual-sugar-clock id="main-device" pixels-only></virtual-sugar-clock>
+        <section
+          id="comparison-grid"
+          class="comparison-grid"
+          aria-label="Display options side by side"
+          hidden
+        ></section>
+      </section>
+      <aside class="controller" aria-label="Demo controls">
+        <div class="panel-heading">
+          <div>
+            <span class="eyebrow">MAKE IT YOURS</span>
+            <h2>At the controls</h2>
+          </div>
+          <span class="badge">DEMO</span>
+        </div>
+        <p id="feedback" class="hint" role="status">Use the controls below to change the display.</p>
+        <div class="presets" aria-label="Glucose presets">
+          <button data-preset="range">
+            <i class="range"></i>In range <strong>112 →</strong></button
+          ><button data-preset="high">
+            <i class="high"></i>High <strong>245 ↑</strong></button
+          ><button data-preset="low">
+            <i class="low"></i>Low <strong>58 ↓</strong>
+          </button>
+        </div>
+        <label
+          >Display appearance<select id="appearance">
+            <option value="pixels">Pixel block only</option>
+            <option value="device">Ulanzi TC001 enclosure</option>
+          </select></label
+        >
+        <button id="record-pixels">Record pixels only</button>
+        <p class="hint">
+          No controls, enclosure, buttons, or framing. Press F or Escape, or
+          double-tap the pixel block, to return.
+        </p>
+        <label
+          >On the display<select id="mode">
+            <option value="glucose">Blood glucose</option>
+            <option value="time">Clock / time</option>
+            <option value="weather">Weather</option>
+            <option value="pet">Pixel companion</option>
+            <option value="pomodoro">Pomodoro</option>
+            <option value="stopwatch">Stopwatch</option>
+            <option value="event">Event countdown</option>
+          </select></label
+        >
+        <label class="check"
+          ><input id="compare" type="checkbox" />Compare all options · two
+          columns</label
+        >
+        <p class="hint" id="compare-hint">
+          Available for weather and pixel companions. Each option appears in its
+          own TC001 enclosure.
+        </p>
+        <section class="controls-section" data-panel="glucose pet">
+          <h3>Glucose</h3>
+          <div class="pair">
+            <label
+              >Source<select id="provider">
+                <option value="dexcom">Dexcom</option>
+                <option value="libre">FreeStyle Libre</option>
+              </select></label
+            ><label
+              >Reading · mg/dL<input
+                id="glucose"
+                type="number"
+                min="20"
+                max="600"
+                value="112"
+            /></label>
+          </div>
+          <div class="pair">
+            <label
+              >Trend<select id="trend">
+                <option value="flat">→ Steady</option>
+                <option value="up-right">↗ Rising</option>
+                <option value="up">↑ Up</option>
+                <option value="double-up">↑↑ Quickly rising</option>
+                <option value="down-right">↘ Falling</option>
+                <option value="down">↓ Down</option>
+                <option value="double-down">↓↓ Quickly falling</option>
+              </select></label
+            ><label
+              >Range state<select id="status">
+                <option value="range">In range</option>
+                <option value="high">High</option>
+                <option value="low">Low</option>
+              </select></label
+            >
+          </div>
+          <label
+            >Reading age · minutes<input
+              id="age"
+              type="number"
+              min="0"
+              max="60"
+              value="0"
+          /></label>
+        </section>
+        <section class="controls-section" data-panel="time">
+          <h3>Clock</h3>
+          <label class="check"
+            ><input id="hour24" type="checkbox" checked />Use 24-hour
+            time</label
+          >
+          <p class="hint">Live local time from this computer.</p>
+        </section>
+        <section class="controls-section" data-panel="weather">
+          <h3>Weather</h3>
+          <div class="pair">
+            <label
+              >Temperature<input
+                id="temperature"
+                type="number"
+                min="-100"
+                max="150"
+                value="72" /></label
+            ><label
+              >Unit<select id="unit">
+                <option>F</option>
+                <option>C</option>
+              </select></label
+            >
+          </div>
+          <label
+            >Conditions<select id="condition">
+              <option value="sunny">Clear sky · static sun</option>
+              <option value="partly-cloudy">Partly cloudy</option>
+              <option value="cloudy">Cloudy</option>
+              <option value="drizzle">Drizzle</option>
+              <option value="rain">Rain / mist / fog</option>
+              <option value="sleet">Sleet</option>
+              <option value="snow">Snow</option>
+              <option value="storm">Thunderstorm</option>
+              <option value="tornado">Tornado</option>
+              <option value="cloud-fallback">
+                Smoke / dust · static cloud
+              </option>
+            </select></label
+          ><label
+            >Mock location<input
+              id="location"
+              value="Brooklyn, NY"
+              maxlength="60"
+          /></label>
+        </section>
+        <section class="controls-section" data-panel="pet">
+          <h3>Pixel companion</h3>
+          <label
+            >Choose your companion<select id="pet">
+              <option value="goldfish">Pip · Goldfish</option>
+              <option value="ghost">Boo · Ghost</option>
+              <option value="axolotl">Mochi · Axolotl</option>
+              <option value="dinosaur">Sprout · Dinosaur</option>
+              <option value="turtle">Pebble · Turtle</option>
+              <option value="octopus">Inky · Octopus</option>
+              <option value="red-panda">Maple · Red panda</option>
+            </select></label
+          >
+          <div class="pair">
+            <label class="check"
+              ><input id="nap" type="checkbox" />Nap time</label
+            ><button id="greet">Say hello</button>
+          </div>
+          <p class="hint">
+            Try High or Low: the reading takes over. In range brings your
+            companion back. This demo uses a broader takeover than firmware’s
+            urgent-only behavior.
+          </p>
+        </section>
+        <section class="controls-section" data-panel="pomodoro">
+          <h3>Focus, then recharge</h3>
+          <label
+            >Session length<select id="duration">
+              <option value="1500000">25 min work / 5 min break</option>
+              <option value="10000">10 sec work / 5 sec break · demo</option>
+            </select></label
+          >
+          <div class="actions">
+            <button data-timer="start">Start / resume</button
+            ><button data-timer="pause">Pause</button
+            ><button data-timer="reset">Reset</button>
+          </div>
+          <p class="hint" id="pomodoro-info"></p>
+        </section>
+        <section class="controls-section" data-panel="stopwatch">
+          <h3>Make every second count</h3>
+          <div class="actions">
+            <button data-stopwatch="start">Start / resume</button
+            ><button data-stopwatch="pause">Pause</button
+            ><button data-stopwatch="reset">Reset</button>
+          </div>
+          <p class="hint" id="stopwatch-info"></p>
+        </section>
+        <section class="controls-section" data-panel="event">
+          <h3>Something to look forward to</h3>
+          <label
+            >Event<select id="event-kind">
+              <option>Birthday</option>
+              <option>Vacation</option>
+              <option>Custom</option>
+            </select></label
+          ><label
+            >Event name<input
+              id="event-name"
+              value="Birthday"
+              maxlength="32" /></label
+          ><label
+            >Date & time<input id="event-date" type="datetime-local"
+          /></label>
+          <div class="actions">
+            <button id="event-set">Set countdown</button
+            ><button id="event-demo">15-second demo</button>
+          </div>
+          <p class="hint" id="event-info"></p>
+        </section>
+        <details open>
+          <summary>Display rotation</summary>
+          <div class="rotation-options" id="rotation-options"></div>
+          <div class="pair">
+            <label class="check"
+              ><input id="auto" type="checkbox" />Auto-cycle</label
+            ><label
+              >Every<select id="interval">
+                <option value="3000">3 seconds</option>
+                <option value="5000">5 seconds</option>
+                <option value="10000">10 seconds</option>
+              </select></label
+            >
+          </div>
+          <button id="next">Next display →</button>
+          <p class="hint">
+            Use ← / → on your keyboard for the previous / next enabled display. Extra services includes Pomodoro, stopwatch, and event countdown.
+          </p>
+        </details>
+        <details>
+          <summary>Physical buttons & IP</summary>
+          <label
+            >Demo IP address<input
+              id="ip"
+              value="192.168.1.42"
+              inputmode="decimal"
+              maxlength="15"
+          /></label>
+          <p class="hint">
+            Left: next display. Middle: brightness; double-tap: IP. Right: greet
+            your pet or start/pause a timer. Hold left: glucose. Hold middle:
+            snooze. Hold right: reset timer / return to glucose.
+          </p>
+          <p class="hint">
+            Use Tab and Enter/Space for buttons. The IP returns to the previous
+            display after six seconds.
+          </p>
+        </details>
+      </aside>
+    </main>
+    <button id="exit-film" hidden>Exit filming mode <kbd>F</kbd></button>
+    <script type="module" src="studio.js?v=clean-stage-1"></script>
+  </body>
+</html>

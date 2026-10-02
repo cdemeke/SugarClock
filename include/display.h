@@ -16,6 +16,22 @@ void display_end_frame();
 // Push buffer to LEDs (deferred inside a composed frame)
 void display_show();
 
+// Last fully rendered frame, in logical left-to-right RGB order (not LED wiring order).
+// Full color for browser readability; hardware brightness remains device-only.
+struct DisplayFrame {
+    uint8_t rgb[32 * 8 * 3];
+    uint32_t sequence;
+};
+void display_copy_frame(DisplayFrame& frame);
+struct DisplayFrameStatus {
+    bool ready;
+    uint32_t sequence;
+    uint32_t epoch;
+};
+// Renews a five-second viewing lease. First request after idle returns not-ready
+// until the render task publishes a fresh frame. Does not copy pixel data.
+DisplayFrameStatus display_request_frame();
+
 // Set brightness (0-255)
 void display_set_brightness(uint8_t brightness);
 
@@ -28,13 +44,20 @@ void display_set_transition_level(uint8_t level);
 
 // Draw glucose value centered on matrix with specified color
 // color is a 16-bit RGB565 color for GFX compatibility
-void display_draw_glucose(int value, uint16_t color);
+// Returns the trend-arrow x position; callers must explicitly supply units.
+int display_draw_glucose(int value, uint16_t color, bool use_mmol);
+
+// Draw the trend-page delta, omitting the arrow when the text needs its space.
+void display_draw_glucose_delta(int delta, int trend, uint16_t color, bool use_mmol);
 
 // Draw general text at position
 void display_draw_text(const char* text, int x, int y, uint16_t color);
 
+// Center visible glyph bounds, excluding the final character's trailing spacing.
+void display_draw_centered_text(const char* text, int y, uint16_t color);
+
 // Draw a trend arrow at the specified position
-// trend: 0=rising_fast, 1=rising, 2=flat, 3=falling, 4=falling_fast
+// trend: a TrendType from trend_arrows.h; unknown/invalid values draw nothing.
 void display_draw_trend(int trend, int x, int y, uint16_t color);
 
 // Draw time display centered on matrix

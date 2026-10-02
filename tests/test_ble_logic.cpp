@@ -79,6 +79,19 @@ int main() {
  assert(!config_patch(config,patch.as<JsonObjectConst>()));
  assert(config.glucose_enabled && !config.alert_enabled);
  JsonDocument output;config_public(output.to<JsonObject>(),config);assert(output["wifi_eap_password"].isNull());assert(output["wifi_eap_password_configured"].as<bool>());
+ strcpy(config.libre_email,"test@example.invalid");strcpy(config.libre_password,"private");
+ strcpy(config.libre_region,"us");strcpy(config.libre_patient_id,"patient");
+ config.ambient_style=2;config.glucose_only_when_low=true;
+ deserializeJson(patch,"{\"brightness\":78}");assert(!config_patch(config,patch.as<JsonObjectConst>()));
+ assert(!strcmp(config.libre_patient_id,"patient") && config.ambient_style==2 && config.glucose_only_when_low);
+ output.clear();config_public(output.to<JsonObject>(),config);
+ assert(output["libre_password"].isNull() && output["libre_email"].isNull());
+ assert(output["libre_password_configured"].as<bool>() && output["libre_email_configured"].as<bool>());
+ deserializeJson(patch,"{\"data_source\":3,\"libre_password\":\"replacement\"}");
+ same=config;assert(!config_patch(config,patch.as<JsonObjectConst>()));
+ assert(config_source_changed(same,config) && !config.libre_region[0] && !config.libre_patient_id[0]);
+ deserializeJson(patch,"{\"libre_password\":null}");assert(!config_patch(config,patch.as<JsonObjectConst>()));
+ assert(!config.libre_password[0]);
  std::ifstream f("protocol/fixtures/frames.json");JsonDocument fixtures;assert(!deserializeJson(fixtures,f));
  for(JsonObject fixture:fixtures.as<JsonArray>()) {
   std::string hex=fixture["hex"].as<std::string>();std::string bytes;

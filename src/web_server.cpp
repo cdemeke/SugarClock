@@ -1,9 +1,12 @@
 #include "web_server.h"
 #include "config_manager.h"
 #include "config_patch.h"
+#include "companion.h"
+#include "fleet_manager.h"
 #include "settings_apply.h"
 #include "wifi_manager.h"
 #include "http_client.h"
+#include "libre_client.h"
 #include "glucose_engine.h"
 #include "time_engine.h"
 #include "sensors.h"
@@ -24,6 +27,7 @@
 #include "sensitive_json.h"
 
 #include <ESPAsyncWebServer.h>
+#include <WebResponseImpl.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
 #include <Arduino.h>
@@ -61,6 +65,7 @@ static void handle_status(AsyncWebServerRequest* request) {
     doc["valid"] = r.valid;
     doc["data_age_sec"] = r.valid ? (millis() - r.received_at_ms) / 1000 : -1;
     doc["state"] = engine_state_name(engine_get_state());
+    doc["glucose_display_locked"] = engine_low_glucose_lock_active();
     doc["wifi_connected"] = wifi_is_connected();
     doc["wifi_ip"] = wifi_get_ip();
     doc["wifi_rssi"] = wifi_get_rssi();
@@ -71,6 +76,7 @@ static void handle_status(AsyncWebServerRequest* request) {
     OtaStatusSnapshot ota;
     ota_get_status(ota);
     doc["firmware_version"] = SUGARCLOCK_VERSION;
+    doc["installation_id"] = fleet_installation_id();
     doc["hardware"] = SUGARCLOCK_HARDWARE_ID;
     doc["running_partition"] = ota.running_partition;
     doc["boot_partition"] = ota.boot_partition;
@@ -81,6 +87,7 @@ static void handle_status(AsyncWebServerRequest* request) {
     // Glucose color info
     ConfigGuard guard;
     AppConfig& cfg = config_get();
+    doc["use_mmol"] = cfg.use_mmol;
     unsigned long age = http_time_since_last_reading();
     unsigned long stale_ms = (unsigned long)cfg.stale_timeout_min * 60UL * 1000UL;
     int failures = http_get_failure_count();
@@ -142,6 +149,22 @@ static void handle_status(AsyncWebServerRequest* request) {
     request->send(200, "application/json", output);
 }
 
+static void add_libre_people(JsonDocument& doc) {
+    LibreConfigLock lock(config_libre_mutex());
+    const AppConfig& cfg = config_get();
+    doc["libre_patient_id"] = String(cfg.libre_patient_id);
+    doc["libre_patient_name"] = String(cfg.libre_patient_name);
+    LibrePatients snapshot = libre_get_patients();
+    JsonArray list = doc["libre_patients"].to<JsonArray>();
+    if (!snapshot) return;
+    for (const LibrePatient& entry : snapshot->people) {
+        JsonObject person = list.add<JsonObject>();
+        // Explicit string copies: JSON serialization outlives this snapshot.
+        person["id"] = String(entry.id);
+        person["name"] = String(entry.name);
+    }
+}
+
 // GET /api/config
 static void handle_get_config(AsyncWebServerRequest* request) {
     ConfigGuard guard;
@@ -168,9 +191,14 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     doc["dexcom_username"] = cfg.dexcom_username;
     doc["has_dexcom_password"] = strlen(cfg.dexcom_password) > 0;
     doc["dexcom_us"] = cfg.dexcom_us;
+    doc["libre_email"] = cfg.libre_email;
+    doc["has_libre_password"] = strlen(cfg.libre_password) > 0;
+    doc["libre_region"] = cfg.libre_region;
+    add_libre_people(doc);
     doc["poll_interval"] = cfg.poll_interval_sec;
     doc["brightness"] = cfg.brightness;
     doc["auto_brightness"] = cfg.auto_brightness;
+    doc["glucose_only_when_low"] = cfg.glucose_only_when_low;
     doc["show_delta"] = cfg.show_delta;
     doc["use_mmol"] = cfg.use_mmol;
     doc["thresh_urgent_low"] = cfg.thresh_urgent_low;
@@ -182,6 +210,8 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     doc["time_display_enabled"] = cfg.time_display_enabled;
     doc["default_mode"] = cfg.default_mode;
     doc["ambient_enabled"] = cfg.ambient_enabled;
+    doc["ambient_style"] = cfg.ambient_style;
+    doc["ambient_use_glucose_colors"] = cfg.ambient_use_glucose_colors;
     doc["ambient_character"] = cfg.ambient_creature;
     doc["ambient_creature"] = cfg.ambient_creature == 1 ? 1 : 0;
     doc["ambient_seasonal"] = cfg.ambient_seasonal;
@@ -285,6 +315,54 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     if(!settings_apply(candidate)) { request->send(500,"application/json","{\"error\":\"persistence_failed\"}");return; }
 
     request->send(200, "application/json", "{\"status\":\"ok\"}");
+}
+
+static String frame_etag(uint32_t epoch, uint32_t sequence) {
+    char value[48];
+    snprintf(value, sizeof(value), "\"frame-%08lx-%lu\"", (unsigned long)epoch, (unsigned long)sequence);
+    return String(value);
+}
+
+// Own pixels inside the response object: no growable 768-byte String and no
+// reference to a render buffer that might be reused before TCP finishes sending.
+class DisplayFrameResponse final : public AsyncAbstractResponse {
+    DisplayFrame frame_;
+    size_t offset_ = 0;
+public:
+    explicit DisplayFrameResponse(uint32_t epoch) {
+        display_copy_frame(frame_);
+        _code = 200;
+        _contentType = "application/octet-stream";
+        _contentLength = sizeof(frame_.rgb);
+        addHeader("ETag", frame_etag(epoch, frame_.sequence));
+        addHeader("X-Display-Sequence", String(frame_.sequence));
+    }
+    bool _sourceValid() const override { return true; }
+    size_t _fillBuffer(uint8_t* buffer, size_t max_len) override {
+        const size_t remaining = sizeof(frame_.rgb) - offset_;
+        const size_t count = max_len < remaining ? max_len : remaining;
+        memcpy(buffer, frame_.rgb + offset_, count);
+        offset_ += count;
+        return count;
+    }
+};
+
+// GET /api/display/frame: renew demand before checking the conditional ETag.
+static void handle_display_frame(AsyncWebServerRequest* request) {
+    const DisplayFrameStatus frame = display_request_frame();
+    AsyncWebServerResponse* response;
+    if (!frame.ready) {
+        response = request->beginResponse(204); // Render loop will capture a fresh frame shortly.
+    } else if (request->header("If-None-Match") == frame_etag(frame.epoch, frame.sequence)) {
+        response = request->beginResponse(304);
+        response->addHeader("ETag", frame_etag(frame.epoch, frame.sequence));
+        response->addHeader("X-Display-Sequence", String(frame.sequence));
+    } else {
+        response = new DisplayFrameResponse(frame.epoch);
+    }
+    response->addHeader("Cache-Control", "no-store");
+    response->addHeader("X-Display-Mode", engine_state_name(engine_get_state()));
+    request->send(response);
 }
 
 // GET /api/debug
@@ -562,25 +640,27 @@ static void handle_test_glucose_result(AsyncWebServerRequest* request) {
 }
 
 // POST /api/display/next
-static void handle_display_next(AsyncWebServerRequest* request) {
-    engine_toggle_mode();
+static void handle_display_navigation(AsyncWebServerRequest* request, bool forward) {
+    const bool changed = forward ? engine_toggle_mode() : engine_toggle_mode_prev();
     JsonDocument doc;
-    doc["status"] = "ok";
+    doc["status"] = changed ? "ok" : "locked";
+    doc["locked"] = !changed;
     doc["mode"] = engine_state_name(engine_get_user_mode());
+    if (!changed) {
+        doc["error"] = "Blood sugar display is locked while glucose is low.";
+        doc["reason"] = "low_glucose";
+    }
     String output;
     serializeJson(doc, output);
-    request->send(200, "application/json", output);
+    request->send(changed ? 200 : 409, "application/json", output);
 }
 
-// POST /api/display/prev
+static void handle_display_next(AsyncWebServerRequest* request) {
+    handle_display_navigation(request, true);
+}
+
 static void handle_display_prev(AsyncWebServerRequest* request) {
-    engine_toggle_mode_prev();
-    JsonDocument doc;
-    doc["status"] = "ok";
-    doc["mode"] = engine_state_name(engine_get_user_mode());
-    String output;
-    serializeJson(doc, output);
-    request->send(200, "application/json", output);
+    handle_display_navigation(request, false);
 }
 
 // POST /api/restart
@@ -792,7 +872,7 @@ void webserver_init() {
         server.on(asset->path, HTTP_GET, [asset](AsyncWebServerRequest* request) {
             AsyncWebServerResponse* response = request->beginResponse(
                 200, asset->mime_type, asset->data, asset->size);
-            response->addHeader("Content-Encoding", "gzip");
+            if (asset->content_encoding) response->addHeader("Content-Encoding", asset->content_encoding);
             response->addHeader("Cache-Control", "no-cache");
             response->addHeader("ETag", asset->etag);
             request->send(response);
@@ -801,6 +881,7 @@ void webserver_init() {
 
     // API routes
     server.on("/api/status", HTTP_GET, handle_status);
+    server.on("/api/display/frame", HTTP_GET, handle_display_frame);
     server.on("/api/config", HTTP_GET, handle_get_config);
     server.on("/api/debug", HTTP_GET, handle_debug);
     server.on("/api/history", HTTP_GET, handle_history);

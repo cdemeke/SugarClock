@@ -21,7 +21,7 @@ class GlucoseSwitchTests(unittest.TestCase):
 
     def test_previous_and_current_configuration_journals(self):
         source = (ROOT / 'src/config_manager.cpp').read_text()
-        block = source[source.index('    const size_t journal_size='):source.index('    committed=config;')]
+        block = source[source.index('    const char* journal_key='):source.index('    committed=config;')]
         with tempfile.TemporaryDirectory() as tmp:
             (pathlib.Path(tmp) / 'glucose_journal.inc').write_text(block)
             exe = str(pathlib.Path(tmp) / 'glucose-journal')

@@ -46,13 +46,27 @@ class TrustedRootTests(unittest.TestCase):
 
 
 class WebAssetTests(unittest.TestCase):
+    def test_compression_is_used_only_when_smaller(self):
+        for name in os.listdir(web_assets.DATA_WWW_DIR):
+            with self.subTest(asset=name):
+                with open(os.path.join(web_assets.DATA_WWW_DIR, name), 'rb') as stream:
+                    original = stream.read()
+                payload, encoding = web_assets.encode_asset(original)
+                self.assertLessEqual(len(payload), len(original))
+                decoded = web_assets.gzip.decompress(payload) if encoding else payload
+                self.assertEqual(original, decoded)
+                self.assertEqual((payload, encoding), web_assets.encode_asset(original))
+
+    def test_small_binary_assets_remain_uncompressed(self):
+        self.assertEqual((b'\x89PNG\r\n\x1a\n', None), web_assets.encode_asset(b'\x89PNG\r\n\x1a\n'))
+
     def test_gzip_header_is_cross_platform_deterministic(self):
         payload = b"SugarClock embedded web asset"
         compressed = web_assets.deterministic_gzip(payload)
         self.assertEqual(compressed[9], 255)
         self.assertEqual(web_assets.gzip.decompress(compressed), payload)
 
-    def test_ambient_creature_selector_is_in_both_settings_pages(self):
+    def test_companion_selector_is_in_both_settings_pages(self):
         web_paths = (
             os.path.join(ROOT, "data", "www", "index.html"),
             os.path.join(
@@ -67,11 +81,9 @@ class WebAssetTests(unittest.TestCase):
 
         self.assertEqual(pages[0], pages[1])
         self.assertIn('<select id="ambient_character">', pages[0])
-        self.assertIn('<option value="0">Pip — Goldfish</option>', pages[0])
-        self.assertIn('<option value="1">Boo — Ghost</option>', pages[0])
-        self.assertIn('<option value="6">Maple — Red panda</option>', pages[0])
-        self.assertIn("ambient_character: parseInt", pages[0])
-        self.assertNotIn("ambient_creature: parseInt", pages[0])
+        self.assertIn('<option value="0">Pip &mdash; Goldfish</option>', pages[0])
+        self.assertIn('<option value="1">Boo &mdash; Ghost</option>', pages[0])
+        self.assertIn("ambient_character: Number", pages[0])
 
 
 class OtaManifestTests(unittest.TestCase):
@@ -192,11 +204,14 @@ class HostCppLogicTests(unittest.TestCase):
             binary = os.path.join(temp, "host-tests")
             compiler = os.environ.get("CXX", "c++")
             subprocess.run([
-                compiler, "-std=c++11", "-I", os.path.join(ROOT, "include"),
+                compiler, "-std=c++11", "-pthread", "-I", os.path.join(ROOT, "include"),
                 os.path.join(ROOT, "tests", "test_host_logic.cpp"),
                 os.path.join(ROOT, "src", "semver.cpp"),
                 os.path.join(ROOT, "src", "ota_policy.cpp"),
-                os.path.join(ROOT, "src", "fleet_policy.cpp"), "-o", binary,
+                os.path.join(ROOT, "src", "fleet_policy.cpp"),
+                os.path.join(ROOT, "src", "libre_session.cpp"),
+                os.path.join(ROOT, "src", "libre_config.cpp"),
+                os.path.join(ROOT, "src", "libre_patient.cpp"), "-o", binary,
             ], check=True)
             subprocess.run([binary], check=True)
 

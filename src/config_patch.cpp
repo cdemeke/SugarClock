@@ -15,12 +15,18 @@ const Field fields[] = {
     {"wifi_anon_identity",offsetof(AppConfig,wifi_anon_identity),sizeof(((AppConfig*)0)->wifi_anon_identity),Kind::Text,0,2147483647,false},
     {"wifi_validate_ca",offsetof(AppConfig,wifi_validate_ca),sizeof(((AppConfig*)0)->wifi_validate_ca),Kind::Bool,0,2147483647,false},
     {"glucose_enabled",offsetof(AppConfig,glucose_enabled),sizeof(((AppConfig*)0)->glucose_enabled),Kind::Bool,0,2147483647,false},
-    {"data_source",offsetof(AppConfig,data_source),sizeof(((AppConfig*)0)->data_source),Kind::Int,0,2,false},
+    {"data_source",offsetof(AppConfig,data_source),sizeof(((AppConfig*)0)->data_source),Kind::Int,0,3,false},
     {"server_url",offsetof(AppConfig,server_url),sizeof(((AppConfig*)0)->server_url),Kind::Text,0,2147483647,true},
     {"auth_token",offsetof(AppConfig,auth_token),sizeof(((AppConfig*)0)->auth_token),Kind::Text,0,2147483647,true},
     {"dexcom_username",offsetof(AppConfig,dexcom_username),sizeof(((AppConfig*)0)->dexcom_username),Kind::Text,0,2147483647,false},
     {"dexcom_password",offsetof(AppConfig,dexcom_password),sizeof(((AppConfig*)0)->dexcom_password),Kind::Text,0,2147483647,true},
     {"dexcom_us",offsetof(AppConfig,dexcom_us),sizeof(((AppConfig*)0)->dexcom_us),Kind::Bool,0,2147483647,false},
+    {"libre_email",offsetof(AppConfig,libre_email),sizeof(((AppConfig*)0)->libre_email),Kind::Text,0,2147483647,true},
+    {"libre_password",offsetof(AppConfig,libre_password),sizeof(((AppConfig*)0)->libre_password),Kind::Text,0,2147483647,true},
+    {"libre_patient_id",offsetof(AppConfig,libre_patient_id),sizeof(((AppConfig*)0)->libre_patient_id),Kind::Text,0,2147483647,true},
+    {"ambient_style",offsetof(AppConfig,ambient_style),sizeof(((AppConfig*)0)->ambient_style),Kind::Int,0,2,false},
+    {"ambient_use_glucose_colors",offsetof(AppConfig,ambient_use_glucose_colors),sizeof(((AppConfig*)0)->ambient_use_glucose_colors),Kind::Bool,0,1,false},
+    {"glucose_only_when_low",offsetof(AppConfig,glucose_only_when_low),sizeof(((AppConfig*)0)->glucose_only_when_low),Kind::Bool,0,1,false},
     {"poll_interval",offsetof(AppConfig,poll_interval_sec),sizeof(((AppConfig*)0)->poll_interval_sec),Kind::Int,15,3600,false},
     {"brightness",offsetof(AppConfig,brightness),sizeof(((AppConfig*)0)->brightness),Kind::Byte,1,255,false},
     {"auto_brightness",offsetof(AppConfig,auto_brightness),sizeof(((AppConfig*)0)->auto_brightness),Kind::Bool,0,2147483647,false},
@@ -112,6 +118,7 @@ void config_public(JsonObject o,const AppConfig& c) {
 }
 const char* config_patch(AppConfig& c,JsonObjectConst patch,bool web) {
  if(patch.isNull()) return "invalid_patch";
+ bool libre_identity_changed=false;
  for(JsonPairConst pair:patch) {
   // Match production precedence, independent of JSON key order.
   if(!strcmp(pair.key().c_str(),"ambient_creature") && !patch["ambient_character"].isNull()) continue;
@@ -120,12 +127,13 @@ const char* config_patch(AppConfig& c,JsonObjectConst patch,bool web) {
   if(!fp) return "unsupported_field";
   const Field& f=*fp; JsonVariantConst v=pair.value(); char* p=(char*)&c+f.offset;
   if(f.kind==Kind::Text) {
-   if(v.isNull() && f.secret) { *p=0;continue; }
+   if(v.isNull() && f.secret) { if(*p && (!strcmp(f.name,"libre_email") || !strcmp(f.name,"libre_password"))) libre_identity_changed=true; *p=0;continue; }
    if(!v.is<const char*>()) return f.name;
    const char* s=v.as<const char*>(); size_t n=strlen(s);
    if(n>=f.size || n!=v.as<JsonString>().size()) return f.name;
    if(web && f.secret && !n) continue;
    if(!strcmp(f.name,"server_url") && n && strncmp(s,"https://",8) && strncmp(s,"http://",7)) return f.name;
+   if((!strcmp(f.name,"libre_email") || !strcmp(f.name,"libre_password")) && strcmp(p,s)) libre_identity_changed=true;
    memcpy(p,s,n+1);
   } else if(f.kind==Kind::Bool) {
    if(!v.is<bool>()) return f.name;
@@ -146,6 +154,9 @@ const char* config_patch(AppConfig& c,JsonObjectConst patch,bool web) {
    }
   }
  }
+ if(libre_identity_changed) {
+  c.libre_region[0]=0;c.libre_patient_id[0]=0;c.libre_patient_name[0]=0;
+ }
  if(!(c.thresh_urgent_low<=c.thresh_low && c.thresh_low<c.thresh_high && c.thresh_high<=c.thresh_urgent_high)) return "threshold_order";
  if(c.alert_low>=c.alert_high) return "alert_order";
  if(!c.glucose_enabled) c.alert_enabled=false;
@@ -157,5 +168,6 @@ const char* config_patch(AppConfig& c,JsonObjectConst patch,bool web) {
 bool config_source_changed(const AppConfig& a,const AppConfig& b) {
  return a.glucose_enabled!=b.glucose_enabled || a.data_source!=b.data_source || a.dexcom_us!=b.dexcom_us ||
   strcmp(a.dexcom_username,b.dexcom_username) || strcmp(a.dexcom_password,b.dexcom_password) ||
+  strcmp(a.libre_email,b.libre_email) || strcmp(a.libre_password,b.libre_password) || strcmp(a.libre_patient_id,b.libre_patient_id) ||
   strcmp(a.server_url,b.server_url) || strcmp(a.auth_token,b.auth_token);
 }

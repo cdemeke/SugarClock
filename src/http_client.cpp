@@ -1,7 +1,9 @@
+#include "trend_mapping.h"
 #include "http_client.h"
 #include "ble_manager.h"
 #include "config_manager.h"
 #include "wifi_manager.h"
+#include "libre_client.h"
 #include "network_schedule.h"
 #include <time.h>
 #include <WiFiClientSecure.h>
@@ -102,33 +104,6 @@ static void record_reading(int glucose, unsigned long reading_timestamp) {
     }
 
     Serial.printf("[HTTP] Delta: %+d (prev: %d, now: %d)\n", current_delta, prev_glucose - current_delta, glucose);
-}
-
-// Parse trend string to enum
-static TrendType parse_trend(const char* trend_str) {
-    if (!trend_str) return TREND_UNKNOWN;
-    if (strcasecmp(trend_str, "RisingFast") == 0 || strcasecmp(trend_str, "DoubleUp") == 0) return TREND_RISING_FAST;
-    if (strcasecmp(trend_str, "Rising") == 0 || strcasecmp(trend_str, "SingleUp") == 0) return TREND_RISING;
-    if (strcasecmp(trend_str, "Flat") == 0) return TREND_FLAT;
-    if (strcasecmp(trend_str, "FortyFiveUp") == 0) return TREND_RISING;
-    if (strcasecmp(trend_str, "FortyFiveDown") == 0) return TREND_FALLING;
-    if (strcasecmp(trend_str, "Falling") == 0 || strcasecmp(trend_str, "SingleDown") == 0) return TREND_FALLING;
-    if (strcasecmp(trend_str, "FallingFast") == 0 || strcasecmp(trend_str, "DoubleDown") == 0) return TREND_FALLING_FAST;
-    return TREND_UNKNOWN;
-}
-
-// Parse Dexcom trend number to enum
-static TrendType parse_trend_number(int trend) {
-    switch (trend) {
-        case 1: return TREND_RISING_FAST;   // DoubleUp
-        case 2: return TREND_RISING;         // SingleUp
-        case 3: return TREND_RISING;         // FortyFiveUp
-        case 4: return TREND_FLAT;           // Flat
-        case 5: return TREND_FALLING;        // FortyFiveDown
-        case 6: return TREND_FALLING;        // SingleDown
-        case 7: return TREND_FALLING_FAST;   // DoubleDown
-        default: return TREND_UNKNOWN;
-    }
 }
 
 // Helper: POST JSON to Dexcom endpoint, return response string
@@ -343,6 +318,43 @@ static bool dexcom_fetch_glucose() {
     return false;
 }
 
+// FreeStyle Libre: fetch latest reading via LibreLinkUp
+static bool libre_fetch_glucose() {
+    LibreReading reading;
+    bool attempted = false;
+    bool ok = libre_fetch(reading, &attempted);
+
+    last_response_code = libre_last_http_code();
+    strncpy(last_response_body, libre_last_message(), sizeof(last_response_body) - 1);
+    last_response_body[sizeof(last_response_body) - 1] = '\0';
+
+    if (!ok) {
+        if (attempted) failure_count++;
+        return false;
+    }
+
+    // Date the reading by its sensor timestamp, not by when we polled, so
+    // staleness reflects the reading's real age.
+    unsigned long sensor_ms = millis() - reading.age_sec * 1000UL;
+
+    current_reading.glucose = reading.glucose;
+    current_reading.trend = reading.trend;
+    current_reading.timestamp = reading.timestamp;
+    current_reading.received_at_ms = sensor_ms;
+    current_reading.force_mode = -1;
+    current_reading.message[0] = '\0';
+    current_reading.valid = true;
+
+    record_reading(current_reading.glucose, current_reading.timestamp);
+    failure_count = 0;
+    ever_received = true;
+    last_success_ms = sensor_ms;
+    Serial.printf("[LIBRE] Glucose: %d, Trend: %s\n",
+                  current_reading.glucose,
+                  TREND_NAMES[current_reading.trend]);
+    return true;
+}
+
 // Generic URL fetch (original behavior)
 static void generic_fetch() {
     AppConfig cfg = config_snapshot();
@@ -476,20 +488,22 @@ static void fetch_worker(void* parameter) {
   uint32_t seconds=dexcom_schedule.complete(millis(),uint32_t(time(nullptr)),
       current_reading.timestamp,ok,dexcom_fallback_seconds);
   Serial.printf("[NET SCHEDULE] Dexcom next=%us result=%s\n",unsigned(seconds),ok ? "reading":"retry");
- } else generic_fetch();
+ } else if(source==3) libre_fetch_glucose();
+ else generic_fetch();
  Serial.printf("[GLUCOSE MEM] end free=%u min=%u largest=%u\n",ESP.getFreeHeap(),ESP.getMinFreeHeap(),heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
  Serial.printf("[GLUCOSE MEM] stack_unused=%u\n",unsigned(uxTaskGetStackHighWaterMark(nullptr)));
  ble_release_network();fetch_complete=true;fetch_running=false;
  vTaskDelete(nullptr);
 }
-void http_init() {
+void http_clear_readings() {
     memset(&current_reading, 0, sizeof(GlucoseReading));
     current_reading.valid = false;
     current_reading.force_mode = -1;
     last_poll_ms = 0;
     dexcom_schedule={};
     last_success_ms = 0;
-    dexcom_session_id[0] = '\0';
+    ever_received = false;
+    failure_count = 0;
 
     // Reset history
     history_write_idx = 0;
@@ -498,6 +512,12 @@ void http_init() {
     current_delta = 0;
     prev_glucose = 0;
     last_recorded_timestamp = 0;
+}
+
+void http_init() {
+    http_clear_readings();
+    dexcom_session_id[0] = '\0';
+    libre_reset_session();
 
     // Demo mode state
     demo_last_update_ms = 0;
@@ -549,7 +569,7 @@ const char* http_get_last_response_body() {return "Response bodies omitted from 
 bool http_has_ever_received() {portENTER_CRITICAL(&published_mux);bool b=published.ever;portEXIT_CRITICAL(&published_mux);return b;}
 unsigned long http_time_since_last_reading() {
  portENTER_CRITICAL(&published_mux);bool ever=published.ever;unsigned long last=published.last_success;portEXIT_CRITICAL(&published_mux);
- return !ever || !last ? ULONG_MAX:millis()-last;
+ return !ever ? ULONG_MAX:millis()-last;
 }
 int http_get_delta() {portENTER_CRITICAL(&published_mux);int n=published.delta;portEXIT_CRITICAL(&published_mux);return n;}
 bool http_force_fetch() {

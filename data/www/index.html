@@ -7,32 +7,67 @@
     <link rel="stylesheet" href="style.css">
     <script>if(localStorage.getItem('theme')==='dark')document.documentElement.setAttribute('data-theme','dark');</script>
 </head>
-<body>
-    <nav class="topnav">
-        <div class="topnav-inner">
+<body class="app-shell-page">
+    <button class="mobile-nav-toggle" type="button" onclick="setNavOpen(true)" aria-label="Open navigation">
+        <svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14"/></svg>
+        Menu
+    </button>
+    <button class="sidebar-scrim" type="button" onclick="setNavOpen(false)" aria-label="Close navigation"></button>
+    <aside class="sidebar" aria-label="Main navigation">
+        <div class="sidebar-header">
             <a href="/" class="brand">
-                <div class="brand-icon">G</div>
-                <span>SugarClock</span>
+                <img class="brand-logo" src="/logo.png" alt="SugarClock logo">
+                <span class="brand-copy"><span class="brand-name">SugarClock</span><span class="brand-device">Device control</span></span>
             </a>
-            <ul class="topnav-links">
-                <li><a href="/display.html">Dashboard</a></li>
-                <li><a href="/" class="active">Config</a></li>
-                <li><a href="/debug.html">Debug</a></li>
-                <li><a href="/device.html">Device</a></li>
-            </ul>
-            <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">&#9790;</button>
+            <button class="sidebar-close" type="button" onclick="setNavOpen(false)" aria-label="Close navigation">&times;</button>
         </div>
-    </nav>
+        <nav class="sidebar-nav">
+            <a class="sidebar-link" href="/display.html">
+                <img class="nav-image-icon" src="/dashboard-icon.png" alt="">
+                Dashboard
+            </a>
+            <details class="sidebar-config current" open>
+                <summary>
+                    <img class="nav-image-icon" src="/configuration-icon.png" alt="">
+                    Configuration
+                    <svg class="nav-icon chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg>
+                </summary>
+                <div class="side-subnav" aria-label="Configuration sections">
+                    <button type="button" class="tab-btn active" data-tab="glucose" onclick="switchTab('glucose')">Blood Sugar</button>
+                    <button type="button" class="tab-btn" data-tab="display" onclick="switchTab('display')">Display</button>
+                    <button type="button" class="tab-btn" data-tab="ambient" onclick="switchTab('ambient')">Display Pet</button>
+                    <button type="button" class="tab-btn" data-tab="time" onclick="switchTab('time')">Time &amp; timers</button>
+                    <button type="button" class="tab-btn" data-tab="weather" onclick="switchTab('weather')">Weather</button>
+                    <button type="button" class="tab-btn" data-tab="connection" onclick="switchTab('connection')">Wi-Fi</button>
+                    <button type="button" class="tab-btn" data-tab="integrations" onclick="switchTab('integrations')">Integrations</button>
+                    <button type="button" class="tab-btn" data-tab="danger" onclick="switchTab('danger')">Reset device</button>
+                </div>
+            </details>
+            <a class="sidebar-link" href="/debug.html">
+                <img class="nav-image-icon" src="/diagnostics-icon.png" alt="">
+                Diagnostics
+            </a>
+            <a class="sidebar-link" href="/device.html">
+                <svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><rect x="5" y="5" width="10" height="10" rx="2"/><path d="M8 2v3M12 2v3M8 15v3M12 15v3M2 8h3M15 8h3M2 12h3M15 12h3"/></svg>
+                Device
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <button class="theme-toggle" type="button" onclick="toggleTheme()" title="Toggle color mode"><span class="theme-icon" aria-hidden="true">&#9790;</span><span class="theme-label">Switch to dark mode</span></button>
+            <div class="sidebar-footer-note">Connected to <a href="https://sugarclock.com" target="_blank" rel="noopener">SugarClock</a></div>
+        </div>
+    </aside>
 
+    <main class="app-main">
     <div class="page">
-        <div class="tabs tabs-sticky">
-            <button class="tab-btn active" data-tab="glucose" onclick="switchTab('glucose')">Blood Sugar</button>
-            <button class="tab-btn" data-tab="display" onclick="switchTab('display')">Display</button>
-            <button class="tab-btn" data-tab="time" onclick="switchTab('time')">Time</button>
-            <button class="tab-btn" data-tab="weather" onclick="switchTab('weather')">Weather</button>
-            <button class="tab-btn" data-tab="connection" onclick="switchTab('connection')">WiFi</button>
-            <button class="tab-btn" data-tab="integrations" onclick="switchTab('integrations')">Integrations</button>
-            <button class="tab-btn" data-tab="danger" onclick="switchTab('danger')">Reset</button>
+        <div class="page-header config-page-header">
+            <div class="page-title-with-icon">
+                <img class="page-header-icon" src="/configuration-icon.png" alt="">
+                <div>
+                    <h1 id="config-page-title">Blood Sugar Configuration</h1>
+                    <p>Tune what your SugarClock shows, sounds, and connects to.</p>
+                </div>
+            </div>
         </div>
 
         <form id="config-form">
@@ -47,7 +82,6 @@
                         <button type="button" class="btn btn-outline btn-sm" id="wifi-refresh-btn" onclick="refreshScan()">Refresh</button>
                     </div>
                     <div class="hint">Scanning borrows the radio for a few seconds, so this page may stall or briefly drop while it runs. If that happens, wait &mdash; it comes back on its own.</div>
-                    <div id="wifi-scan-message" class="hint" role="status"></div>
                     <div id="wifi-list" class="wifi-list">
                         <select id="wifi_network_picker" class="wifi-picker" onchange="selectDiscoveredNetwork()">
                             <option value="">Loading discovered networks…</option>
@@ -154,59 +188,21 @@
             <div class="tab-panel" id="tab-display">
                 <div class="card">
                     <h2>Brightness</h2>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Brightness (1-255)</label>
-                            <input type="number" id="brightness" min="1" max="255" value="40">
+                    <div class="brightness-label-row">
+                        <label for="brightness">Display brightness</label>
+                        <output id="brightness-value" for="brightness">16%</output>
+                    </div>
+                    <input class="brightness-slider" type="range" id="brightness" min="1" max="100" value="16" aria-valuetext="16 percent">
+                    <div class="brightness-scale" aria-hidden="true"><span>1%</span><span>100%</span></div>
+                    <div class="hint" id="brightness-mode-hint">Manual brightness.</div>
+                    <details class="wifi-advanced">
+                        <summary>Advanced brightness</summary>
+                        <div class="toggle-row">
+                            <label for="auto_brightness">Adjust brightness automatically</label>
+                            <input type="checkbox" id="auto_brightness">
                         </div>
-                        <div class="form-group">
-                            <label>Default View</label>
-                            <select id="default_mode">
-                                <option value="0">Glucose</option>
-                                <option value="1">Time</option>
-                                <option value="2">Weather</option>
-                                <option value="3" id="default-mode-ambient" hidden disabled>Ambient Creature</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="toggle-row">
-                        <label>Auto Brightness</label>
-                        <input type="checkbox" id="auto_brightness">
-                    </div>
-                </div>
-
-                <div class="card">
-                    <h2>Reading Display</h2>
-                    <div class="toggle-row">
-                        <label>Show Delta on LED Display</label>
-                        <input type="checkbox" id="show_delta">
-                    </div>
-                    <div class="divider"></div>
-                    <div class="form-group">
-                        <label>Glucose Unit</label>
-                        <select id="use_mmol">
-                            <option value="0">mg/dL</option>
-                            <option value="1">mmol/L</option>
-                        </select>
-                        <div class="hint">mmol/L values are converted from mg/dL (divided by 18.018)</div>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <h2>Display Colors</h2>
-                    <p style="font-size:13px; color:var(--text-secondary); margin:-8px 0 16px;">
-                        Customize the clock and weather text colors on the LED matrix.
-                    </p>
-                    <div class="color-row">
-                        <input type="color" id="color_clock" value="#ffffff">
-                        <span class="color-label">Clock Color</span>
-                        <span class="color-hex" id="hex_clock">#ffffff</span>
-                    </div>
-                    <div class="color-row">
-                        <input type="color" id="color_weather" value="#ffffff">
-                        <span class="color-label">Weather Color</span>
-                        <span class="color-hex" id="hex_weather">#ffffff</span>
-                    </div>
+                        <div class="hint">Uses the clock's light sensor. Moving the slider switches back to manual brightness.</div>
+                    </details>
                 </div>
 
                 <div class="card">
@@ -239,7 +235,7 @@
                         <input type="checkbox" id="auto_cycle_enabled">
                     </div>
                     <div class="card-details" id="autocycle-details">
-                        <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+                        <p class="card-intro" style="margin-bottom:16px;">
                             Automatically rotate through enabled display screens.
                         </p>
                         <div class="form-group">
@@ -250,56 +246,17 @@
                     </div>
                 </div>
 
-                <div class="card ambient-card">
-                    <div class="card-header-toggle ambient-card-header">
-                        <div>
-                            <h2>Ambient Creature</h2>
-                            <p class="ambient-kicker" id="ambient-kicker">A tiny swimmer for your clock</p>
-                        </div>
-                        <input type="checkbox" id="ambient_enabled" aria-label="Enable Ambient Creature">
+                <div class="card">
+                    <div class="card-header-toggle">
+                        <h2><label for="glucose_only_when_low">Show Only Blood Sugar When Low</label></h2>
+                        <input type="checkbox" id="glucose_only_when_low" aria-describedby="low-only-hint">
                     </div>
-                    <div class="card-details collapsed" id="ambient-details">
-                        <div class="form-group" style="margin-bottom:16px;">
-                            <label for="ambient_character">Creature</label>
-                            <select id="ambient_character">
-                                <option value="0">Pip — Goldfish</option>
-                                <option value="1">Boo — Ghost</option>
-                                <option value="2">Mochi — Axolotl</option>
-                                <option value="3">Sprout — Dinosaur</option>
-                                <option value="4">Pebble — Turtle</option>
-                                <option value="5">Inky — Octopus</option>
-                                <option value="6">Maple — Red panda</option>
-                            </select>
-                            <div class="hint">Choose the companion shown in the ambient display view.</div>
-                        </div>
-                        <p class="ambient-description" id="ambient-description">
-                            This warm little fish swims, naps, and reacts to the time of day. Fresh weather data adds quiet effects to its water, and it always stays silent.
-                        </p>
-                        <div class="ambient-preview-shell">
-                            <div class="ambient-preview-meta">
-                                <span>On-device preview</span>
-                                <span>32 &times; 8 pixels</span>
-                            </div>
-                            <div class="ambient-matrix" id="ambient-matrix" aria-label="A warm orange pixel-art fish with a yellow tail and cyan bubbles">
-                                <canvas id="ambient-creature-preview" width="32" height="8" role="img" aria-label="Warm orange pixel-art fish preview"></canvas>
-                            </div>
-                        </div>
-                        <div class="toggle-row ambient-seasonal-row">
-                            <div>
-                                <label for="ambient_seasonal">Seasonal surprises</label>
-                                <div class="hint">Occasional small celebrations for Halloween and New Year&rsquo;s.</div>
-                            </div>
-                            <input type="checkbox" id="ambient_seasonal" checked>
-                        </div>
-                        <div class="ambient-note">
-                            Your ambient creature is its own display view and uses the existing Auto-Cycle interval. In-range readings add playful motion, non-urgent low and high readings add gentle directional motion, and urgent readings show only the glucose number. Stale or missing data keeps the existing warning screen.
-                        </div>
-                    </div>
+                    <p class="hint" id="low-only-hint">Keep the blood sugar value visible while fresh readings are below your configured Low threshold, including urgent lows. Other screens and navigation are blocked. Notifications, including urgent ones, are hidden and may expire unseen. Stale readings, repeated glucose fetch failures, or Wi-Fi setup mode release the lock. Brief Wi-Fi drops and failed network checks do not hide a fresh low reading. Off by default.</p>
                 </div>
 
                 <div class="card">
                     <h2>Remote Control</h2>
-                    <p style="font-size:13px; color:var(--text-secondary); margin:-8px 0 16px;">
+                    <p class="card-intro" style="margin:-8px 0 16px;">
                         Switch the device display from here.
                     </p>
                     <div style="display:flex;gap:12px;align-items:center;justify-content:center;padding:8px 0;">
@@ -310,7 +267,93 @@
                 </div>
             </div>
 
-            <!-- BLOOD SUGAR TAB (Data Source + Thresholds + Colors + Alerts) -->
+            <!-- DISPLAY PET TAB -->
+            <div class="tab-panel" id="tab-ambient">
+                <div class="card ambient-card">
+                    <div class="card-header-toggle ambient-card-header">
+                        <div>
+                            <h2>Display Pet</h2>
+                            <p class="ambient-kicker">A little friend with a big personality</p>
+                        </div>
+                        <input type="checkbox" id="ambient_enabled" aria-label="Enable Display Pet">
+                    </div>
+                    <div class="card-details collapsed" id="ambient-details">
+                        <p class="ambient-description">
+                            Choose a friend that wiggles, naps, and reacts to the time of day. When glucose is in range, press the clock's right button for a little hello. Every companion stays silent.
+                        </p>
+                        <div class="form-group">
+                            <label for="ambient_character">Choose your companion</label>
+                            <select id="ambient_character">
+                                <option value="0">Pip &mdash; Goldfish</option>
+                                <option value="1">Boo &mdash; Ghost</option>
+                                <option value="2">Mochi &mdash; Axolotl</option>
+                                <option value="3">Sprout &mdash; Dinosaur</option>
+                                <option value="4">Pebble &mdash; Turtle</option>
+                                <option value="5">Inky &mdash; Octopus</option>
+                                <option value="6">Maple &mdash; Red panda</option>
+                            </select>
+                            <div class="hint">Your choice is remembered when the clock restarts.</div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="ambient_style">Companion display style</label>
+                                <select id="ambient_style">
+                                    <option value="0">Companion + text (LOW / OK / HIGH)</option>
+                                    <option value="1">Companion + range icon</option>
+                                    <option value="2">Companion only (centered)</option>
+                                </select>
+                                <div class="hint" id="ambient-style-hint">Red LOW, green OK, red HIGH.</div>
+                            </div>
+                            <div class="form-group">
+                                <label for="companion-preview-range">Preview glucose range</label>
+                                <select id="companion-preview-range">
+                                    <option value="1">Low</option>
+                                    <option value="0" selected>In range</option>
+                                    <option value="2">High</option>
+                                </select>
+                                <div class="hint">Preview only; uses your saved glucose thresholds on the clock.</div>
+                            </div>
+                        </div>
+                        <div class="toggle-row">
+                            <div>
+                                <label for="ambient_use_glucose_colors">Use my glucose colors</label>
+                                <div class="hint">Use the colors chosen under Blood Sugar for the range text and icon. Off keeps red LOW/HIGH and green OK.</div>
+                            </div>
+                            <input type="checkbox" id="ambient_use_glucose_colors">
+                        </div>
+                        <div class="ambient-preview-shell">
+                            <div class="ambient-preview-meta">
+                                <span id="ambient-preview-name">Pip the goldfish</span>
+                                <span>32 &times; 8 pixels</span>
+                            </div>
+                            <div class="ambient-matrix" aria-label="Selected pixel companion preview">
+                                <span class="matrix-sensor" aria-hidden="true"></span>
+                                <canvas id="ambient-companion-preview" width="1280" height="320" role="img" aria-label="Pip the goldfish preview"></canvas>
+                            </div>
+                        </div>
+                        <div class="ambient-preview-controls" role="group" aria-label="Preview companion poses">
+                            <button type="button" class="btn btn-outline" data-companion-mood="awake" aria-pressed="true">Awake</button>
+                            <button type="button" class="btn btn-outline" data-companion-mood="sleepy" aria-pressed="false">Sleepy</button>
+                            <button type="button" class="btn btn-outline" data-companion-mood="happy" aria-pressed="false">Say hello</button>
+                            <button type="button" class="btn btn-outline" id="ambient-preview-pause" aria-pressed="false">Pause preview</button>
+                        </div>
+                        <div class="hint ambient-preview-caption">Preview only. Sleepy and Say hello apply only in range. Save settings to apply your companion to the clock.</div>
+                        <div class="toggle-row ambient-seasonal-row">
+                            <div>
+                                <label for="ambient_seasonal">Seasonal surprises</label>
+                                <div class="hint">Occasional small celebrations for Halloween and New Year&rsquo;s in Companion only style.</div>
+                            </div>
+                            <input type="checkbox" id="ambient_seasonal" checked>
+                        </div>
+                        <div class="ambient-note">
+                            Your companion uses your glucose thresholds to choose its pose and range label or icon: red for low/high and green for in range by default, or your glucose colors when enabled. Low and high poses stay awake during rest hours. Urgent-low and urgent-high readings replace the entire companion screen with the glucose number, in every display style. Stale or missing data keeps the warning screen.
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- BLOOD SUGAR TAB -->
             <div class="tab-panel active" id="tab-glucose">
                 <div class="card">
                     <h2>Data Source</h2>
@@ -319,12 +362,13 @@
                         <select id="data_source" onchange="toggleSource()">
                             <option value="0">Custom URL</option>
                             <option value="1">Dexcom Share</option>
+                            <option value="3">FreeStyle Libre (LibreLinkUp)</option>
                             <option value="2">Demo Mode (no real data)</option>
                         </select>
                     </div>
 
                     <div id="demo-fields" style="display:none;">
-                        <div class="hint">Demo mode shows a fake glucose value that gently fluctuates in the 80&ndash;100 range. No WiFi or CGM connection is needed &mdash; great for recording videos or giving demos.</div>
+                        <div class="form-group"><div class="hint">Demo mode shows a fake glucose value that gently fluctuates in the 80&ndash;100 range. No WiFi or CGM connection is needed &mdash; great for recording videos or giving demos.</div></div>
                     </div>
 
                     <div id="custom-fields">
@@ -364,6 +408,30 @@
                         </div>
                     </div>
 
+                    <div id="libre-fields" style="display:none;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>LibreLinkUp Email</label>
+                                <input type="text" id="libre_email" maxlength="63" inputmode="email" autocomplete="off" autocapitalize="off" spellcheck="false">
+                            </div>
+                            <div class="form-group">
+                                <label>LibreLinkUp Password</label>
+                                <div class="pw-wrap">
+                                    <input type="password" id="libre_password" maxlength="63" autocomplete="off">
+                                    <button type="button" class="pw-toggle" onclick="togglePw('libre_password')">&#128065;</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="libre_patient_id">Person to display</label>
+                            <select id="libre_patient_id"><option value="">Save and test to load people</option></select>
+                            <div class="hint">With multiple people sharing, choose one here and save. The clock remembers that person and will never switch automatically.</div>
+                        </div>
+                        <div class="form-group">
+                            <div class="hint">Use your LibreLinkUp login, not LibreLink or LibreView. In the Libre app, go to Connected Apps &rarr; LibreLinkUp and invite this email, then sign in to LibreLinkUp once to accept the terms. Region is detected automatically.</div>
+                        </div>
+                    </div>
+
                     <div class="divider"></div>
 
                     <div class="form-row">
@@ -383,6 +451,23 @@
                     <div style="display:flex;align-items:center;gap:12px;">
                         <button type="button" class="btn btn-test" id="test-glucose-btn">Test Connection</button>
                         <span class="test-result" id="test-glucose-result"></span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Reading Display</h2>
+                    <div class="toggle-row">
+                        <label>Show Delta on LED Display</label>
+                        <input type="checkbox" id="show_delta">
+                    </div>
+                    <div class="divider"></div>
+                    <div class="form-group">
+                        <label>Glucose Unit</label>
+                        <select id="use_mmol">
+                            <option value="0">mg/dL</option>
+                            <option value="1">mmol/L</option>
+                        </select>
+                        <div class="hint">mmol/L values are converted from mg/dL (divided by 18)</div>
                     </div>
                 </div>
 
@@ -419,78 +504,56 @@
 
                 <div class="card">
                     <h2>Range Colors</h2>
-                    <p style="font-size:13px; color:var(--text-secondary); margin:-8px 0 16px;">
-                        Customize colors for each glucose range on the LED and web dashboard.
-                    </p>
+                    <div class="toggle-row">
+                        <div>
+                            <label for="customize_range_colors">Customize range colors</label>
+                            <p class="range-color-hint" id="range-color-hint">Turn on to change the default colors.</p>
+                        </div>
+                        <input type="checkbox" id="customize_range_colors" aria-controls="range-color-controls" aria-describedby="range-color-hint" aria-expanded="false">
+                    </div>
+                    <div id="range-color-controls" hidden>
                     <div class="color-row">
-                        <input type="color" id="color_urgent_low" value="#ef4444">
+                        <input type="color" id="color_urgent_low" value="#ea4335">
                         <span class="color-label">Urgent Low</span>
-                        <span class="color-hex" id="hex_urgent_low">#ef4444</span>
+                        <span class="color-hex" id="hex_urgent_low">#ea4335</span>
                     </div>
                     <div class="color-row">
-                        <input type="color" id="color_low" value="#f59e0b">
+                        <input type="color" id="color_low" value="#fbbc04">
                         <span class="color-label">Low</span>
-                        <span class="color-hex" id="hex_low">#f59e0b</span>
+                        <span class="color-hex" id="hex_low">#fbbc04</span>
                     </div>
                     <div class="color-row">
-                        <input type="color" id="color_in_range" value="#22c55e">
+                        <input type="color" id="color_in_range" value="#34a853">
                         <span class="color-label">In Range</span>
-                        <span class="color-hex" id="hex_in_range">#22c55e</span>
+                        <span class="color-hex" id="hex_in_range">#34a853</span>
                     </div>
                     <div class="color-row">
-                        <input type="color" id="color_high" value="#f59e0b">
+                        <input type="color" id="color_high" value="#fbbc04">
                         <span class="color-label">High</span>
-                        <span class="color-hex" id="hex_high">#f59e0b</span>
+                        <span class="color-hex" id="hex_high">#fbbc04</span>
                     </div>
                     <div class="color-row">
-                        <input type="color" id="color_urgent_high" value="#ef4444">
+                        <input type="color" id="color_urgent_high" value="#ea4335">
                         <span class="color-label">Urgent High</span>
-                        <span class="color-hex" id="hex_urgent_high">#ef4444</span>
+                        <span class="color-hex" id="hex_urgent_high">#ea4335</span>
                     </div>
                     <div class="color-row">
                         <input type="color" id="color_stale" value="#808080">
                         <span class="color-label">Stale Data</span>
                         <span class="color-hex" id="hex_stale">#808080</span>
                     </div>
+                    </div>
                 </div>
 
-                <div class="card">
-                    <div class="card-header-toggle">
-                        <h2>Buzzer Alerts</h2>
-                        <input type="checkbox" id="alert_enabled">
-                    </div>
-                    <div class="card-details" id="alert-details">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Alert Below (mg/dL)</label>
-                                <input type="number" id="alert_low" min="40" max="120" value="70">
-                            </div>
-                            <div class="form-group">
-                                <label>Alert Above (mg/dL)</label>
-                                <input type="number" id="alert_high" min="150" max="400" value="250">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Snooze Duration (minutes)</label>
-                            <input type="number" id="alert_snooze" min="1" max="120" value="15">
-                            <div class="hint">Hold middle button to snooze</div>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <!-- TIME TAB (Clock, Date, Timers, Countdown) -->
             <div class="tab-panel" id="tab-time">
                 <div class="card">
-                    <h2>Clock</h2>
-                    <div class="toggle-row">
-                        <div>
-                            <label>Show Time Display</label>
-                            <div class="hint">Include the clock in button navigation and auto-cycle.</div>
-                        </div>
-                        <input type="checkbox" id="time_display_enabled" checked>
+                    <div class="card-header-toggle">
+                        <h2 id="clock-heading">Clock</h2>
+                        <input type="checkbox" id="time_display_enabled" aria-labelledby="clock-heading" checked>
                     </div>
-                    <div class="divider"></div>
                     <div class="form-row">
                         <div class="form-group">
                             <label>Timezone</label>
@@ -558,9 +621,6 @@
 
                 <div class="card">
                     <h2>Date Display</h2>
-                    <p style="font-size:13px; color:var(--text-secondary); margin:-8px 0 16px;">
-                        Alternates with the clock every 5 seconds on the time screen.
-                    </p>
                     <div class="toggle-row">
                         <label>Show Date on Time Screen</label>
                         <input type="checkbox" id="date_on_time_screen">
@@ -582,7 +642,7 @@
                         <input type="checkbox" id="timer_enabled">
                     </div>
                     <div class="card-details" id="timer-details">
-                        <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+                        <p class="card-intro" style="margin-bottom:16px;">
                             Focus timer with work/break cycles. Right button starts/pauses when viewing timer.
                         </p>
                         <div class="form-row">
@@ -618,7 +678,7 @@
                         <input type="checkbox" id="stopwatch_enabled">
                     </div>
                     <div class="card-details" id="stopwatch-details">
-                        <p style="font-size:13px; color:var(--text-secondary); margin:0;">
+                        <p class="card-intro" style="margin:0;">
                             Count-up timer. Right button starts/pauses. Right long-press resets.
                         </p>
                     </div>
@@ -630,7 +690,7 @@
                         <input type="checkbox" id="countdown_enabled">
                     </div>
                     <div class="card-details" id="countdown-details">
-                        <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+                        <p class="card-intro" style="margin-bottom:16px;">
                             Shows days/hours until a target date. Displays "NOW!" when reached.
                         </p>
                         <div class="form-row">
@@ -656,7 +716,7 @@
                         <input type="checkbox" id="weather_enabled">
                     </div>
                     <div class="card-details" id="weather-details">
-                        <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+                        <p class="card-intro" style="margin-bottom:16px;">
                             Show current temperature in the display cycle. Uses OpenWeatherMap.
                         </p>
                         <div class="form-group">
@@ -702,16 +762,21 @@
                         <div class="hint" style="margin-top:8px;">Save config first, then test. New API keys can take up to 2 hours to activate.</div>
 
                         <div class="divider"></div>
-                        <h3 style="font-size:14px;margin-bottom:12px;">Preview Animations</h3>
+                        <h3 style="font-size:14px;margin-bottom:12px;">Preview Weather</h3>
                         <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px;">
-                            Trigger mock weather to preview animations on the display. Clears on next real weather fetch.
+                            Preview weather icons and animations on the display. Clears on next real weather fetch.
                         </p>
                         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                            <button type="button" class="btn btn-test" onclick="mockWeather(500,'Rain')">Rain</button>
-                            <button type="button" class="btn btn-test" onclick="mockWeather(601,'Snow')">Snow</button>
-                            <button type="button" class="btn btn-test" onclick="mockWeather(200,'Thunderstorm')">Thunder</button>
-                            <button type="button" class="btn btn-test" onclick="mockWeather(300,'Drizzle')">Drizzle</button>
                             <button type="button" class="btn btn-test" onclick="mockWeather(800,'Clear')">Clear</button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(801,'Partly cloudy')">Partly cloudy</button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(803,'Cloudy')">Cloudy</button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(500,'Rain / mist')">Rain / mist</button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(300,'Drizzle')">Drizzle</button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(611,'Sleet')">Sleet</button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(601,'Snow')">Snow</button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(200,'Thunderstorm')">Thunderstorm</button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(781,'Tornado')">Tornado</button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(711,'Other weather')">Other weather</button>
                         </div>
                         <span class="test-result" id="mock-weather-result" style="display:block;margin-top:8px;"></span>
                     </div>
@@ -726,7 +791,7 @@
                         <input type="checkbox" id="notify_enabled">
                     </div>
                     <div class="card-details" id="notify-details">
-                        <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+                        <p class="card-intro" style="margin-bottom:16px;">
                             Send messages to the display from any device on your network.
                             Open <a href="/notify.html" target="_blank" style="color:var(--accent);font-weight:500;">/notify.html</a>
                             on your phone and add it to your home screen for quick access.
@@ -780,7 +845,7 @@
                         <input type="checkbox" id="sysmon_enabled">
                     </div>
                     <div class="card-details" id="sysmon-details">
-                        <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+                        <p class="card-intro" style="margin-bottom:16px;">
                             Push CPU/RAM data from your computer via <code>POST /api/sysmon</code>. Auto-hides after 30s of no data.
                         </p>
                         <div class="form-row">
@@ -826,7 +891,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             <div class="tab-panel" id="tab-danger">
                 <div class="card reset-card">
                     <h2>Restart Device</h2>
-                    <p style="color:var(--text-secondary); margin:-8px 0 16px; font-size:13px;">
+                    <p class="card-intro" style="margin:-8px 0 16px; ">
                         Reboot the device. Settings are preserved.
                     </p>
                     <button type="button" class="btn btn-outline" id="restart-config-btn">Restart</button>
@@ -834,7 +899,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
                 <div class="card reset-card">
                     <h2>Factory Reset</h2>
-                    <p style="color:var(--text-secondary); margin:-8px 0 16px; font-size:13px;">
+                    <p class="card-intro" style="margin:-8px 0 16px; ">
                         Erase all settings and restore factory defaults. The device will restart and show SETUP.
                     </p>
                     <button type="button" class="btn btn-danger" id="factory-reset-btn">Factory Reset</button>
@@ -846,10 +911,12 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             </button>
         </form>
     </div>
+    </main>
 
     <div class="toast" id="toast"></div>
 
-    <script src="/companions.js"></script>
+    <script src="matrix-display.js"></script>
+    <script src="companions.js"></script>
     <script>
         function switchTab(id) {
             document.querySelectorAll('.tab-btn').forEach(b => {
@@ -858,6 +925,20 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
             document.getElementById('tab-' + id).classList.add('active');
             document.getElementById('save-btn').style.display = (id === 'danger') ? 'none' : '';
+            const labels = {
+                glucose: 'Blood Sugar', display: 'Display', time: 'Time & Timers',
+                weather: 'Weather', connection: 'Wi-Fi', integrations: 'Integrations',
+                ambient: 'Display Pet', danger: 'Reset Device'
+            };
+            const sectionName = labels[id];
+            document.getElementById('config-page-title').textContent = sectionName ? sectionName + ' Configuration' : 'Configuration';
+            history.replaceState(null, '', id === 'glucose' ? location.pathname : '#' + id);
+            setNavOpen(false);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function setNavOpen(open) {
+            document.body.classList.toggle('nav-open', open);
         }
 
         function togglePw(id) {
@@ -865,10 +946,27 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             inp.type = inp.type === 'password' ? 'text' : 'password';
         }
 
+        let librePeopleEmail = '';
+        function updateLibrePeople(c) {
+            const select = document.getElementById('libre_patient_id');
+            select.replaceChildren();
+            const people = c.libre_patients || [];
+            select.add(new Option(people.length ? 'Choose a person' : 'Save and test to load people', ''));
+            people.forEach(p => select.add(new Option(p.name.trim() || p.id, p.id)));
+            if (c.libre_patient_id && !people.some(p => p.id === c.libre_patient_id)) {
+                select.add(new Option((c.libre_patient_name || 'Saved person') + ' (saved)', c.libre_patient_id));
+            }
+            select.value = c.libre_patient_id || '';
+        }
+        document.getElementById('libre_email').addEventListener('input', () => {
+            if (document.getElementById('libre_email').value.trim() !== librePeopleEmail) updateLibrePeople({});
+        });
+
         function toggleSource() {
             const src = document.getElementById('data_source').value;
             document.getElementById('custom-fields').style.display = src === '0' ? 'block' : 'none';
             document.getElementById('dexcom-fields').style.display = src === '1' ? 'block' : 'none';
+            document.getElementById('libre-fields').style.display = src === '3' ? 'block' : 'none';
             document.getElementById('demo-fields').style.display = src === '2' ? 'block' : 'none';
         }
 
@@ -884,42 +982,40 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             if (sel.value) document.getElementById('timezone_custom').value = sel.value;
         }
 
-        function updateTimeDisplaySetting() {
-            const enabled = document.getElementById('time_display_enabled').checked;
-            const defaultMode = document.getElementById('default_mode');
-            const timeOption = defaultMode.querySelector('option[value="1"]');
-            timeOption.disabled = !enabled;
-            if (!enabled && defaultMode.value === '1') defaultMode.value = '0';
-        }
-
         function updateAmbientDisplaySetting() {
-            const enabled = document.getElementById('ambient_enabled').checked;
-            const defaultMode = document.getElementById('default_mode');
-            const ambientOption = document.getElementById('default-mode-ambient');
-            const ambientDetails = document.getElementById('ambient-details');
-            ambientOption.disabled = !enabled;
-            ambientOption.hidden = !enabled;
-            ambientDetails.classList.toggle('collapsed', !enabled);
-            if (!enabled && defaultMode.value === '3') defaultMode.value = '0';
+            document.getElementById('ambient-details').classList.toggle('collapsed', !document.getElementById('ambient_enabled').checked);
         }
 
-        function drawAmbientCreaturePreview() {
-            const canvas = document.getElementById('ambient-creature-preview');
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
+        let companionPreviewMood = 'awake';
+        let companionPreviewMs = 0;
+        const companionReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+        let companionPreviewPlaying = !companionReducedMotion.matches;
+
+        function drawCompanionPreview() {
+            const canvas = document.getElementById('ambient-companion-preview');
             const id = Number(document.getElementById('ambient_character').value);
-            const selected = PixelCompanions.valid(id) ? id : 0;
-            const name = PixelCompanions.names[selected];
-            const pixels = PixelCompanions.frame(selected, 0, false, false, 2, 0);
-            ctx.imageSmoothingEnabled = false;
-            pixels.forEach((row,y) => row.forEach((pixel,x) => {
-                ctx.fillStyle = PixelCompanions.palette[pixel] || '#07090d';
-                ctx.fillRect(x,y,1,1);
-            }));
-            document.getElementById('ambient-kicker').textContent = name;
-            document.getElementById('ambient-description').textContent = 'A quiet pixel companion that moves, rests, and responds to the clock’s right button. Urgent glucose readings take priority.';
-            document.getElementById('ambient-matrix').setAttribute('aria-label', name + ' preview');
-            canvas.setAttribute('aria-label', name + ' preview');
+            const name = PixelCompanions.names[id] || PixelCompanions.names[0];
+            const style = Number(document.getElementById('ambient_style').value);
+            const range = Number(document.getElementById('companion-preview-range').value);
+            canvas.setAttribute('aria-label', name + ' preview: ' + ['in range', 'low', 'high'][range]);
+            const customColors = document.getElementById('ambient_use_glucose_colors').checked;
+            const colors = {ambient_use_glucose_colors: customColors};
+            ['low','in_range','high'].forEach(key => colors['color_'+key] = document.getElementById('color_'+key).value);
+            document.getElementById('ambient-style-hint').textContent = [
+                customColors ? 'LOW / OK / HIGH use your Blood Sugar colors.' : 'Red LOW, green OK, red HIGH.',
+                customColors ? 'Bottom = low, middle = in range, top = high, using your Blood Sugar colors.' : 'Lit marker: bottom = low (red), middle = in range (green), top = high (red).',
+                'Your pet stays centered, with no range text or icon.'
+            ][style];
+            document.getElementById('ambient-preview-name').textContent = name;
+            const displayedMood = range === 0 ? companionPreviewMood : 'awake';
+            PixelCompanions.draw(canvas, id, companionPreviewMs, displayedMood, style, range, colors);
+            document.querySelectorAll('[data-companion-mood]').forEach(button => {
+                button.disabled = range !== 0 && button.dataset.companionMood !== 'awake';
+                button.setAttribute('aria-pressed', String(button.dataset.companionMood === displayedMood));
+            });
+            const pause = document.getElementById('ambient-preview-pause');
+            pause.textContent = companionPreviewPlaying ? 'Pause preview' : 'Play preview';
+            pause.setAttribute('aria-pressed', String(!companionPreviewPlaying));
         }
 
         function setupToggleCards() {
@@ -927,7 +1023,6 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 ['night_mode_enabled', 'night-details'],
                 ['auto_cycle_enabled', 'autocycle-details'],
                 ['ambient_enabled', 'ambient-details'],
-                ['alert_enabled', 'alert-details'],
                 ['timer_enabled', 'timer-details'],
                 ['stopwatch_enabled', 'stopwatch-details'],
                 ['countdown_enabled', 'countdown-details'],
@@ -951,27 +1046,32 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             if (inp && hex) inp.addEventListener('input', () => hex.textContent = inp.value);
         });
 
-        // Bidirectional sync for clock/weather color pickers across tabs
-        function syncColorPickers(mainId, mirrorId) {
-            const main = document.getElementById(mainId);
-            const mirror = document.getElementById(mirrorId);
-            const mainHex = document.getElementById('hex_' + mainId.replace('color_', ''));
-            const mirrorHex = document.getElementById('hex_' + mirrorId.replace('color_', ''));
-            if (main && mirror) {
-                main.addEventListener('input', () => {
-                    mirror.value = main.value;
-                    if (mainHex) mainHex.textContent = main.value;
-                    if (mirrorHex) mirrorHex.textContent = main.value;
-                });
-                mirror.addEventListener('input', () => {
-                    main.value = mirror.value;
-                    if (mainHex) mainHex.textContent = mirror.value;
-                    if (mirrorHex) mirrorHex.textContent = mirror.value;
-                });
-            }
+        ['clock_time', 'weather_wx'].forEach(key => {
+            const input = document.getElementById('color_' + key);
+            input.addEventListener('input', () => document.getElementById('hex_' + key).textContent = input.value);
+        });
+
+        let brightnessDeviceValue = 40;
+        let brightnessChanged = false;
+        let brightnessModeChanged = false;
+        function updateBrightnessLabel() {
+            const slider = document.getElementById('brightness');
+            document.getElementById('brightness-value').textContent = slider.value + '%';
+            slider.setAttribute('aria-valuetext', slider.value + ' percent');
+            document.getElementById('brightness-mode-hint').textContent = document.getElementById('auto_brightness').checked
+                ? 'Automatic brightness is on. Move the slider to choose a manual level.'
+                : 'Manual brightness. Automatic adjustment is available under Advanced brightness.';
         }
-        syncColorPickers('color_clock', 'color_clock_time');
-        syncColorPickers('color_weather', 'color_weather_wx');
+        document.getElementById('brightness').addEventListener('input', () => {
+            brightnessDeviceValue = Math.round(Number(document.getElementById('brightness').value) * 255 / 100);
+            brightnessChanged = true;
+            document.getElementById('auto_brightness').checked = false;
+            updateBrightnessLabel();
+        });
+        document.getElementById('auto_brightness').addEventListener('change', () => {
+            brightnessModeChanged = true;
+            updateBrightnessLabel();
+        });
 
         // ---- On-device WiFi setup ----
         let wifiCaPresent = false;
@@ -1029,7 +1129,6 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 const response = await fetch('/api/wifi/scan', {cache: 'no-store'});
                 const data = await response.json();
                 renderNetworks(data.networks || []);
-                document.getElementById('wifi-scan-message').textContent = data.error || '';
                 const button = document.getElementById('wifi-refresh-btn');
                 button.disabled = !!data.scanning;
                 button.textContent = data.scanning ? 'Scanning…' : 'Refresh';
@@ -1207,6 +1306,30 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             pollWifiStatus();
         }
 
+        // Keep these aligned with the theme defaults in config_set_defaults().
+        const RANGE_COLOR_DEFAULTS = {
+            urgent_low: '#ea4335', low: '#fbbc04', in_range: '#34a853',
+            high: '#fbbc04', urgent_high: '#ea4335', stale: '#808080'
+        };
+
+        function updateRangeColorControls() {
+            const toggle = document.getElementById('customize_range_colors');
+            document.getElementById('range-color-controls').hidden = !toggle.checked;
+            toggle.setAttribute('aria-expanded', String(toggle.checked));
+            document.getElementById('range-color-hint').textContent = toggle.checked
+                ? 'Turn off and save to restore the default colors.'
+                : 'Turn on to change the default colors.';
+        }
+
+        function rangeColorsForSave() {
+            const customize = document.getElementById('customize_range_colors').checked;
+            return Object.fromEntries(Object.entries(RANGE_COLOR_DEFAULTS).map(([key, value]) => [
+                'color_' + key, customize ? document.getElementById('color_' + key).value : value
+            ]));
+        }
+
+        document.getElementById('customize_range_colors').addEventListener('change', updateRangeColorControls);
+
         async function loadConfig() {
             try {
                 const r = await fetch('/api/config');
@@ -1229,43 +1352,49 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 setCaState(c.has_wifi_ca);
                 onSecurityChange();
                 document.getElementById('data_source').value = c.data_source || 0;
-                document.getElementById('server_url').value = '';
-                document.getElementById('server_url').placeholder = c.has_server_url ? 'Configured — leave blank to keep' : 'https://example.com/api/glucose';
+                document.getElementById('server_url').value = c.server_url || '';
                 document.getElementById('auth_token').value = c.auth_token || '';
                 document.getElementById('dexcom_username').value = c.dexcom_username || '';
                 document.getElementById('dexcom_password').value = c.dexcom_password || '';
                 document.getElementById('dexcom_us').value = c.dexcom_us ? '1' : '0';
+                document.getElementById('libre_email').value = c.libre_email || '';
+                librePeopleEmail = c.libre_email || '';
+                updateLibrePeople(c);
+                document.getElementById('libre_password').value = '';
+                document.getElementById('libre_password').placeholder = c.has_libre_password ? 'Saved \u2014 leave blank to keep' : '';
                 document.getElementById('poll_interval').value = c.poll_interval;
                 document.getElementById('stale_timeout').value = c.stale_timeout_min || 20;
                 toggleSource();
 
                 // Display
-                document.getElementById('brightness').value = c.brightness;
-                document.getElementById('auto_brightness').checked = c.auto_brightness;
-                document.getElementById('default_mode').value = c.default_mode;
+                brightnessDeviceValue = Math.max(1, Math.min(255, Number(c.brightness) || 40));
+                document.getElementById('brightness').value = Math.max(1, Math.round(brightnessDeviceValue * 100 / 255));
+                brightnessChanged = false;
+                brightnessModeChanged = false;
+                document.getElementById('auto_brightness').checked = c.auto_brightness === true;
+                updateBrightnessLabel();
                 document.getElementById('show_delta').checked = c.show_delta || false;
                 document.getElementById('use_mmol').value = c.use_mmol ? '1' : '0';
                 document.getElementById('night_mode_enabled').checked = c.night_mode_enabled || false;
                 document.getElementById('night_start').value = c.night_start_hour !== undefined ? c.night_start_hour : 22;
                 document.getElementById('night_end').value = c.night_end_hour !== undefined ? c.night_end_hour : 7;
                 document.getElementById('night_brightness').value = c.night_brightness || 10;
+                document.getElementById('glucose_only_when_low').checked = c.glucose_only_when_low === true;
                 document.getElementById('auto_cycle_enabled').checked = c.auto_cycle_enabled !== false;
                 document.getElementById('auto_cycle_sec').value = c.auto_cycle_sec || 10;
                 document.getElementById('ambient_enabled').checked = c.ambient_enabled || false;
-                document.getElementById('ambient_character').value = String(c.ambient_character ?? c.ambient_creature ?? 0);
                 document.getElementById('ambient_seasonal').checked = c.ambient_seasonal !== false;
+                document.getElementById('ambient_character').value = PixelCompanions.valid(c.ambient_character) ? c.ambient_character : 0;
+                document.getElementById('ambient_use_glucose_colors').checked = c.ambient_use_glucose_colors === true;
+                document.getElementById('ambient_style').value = PixelCompanions.validStyle(c.ambient_style) ? c.ambient_style : 0;
+                drawCompanionPreview();
                 updateAmbientDisplaySetting();
-                drawAmbientCreaturePreview();
 
                 // Glucose
                 document.getElementById('thresh_urgent_low').value = c.thresh_urgent_low;
                 document.getElementById('thresh_low').value = c.thresh_low;
                 document.getElementById('thresh_high').value = c.thresh_high;
                 document.getElementById('thresh_urgent_high').value = c.thresh_urgent_high;
-                document.getElementById('alert_enabled').checked = c.alert_enabled || false;
-                document.getElementById('alert_low').value = c.alert_low || 70;
-                document.getElementById('alert_high').value = c.alert_high || 250;
-                document.getElementById('alert_snooze').value = c.alert_snooze_min || 15;
 
                 if (c.color_urgent_low) document.getElementById('color_urgent_low').value = c.color_urgent_low;
                 if (c.color_low) document.getElementById('color_low').value = c.color_low;
@@ -1273,23 +1402,24 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 if (c.color_high) document.getElementById('color_high').value = c.color_high;
                 if (c.color_urgent_high) document.getElementById('color_urgent_high').value = c.color_urgent_high;
                 if (c.color_stale) document.getElementById('color_stale').value = c.color_stale;
+                drawCompanionPreview();
                 ['urgent_low','low','in_range','high','urgent_high','stale'].forEach(k => {
                     const inp = document.getElementById('color_' + k);
                     const hex = document.getElementById('hex_' + k);
                     if (inp && hex) hex.textContent = inp.value;
                 });
+                // Existing custom palettes remain selected and are never silently reset.
+                document.getElementById('customize_range_colors').checked = Object.entries(RANGE_COLOR_DEFAULTS)
+                    .some(([key, value]) => document.getElementById('color_' + key).value.toLowerCase() !== value);
+                updateRangeColorControls();
 
                 // Clock & weather colors (sync across tabs)
                 if (c.color_clock) {
-                    document.getElementById('color_clock').value = c.color_clock;
                     document.getElementById('color_clock_time').value = c.color_clock;
-                    document.getElementById('hex_clock').textContent = c.color_clock;
                     document.getElementById('hex_clock_time').textContent = c.color_clock;
                 }
                 if (c.color_weather) {
-                    document.getElementById('color_weather').value = c.color_weather;
                     document.getElementById('color_weather_wx').value = c.color_weather;
-                    document.getElementById('hex_weather').textContent = c.color_weather;
                     document.getElementById('hex_weather_wx').textContent = c.color_weather;
                 }
 
@@ -1301,7 +1431,6 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 if (!found) document.getElementById('timezone_custom').value = tz;
                 document.getElementById('use_24h').checked = c.use_24h;
                 document.getElementById('time_display_enabled').checked = c.time_display_enabled !== false;
-                updateTimeDisplaySetting();
                 document.getElementById('date_on_time_screen').checked = c.date_on_time_screen || false;
                 document.getElementById('date_format').value = c.date_format || 0;
                 document.getElementById('timer_enabled').checked = c.timer_enabled || false;
@@ -1364,38 +1493,34 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 dexcom_username: document.getElementById('dexcom_username').value,
                 dexcom_password: document.getElementById('dexcom_password').value,
                 dexcom_us: document.getElementById('dexcom_us').value === '1',
+                libre_email: document.getElementById('libre_email').value.trim(),
+                libre_password: document.getElementById('libre_password').value,
+                libre_patient_id: document.getElementById('libre_patient_id').value,
                 poll_interval: poll,
                 stale_timeout_min: parseInt(document.getElementById('stale_timeout').value),
-                brightness: parseInt(document.getElementById('brightness').value),
-                auto_brightness: document.getElementById('auto_brightness').checked,
-                default_mode: parseInt(document.getElementById('default_mode').value),
+                brightness: brightnessDeviceValue,
+                ...((brightnessChanged || brightnessModeChanged) ? {auto_brightness: document.getElementById('auto_brightness').checked} : {}),
                 show_delta: document.getElementById('show_delta').checked,
                 use_mmol: document.getElementById('use_mmol').value === '1',
                 night_mode_enabled: document.getElementById('night_mode_enabled').checked,
                 night_start_hour: parseInt(document.getElementById('night_start').value),
                 night_end_hour: parseInt(document.getElementById('night_end').value),
                 night_brightness: parseInt(document.getElementById('night_brightness').value),
+                glucose_only_when_low: document.getElementById('glucose_only_when_low').checked,
                 auto_cycle_enabled: document.getElementById('auto_cycle_enabled').checked,
                 auto_cycle_sec: parseInt(document.getElementById('auto_cycle_sec').value),
                 ambient_enabled: document.getElementById('ambient_enabled').checked,
-                ambient_character: parseInt(document.getElementById('ambient_character').value),
                 ambient_seasonal: document.getElementById('ambient_seasonal').checked,
+                ambient_character: Number(document.getElementById('ambient_character').value),
+                ambient_use_glucose_colors: document.getElementById('ambient_use_glucose_colors').checked,
+                ambient_style: Number(document.getElementById('ambient_style').value),
                 thresh_urgent_low: parseInt(document.getElementById('thresh_urgent_low').value),
                 thresh_low: parseInt(document.getElementById('thresh_low').value),
                 thresh_high: parseInt(document.getElementById('thresh_high').value),
                 thresh_urgent_high: parseInt(document.getElementById('thresh_urgent_high').value),
-                alert_enabled: document.getElementById('alert_enabled').checked,
-                alert_low: parseInt(document.getElementById('alert_low').value),
-                alert_high: parseInt(document.getElementById('alert_high').value),
-                alert_snooze_min: parseInt(document.getElementById('alert_snooze').value),
-                color_urgent_low: document.getElementById('color_urgent_low').value,
-                color_low: document.getElementById('color_low').value,
-                color_in_range: document.getElementById('color_in_range').value,
-                color_high: document.getElementById('color_high').value,
-                color_urgent_high: document.getElementById('color_urgent_high').value,
-                color_stale: document.getElementById('color_stale').value,
-                color_clock: document.getElementById('color_clock').value,
-                color_weather: document.getElementById('color_weather').value,
+                ...rangeColorsForSave(),
+                color_clock: document.getElementById('color_clock_time').value,
+                color_weather: document.getElementById('color_weather_wx').value,
                 timezone: tzCustom || document.getElementById('timezone').value,
                 use_24h: document.getElementById('use_24h').checked,
                 time_display_enabled: document.getElementById('time_display_enabled').checked,
@@ -1496,15 +1621,23 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             try {
                 const r = await fetch('/api/test/glucose', { method: 'POST' });
                 let d = await r.json();
-                if (d.queued) {
+                if (r.status === 202 && d.queued) {
                     const generation = d.after_generation;
-                    let completed = false;
-                    for (let attempt = 0; attempt < 60; attempt++) {
+                    const deadline = Date.now() + 60000;
+                    do {
                         await new Promise(resolve => setTimeout(resolve, 1000));
-                        d = await (await fetch('/api/test/glucose')).json();
-                        if (d.generation > generation) { completed = true; break; }
-                    }
-                    if (!completed) throw new Error('Timed out waiting for the provider');
+                        const result = await fetch('/api/test/glucose/result');
+                        if (!result.ok) throw new Error('Could not read connection result');
+                        d = await result.json();
+                        if (!d.pending && d.generation > generation) break;
+                    } while (Date.now() < deadline);
+                    if (d.pending || !(d.generation > generation)) throw new Error('Connection test timed out');
+                }
+                if (document.getElementById('data_source').value === '3') {
+                    const configResponse = await fetch('/api/config');
+                    const saved = await configResponse.json();
+                    librePeopleEmail = saved.libre_email || '';
+                    if (document.getElementById('libre_email').value.trim() === librePeopleEmail) updateLibrePeople(saved);
                 }
                 if (d.ok) {
                     res.textContent = 'Glucose: ' + d.glucose + ' mg/dL, Trend: ' + d.trend;
@@ -1522,12 +1655,18 @@ curl -X POST http://DEVICE_IP/api/sysmon \
         });
 
         // Display prev/next controls
+        function updateDisplayControls(mode, locked) {
+            document.getElementById('current-mode').textContent = locked === true ? 'Blood sugar (locked)' : (['AMBIENT_FISH', 'AMBIENT_CREATURE'].includes(mode) ? 'Pixel Companion' : (mode || '--'));
+            document.getElementById('display-prev-btn').disabled = locked === true;
+            document.getElementById('display-next-btn').disabled = locked === true;
+        }
         async function displayControl(direction) {
             try {
                 const r = await fetch('/api/display/' + direction, { method: 'POST' });
                 const d = await r.json();
-                document.getElementById('current-mode').textContent = d.mode || '--';
-            } catch (e) { showToast('Network error', 'error'); }
+                updateDisplayControls(d.mode, d.locked);
+                if (!r.ok) throw new Error(d.error || 'Unable to change display');
+            } catch (e) { showToast(e.message || 'Unable to change display', 'error'); }
         }
         document.getElementById('display-prev-btn').addEventListener('click', () => displayControl('prev'));
         document.getElementById('display-next-btn').addEventListener('click', () => displayControl('next'));
@@ -1537,7 +1676,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             try {
                 const r = await fetch('/api/status');
                 const d = await r.json();
-                document.getElementById('current-mode').textContent = d.state || '--';
+                updateDisplayControls(d.state, d.glucose_display_locked);
             } catch (e) {}
         }
         setInterval(updateCurrentMode, 3000);
@@ -1615,7 +1754,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             wrap.appendChild(row);
         }
         // Attach presets to all color pickers
-        ['color_clock','color_weather','color_clock_time','color_weather_wx',
+        ['color_clock_time','color_weather_wx',
          'color_urgent_low','color_low','color_in_range','color_high','color_urgent_high','color_stale'
         ].forEach(attachPresets);
 
@@ -1623,16 +1762,40 @@ curl -X POST http://DEVICE_IP/api/sysmon \
         const initHash = window.location.hash.replace('#', '');
         if (initHash) switchTab(initHash);
 
-        document.getElementById('time_display_enabled')
-            .addEventListener('change', updateTimeDisplaySetting);
-        updateTimeDisplaySetting();
-
         document.getElementById('ambient_enabled')
             .addEventListener('change', updateAmbientDisplaySetting);
-        document.getElementById('ambient_character')
-            .addEventListener('change', drawAmbientCreaturePreview);
         updateAmbientDisplaySetting();
-        drawAmbientCreaturePreview();
+        ['ambient_character', 'ambient_style', 'ambient_use_glucose_colors', 'companion-preview-range'].forEach(id => {
+            document.getElementById(id).addEventListener('change', () => {
+                companionPreviewMs = 0;
+                drawCompanionPreview();
+            });
+        });
+        document.querySelectorAll('[data-companion-mood]').forEach(button => {
+            button.addEventListener('click', () => {
+                companionPreviewMood = button.dataset.companionMood;
+                companionPreviewMs = 0;
+                drawCompanionPreview();
+            });
+        });
+        document.getElementById('ambient-preview-pause').addEventListener('click', () => {
+            companionPreviewPlaying = !companionPreviewPlaying;
+            drawCompanionPreview();
+        });
+        companionReducedMotion.addEventListener('change', event => {
+            if (event.matches) { companionPreviewPlaying = false; drawCompanionPreview(); }
+        });
+        drawCompanionPreview();
+        setInterval(() => {
+            if (!companionPreviewPlaying || document.hidden ||
+                !document.getElementById('ambient-companion-preview').getClientRects().length) return;
+            companionPreviewMs += 100;
+            drawCompanionPreview();
+        }, 100);
+
+        ['color_low','color_in_range','color_high'].forEach(id => {
+            document.getElementById(id).addEventListener('input', drawCompanionPreview);
+        });
 
         loadConfig();
         loadWifiScan();
@@ -1644,9 +1807,14 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             const dark=d.getAttribute('data-theme')==='dark';
             if(dark){d.removeAttribute('data-theme');localStorage.removeItem('theme');}
             else{d.setAttribute('data-theme','dark');localStorage.setItem('theme','dark');}
-            document.querySelector('.theme-toggle').innerHTML=dark?'&#9790;':'&#9728;';
+            syncThemeButton();
         }
-        if(localStorage.getItem('theme')==='dark')document.querySelector('.theme-toggle').innerHTML='&#9728;';
+        function syncThemeButton(){
+            const dark=document.documentElement.getAttribute('data-theme')==='dark';
+            document.querySelector('.theme-icon').innerHTML=dark?'&#9728;':'&#9790;';
+            document.querySelector('.theme-label').textContent=dark?'Switch to light mode':'Switch to dark mode';
+        }
+        syncThemeButton();
     </script>
 </body>
 </html>

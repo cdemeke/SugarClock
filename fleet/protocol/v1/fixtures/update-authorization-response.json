@@ -1,0 +1,13 @@
+{
+  "authorized": true,
+  "expires_at": 1787697660,
+  "manifest_url": "https://github.com/cdemeke/SugarClock/releases/download/v0.3.0/ota-manifest-preview.json",
+  "update_offer": {
+    "target_id": "3eb14d07-9a8f-430b-bc29-2a456726dfe3",
+    "rollout_id": "4d74e6c9-0da3-4612-90c3-b5a0e2b1dd71",
+    "manifest_url": "https://github.com/cdemeke/SugarClock/releases/download/v0.3.0/ota-manifest-preview.json",
+    "version": "0.3.0",
+    "channel": "preview",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+}

@@ -19,7 +19,7 @@
 
 ## What is SugarClock?
 
-SugarClock is free, open-source firmware that turns the [Ulanzi TC001 Smart Pixel Clock](https://amzn.to/4rrqbjz) into a dedicated CGM (continuous glucose monitor) display. It connects to **Dexcom Share** or **Nightscout** over WiFi and shows your current glucose reading in big, color-coded numbers on an LED matrix.
+SugarClock is free, open-source firmware that turns the [Ulanzi TC001 Smart Pixel Clock](https://amzn.to/4rrqbjz) into a dedicated CGM (continuous glucose monitor) display. It connects to **Dexcom Share**, **FreeStyle Libre** (via LibreLinkUp), or **Nightscout** over WiFi and shows your current glucose reading in big, color-coded numbers on an LED matrix.
 
 **Cost:** ~$40 one-time for the clock. The software is free. No subscriptions.
 
@@ -27,14 +27,20 @@ SugarClock is free, open-source firmware that turns the [Ulanzi TC001 Smart Pixe
 
 - **Live glucose display** — Large color-coded numbers (green = in range, orange = high/low, red = urgent)
 - **Trend arrows** — See which direction your glucose is heading
-- **Dexcom Share & Nightscout** — Works with Dexcom CGMs directly, or any Nightscout-compatible setup
+- **Dexcom, Libre & Nightscout** — Works with Dexcom and FreeStyle Libre 2/3 CGMs directly, or any Nightscout-compatible setup
+- **Low glucose focus** — Enable “Show Only Blood Sugar When Low” in Settings → Display to keep the glucose value visible below the configured Low threshold (including urgent lows). It blocks other screens and navigation while readings are fresh. Notifications (including urgent ones) are hidden and may expire unseen; they are not deferred. Normal behavior resumes after recovery, stale data, repeated glucose fetch failures, or entry into Wi-Fi setup mode. Brief Wi-Fi drops and failed network checks do not hide a fresh low reading. Off by default.
 - **Audible alerts** — Buzzer for high/low glucose with snooze button
 - **Auto brightness** — Built-in light sensor adjusts to your room
 - **Night mode** — Dims automatically during sleeping hours
 - **Web dashboard** — Configure everything from your phone or computer browser
 - **Secure WiFi updates** — Signed, power-loss-safe firmware updates with automatic rollback
 - **Clock, weather & more** — Also shows time, date, temperature, pomodoro timer, and push notifications
-- **Ambient Creatures** — Choose an optional fish or ghost companion that rests, responds to weather, and reflects non-urgent glucose ranges through gentle motion
+- **Compact weather animations** — A dedicated pixel icon sits beside the temperature: looping clouds, falling rain, straight-falling snowflakes, and a small lightning bolt. Clear skies use a static sun. [See the display design](docs/images/weather-side-animation-design.png).
+- **Pixel Companions** — Choose Pip the goldfish, Boo the ghost, Mochi the axolotl, Sprout the dinosaur, Pebble the turtle, Inky the octopus, or Maple the red panda in Settings → Display. Choose companion + text, companion + range icon, or the companion alone centered on screen. Preview low, in-range, and high poses; range text/icons use red for both low and high by default, with an option to follow your configured glucose colors. Greetings and sleepy poses apply only in range. The clock remembers your choices, and urgent readings replace the companion with the glucose number.
+
+## Video demo studio
+
+Try the virtual 32×8 SugarClock in [`docs/demo/`](docs/demo/README.md): glucose presets, seven pixel companions, animated weather, live timers, display rotation, and physical-button interactions. Includes a controls-free filming view and runs locally without a device or account.
 
 ## What You Need
 
@@ -44,7 +50,26 @@ SugarClock is free, open-source firmware that turns the [Ulanzi TC001 Smart Pixe
 | USB-C data cable | Usually included with the clock |
 | A Mac (or any computer) | Mac has a one-click installer; Windows/Linux can use the command line |
 | WiFi (2.4 GHz) | The clock connects to your home WiFi |
-| Dexcom account or Nightscout URL | Your glucose data source |
+| Dexcom account, LibreLinkUp account, or Nightscout URL | Your glucose data source |
+
+### FreeStyle Libre setup
+
+Use a LibreLinkUp follower account, save its credentials in Settings, then use
+**Test Connection** to load the people sharing with it. A single person is saved
+automatically. If several people share, choose **Person to display** and save.
+The clock remembers the person's ID across restarts and stops accepting readings
+if that person stops sharing; it never substitutes another person. Changing the
+Libre email clears the saved person and detected region, including during Mac setup.
+
+Libre readings require synchronized network time and a valid sensor timestamp
+no more than ten minutes old. Test Connection follows the same retry limits as
+automatic polling: requests are at least 15 seconds apart, and authorization
+rejections back off from five minutes to one hour. A network error during a retry
+preserves that cooldown. Saving changed credentials allows a new attempt.
+Requests to accept terms, privacy policies, or verify an account retry every
+five minutes for the first hour, then back off to 10, 20, 40, and at most 60
+minutes. After completing the action in LibreLinkUp, test again once the current
+cooldown expires; Test uses the same retry limit as automatic polling.
 
 ## Quick Start (Mac)
 
@@ -62,7 +87,7 @@ Open **SugarClock Setup** and follow the on-screen steps. The app will walk you 
 
 1. **Detect your clock** over USB
 2. **Pick your WiFi network** from a list
-3. **Connect your glucose source** (Dexcom Share, Nightscout, or custom URL)
+3. **Connect your glucose source** (Dexcom Share, FreeStyle Libre, Nightscout, or custom URL)
 4. **Set your preferences** (units, alerts, brightness, timezone)
 5. **Flash the firmware** — the app installs everything onto the clock automatically
 
@@ -120,6 +145,8 @@ USB flashing remains the recovery path. See [INSTALL.md](INSTALL.md) for the non
 bootstrap migration and recovery commands. Maintainers should follow
 [docs/OTA_SIGNING.md](docs/OTA_SIGNING.md) for release signing and key rotation.
 
+Companion integrations: see the [configuration API and legacy-field migration notes](docs/companion-api.md).
+
 ## Troubleshooting
 
 | Problem | Solution |
@@ -127,7 +154,7 @@ bootstrap migration and recovery commands. Maintainers should follow
 | Clock not detected via USB | Use a data cable (not charge-only), connect directly (no hub), install CH340 driver |
 | Upload fails | Hold middle button while plugging in USB to enter flash mode |
 | `NO WIFI` on display | Check SSID/password, make sure it's a 2.4 GHz network |
-| `NO DATA` on display | Check Dexcom credentials or server URL on the config page |
+| `NO DATA` on display | Check Dexcom/LibreLinkUp credentials or server URL on the config page |
 
 See the **[Help & FAQ](https://sugarclock.com/support.html)** for more.
 
@@ -145,6 +172,7 @@ esptool.py -p /dev/cu.usbserial-* -b 460800 write_flash 0x0 tc001_factory_backup
 
 - [AWTRIX3](https://blueforcer.github.io/awtrix3/#/) — LED matrix firmware for the TC001 that inspired this project
 - [pydexcom](https://github.com/gagebenne/pydexcom) — Dexcom Share API reference
+- [nightscout-librelink-up](https://github.com/timoschlueter/nightscout-librelink-up) — LibreLinkUp API reference
 - [OpenWeatherMap](https://openweathermap.org/) — Free weather API
 
 ## License

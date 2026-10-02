@@ -1,5 +1,6 @@
 #include "ambient_fish.h"
 #include "companion.h"
+#include "glucose_format.h"
 
 #include "config_manager.h"
 #include "display.h"
@@ -205,7 +206,7 @@ static void draw_urgent_number(GlucoseEffect effect) {
         : cfg.color_urgent_high;
 
     char number[8];
-    snprintf(number, sizeof(number), "%d", reading.glucose);
+    format_glucose_value(number, sizeof(number), reading.glucose, cfg.use_mmol);
     int width = display_text_width(number) - 1; // omit the final glyph spacing
     int x = (32 - width) / 2;
     display_draw_text(number, x, 0, packed_color(packed));
@@ -223,10 +224,11 @@ static void draw_companion(unsigned long frame, bool resting, bool interacting, 
     uint32_t animation_ms = interacting
         ? millis() - interaction_started_ms
         : frame * FISH_FRAME_MS;
-    companion_frame(config_get().ambient_creature, animation_ms, resting, happy, pixels,
-                    COMPANION_ONLY, range);
+    companion_frame(config_get().ambient_character, animation_ms, resting, happy, pixels,
+                    config_get().ambient_style, range);
     for (int y = 0; y < 8; ++y) for (int x = 0; x < 32; ++x) {
-        if (pixels[y][x] != '.') display_draw_pixel(x, y, packed_color(companion_color(pixels[y][x])));
+        if (pixels[y][x] != '.') display_draw_pixel(x, y, packed_color(companion_resolve_color(pixels[y][x], config_get().ambient_use_glucose_colors,
+            config_get().color_low, config_get().color_in_range, config_get().color_high)));
     }
 }
 
@@ -280,9 +282,15 @@ void ambient_fish_render() {
         return;
     }
 
-    const bool scene_extras = glucose_effect == GLUCOSE_EFFECT_IN_RANGE;
+    // Labels and range icons own the spare screen space. Optional scene extras
+    // are limited to the standalone pet, and never obscure an out-of-range pose.
+    bool scene_extras = companion_style_or_default(config_get().ambient_style) == COMPANION_ONLY &&
+                        glucose_effect == GLUCOSE_EFFECT_IN_RANGE;
     if (scene_extras) draw_water_weather(choose_water_weather(), frame);
-    draw_companion(frame, pose == FISH_RESTING, pose == FISH_PLAYING, glucose_effect);
+
+    draw_companion(frame, pose == FISH_RESTING, pose == FISH_PLAYING,
+                   glucose_effect);
+
     if (scene_extras) draw_seasonal_surprise(frame);
 }
 

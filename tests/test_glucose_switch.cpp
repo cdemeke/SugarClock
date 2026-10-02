@@ -36,6 +36,7 @@ int netcheck_dns() {return dnsResult;}int netcheck_data() {return dataResult;}
 bool notify_has_active() {return false;}
 unsigned beeps=0;
 void buzzer_beep(int,int,int) {++beeps;}
+bool engine_low_glucose_lock_active() { return false; }
 #include "glucose_switch.inc"
 int main() {
  cfg.glucose_enabled=true;cfg.alert_enabled=true;cfg.alert_low=70;cfg.alert_high=250;

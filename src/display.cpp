@@ -1,4 +1,5 @@
 #include "display.h"
+#include "glucose_format.h"
 #include "hardware_pins.h"
 #include "trend_arrows.h"
 
@@ -21,8 +22,46 @@ static uint8_t current_brightness = 40;
 static uint8_t transition_level = 255;
 static bool composing_frame = false;
 static bool frame_pending = false;
+static DisplayFrame frame_buffers[2];
+static uint8_t published_index = 0;
+static bool viewer_requested = false;
+static bool frame_ready = false;
+static uint32_t last_frame_request_ms = 0;
+static uint32_t last_frame_publish_ms = 0;
+static uint32_t frame_epoch = 1;
+#ifdef ARDUINO_ARCH_ESP32
+static portMUX_TYPE frame_mux = portMUX_INITIALIZER_UNLOCKED;
+#endif
+
+void display_copy_frame(DisplayFrame& frame) {
+#ifdef ARDUINO_ARCH_ESP32
+    portENTER_CRITICAL(&frame_mux);
+#endif
+    frame = frame_buffers[published_index];
+#ifdef ARDUINO_ARCH_ESP32
+    portEXIT_CRITICAL(&frame_mux);
+#endif
+}
+
+DisplayFrameStatus display_request_frame() {
+    const uint32_t now = static_cast<uint32_t>(millis());
+#ifdef ARDUINO_ARCH_ESP32
+    portENTER_CRITICAL(&frame_mux);
+#endif
+    if (!viewer_requested || uint32_t(now - last_frame_request_ms) > 5000) frame_ready = false;
+    viewer_requested = true;
+    last_frame_request_ms = now;
+    const DisplayFrameStatus status = {frame_ready, frame_buffers[published_index].sequence, frame_epoch};
+#ifdef ARDUINO_ARCH_ESP32
+    portEXIT_CRITICAL(&frame_mux);
+#endif
+    return status;
+}
 
 void display_init() {
+#ifdef ARDUINO_ARCH_ESP32
+    frame_epoch = esp_random(); // ETags must not collide across device reboots.
+#endif
     FastLED.addLeds<WS2812B, PIN_MATRIX_DATA, GRB>(leds, MATRIX_NUM_LEDS);
     // Keep FastLED's global brightness stable. Per-frame output scaling in
     // display_show() avoids rapid global brightness writes, which can produce
@@ -62,6 +101,42 @@ void display_show() {
     uint8_t output_brightness = (uint8_t)(((uint16_t)current_brightness *
         transition_level + 127) / 255);
     FastLED.show(output_brightness);
+    static_assert(MATRIX_WIDTH == 32 && MATRIX_HEIGHT == 8, "Update DisplayFrame dimensions");
+    const uint32_t now = static_cast<uint32_t>(millis());
+#ifdef ARDUINO_ARCH_ESP32
+    portENTER_CRITICAL(&frame_mux);
+#endif
+    const bool capture = viewer_requested && uint32_t(now - last_frame_request_ms) <= 5000 &&
+        (!frame_ready || uint32_t(now - last_frame_publish_ms) >= 250);
+#ifdef ARDUINO_ARCH_ESP32
+    portEXIT_CRITICAL(&frame_mux);
+#endif
+    if (!capture) return;
+
+    // Only the render task writes. Readers copy the published buffer under the
+    // lock, while the renderer fills the other static buffer without clearing it.
+    const uint8_t next_index = 1 - published_index;
+    DisplayFrame& next = frame_buffers[next_index];
+    for (int y = 0; y < MATRIX_HEIGHT; ++y) {
+        for (int x = 0; x < MATRIX_WIDTH; ++x) {
+            const CRGB& pixel = leds[y * MATRIX_WIDTH + ((y & 1) ? MATRIX_WIDTH - 1 - x : x)];
+            const int offset = (y * MATRIX_WIDTH + x) * 3;
+            next.rgb[offset] = pixel.r;
+            next.rgb[offset + 1] = pixel.g;
+            next.rgb[offset + 2] = pixel.b;
+        }
+    }
+    const bool changed = memcmp(next.rgb, frame_buffers[published_index].rgb, sizeof(next.rgb)) != 0;
+#ifdef ARDUINO_ARCH_ESP32
+    portENTER_CRITICAL(&frame_mux);
+#endif
+    next.sequence = frame_buffers[published_index].sequence + ((!frame_ready || changed) ? 1 : 0);
+    published_index = next_index;
+    frame_ready = true;
+    last_frame_publish_ms = now;
+#ifdef ARDUINO_ARCH_ESP32
+    portEXIT_CRITICAL(&frame_mux);
+#endif
 }
 
 void display_set_brightness(uint8_t brightness) {
@@ -100,6 +175,11 @@ void display_draw_text(const char* text, int x, int y, uint16_t color) {
     matrix.setTextColor(color);
     matrix.setCursor(x, y);
     matrix.print(text);
+}
+
+void display_draw_centered_text(const char* text, int y, uint16_t color) {
+    int width = display_text_width(text) - 1;
+    display_draw_text(text, (MATRIX_WIDTH - width) / 2, y, color);
 }
 
 int display_text_width(const char* text) {
@@ -154,30 +234,35 @@ bool display_scroll_text(const char* text, int y, uint16_t color, unsigned int s
     return cycled;
 }
 
-void display_draw_glucose(int value, uint16_t color) {
+int display_draw_glucose(int value, uint16_t color, bool use_mmol) {
     display_clear();
 
     char buf[8];
-    snprintf(buf, sizeof(buf), "%d", value);
-    int len = strlen(buf);
+    format_glucose_value(buf, sizeof(buf), value, use_mmol);
+    // Six pixels per character, plus six for the trend arrow. Both normal
+    // and stale screens use this one layout calculation.
+    int text_width = display_text_width(buf);
+    int x = (MATRIX_WIDTH - text_width - 6) / 2;
+    display_draw_text(buf, x, 0, color);
+    return x + text_width + 1;
+}
 
-    // Each character in default 5x7 font is 6px wide (5 + 1 spacing)
-    // Calculate total width of glucose text
-    int text_width = len * 6;
-
-    // Leave room for trend arrow (6px) on the right
-    // Center the glucose + arrow combination
-    int total_width = text_width + 6; // 6px for arrow area
-    int x = (MATRIX_WIDTH - total_width) / 2;
-    int y = 0; // top-aligned for 5x7 font on 8-row matrix
-
-    matrix.setTextColor(color);
-    matrix.setCursor(x, y);
-    matrix.print(buf);
+void display_draw_glucose_delta(int delta, int trend, uint16_t color, bool use_mmol) {
+    char buf[8];
+    format_glucose_delta(buf, sizeof(buf), delta, use_mmol);
+    // Omit the trailing glyph spacing when fitting and centering, as on pets.
+    int width = display_text_width(buf) - 1;
+    bool show_arrow = width <= MATRIX_WIDTH - 8;
+    if (show_arrow) {
+        display_draw_trend(trend, 1, 0, color);
+        display_draw_text(buf, 8, 0, color);
+    } else {
+        display_draw_centered_text(buf, 0, color);
+    }
 }
 
 void display_draw_trend(int trend, int x, int y, uint16_t color) {
-    if (trend < 0 || trend > 4) return;
+    if (trend < 0 || trend >= TREND_UNKNOWN) return;
 
     const uint8_t* bitmap = TREND_BITMAPS[trend];
     for (int row = 0; row < 7; row++) {

@@ -13,7 +13,7 @@ class NetworkScheduleTests(unittest.TestCase):
             (pathlib.Path(tmp) / "http_loop.inc").write_text(
                 source[source.index("void http_loop()"):source.index("GlucoseReading http_get_reading()")])
             source = (ROOT / "src/fleet_manager.cpp").read_text()
-            (pathlib.Path(tmp) / "fleet_loop.inc").write_text(source[source.index("void fleet_loop()"):])
+            (pathlib.Path(tmp) / "fleet_loop.inc").write_text(source[source.index("void fleet_loop()"):source.index("const char* fleet_installation_id(")])
             exe = str(pathlib.Path(tmp) / "network-loops")
             subprocess.run(["c++", "-std=c++17", "-Wall", "-Wextra", "-Werror",
                             "-Iinclude", "-I" + tmp, "tests/test_network_loops.cpp", "src/fleet_policy.cpp", "-o", exe],
