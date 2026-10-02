@@ -27,6 +27,8 @@ class CompanionTests(unittest.TestCase):
         self.assertEqual(actual, expected)
 
     def test_canonical_config_legacy_precedence_and_nvs_migration(self):
+        if not (ROOT / ".pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson.h").exists():
+            self.skipTest("Install pinned firmware dependencies first")
         source = (ROOT / 'src/config_manager.cpp').read_text()
         temp = Path(self.temp.name)
         load = next(line for line in source.splitlines() if 'config.ambient_creature = companion_or_default(prefs.getInt' in line)

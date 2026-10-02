@@ -88,7 +88,7 @@ static void build_summary() {
                  "Connected, but DNS is not answering. The network may need a sign-in page.");
     } else if (res_data == NC_FAIL) {
         snprintf(summary, sizeof(summary),
-                 "Connected, but cannot reach %s. Check the source and network.",
+                 "Connected, but cannot reach %.64s. Check the source and network.",
                  data_host[0] ? data_host : "the data source");
     } else if (res_ntp == NC_FAIL) {
         snprintf(summary, sizeof(summary),

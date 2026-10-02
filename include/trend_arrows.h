@@ -130,7 +130,7 @@ static const uint8_t TREND_BITMAP_FORTY_FIVE_DOWN[7] = {
 };
 
 // Array of pointers for indexed access
-static const uint8_t* TREND_BITMAPS[] = {
+static const uint8_t* const TREND_BITMAPS[] = {
     TREND_BITMAP_RISING_FAST,
     TREND_BITMAP_RISING,
     TREND_BITMAP_FLAT,
