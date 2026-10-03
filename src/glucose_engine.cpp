@@ -22,7 +22,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
-#define STALE_WARNING_MS   (10UL * 60 * 1000)   // 10 minutes
+#define READING_GRAY_AFTER_MS (5UL * 60 * 1000)
 #define FAILURE_STALE_COUNT    5
 #define FAILURE_NODATA_COUNT   10
 
@@ -441,13 +441,12 @@ static void render_state(DisplayState state) {
                 break;
             }
 
-            // Check for stale warning (dim + yellow dot) or stale (gray)
+            // Visual freshness is independent of the configured alert timeout.
             unsigned long age = http_time_since_last_reading();
-            unsigned long stale_warn_ms = STALE_WARNING_MS;
             unsigned long stale_ms = (unsigned long)cfg.stale_timeout_min * 60UL * 1000UL;
             int failures = http_get_failure_count();
-            bool is_stale = (cfg.data_source != 2) && (age >= stale_ms || failures >= FAILURE_STALE_COUNT);
-            bool stale_warning = (cfg.data_source != 2) && (age >= stale_warn_ms && !is_stale);
+            bool is_stale = (cfg.data_source != 2) &&
+                    (age > READING_GRAY_AFTER_MS || age >= stale_ms || failures >= FAILURE_STALE_COUNT);
 
             uint16_t color;
             if (is_stale) {
@@ -456,11 +455,9 @@ static void render_state(DisplayState state) {
                 color = themed_glucose_color(reading.glucose, cfg);
             }
 
-            if (stale_warning) {
-                display_set_brightness(effective_brightness() / 3);
-            } else {
-                display_set_brightness(effective_brightness());
-            }
+            display_set_brightness(effective_brightness());
+            // Keep the last value visible even if it ages during a delta flash.
+            if (is_stale) delta_flash_active = false;
 
             // Never replace the low value with a delta-only flash, including
             // one that was already active when the low reading arrived.
@@ -490,11 +487,6 @@ static void render_state(DisplayState state) {
 
             if (reading.trend != TREND_UNKNOWN) {
                 display_draw_trend(reading.trend, arrow_x, 0, color);
-            }
-
-            // Stale warning indicator
-            if (stale_warning) {
-                display_draw_text("!", MATRIX_WIDTH - 4, 0, display_color(255, 255, 0));
             }
 
             display_show();
@@ -698,7 +690,8 @@ static void render_state(DisplayState state) {
                 unsigned long age = http_time_since_last_reading();
                 unsigned long stale_ms = (unsigned long)cfg.stale_timeout_min * 60UL * 1000UL;
                 int failures = http_get_failure_count();
-                bool is_stale = (cfg.data_source != 2) && (age >= stale_ms || failures >= FAILURE_STALE_COUNT);
+                bool is_stale = (cfg.data_source != 2) &&
+                    (age > READING_GRAY_AFTER_MS || age >= stale_ms || failures >= FAILURE_STALE_COUNT);
 
                 uint16_t tcolor = is_stale ? color_from_uint32(cfg.color_stale) : themed_glucose_color(reading.glucose, cfg);
 
