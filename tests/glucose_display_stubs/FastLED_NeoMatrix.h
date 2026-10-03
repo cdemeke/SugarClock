@@ -7,6 +7,7 @@ constexpr int NEO_MATRIX_ROWS = 0, NEO_MATRIX_ZIGZAG = 0;
 struct Glyph { int x, y; char value; };
 struct Pixel { int x, y; };
 struct Drawing {
+    CRGB* buffer = nullptr;
     std::vector<Glyph> glyphs;
     std::vector<Pixel> pixels;
 };
@@ -18,12 +19,13 @@ inline Drawing& drawing() {
 struct FastLED_NeoMatrix {
     CRGB* pixels;
     int width, height, cursor_x = 0, cursor_y = 0;
-    FastLED_NeoMatrix(CRGB* p, int w, int h, int) : pixels(p), width(w), height(h) {}
+    FastLED_NeoMatrix(CRGB* p, int w, int h, int) : pixels(p), width(w), height(h) { drawing().buffer = p; }
     void begin() {}
     void setTextWrap(bool) {}
     void fillScreen(int) {
         for (int i = 0; i < width * height; ++i) pixels[i] = {};
         drawing() = {};
+        drawing().buffer = pixels;
     }
     uint16_t Color(uint8_t r, uint8_t g, uint8_t b) { return ((r & 0xf8) << 8) | ((g & 0xfc) << 3) | (b >> 3); }
     void setTextColor(uint16_t) {}
