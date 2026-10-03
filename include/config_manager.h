@@ -45,7 +45,8 @@ struct AppConfig {
     // Display
     uint8_t brightness;        // 0-255, default 40
     bool auto_brightness;      // default true
-    bool glucose_only_when_low; // keep the glucose value visible below the low threshold, default false
+    // Legacy config/API key retained for saved settings and fleet compatibility.
+    bool glucose_only_when_low; // show only glucose when low or high, default false
     bool show_delta;           // show delta on LED display, default false
     bool use_mmol;             // true = mmol/L, false = mg/dL, default false
 

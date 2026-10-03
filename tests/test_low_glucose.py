@@ -47,22 +47,25 @@ struct AsyncWebServerRequest {
 };
 __HANDLERS__
 int main() {
-    cfg.thresh_low=80; cfg.thresh_urgent_low=70; cfg.stale_timeout_min=20;
+    cfg.thresh_high=180; cfg.thresh_urgent_high=250; cfg.thresh_low=80; cfg.thresh_urgent_low=70; cfg.stale_timeout_min=20;
     cfg.glucose_only_when_low=true; cfg.time_display_enabled=true; cfg.default_mode=1;
     reading.valid=true; reading.glucose=65; reading.force_mode=-1;
     engine_init();
     const DisplayState before=engine_get_user_mode();
     assert(before==STATE_TIME_DISPLAY);
-    for (auto handler : {handle_display_next, handle_display_prev}) {
-        AsyncWebServerRequest request;
-        handler(&request);
-        assert(request.status==409);
-        assert(request.body.at("locked").text=="true");
-        assert(request.body.at("status").text=="locked");
-        assert(request.body.at("reason").text=="low_glucose");
-        assert(!request.body.at("error").text.empty());
-        assert(request.body.at("mode").text==engine_state_name(before));
-        assert(engine_get_user_mode()==before);
+    for (int glucose : {65, 181, 300}) {
+        reading.glucose=glucose;
+        for (auto handler : {handle_display_next, handle_display_prev}) {
+            AsyncWebServerRequest request;
+            handler(&request);
+            assert(request.status==409);
+            assert(request.body.at("locked").text=="true");
+            assert(request.body.at("status").text=="locked");
+            assert(request.body.at("reason").text=="out_of_range_glucose");
+            assert(!request.body.at("error").text.empty());
+            assert(request.body.at("mode").text==engine_state_name(before));
+            assert(engine_get_user_mode()==before);
+        }
     }
     reading.glucose=100;
     AsyncWebServerRequest next;
@@ -111,7 +114,7 @@ vm.runInContext(settings.slice(settings.indexOf('async function updateCurrentMod
     context.updateDisplayLock(false);
     assert(buttons.every(b=>!b.disabled));
     assert.equal(nodes['display-control-status'].textContent,'');
-    const error='Blood sugar display is locked while glucose is low.';
+    const error='Blood sugar display is locked while glucose is low or high.';
     context.fetch=async()=>({ok:false,json:async()=>({locked:true,error})});
     await context.changeDisplay('next');
     assert.equal(nodes['display-control-status'].textContent,error);
