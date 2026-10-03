@@ -1,3 +1,4 @@
+#include "glucose_freshness.h"
 #include "glucose_engine.h"
 #include "glucose_render.h"
 #include "hardware_pins.h"
@@ -22,7 +23,6 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
-#define READING_GRAY_AFTER_MS (5UL * 60 * 1000)
 #define FAILURE_STALE_COUNT    5
 #define FAILURE_NODATA_COUNT   10
 
@@ -443,10 +443,9 @@ static void render_state(DisplayState state) {
 
             // Visual freshness is independent of the configured alert timeout.
             unsigned long age = http_time_since_last_reading();
-            unsigned long stale_ms = (unsigned long)cfg.stale_timeout_min * 60UL * 1000UL;
             int failures = http_get_failure_count();
-            bool is_stale = (cfg.data_source != 2) &&
-                    (age > READING_GRAY_AFTER_MS || age >= stale_ms || failures >= FAILURE_STALE_COUNT);
+            bool is_stale = glucose_display_is_stale(cfg.data_source, age,
+                                                      cfg.stale_timeout_min, failures);
 
             uint16_t color;
             if (is_stale) {
@@ -688,10 +687,9 @@ static void render_state(DisplayState state) {
                 display_draw_text("---", 7, 0, display_color(100, 100, 100));
             } else {
                 unsigned long age = http_time_since_last_reading();
-                unsigned long stale_ms = (unsigned long)cfg.stale_timeout_min * 60UL * 1000UL;
                 int failures = http_get_failure_count();
-                bool is_stale = (cfg.data_source != 2) &&
-                    (age > READING_GRAY_AFTER_MS || age >= stale_ms || failures >= FAILURE_STALE_COUNT);
+                bool is_stale = glucose_display_is_stale(cfg.data_source, age,
+                                                      cfg.stale_timeout_min, failures);
 
                 uint16_t tcolor = is_stale ? color_from_uint32(cfg.color_stale) : themed_glucose_color(reading.glucose, cfg);
 

@@ -1,3 +1,6 @@
+#include "time_engine.h"
+#include <time.h>
+#include "glucose_freshness.h"
 #include "trend_mapping.h"
 #include "http_client.h"
 #include "config_manager.h"
@@ -254,6 +257,7 @@ static bool dexcom_fetch_glucose() {
         }
 
         // Parse timestamp from "Date(1234567890000)" or "WT" field
+        current_reading.timestamp = 0;
         const char* wt = reading["WT"] | reading["ST"] | "";
         if (strlen(wt) > 0) {
             // Extract epoch ms from "Date(1234567890000)" or "/Date(1234567890000)/"
@@ -266,10 +270,14 @@ static bool dexcom_fetch_glucose() {
         current_reading.valid = (current_reading.glucose > 0);
 
         if (current_reading.valid) {
+            const bool synced = time_is_network_synced();
+            current_reading.received_at_ms = glucose_received_at(
+                current_reading.timestamp, last_recorded_timestamp, ever_received,
+                last_success_ms, millis(), synced, synced ? uint32_t(time(nullptr)) : 0);
             record_reading(current_reading.glucose, current_reading.timestamp);
             failure_count = 0;
             ever_received = true;
-            last_success_ms = millis();
+            last_success_ms = current_reading.received_at_ms;
             Serial.printf("[DEXCOM] Glucose: %d, Trend: %s\n",
                           current_reading.glucose,
                           TREND_NAMES[current_reading.trend]);
@@ -388,10 +396,14 @@ static void generic_fetch() {
             current_reading.message[sizeof(current_reading.message) - 1] = '\0';
 
             if (current_reading.valid) {
+                const bool synced = time_is_network_synced();
+                current_reading.received_at_ms = glucose_received_at(
+                    current_reading.timestamp, last_recorded_timestamp, ever_received,
+                    last_success_ms, millis(), synced, synced ? uint32_t(time(nullptr)) : 0);
                 record_reading(current_reading.glucose, current_reading.timestamp);
                 failure_count = 0;
                 ever_received = true;
-                last_success_ms = millis();
+                last_success_ms = current_reading.received_at_ms;
                 Serial.printf("[HTTP] Glucose: %d, Trend: %s\n",
                               current_reading.glucose,
                               TREND_NAMES[current_reading.trend]);
