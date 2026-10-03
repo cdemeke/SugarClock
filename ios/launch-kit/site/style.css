@@ -1,0 +1,14 @@
+/* Draft support/privacy pages share the production site's design tokens. */
+@import url('../../../docs/style.css');
+.wrap { width: min(848px, calc(100% - 32px)); margin: auto; }
+.draft { background: var(--accent-soft); border-bottom: var(--border-thin); text-align: center; padding: 10px 16px; font-size: 13px; }
+.brand { display: flex; align-items: center; gap: 12px; font-family: var(--font-display); font-size: 26px; }
+.brand img { width: 44px; height: auto; }
+nav { padding: 24px 0; border-bottom: var(--border-thin); }
+.article { max-width: 760px; padding: 45px 0 80px; }
+.article h1 { font-family: var(--font-display); font-size: clamp(40px, 7vw, 64px); line-height: 1.05; color: var(--accent); text-shadow: -1px -1px 0 var(--ink), 1px -1px 0 var(--ink), -1px 1px 0 var(--ink), 1px 1px 0 var(--ink); }
+.article h2 { font-size: 27px; margin: 35px 0 12px; line-height: 1.2; }
+.article p { color: var(--muted); }
+.article a { text-decoration: underline; text-underline-offset: 3px; }
+.notice { background: var(--panel); border: var(--border-thin); border-radius: var(--radius); box-shadow: var(--shadow); padding: 22px; }
+.eyebrow { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }

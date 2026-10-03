@@ -1,4 +1,6 @@
 #include "net_check.h"
+#include "http_client.h"
+#include "ble_manager.h"
 #include "config_manager.h"
 #include "libre_client.h"
 #include "wifi_manager.h"
@@ -7,6 +9,7 @@
 #include <WiFiUdp.h>
 #include <WiFiClientSecure.h>
 #include <Arduino.h>
+#include <atomic>
 
 #define NTP_PROBE_HOST     "pool.ntp.org"
 #define NTP_PORT           123
@@ -34,9 +37,15 @@ static bool was_connected = false;
 static NetCheckResult res_dns = NC_UNKNOWN;
 static NetCheckResult res_data = NC_UNKNOWN;
 static NetCheckResult res_ntp = NC_UNKNOWN;
+// Direct probes from the active run remain useful if an unrelated provider
+// request fails between stages. Keep them separate from HTTP-derived evidence.
+static NetCheckResult run_dns = NC_UNKNOWN, run_data = NC_UNKNOWN;
 static unsigned long last_run_ms = 0;
 static char summary[128] = "";
 static char data_host[96] = "";
+static std::atomic<bool> configuration_changed{false};
+static unsigned long observed_fetch_generation = 0;
+static bool provider_response_ok = false;
 
 // Pull the bare hostname out of the configured data source.
 static void resolve_data_host() {
@@ -61,12 +70,12 @@ static void resolve_data_host() {
     if (url[0] == '\0') return;
     const char* p = strstr(url, "://");
     p = p ? p + 3 : url;
-    const char* at = strchr(p, '@');
-    const char* slash = strchr(p, '/');
-    if (at && (!slash || at < slash)) p = at + 1;
+    size_t authority_len=strcspn(p,"/?#");
+    const char* at=static_cast<const char*>(memchr(p,'@',authority_len));
+    if(at) p=at+1;
 
     size_t i = 0;
-    while (p[i] && p[i] != '/' && p[i] != ':' && i < sizeof(data_host) - 1) {
+    while (p[i] && p[i] != '/' && p[i] != ':' && p[i] != '?' && p[i] != '#' && i < sizeof(data_host) - 1) {
         data_host[i] = p[i];
         i++;
     }
@@ -79,13 +88,15 @@ static void build_summary() {
                  "Connected, but DNS is not answering. The network may need a sign-in page.");
     } else if (res_data == NC_FAIL) {
         snprintf(summary, sizeof(summary),
-                 "Connected, but %s is blocked. Ask IT to allow it.",
+                 "Connected, but cannot reach %.64s. Check the source and network.",
                  data_host[0] ? data_host : "the data source");
     } else if (res_ntp == NC_FAIL) {
         snprintf(summary, sizeof(summary),
                  "Connected and data works, but NTP (UDP 123) is blocked, so the clock may drift.");
-    } else if (res_dns == NC_OK && res_data != NC_UNKNOWN) {
+    } else if (res_dns == NC_OK && res_data == NC_OK && res_ntp == NC_OK) {
         snprintf(summary, sizeof(summary), "Connected. DNS, data source and time all reachable.");
+    } else if (res_dns == NC_OK && res_data == NC_OK) {
+        snprintf(summary, sizeof(summary), "Connected. Data source reachable; time check pending.");
     } else {
         summary[0] = '\0';
     }
@@ -146,13 +157,23 @@ static bool probe_ntp() {
 void netcheck_init() {
     step = STEP_IDLE;
     res_dns = res_data = res_ntp = NC_UNKNOWN;
+    run_dns = run_data = NC_UNKNOWN;
     summary[0] = '\0';
+    was_connected = false;
+    last_run_ms = 0;
+    observed_fetch_generation = http_fetch_generation();
+    provider_response_ok = false;
+    configuration_changed = false;
 }
+
+void netcheck_configuration_changed() { configuration_changed = true; }
 
 void netcheck_request() {
     if (!wifi_is_connected()) return;
     resolve_data_host();
     res_dns = res_data = res_ntp = NC_UNKNOWN;
+    run_dns = run_data = NC_UNKNOWN;
+    if (provider_response_ok) res_dns = res_data = NC_OK;
     summary[0] = '\0';
     step = STEP_WAIT_SETTLE;
     step_ready_ms = millis() + SETTLE_MS;
@@ -161,8 +182,24 @@ void netcheck_request() {
 void netcheck_loop() {
     bool connected = wifi_is_connected();
 
+    // Wi-Fi callbacks also set this flag, since a whole reconnect can occur
+    // while network workers gate this loop. A response from the previous source
+    // or connection cannot establish reachability for the replacement.
+    if (configuration_changed.exchange(false)) {
+        observed_fetch_generation = http_fetch_generation();
+        provider_response_ok = false;
+        res_dns = res_data = res_ntp = NC_UNKNOWN;
+        summary[0] = '\0';
+        step = STEP_IDLE;
+        was_connected = connected;
+        if (connected) netcheck_request();
+        return;
+    }
+
     if (connected && !was_connected) {
         was_connected = true;
+        observed_fetch_generation = http_fetch_generation();
+        provider_response_ok = false;
         netcheck_request();
         return;
     }
@@ -172,6 +209,39 @@ void netcheck_loop() {
         return;
     }
 
+    // A real provider response is stronger evidence than an earlier probe. In
+    // particular, a failed startup probe must not hide recovered glucose for
+    // the 15-minute diagnostic interval. HTTP authentication errors also prove
+    // connectivity, but do not claim that credentials or readings are valid.
+    const unsigned long generation = http_fetch_generation();
+    if (generation != observed_fetch_generation) {
+        observed_fetch_generation = generation;
+        const AppConfig& cfg = config_get();
+        const HttpReachabilityResult result = http_get_reachability_result();
+        provider_response_ok = cfg.glucose_enabled && cfg.data_source != 2 &&
+                               result.response_code > 0 &&
+                               result.wifi_generation == wifi_connection_generation();
+        if (provider_response_ok) {
+            res_dns = res_data = NC_OK;
+            if (step == STEP_DNS || step == STEP_DATA) step = STEP_NTP;
+            if (step == STEP_DONE || step == STEP_IDLE) build_summary();
+        } else if (cfg.glucose_enabled && cfg.data_source != 2) {
+            // A failed request does not identify DNS failure or a firewall, but
+            // previously successful reachability is no longer current evidence.
+            // Preserve direct results from the diagnostic run already underway;
+            // discarding DNS after that stage finishes leaves an incomplete run.
+            // Completed runs keep their normal schedule rather than introducing
+            // an extra TLS interruption for every failed provider request.
+            const bool active = step != STEP_IDLE && step != STEP_DONE;
+            res_dns = active ? run_dns : NC_UNKNOWN;
+            res_data = active ? run_data : NC_UNKNOWN;
+            if (active && (step == STEP_DATA || step == STEP_NTP)) {
+                if (res_dns == NC_UNKNOWN) step = STEP_DNS;
+                else if (res_data == NC_UNKNOWN) step = STEP_DATA;
+            }
+            summary[0] = '\0';
+        }
+    }
     if (step == STEP_DONE || step == STEP_IDLE) {
         if (last_run_ms != 0 && millis() - last_run_ms > RERUN_INTERVAL_MS) {
             netcheck_request();
@@ -181,7 +251,7 @@ void netcheck_loop() {
 
     if (step == STEP_WAIT_SETTLE) {
         if ((long)(millis() - step_ready_ms) < 0) return;
-        step = STEP_DNS;
+        step = provider_response_ok ? STEP_NTP : STEP_DNS;
         return;
     }
 
@@ -189,11 +259,18 @@ void netcheck_loop() {
     // so they must not be chained inside a single loop iteration.
     switch (step) {
         case STEP_DNS:
-            res_dns = probe_dns() ? NC_OK : NC_FAIL;
+            res_dns = run_dns = probe_dns() ? NC_OK : NC_FAIL;
             step = (res_dns == NC_OK) ? STEP_DATA : STEP_DONE;
             break;
         case STEP_DATA:
-            res_data = probe_data() ? NC_OK : NC_FAIL;
+            // An HTTP response already proves provider reachability, including
+            // an authentication rejection. Avoid a redundant TLS handshake.
+            if(provider_response_ok) res_data=NC_OK;
+            else {
+                if(!ble_acquire_network()) return;
+                res_data = run_data = probe_data() ? NC_OK : NC_FAIL;
+                ble_release_network();
+            }
             step = STEP_NTP;
             break;
         case STEP_NTP:

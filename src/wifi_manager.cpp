@@ -1,9 +1,12 @@
 #include "wifi_manager.h"
+#include "wifi_trial_policy.h"
 #include "config_manager.h"
 #include "captive_portal.h"
+#include "net_check.h"
 #include <WiFi.h>
 #include <esp_wifi.h>
 #include <Arduino.h>
+#include <atomic>
 
 // The 802.1X ("enterprise") client API was renamed between ESP-IDF releases.
 // platformio.ini pins no framework version, so support whichever header the
@@ -63,6 +66,8 @@ static bool boot_connect_pending = false;
 static volatile int last_disconnect_reason = 0;
 static volatile uint32_t disconnect_count = 0;
 static volatile bool assoc_done = false;
+static std::atomic<uint32_t> connection_generation{0};
+uint32_t wifi_connection_generation() { return connection_generation.load(); }
 
 // Trial state
 static WifiTrialParams trial_params;
@@ -77,6 +82,7 @@ static char trial_detail[96] = "";
 static WifiScanEntry scan_cache[WIFI_SCAN_MAX];
 static int scan_cache_count = 0;
 static bool scan_running = false;
+static bool scan_failed = false;
 static unsigned long scan_completed_ms = 0;
 
 // ---------------------------------------------------------------------------
@@ -127,11 +133,18 @@ static void on_wifi_event(WiFiEvent_t event, WiFiEventInfo_t info) {
             assoc_done = true;
             break;
         case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
+            ++connection_generation;
             last_disconnect_reason = info.wifi_sta_disconnected.reason;
             disconnect_count++;
             assoc_done = false;
+            // The main loop may be occupied by network work for the entire
+            // reconnect. Retire old reachability evidence at the event boundary.
+            // This hook only sets an atomic flag; probes remain in the main loop.
+            netcheck_configuration_changed();
             break;
         case ARDUINO_EVENT_WIFI_STA_GOT_IP:
+            ++connection_generation;
+            netcheck_configuration_changed();
             break;
         default:
             break;
@@ -219,7 +232,8 @@ static void params_from_config(WifiTrialParams& p) {
     p.validate_ca = cfg.wifi_validate_ca;
 }
 
-static void persist_trial(const WifiTrialParams& p) {
+static bool persist_trial(const WifiTrialParams& p) {
+    ConfigGuard guard;
     AppConfig& cfg = config_get();
     strncpy(cfg.wifi_ssid, p.ssid, sizeof(cfg.wifi_ssid) - 1);
     cfg.wifi_ssid[sizeof(cfg.wifi_ssid) - 1] = '\0';
@@ -237,8 +251,7 @@ static void persist_trial(const WifiTrialParams& p) {
         cfg.wifi_eap_password[0] = '\0';
         cfg.wifi_anon_identity[0] = '\0';
     }
-    config_save();
-    Serial.printf("[WIFI] Credentials for '%s' committed to NVS\n", cfg.wifi_ssid);
+    return config_save();
 }
 
 // ---------------------------------------------------------------------------
@@ -313,6 +326,7 @@ void wifi_init() {
 // Trial handling
 
 bool wifi_trial_start(const WifiTrialParams& params) {
+    ConfigGuard guard;
     if (params.ssid[0] == '\0') return false;
     if (trial_requested || trial_active) return false;
     pending_params = params;
@@ -326,10 +340,13 @@ static void trial_begin() {
     if (scan_running) {
         WiFi.scanDelete();
         scan_running = false;
+        scan_failed = true;
     }
+    { ConfigGuard guard;
     trial_params = pending_params;
-    trial_requested = false;
+    memset(&pending_params,0,sizeof(pending_params));
     trial_active = true;
+    trial_requested = false; }
     trial_start_ms = millis();
     trial_state = WIFI_TRIAL_ASSOCIATING;
     trial_detail[0] = '\0';
@@ -363,28 +380,22 @@ static void trial_finish_failure(WifiTrialState st, int reason) {
     // Fall back to whatever was saved so the device is not left idle
     WifiTrialParams p;
     params_from_config(p);
-    if (p.ssid[0]) {
-        if (portal_up) {
-            // Give the phone a stable chance to read the failure. The ordinary
-            // retry loop resumes the saved network after it disconnects.
-            WiFi.disconnect(false);
-            state = WIFI_ST_RETRY_WAIT;
-            retry_wait_start_ms = millis();
-            status_str = "SETUP AP";
-        } else {
-            start_attempt(p);
-        }
-    } else {
-        WiFi.disconnect(false);
-        state = WIFI_ST_IDLE;
-        status_str = "SETUP AP";
+    switch(wifi_trial_recovery(p.ssid[0]!=0,portal_up)) {
+        case WifiTrialRecovery::RetrySavedInPortal:
+            WiFi.disconnect(false);state=WIFI_ST_RETRY_WAIT;
+            retry_wait_start_ms=millis();status_str="SETUP AP";break;
+        case WifiTrialRecovery::ReconnectSaved:
+            start_attempt(p);break;
+        case WifiTrialRecovery::StayInPortal:
+            WiFi.disconnect(false);state=WIFI_ST_IDLE;status_str="SETUP AP";break;
     }
+
 }
 
 static void trial_loop() {
     unsigned long elapsed = millis() - trial_start_ms;
 
-    if (WiFi.status() == WL_CONNECTED && WiFi.localIP() != IPAddress((uint32_t)0)) {
+    if (wifi_trial_has_address(WiFi.status()==WL_CONNECTED,WiFi.localIP()!=IPAddress((uint32_t)0))) {
         set_ip_from_sta();
         trial_state = WIFI_TRIAL_CONNECTED;
         trial_active = false;
@@ -395,7 +406,8 @@ static void trial_loop() {
         Serial.printf("[WIFI] Trial succeeded, IP %s\n", ip_buf);
 
         // Only now do the credentials touch NVS
-        persist_trial(trial_params);
+        if(!persist_trial(trial_params)) { trial_state=WIFI_TRIAL_FAILED_SAVE;
+            snprintf(trial_detail,sizeof(trial_detail),"persistence_failed"); }
 
         // Leave the AP up briefly so the phone can see the success before the
         // radio follows the STA channel and drops it.
@@ -440,10 +452,12 @@ bool wifi_scan_start() {
     }
     int rc = WiFi.scanNetworks(true /* async */, true /* show hidden */);
     if (rc == WIFI_SCAN_FAILED) {
+        scan_failed = true;
         Serial.println("[WIFI] Scan failed to start");
         return false;
     }
     scan_running = true;
+    scan_failed = false;
     Serial.println("[WIFI] Scan started");
     return true;
 }
@@ -523,6 +537,7 @@ void wifi_loop() {
             scan_collect();
         } else if (rc == WIFI_SCAN_FAILED) {
             scan_running = false;
+            scan_failed = true;
             if (boot_connect_pending && config_has_wifi()) {
                 WifiTrialParams p;
                 params_from_config(p);
@@ -672,6 +687,8 @@ int wifi_ap_station_count() {
     return portal_up ? (int)WiFi.softAPgetStationNum() : 0;
 }
 
+bool wifi_scan_failed() {return scan_failed;}
+
 bool wifi_scan_in_progress() {
     return scan_running;
 }
@@ -696,6 +713,7 @@ WifiTrialState wifi_trial_get_state() {
 
 const char* wifi_trial_status_str() {
     switch (trial_state) {
+        case WIFI_TRIAL_FAILED_SAVE: return "failed_save";
         case WIFI_TRIAL_ASSOCIATING:    return "associating";
         case WIFI_TRIAL_AUTHENTICATING: return "authenticating";
         case WIFI_TRIAL_CONNECTED:      return "connected";

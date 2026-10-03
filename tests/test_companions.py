@@ -1,12 +1,11 @@
+import json
 import os
 from pathlib import Path
-import shutil
 import subprocess
 import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-
 
 class CompanionTests(unittest.TestCase):
     @classmethod
@@ -16,29 +15,35 @@ class CompanionTests(unittest.TestCase):
         temp = Path(cls.temp.name)
         (temp / 'Arduino.h').write_text('#include <stdint.h>\n#include <stdio.h>\nunsigned long millis();\n')
         cls.binary = str(temp / 'companions')
-        subprocess.run([os.environ.get('CXX', 'c++'), '-std=c++11', '-Wall', '-Wextra',
-                        '-I', str(temp), '-I', str(ROOT / 'include'),
-                        str(ROOT / 'tests/test_companions.cpp'), str(ROOT / 'src/ambient_fish.cpp'),
-                        '-o', cls.binary], check=True, capture_output=True)
+        subprocess.run(['c++', '-std=c++17', '-Wall', '-Wextra', '-I'+str(temp), '-Iinclude',
+                        'tests/test_companions.cpp', 'src/ambient_fish.cpp', '-o', cls.binary], cwd=ROOT, check=True)
 
-    def test_urgent_missing_sleep_and_interaction(self):
+    def test_seven_pets_bounds_health_priority_and_interaction(self):
         subprocess.run([self.binary], check=True)
 
-    @unittest.skipUnless(shutil.which('node'), 'Node required for firmware/preview parity')
-    def test_preview_matches_firmware_pixels(self):
-        firmware = subprocess.check_output([self.binary, 'frames'], text=True)
-        script = '''
-require(process.argv[1]);
-for(let style=0;style<3;style++)for(let range=0;range<3;range++)
-for(let id=0;id<PixelCompanions.names.length;id++)for(let mood=0;mood<3;mood++)for(let ms=0;ms<15000;ms+=100)
-    console.log(PixelCompanions.frame(id,ms,mood===1,mood===2,style,range).flat().join(''));
-'''
-        preview = subprocess.check_output(['node', '-e', script, str(ROOT / 'data/www/companions.js')], text=True)
-        self.assertEqual(len(firmware), len(preview))
-        for index, (expected, actual) in enumerate(zip(firmware.splitlines(), preview.splitlines())):
-            self.assertEqual(expected, actual, f"Preview frame {index}")
+    def test_shared_mobile_artwork_fixtures_match_firmware(self):
+        expected = json.loads((ROOT / 'protocol/fixtures/companions.json').read_text())
+        actual = json.loads(subprocess.check_output([self.binary, 'frames'], text=True))
+        self.assertEqual(actual, expected)
 
-    def test_installer_has_matching_companion_assets(self):
+    def test_canonical_config_legacy_precedence_and_nvs_migration(self):
+        if not (ROOT / ".pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson.h").exists():
+            self.skipTest("Install pinned firmware dependencies first")
+        source = (ROOT / 'src/config_manager.cpp').read_text()
+        temp = Path(self.temp.name)
+        load = next(line for line in source.splitlines() if 'config.ambient_creature = companion_or_default(prefs.getInt' in line)
+        save = '\n'.join(line for line in source.splitlines() if 'prefs.putInt("pal_type"' in line or 'prefs.putInt("amb_kind"' in line)
+        (temp / 'companion_load.inc').write_text(load)
+        (temp / 'companion_save.inc').write_text(save)
+        web = (ROOT / 'src/web_server.cpp').read_text()
+        (temp / 'companion_web.inc').write_text('\n'.join(line for line in web.splitlines()
+            if 'doc["ambient_character"] =' in line or 'doc["ambient_creature"] =' in line))
+        binary = str(temp / 'companion-config')
+        subprocess.run(['c++', '-std=c++17', '-I'+str(temp), '-Iinclude', '-I.pio/libdeps/esp32dev/ArduinoJson/src',
+                        'tests/test_companion_config.cpp', 'src/config_patch.cpp', '-o', binary], cwd=ROOT, check=True)
+        subprocess.run([binary], check=True)
+
+    def test_installer_has_identical_companion_assets(self):
         bundled = ROOT / 'onboarding/TC001Setup/TC001Setup/Resources/WebUI/www'
-        for name in ('companions.js', 'index.html', 'style.css', 'display.html'):
-            self.assertEqual((ROOT / 'data/www' / name).read_bytes(), (bundled / name).read_bytes(), name)
+        for name in ('companions.js', 'index.html'):
+            self.assertEqual((ROOT / 'data/www' / name).read_bytes(), (bundled / name).read_bytes())

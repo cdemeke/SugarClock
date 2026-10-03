@@ -102,6 +102,7 @@ final class FirmwareManager {
     static func flashDevice(
         port: String,
         littlefsPath: String,
+        preserveSettings: Bool = false,
         onOutput: (@MainActor (String) -> Void)? = nil
     ) async throws {
         guard let esptool = esptoolPath else {
@@ -125,6 +126,13 @@ final class FirmwareManager {
             }
         }
 
+        // Firmware-only upgrades preserve NVS and reconstruct LittleFS at the new
+        // offset, including enterprise CA certificates. Nothing is flashed if the
+        // old partition table or filesystem cannot be read safely.
+        let installedFilesystem = preserveSettings
+            ? try await preservedFilesystem(port: port, esptool: esptool, onOutput: onOutput)
+            : littlefsPath
+
         let result = await ProcessRunner.run(
             command: esptool,
             arguments: [
@@ -138,7 +146,7 @@ final class FirmwareManager {
                 "0x8000",   partitions,
                 "0xe000",   bootApp0,
                 "0x10000",  firmware,
-                "0x390000", littlefsPath,
+                "0x390000", installedFilesystem,
             ]
         ) { text in
             onOutput?(text)
@@ -147,6 +155,52 @@ final class FirmwareManager {
         if result.exitCode != 0 {
             throw FirmwareError.flashFailed("esptool failed with exit code \(result.exitCode)")
         }
+    }
+
+    @MainActor
+    private static func preservedFilesystem(port: String, esptool: String,
+        onOutput: (@MainActor (String) -> Void)?) async throws -> String {
+        guard let tool=mklittlefsPath else {throw FirmwareError.missingResource("mklittlefs")}
+        let fm=FileManager.default
+        let backupDir=fm.homeDirectoryForCurrentUser.appendingPathComponent("Documents/SugarClock Backups")
+        try fm.createDirectory(at:backupDir,withIntermediateDirectories:true,attributes:[.posixPermissions:0o700])
+        let backup=backupDir.appendingPathComponent("before-upgrade-\(UUID().uuidString).bin")
+        let result=await ProcessRunner.run(command:esptool,arguments:["--chip","esp32","--port",port,"--baud","115200","read_flash","0x0","0x400000",backup.path]) {text in onOutput?(text)}
+        guard result.exitCode==0 else {throw FirmwareError.flashFailed("Could not back up the clock. No firmware was written.")}
+        try fm.setAttributes([.posixPermissions:0o600],ofItemAtPath:backup.path)
+        let bytes=[UInt8](try Data(contentsOf:backup))
+        guard bytes.count==0x400000 else {throw FirmwareError.flashFailed("Incomplete backup. No firmware was written.")}
+        func word(_ i:Int)->Int {Int(bytes[i]) | Int(bytes[i+1])<<8 | Int(bytes[i+2])<<16 | Int(bytes[i+3])<<24}
+        var nvsValid=false
+        var filesystem:(Int,Int)?
+        for pos in stride(from:0x8000,to:0x9000,by:32) {
+            if bytes[pos]==0xff || bytes[pos]==0xeb {break}
+            guard bytes[pos]==0xaa,bytes[pos+1]==0x50 else {throw FirmwareError.flashFailed("Unknown partition table. No firmware was written.")}
+            let offset=word(pos+4),size=word(pos+8)
+            guard offset>=0,size>0,offset+size<=bytes.count else {throw FirmwareError.flashFailed("Invalid partition bounds.")}
+            if bytes[pos+2]==1 && bytes[pos+3]==2 {nvsValid=offset==0x9000 && size==0x5000}
+            if bytes[pos+2]==1 && bytes[pos+3]==0x82 {filesystem=(offset,size)}
+        }
+        guard nvsValid,let (offset,size)=filesystem else {throw FirmwareError.flashFailed("This layout cannot be upgraded while preserving settings. No firmware was written.")}
+        let temp=fm.temporaryDirectory.appendingPathComponent("sugarclock-migration-\(UUID().uuidString)")
+        try fm.createDirectory(at:temp,withIntermediateDirectories:true,attributes:[.posixPermissions:0o700])
+        defer {try? fm.removeItem(at:temp)}
+        let old=temp.appendingPathComponent("old.bin"),tree=temp.appendingPathComponent("files")
+        try Data(bytes[offset..<offset+size]).write(to:old)
+        try fm.createDirectory(at:tree,withIntermediateDirectories:true)
+        let extracted=await ProcessRunner.run(command:tool,arguments:["-u",tree.path,"-s",String(size),"-b","4096","-p","256",old.path])
+        guard extracted.exitCode==0 else {throw FirmwareError.buildFailed("Could not preserve the existing filesystem and certificates. No firmware was written. Backup: \(backup.path)")}
+        let overlay=tree.appendingPathComponent("config.json")
+        if fm.fileExists(atPath:overlay.path) {
+            let retained=tree.appendingPathComponent("migration-config-\(UUID().uuidString).json")
+            try fm.moveItem(at:overlay,to:retained)
+        }
+        let output=fm.temporaryDirectory.appendingPathComponent("sugarclock_preserved_littlefs.bin")
+        let packed=await ProcessRunner.run(command:tool,arguments:["-c",tree.path,"-s","458752","-b","4096","-p","256",output.path])
+        guard packed.exitCode==0 else {throw FirmwareError.buildFailed("Preserved files do not fit the new filesystem. No firmware was written.")}
+        try fm.setAttributes([.posixPermissions:0o600],ofItemAtPath:output.path)
+        onOutput?("Settings and certificates preserved. Private recovery backup: \(backup.path)\n")
+        return output.path
     }
 
     // MARK: - Cleanup
@@ -158,6 +212,7 @@ final class FirmwareManager {
         let tmpBin = NSTemporaryDirectory() + "sugarclock_littlefs.bin"
         try? fm.removeItem(atPath: tmpDir)
         try? fm.removeItem(atPath: tmpBin)
+        try? fm.removeItem(at:fm.temporaryDirectory.appendingPathComponent("sugarclock_preserved_littlefs.bin"))
     }
 
     // MARK: - Errors

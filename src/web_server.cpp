@@ -1,6 +1,9 @@
 #include "web_server.h"
 #include "config_manager.h"
+#include "config_patch.h"
 #include "companion.h"
+#include "fleet_manager.h"
+#include "settings_apply.h"
 #include "wifi_manager.h"
 #include "http_client.h"
 #include "libre_client.h"
@@ -20,7 +23,8 @@
 #include "net_check.h"
 #include "web_assets.h"
 #include "ota_manager.h"
-#include "fleet_manager.h"
+#include "web_request_body.h"
+#include "sensitive_json.h"
 
 #include <ESPAsyncWebServer.h>
 #include <WebResponseImpl.h>
@@ -81,6 +85,7 @@ static void handle_status(AsyncWebServerRequest* request) {
     doc["delta"] = http_get_delta();
 
     // Glucose color info
+    ConfigGuard guard;
     AppConfig& cfg = config_get();
     doc["use_mmol"] = cfg.use_mmol;
     unsigned long age = http_time_since_last_reading();
@@ -162,7 +167,7 @@ static void add_libre_people(JsonDocument& doc) {
 
 // GET /api/config
 static void handle_get_config(AsyncWebServerRequest* request) {
-    LibreConfigLock lock(config_libre_mutex());
+    ConfigGuard guard;
     AppConfig& cfg = config_get();
     JsonDocument doc;
 
@@ -179,8 +184,9 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     doc["wifi_anon_identity"] = cfg.wifi_anon_identity;
     doc["wifi_validate_ca"] = cfg.wifi_validate_ca;
     doc["has_wifi_ca"] = config_ca_exists();
+    doc["glucose_enabled"] = cfg.glucose_enabled;
     doc["data_source"] = cfg.data_source;
-    doc["server_url"] = cfg.server_url;
+    doc["has_server_url"] = strlen(cfg.server_url) > 0;
     doc["has_auth_token"] = strlen(cfg.auth_token) > 0;
     doc["dexcom_username"] = cfg.dexcom_username;
     doc["has_dexcom_password"] = strlen(cfg.dexcom_password) > 0;
@@ -204,10 +210,10 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     doc["time_display_enabled"] = cfg.time_display_enabled;
     doc["default_mode"] = cfg.default_mode;
     doc["ambient_enabled"] = cfg.ambient_enabled;
-    doc["ambient_creature"] = cfg.ambient_character == COMPANION_GHOST ? 1 : 0;
-    doc["ambient_character"] = cfg.ambient_character;
     doc["ambient_style"] = cfg.ambient_style;
     doc["ambient_use_glucose_colors"] = cfg.ambient_use_glucose_colors;
+    doc["ambient_character"] = cfg.ambient_creature;
+    doc["ambient_creature"] = cfg.ambient_creature == 1 ? 1 : 0;
     doc["ambient_seasonal"] = cfg.ambient_seasonal;
 
     // Alerts
@@ -286,371 +292,27 @@ static void handle_get_config(AsyncWebServerRequest* request) {
 }
 
 // POST /api/config (JSON body) — accumulate chunks before parsing
-static char config_body[4096];
-
 static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
-    if (total > sizeof(config_body) - 1) {
-        request->send(413, "application/json", "{\"error\":\"Body too large\"}");
-        return;
-    }
-    memcpy(config_body + index, data, len);
-    if (index + len < total) return; // wait for all chunks
-    config_body[total] = '\0';
-
-    JsonDocument doc;
-    DeserializationError err = deserializeJson(doc, config_body, total);
-    if (err) {
-        request->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
-        return;
-    }
-
-    if (doc.as<JsonObjectConst>().containsKey("ambient_character") &&
-        (!doc["ambient_character"].is<int>() || !companion_valid(doc["ambient_character"].as<int>()))) {
-        request->send(400, "application/json", "{\"error\":\"Invalid companion selection\"}");
-        return;
-    }
-
-    if (doc.as<JsonObjectConst>().containsKey("ambient_style") &&
-        (!doc["ambient_style"].is<int>() || !companion_style_valid(doc["ambient_style"].as<int>()))) {
-        request->send(400, "application/json", "{\"error\":\"Invalid companion display style\"}");
-        return;
-    }
-
-    if (doc.as<JsonObjectConst>().containsKey("ambient_use_glucose_colors") &&
-        !doc["ambient_use_glucose_colors"].is<bool>()) {
-        request->send(400, "application/json", "{\"error\":\"Invalid companion color setting\"}");
-        return;
-    }
-
-    AppConfig& cfg = config_get();
-    std::unique_lock<std::recursive_mutex> lock(config_libre_mutex());
-    const char* requested_person = doc["libre_patient_id"] | "";
-    const char* requested_email = doc["libre_email"] | cfg.libre_email;
-    LibrePatient selected_person = {};
-    // Validate before applying any settings. Never accept an arbitrary ID or
-    // carry an old account's selection into a newly supplied account.
-    if (strcmp(requested_email, cfg.libre_email) == 0 && requested_person[0] &&
-        strcmp(requested_person, cfg.libre_patient_id) != 0) {
-        LibrePatients snapshot = libre_get_patients();
-        int index = snapshot ? libre_patient_index(snapshot->people.data(), snapshot->people.size(), requested_person)
-                             : LIBRE_PATIENT_MISSING;
-        if (index < 0) {
-            request->send(400, "application/json", "{\"error\":\"Test the Libre connection, then select a person from the list\"}");
-            return;
-        }
-        selected_person = snapshot->people[index];
-    }
-
-    if (doc["wifi_ssid"].is<const char*>()) {
-        strncpy(cfg.wifi_ssid, doc["wifi_ssid"] | "", sizeof(cfg.wifi_ssid) - 1);
-    }
-    // Secret fields: an empty value means the form was rendered without it (see
-    // the GET handler), so keep whatever is already stored.
-    if (doc["wifi_password"].is<const char*>() && strlen(doc["wifi_password"] | "") > 0) {
-        strncpy(cfg.wifi_password, doc["wifi_password"] | "", sizeof(cfg.wifi_password) - 1);
-    }
-    if (doc["wifi_security"].is<int>()) {
-        cfg.wifi_security = constrain(doc["wifi_security"].as<int>(), 0, 1);
-        if (cfg.wifi_security == 0) {
-            cfg.wifi_eap_method = 0;
-            cfg.wifi_identity[0] = '\0';
-            cfg.wifi_eap_password[0] = '\0';
-            cfg.wifi_anon_identity[0] = '\0';
-            cfg.wifi_validate_ca = false;
-        }
-    }
-    if (doc["wifi_eap_method"].is<int>()) {
-        cfg.wifi_eap_method = constrain(doc["wifi_eap_method"].as<int>(), 0, 1);
-    }
-    if (doc["wifi_identity"].is<const char*>()) {
-        strncpy(cfg.wifi_identity, doc["wifi_identity"] | "", sizeof(cfg.wifi_identity) - 1);
-        cfg.wifi_identity[sizeof(cfg.wifi_identity) - 1] = '\0';
-    }
-    if (doc["wifi_eap_password"].is<const char*>() && strlen(doc["wifi_eap_password"] | "") > 0) {
-        strncpy(cfg.wifi_eap_password, doc["wifi_eap_password"] | "", sizeof(cfg.wifi_eap_password) - 1);
-        cfg.wifi_eap_password[sizeof(cfg.wifi_eap_password) - 1] = '\0';
-    }
-    if (doc["wifi_anon_identity"].is<const char*>()) {
-        strncpy(cfg.wifi_anon_identity, doc["wifi_anon_identity"] | "", sizeof(cfg.wifi_anon_identity) - 1);
-        cfg.wifi_anon_identity[sizeof(cfg.wifi_anon_identity) - 1] = '\0';
-    }
-    if (doc["data_source"].is<int>()) {
-        cfg.data_source = doc["data_source"].as<int>();
-    }
-    if (doc["server_url"].is<const char*>()) {
-        strncpy(cfg.server_url, doc["server_url"] | "", sizeof(cfg.server_url) - 1);
-    }
-    if (doc["auth_token"].is<const char*>() && strlen(doc["auth_token"] | "") > 0) {
-        strncpy(cfg.auth_token, doc["auth_token"] | "", sizeof(cfg.auth_token) - 1);
-    }
-    if (doc["dexcom_username"].is<const char*>()) {
-        strncpy(cfg.dexcom_username, doc["dexcom_username"] | "", sizeof(cfg.dexcom_username) - 1);
-    }
-    if (doc["dexcom_password"].is<const char*>() && strlen(doc["dexcom_password"] | "") > 0) {
-        strncpy(cfg.dexcom_password, doc["dexcom_password"] | "", sizeof(cfg.dexcom_password) - 1);
-    }
-    if (doc["dexcom_us"].is<bool>()) {
-        cfg.dexcom_us = doc["dexcom_us"].as<bool>();
-    }
-    char previous_email[sizeof(cfg.libre_email)];
-    strcpy(previous_email, cfg.libre_email);
-    bool libre_changed = config_update_libre_credentials(
-        cfg, doc["libre_email"] | (const char*)nullptr, doc["libre_password"] | (const char*)nullptr);
-    bool libre_person_changed = strcmp(previous_email, cfg.libre_email) != 0;
-    if (!libre_person_changed && selected_person.id[0]) {
-        strcpy(cfg.libre_patient_id, selected_person.id);
-        strcpy(cfg.libre_patient_name, selected_person.name);
-        libre_person_changed = true;
-    }
-    if (doc["poll_interval"].is<int>()) {
-        cfg.poll_interval_sec = max(15, doc["poll_interval"].as<int>());
-    }
-    if (doc["brightness"].is<int>()) {
-        cfg.brightness = constrain(doc["brightness"].as<int>(), 1, 255);
-    }
-    if (doc["auto_brightness"].is<bool>()) {
-        cfg.auto_brightness = doc["auto_brightness"].as<bool>();
-    }
-    if (doc["glucose_only_when_low"].is<bool>()) {
-        cfg.glucose_only_when_low = doc["glucose_only_when_low"].as<bool>();
-    }
-    if (doc["show_delta"].is<bool>()) {
-        cfg.show_delta = doc["show_delta"].as<bool>();
-    }
-    if (doc["use_mmol"].is<bool>()) {
-        cfg.use_mmol = doc["use_mmol"].as<bool>();
-    }
-    if (doc["thresh_urgent_low"].is<int>()) {
-        cfg.thresh_urgent_low = doc["thresh_urgent_low"].as<int>();
-    }
-    if (doc["thresh_low"].is<int>()) {
-        cfg.thresh_low = doc["thresh_low"].as<int>();
-    }
-    if (doc["thresh_high"].is<int>()) {
-        cfg.thresh_high = doc["thresh_high"].as<int>();
-    }
-    if (doc["thresh_urgent_high"].is<int>()) {
-        cfg.thresh_urgent_high = doc["thresh_urgent_high"].as<int>();
-    }
-    if (doc["timezone"].is<const char*>()) {
-        strncpy(cfg.timezone, doc["timezone"] | "", sizeof(cfg.timezone) - 1);
-    }
-    if (doc["use_24h"].is<bool>()) {
-        cfg.use_24h = doc["use_24h"].as<bool>();
-    }
-    if (doc["time_display_enabled"].is<bool>()) {
-        cfg.time_display_enabled = doc["time_display_enabled"].as<bool>();
-    }
-    if (doc["default_mode"].is<int>()) {
-        cfg.default_mode = constrain(doc["default_mode"].as<int>(), 0, 3);
-    }
-    if (doc["ambient_enabled"].is<bool>()) {
-        cfg.ambient_enabled = doc["ambient_enabled"].as<bool>();
-    }
-    if (doc["ambient_use_glucose_colors"].is<bool>()) {
-        cfg.ambient_use_glucose_colors = doc["ambient_use_glucose_colors"].as<bool>();
-    }
-    if (doc["ambient_style"].is<int>()) {
-        cfg.ambient_style = doc["ambient_style"].as<int>();
-    }
-    if (doc["ambient_creature"].is<int>() && !doc.as<JsonObjectConst>().containsKey("ambient_character")) {
-        cfg.ambient_character = constrain(doc["ambient_creature"].as<int>(), 0, 1);
-    }
-    if (doc["ambient_character"].is<int>()) {
-        cfg.ambient_character = doc["ambient_character"].as<int>();
-    }
-    if (doc["ambient_seasonal"].is<bool>()) {
-        cfg.ambient_seasonal = doc["ambient_seasonal"].as<bool>();
-    }
-    if (!cfg.time_display_enabled && cfg.default_mode == 1) {
-        cfg.default_mode = 0;
-    }
-    if (!cfg.ambient_enabled && cfg.default_mode == 3) {
-        cfg.default_mode = 0;
-    }
-
-    // Alerts
-    if (doc["alert_enabled"].is<bool>()) {
-        cfg.alert_enabled = doc["alert_enabled"].as<bool>();
-    }
-    if (doc["alert_low"].is<int>()) {
-        cfg.alert_low = doc["alert_low"].as<int>();
-    }
-    if (doc["alert_high"].is<int>()) {
-        cfg.alert_high = doc["alert_high"].as<int>();
-    }
-    if (doc["alert_snooze_min"].is<int>()) {
-        cfg.alert_snooze_min = constrain(doc["alert_snooze_min"].as<int>(), 1, 120);
-    }
-
-    // Theme colors
-    if (doc["color_urgent_low"].is<const char*>()) {
-        cfg.color_urgent_low = hex_to_color(doc["color_urgent_low"] | "#ea4335");
-    }
-    if (doc["color_low"].is<const char*>()) {
-        cfg.color_low = hex_to_color(doc["color_low"] | "#fbbc04");
-    }
-    if (doc["color_in_range"].is<const char*>()) {
-        cfg.color_in_range = hex_to_color(doc["color_in_range"] | "#34a853");
-    }
-    if (doc["color_high"].is<const char*>()) {
-        cfg.color_high = hex_to_color(doc["color_high"] | "#fbbc04");
-    }
-    if (doc["color_urgent_high"].is<const char*>()) {
-        cfg.color_urgent_high = hex_to_color(doc["color_urgent_high"] | "#ea4335");
-    }
-    if (doc["color_stale"].is<const char*>()) {
-        cfg.color_stale = hex_to_color(doc["color_stale"] | "#808080");
-    }
-
-    // Clock & weather colors
-    if (doc["color_clock"].is<const char*>()) {
-        cfg.color_clock = hex_to_color(doc["color_clock"] | "#ffffff");
-    }
-    if (doc["color_weather"].is<const char*>()) {
-        cfg.color_weather = hex_to_color(doc["color_weather"] | "#ffffff");
-    }
-
-    // Night mode
-    if (doc["night_mode_enabled"].is<bool>()) {
-        cfg.night_mode_enabled = doc["night_mode_enabled"].as<bool>();
-    }
-    if (doc["night_start_hour"].is<int>()) {
-        cfg.night_start_hour = constrain(doc["night_start_hour"].as<int>(), 0, 23);
-    }
-    if (doc["night_end_hour"].is<int>()) {
-        cfg.night_end_hour = constrain(doc["night_end_hour"].as<int>(), 0, 23);
-    }
-    if (doc["night_brightness"].is<int>()) {
-        cfg.night_brightness = constrain(doc["night_brightness"].as<int>(), 1, 255);
-    }
-
-    // Stale timeout
-    if (doc["stale_timeout_min"].is<int>()) {
-        cfg.stale_timeout_min = constrain(doc["stale_timeout_min"].as<int>(), 5, 60);
-    }
-
-    // Weather
-    if (doc["weather_enabled"].is<bool>()) {
-        cfg.weather_enabled = doc["weather_enabled"].as<bool>();
-    }
-    if (doc["weather_api_key"].is<const char*>() && strlen(doc["weather_api_key"] | "") > 0) {
-        strncpy(cfg.weather_api_key, doc["weather_api_key"] | "", sizeof(cfg.weather_api_key) - 1);
-        cfg.weather_api_key[sizeof(cfg.weather_api_key) - 1] = '\0';
-    }
-    if (doc["weather_city"].is<const char*>()) {
-        strncpy(cfg.weather_city, doc["weather_city"] | "", sizeof(cfg.weather_city) - 1);
-        cfg.weather_city[sizeof(cfg.weather_city) - 1] = '\0';
-    }
-    if (doc["weather_use_f"].is<bool>()) {
-        cfg.weather_use_f = doc["weather_use_f"].as<bool>();
-    }
-    if (doc["weather_poll_min"].is<int>()) {
-        cfg.weather_poll_min = constrain(doc["weather_poll_min"].as<int>(), 5, 60);
-    }
-
-    // Date
-    if (doc["date_on_time_screen"].is<bool>()) {
-        cfg.date_on_time_screen = doc["date_on_time_screen"].as<bool>();
-    }
-    if (doc["date_format"].is<int>()) {
-        cfg.date_format = constrain(doc["date_format"].as<int>(), 0, 2);
-    }
-
-    // Timer
-    if (doc["timer_enabled"].is<bool>()) {
-        cfg.timer_enabled = doc["timer_enabled"].as<bool>();
-    }
-    if (doc["timer_work_min"].is<int>()) {
-        cfg.timer_work_min = constrain(doc["timer_work_min"].as<int>(), 1, 120);
-    }
-    if (doc["timer_break_min"].is<int>()) {
-        cfg.timer_break_min = constrain(doc["timer_break_min"].as<int>(), 1, 60);
-    }
-    if (doc["timer_long_break_min"].is<int>()) {
-        cfg.timer_long_break_min = constrain(doc["timer_long_break_min"].as<int>(), 1, 60);
-    }
-    if (doc["timer_sessions"].is<int>()) {
-        cfg.timer_sessions = constrain(doc["timer_sessions"].as<int>(), 1, 12);
-    }
-    if (doc["timer_buzzer"].is<bool>()) {
-        cfg.timer_buzzer = doc["timer_buzzer"].as<bool>();
-    }
-
-    // Stopwatch
-    if (doc["stopwatch_enabled"].is<bool>()) {
-        cfg.stopwatch_enabled = doc["stopwatch_enabled"].as<bool>();
-    }
-
-    // Notifications
-    if (doc["notify_enabled"].is<bool>()) {
-        cfg.notify_enabled = doc["notify_enabled"].as<bool>();
-    }
-    if (doc["notify_default_duration"].is<int>()) {
-        cfg.notify_default_duration = constrain(doc["notify_default_duration"].as<int>(), 5, 600);
-    }
-    if (doc["notify_allow_buzzer"].is<bool>()) {
-        cfg.notify_allow_buzzer = doc["notify_allow_buzzer"].as<bool>();
-    }
-
-    // Sysmon
-    if (doc["sysmon_enabled"].is<bool>()) {
-        cfg.sysmon_enabled = doc["sysmon_enabled"].as<bool>();
-    }
-    if (doc["sysmon_label"].is<const char*>()) {
-        strncpy(cfg.sysmon_label, doc["sysmon_label"] | "CPU", sizeof(cfg.sysmon_label) - 1);
-        cfg.sysmon_label[sizeof(cfg.sysmon_label) - 1] = '\0';
-    }
-    if (doc["sysmon_display_mode"].is<int>()) {
-        cfg.sysmon_display_mode = constrain(doc["sysmon_display_mode"].as<int>(), 0, 1);
-    }
-    if (doc["sysmon_warn_pct"].is<int>()) {
-        cfg.sysmon_warn_pct = constrain(doc["sysmon_warn_pct"].as<int>(), 0, 100);
-    }
-    if (doc["sysmon_crit_pct"].is<int>()) {
-        cfg.sysmon_crit_pct = constrain(doc["sysmon_crit_pct"].as<int>(), 0, 100);
-    }
-
-    // Countdown
-    if (doc["countdown_enabled"].is<bool>()) {
-        cfg.countdown_enabled = doc["countdown_enabled"].as<bool>();
-    }
-    if (doc["countdown_name"].is<const char*>()) {
-        strncpy(cfg.countdown_name, doc["countdown_name"] | "", sizeof(cfg.countdown_name) - 1);
-        cfg.countdown_name[sizeof(cfg.countdown_name) - 1] = '\0';
-    }
-    if (doc["countdown_target"].is<unsigned long>()) {
-        cfg.countdown_target = doc["countdown_target"].as<unsigned long>();
-    }
-
-    // Auto-cycle
-    if (doc["auto_cycle_enabled"].is<bool>()) {
-        cfg.auto_cycle_enabled = doc["auto_cycle_enabled"].as<bool>();
-    }
-    if (doc["auto_cycle_sec"].is<int>()) {
-        cfg.auto_cycle_sec = constrain(doc["auto_cycle_sec"].as<int>(), 3, 300);
-    }
-
-    config_save();
-    engine_rebuild_toggle_order();
-    if (libre_changed) libre_reset_session();
-    if (libre_person_changed && cfg.data_source == 3) http_clear_readings();
-    lock.unlock();
-
-    // Apply brightness immediately
-    if (!cfg.auto_brightness) {
-        display_set_brightness(cfg.brightness);
-    }
-
-    // If WiFi credentials were just saved from the setup portal while the STA is
-    // still offline, reboot to pick them up. When the trial flow already got us
-    // online there is nothing to restart for.
-    if (wifi_is_ap_mode() && !wifi_is_connected() && config_has_wifi()) {
-        request->send(200, "application/json", "{\"status\":\"ok\",\"reboot\":true}");
-        delay(1000);
-        ESP.restart();
-        return;
-    }
+    WebRequestBody body;
+    if (!body.receive(request,data,len,index,total,4095)) return;
+    SensitiveJsonAllocator allocator;
+    JsonDocument doc(&allocator);
+    DeserializationError err=deserializeJson(doc,body.data(),body.size(),DeserializationOption::NestingLimit(6));
+    if(err) {request->send(400,"application/json","{\"error\":\"Invalid JSON\"}");return;}
+    if(ota_is_busy()) {request->send(409,"application/json","{\"error\":\"ota_busy\"}");return;}
+    ConfigGuard guard;
+    AppConfig candidate=config_get();
+    SensitiveScope<AppConfig> erase_candidate(candidate);
+    const char* error=config_patch(candidate,doc.as<JsonObjectConst>(),true);
+    if(error) { request->send(400,"application/json",String("{\"error\":\"")+error+"\"}");return; }
+    const AppConfig& current=config_get();
+    if(strcmp(candidate.wifi_ssid,current.wifi_ssid) || strcmp(candidate.wifi_password,current.wifi_password) ||
+       candidate.wifi_security!=current.wifi_security || candidate.wifi_eap_method!=current.wifi_eap_method ||
+       strcmp(candidate.wifi_identity,current.wifi_identity) || strcmp(candidate.wifi_eap_password,current.wifi_eap_password) ||
+       strcmp(candidate.wifi_anon_identity,current.wifi_anon_identity) || candidate.wifi_validate_ca!=current.wifi_validate_ca) {
+        request->send(409,"application/json","{\"error\":\"use_wifi_trial\"}");return;
+    }
+    if(!settings_apply(candidate)) { request->send(500,"application/json","{\"error\":\"persistence_failed\"}");return; }
 
     request->send(200, "application/json", "{\"status\":\"ok\"}");
 }
@@ -839,41 +501,15 @@ static void send_ota_request_result(AsyncWebServerRequest* request, OtaRequestRe
     }
 }
 
-static char ota_settings_body[256];
-static void handle_ota_settings(AsyncWebServerRequest* request, uint8_t* data,
-                                size_t len, size_t index, size_t total) {
-    if (total > sizeof(ota_settings_body) - 1) {
-        request->send(413, "application/json", "{\"error\":\"Body too large\"}");
-        return;
-    }
-    memcpy(ota_settings_body + index, data, len);
-    if (index + len < total) return;
-    ota_settings_body[total] = '\0';
-    JsonDocument doc;
-    if (deserializeJson(doc, ota_settings_body, total)) {
-        request->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
-        return;
-    }
-    AppConfig& cfg = config_get();
-    if (doc["auto_update_enabled"].is<bool>()) {
-        cfg.auto_update_enabled = doc["auto_update_enabled"].as<bool>();
-    }
-    if (doc["auto_update_hour"].is<int>()) {
-        int hour = doc["auto_update_hour"].as<int>();
-        if (hour < 0 || hour > 23) {
-            request->send(400, "application/json", "{\"error\":\"Hour must be 0-23\"}");
-            return;
-        }
-        cfg.auto_update_hour = hour;
-    }
-    config_save();
-    request->send(200, "application/json", "{\"status\":\"ok\"}");
+static void handle_ota_settings(AsyncWebServerRequest* request,uint8_t* data,size_t len,size_t index,size_t total) {
+    handle_post_config(request,data,len,index,total);
 }
 
 // POST /api/notify
 static void handle_post_notify(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
     if (index != 0) return;
 
+    ConfigGuard guard;
     AppConfig& cfg = config_get();
     if (!cfg.notify_enabled) {
         request->send(403, "application/json", "{\"error\":\"Notifications disabled\"}");
@@ -904,6 +540,7 @@ static void handle_post_notify(AsyncWebServerRequest* request, uint8_t* data, si
 static void handle_post_sysmon(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
     if (index != 0) return;
 
+    ConfigGuard guard;
     AppConfig& cfg = config_get();
     if (!cfg.sysmon_enabled) {
         request->send(403, "application/json", "{\"error\":\"System monitor disabled\"}");
@@ -964,6 +601,7 @@ static void handle_test_weather_mock(AsyncWebServerRequest* request, uint8_t* da
     weather_set_mock(temp, desc, cid);
 
     // Force weather enabled + switch to weather display
+    ConfigGuard guard;
     AppConfig& cfg = config_get();
     cfg.weather_enabled = true;
     engine_rebuild_toggle_order();
@@ -982,67 +620,26 @@ static void handle_test_weather_mock(AsyncWebServerRequest* request, uint8_t* da
 
 // POST /api/test/glucose
 static void handle_test_glucose(AsyncWebServerRequest* request) {
-    AppConfig& cfg = config_get();
-
-    // Demo mode: no network involved, just return a synthetic reading.
-    if (cfg.data_source == 2) {
-        http_force_fetch();
-        const GlucoseReading& r = http_get_reading();
-        JsonDocument doc;
-        doc["ok"] = true;
-        doc["http_code"] = 200;
-        doc["glucose"] = r.glucose;
-        doc["trend"] = TREND_NAMES[r.trend];
-        String output;
-        serializeJson(doc, output);
-        request->send(200, "application/json", output);
-        return;
+    AppConfig cfg=config_snapshot();
+    if(cfg.data_source!=2 && (!wifi_is_connected() || !config_has_server())) {
+        request->send(400,"application/json","{\"ok\":false,\"error\":\"Configure WiFi and a data source first\"}");return;
     }
-
-    if (!wifi_is_connected()) {
-        request->send(503, "application/json", "{\"ok\":false,\"error\":\"WiFi not connected\"}");
-        return;
-    }
-    if (!config_has_server()) {
-        request->send(400, "application/json", "{\"ok\":false,\"error\":\"No data source configured\"}");
-        return;
-    }
-
-    bool ok = http_force_fetch();
-    JsonDocument doc;
-    doc["ok"] = ok;
-    if (cfg.data_source == 3) add_libre_people(doc);
-    doc["http_code"] = http_get_last_response_code();
-
-    if (ok) {
-        const GlucoseReading& r = http_get_reading();
-        doc["glucose"] = r.glucose;
-        doc["trend"] = TREND_NAMES[r.trend];
-    } else {
-        int code = http_get_last_response_code();
-        const char* body = http_get_last_response_body();
-        if (code > 0 && strlen(body) > 0) {
-            char err[384];
-            snprintf(err, sizeof(err), "HTTP %d: %s", code, body);
-            doc["error"] = err;
-        } else if (code > 0) {
-            char err[32];
-            snprintf(err, sizeof(err), "HTTP %d", code);
-            doc["error"] = err;
-        } else if (strlen(body) > 0) {
-            doc["error"] = body;
-        } else {
-            doc["error"] = "Connection failed";
-        }
-    }
-
-    String output;
-    serializeJson(doc, output);
-    request->send(ok ? 200 : (http_get_last_response_code() == 429 ? 429 : 502), "application/json", output);
+    unsigned long generation=http_fetch_generation();
+    if(!http_force_fetch()) {request->send(409,"application/json","{\"ok\":false,\"error\":\"Network busy\"}");return;}
+    JsonDocument doc;doc["queued"]=true;doc["after_generation"]=generation;
+    String output;serializeJson(doc,output);request->send(202,"application/json",output);
+}
+static void handle_test_glucose_result(AsyncWebServerRequest* request) {
+    auto reading=http_get_reading();JsonDocument doc;
+    doc["generation"]=http_fetch_generation();doc["pending"]=http_is_fetching();
+    doc["ok"]=reading.valid && http_get_failure_count()==0;
+    doc["glucose"]=reading.glucose;doc["trend"]=TREND_NAMES[reading.trend];
+    doc["http_code"]=http_get_last_response_code();
+    if(!reading.valid || http_get_failure_count()) doc["error"]="No new valid reading; check provider credentials and network access";
+    String output;serializeJson(doc,output);request->send(200,"application/json",output);
 }
 
-// POST /api/display/next or /prev. Report the result of the navigation attempt,
-// so a blocked command cannot be mistaken for a successful screen change.
+// POST /api/display/next
 static void handle_display_navigation(AsyncWebServerRequest* request, bool forward) {
     const bool changed = forward ? engine_toggle_mode() : engine_toggle_mode_prev();
     JsonDocument doc;
@@ -1112,6 +709,7 @@ static void handle_wifi_scan(AsyncWebServerRequest* request) {
     JsonDocument doc;
     doc["scanning"] = wifi_scan_in_progress();
     doc["age_ms"] = wifi_scan_age_ms();
+    if(wifi_scan_failed()) doc["error"] = "Wi-Fi search failed. Previous results may be out of date.";
 
     JsonArray arr = doc["networks"].to<JsonArray>();
     for (int i = 0; i < wifi_scan_count(); i++) {
@@ -1136,7 +734,7 @@ static void handle_wifi_scan_refresh(AsyncWebServerRequest* request) {
     JsonDocument doc;
     doc["started"] = ok;
     doc["scanning"] = wifi_scan_in_progress();
-    if (!ok) doc["error"] = "A scan is already running";
+    if (!ok) doc["error"] = wifi_scan_in_progress() ? "A scan is already running":"Wi-Fi search failed to start";
     String output;
     serializeJson(doc, output);
     request->send(200, "application/json", output);
@@ -1174,25 +772,19 @@ static void handle_wifi_status(AsyncWebServerRequest* request) {
 
 // POST /api/wifi/connect — start a trial. Credentials are not persisted here;
 // wifi_loop() writes them to NVS only once the join actually succeeds.
-static char wifi_body[1024];
-
 static void handle_wifi_connect(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
-    if (total > sizeof(wifi_body) - 1) {
-        request->send(413, "application/json", "{\"error\":\"Body too large\"}");
-        return;
-    }
-    memcpy(wifi_body + index, data, len);
-    if (index + len < total) return;
-    wifi_body[total] = '\0';
-
-    JsonDocument doc;
-    if (deserializeJson(doc, wifi_body, total)) {
+    WebRequestBody body;
+    if (!body.receive(request,data,len,index,total,1023)) return;
+    SensitiveJsonAllocator allocator;
+    JsonDocument doc(&allocator);
+    if (deserializeJson(doc, body.data(), body.size(), DeserializationOption::NestingLimit(6))) {
         request->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
         return;
     }
 
     WifiTrialParams p;
     memset(&p, 0, sizeof(p));
+    SensitiveScope<WifiTrialParams> erase_params(p);
     strncpy(p.ssid, doc["ssid"] | "", sizeof(p.ssid) - 1);
     p.security = doc["security"] | 0;
     p.eap_method = doc["eap_method"] | 0;
@@ -1236,23 +828,17 @@ static void handle_wifi_connect(AsyncWebServerRequest* request, uint8_t* data, s
 }
 
 // POST /api/wifi/ca — raw PEM body
-static char ca_body[4096];
-
 static void handle_wifi_ca_upload(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
-    if (total > sizeof(ca_body) - 1) {
-        request->send(413, "application/json", "{\"error\":\"Certificate too large (4 KB max)\"}");
-        return;
-    }
-    memcpy(ca_body + index, data, len);
-    if (index + len < total) return;
-    ca_body[total] = '\0';
+    WebRequestBody body;
+    if (!body.receive(request,data,len,index,total,4095)) return;
+    const char* ca_body = body.data();
 
     if (!strstr(ca_body, "-----BEGIN CERTIFICATE-----") ||
         !strstr(ca_body, "-----END CERTIFICATE-----")) {
         request->send(400, "application/json", "{\"error\":\"Expected a PEM certificate\"}");
         return;
     }
-    if (!config_ca_write(ca_body, total)) {
+    if (!config_ca_write(ca_body, body.size())) {
         request->send(500, "application/json", "{\"error\":\"Failed to store certificate\"}");
         return;
     }
@@ -1265,6 +851,7 @@ static void handle_wifi_ca_delete(AsyncWebServerRequest* request) {
         request->send(500, "application/json", "{\"error\":\"Failed to remove certificate\"}");
         return;
     }
+    ConfigGuard guard;
     AppConfig& cfg = config_get();
     cfg.wifi_validate_ca = false;
     config_save();
@@ -1311,6 +898,7 @@ void webserver_init() {
     server.on("/api/restart", HTTP_POST, [](AsyncWebServerRequest* r) { handle_restart(r); });
     server.on("/api/factory-reset", HTTP_POST, [](AsyncWebServerRequest* r) { handle_factory_reset(r); });
     server.on("/api/test/weather", HTTP_POST, [](AsyncWebServerRequest* r) { handle_test_weather(r); });
+    server.on("/api/test/glucose", HTTP_GET, [](AsyncWebServerRequest* r) { handle_test_glucose_result(r); });
     server.on("/api/test/glucose", HTTP_POST, [](AsyncWebServerRequest* r) { handle_test_glucose(r); });
 
     // POST /api/test/weather-mock with body

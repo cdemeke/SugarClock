@@ -29,3 +29,6 @@ simulator-state.json
 __pycache__/
 *.pyc
 .venv/
+
+# Swift Package Manager local builds
+.build/

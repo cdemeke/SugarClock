@@ -1,0 +1,18 @@
+{
+  "baseline_commit": "17cbb2f1abf1dc2e331a2b6ce70d2db3b70a4339",
+  "baseline_version": "0.2.7",
+  "baseline_binary_bytes": 1318656,
+  "baseline_elf_flash_bytes": 1312073,
+  "baseline_static_ram_bytes": 73256,
+  "firmware_version": "0.3.4",
+  "firmware_binary_bytes": 1589664,
+  "firmware_sha256": "0cd3be36e119390f59534788ca618248f85712e810a46fcc723e54a8d5cbd75d",
+  "slot_bytes": 1835008,
+  "headroom_bytes": 245344,
+  "static_ram_bytes": 88448,
+  "runtime_heap_measured": true,
+  "physical_ble_tested": false,
+  "firmware_elf_flash_bytes": 1583085,
+  "hardware_measurement_scope": "0.3.4: USB application-only install with metadata preservation; 180.2-second observation, real Dexcom HTTPS receipt, BLE suspension/resumption, zero captured faults. Lifetime minimum free heap 42108 bytes; smallest sampled largest free block 55284 bytes. No phone connected to this final binary. Earlier 0.3.3 phone trial authenticated without crashes but retained link timeouts.",
+  "hardware_report": "BLE_RECOVERY_2026-10-01.md"
+}

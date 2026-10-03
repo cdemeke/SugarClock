@@ -21,6 +21,10 @@ void netcheck_loop();
 // Queue a full run (also happens automatically after every new connection)
 void netcheck_request();
 
+// Invalidate old-source/connection evidence from settings or Wi-Fi callbacks.
+// This only sets an atomic flag; netcheck_loop performs the work.
+void netcheck_configuration_changed();
+
 bool netcheck_running();
 
 NetCheckResult netcheck_dns();

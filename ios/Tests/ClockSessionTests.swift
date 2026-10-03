@@ -1,0 +1,1234 @@
+import XCTest
+import Combine
+import CoreBluetooth
+@testable import SugarClockCore
+
+@MainActor private final class SessionTransport:ClockConnectionTransport {
+    @Published var connected=false
+    var connectionPublisher:AnyPublisher<Bool,Never> {$connected.eraseToAnyPublisher()}
+    @Published var isPoweredOn=true
+    var powerPublisher:AnyPublisher<Bool,Never> {$isPoweredOn.eraseToAnyPublisher()}
+    var availabilityMessage="Bluetooth is off"
+    var operationTimeout:TimeInterval=45
+    var packetLimit=180
+    var attempts=0
+    var failures=0
+    var connectionError:Error?
+    var firmware="1"
+    var bootID:UInt32=1
+    var schemaRequests:[Int]=[]
+    var schemaPages=1
+    var failSchemaPage:Int?
+    var schemaFailuresRemaining=0
+    var rebootOnSchemaFailure=false
+    var failNextRead=false
+    var failSave=false
+    var failStatus=false
+    var failSettings=false
+    var settingsFailuresRemaining=0
+    var failPersistence=false
+    var maximumMessage=4096
+    var extraSchemaFields:[[String:Any]]=[]
+    var failSettingsAfterSave=false
+    var loseSaveAck=false
+    var ignorePatch=false
+    var durable:Bool?=true
+    var storedSettings:[String:Any]=["brightness":77,"dexcom_password_configured":true]
+
+    var scanStartFails=false
+    var scanResultsFail=false
+    var scanNeverFinishes=false
+    var scanResultsReads=0
+    var holdSave=false
+    var holdHello=false
+    var holdSchema=false
+    var holdSettings=false
+    var holdConnection=false
+    var waiting:CheckedContinuation<Void,Error>?
+    var identity="clock-a"
+    var operations:[String]=[]
+    private var incoming=Data()
+    private var response=Data()
+    private var responseID:UInt16=0
+    private var offset=0
+    private func pauseUntilReleased() async throws {
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation {waiting=$0}
+        } onCancel: {Task { @MainActor in self.close() }}
+    }
+    func connect(id:UUID) async throws {
+        attempts+=1
+        if let connectionError {throw connectionError}
+        if holdConnection {try await pauseUntilReleased()}
+        if failures>0 {failures-=1;throw ClockError.timeout}
+        connected=true
+    }
+    func close() {
+        connected=false
+        let pending=waiting;waiting=nil;pending?.resume(throwing:ClockError.disconnected)
+    }
+    func write(_ packet:Data) async throws {
+        guard connected else {throw ClockError.disconnected}
+        let frame=try Frame(data:packet)
+        if frame.flags==2 {offset=frame.offset;return}
+        if frame.offset==0 {incoming=Data()}
+        incoming.append(frame.payload)
+        guard incoming.count==frame.total else {return}
+        let request=try JSONSerialization.jsonObject(with:incoming) as! [String:Any]
+        let op=request["op"] as! String;operations.append(op)
+        if op=="settings.patch",holdSave {try await pauseUntilReleased()}
+        if op=="settings.patch",failSave {throw ClockError.timeout}
+        var reply:[String:Any]=["v":1,"id":Int(frame.id),"state":"applied"]
+        switch op {
+        case "hello":reply["max_message"]=maximumMessage;reply["device_id"]=identity;reply["name"]="Bedside Clock";reply["firmware"]=firmware;reply["boot_id"]=bootID;reply["hardware"]="tc001";reply["capabilities"]=["settings.patch","schema"]
+        case "settings.get":
+            if holdSettings {try await pauseUntilReleased()}
+            if failSettings {throw ClockError.timeout}
+            if settingsFailuresRemaining>0 {settingsFailuresRemaining-=1;throw ClockError.timeout}
+            if failSettingsAfterSave,operations.contains("settings.patch") {failSettingsAfterSave=false;throw ClockError.timeout}
+            reply["settings"]=storedSettings
+            if let durable {reply["saved"]=durable}
+        case "status.get":if failStatus {throw ClockError.timeout};reply["status"]=["data_received":true,"ota":["state":"idle"]]
+        case "schema.get":
+            let page=request["page"] as! Int;schemaRequests.append(page)
+            if page==failSchemaPage,schemaFailuresRemaining>0 {schemaFailuresRemaining-=1;if rebootOnSchemaFailure {bootID+=1};throw ClockError.timeout}
+            reply["fields"]=page==0 ? [["key":"brightness","type":"int"],["key":"dexcom_password","type":"secret"]]:[["key":"page_\(page)","type":"bool"]]
+            if page==0 {reply["fields"]=(reply["fields"] as! [[String:Any]])+extraSchemaFields}
+            reply["more"]=page+1<schemaPages
+        case "wifi.scan":if scanStartFails {reply["error"]="scan_failed"}
+        case "wifi.results":
+            if scanResultsFail {reply["error"]="scan_failed"}
+            scanResultsReads+=1
+            reply["scanning"]=scanNeverFinishes || scanResultsReads<2
+            reply["networks"]=[["ssid":"Home","rssi":-40,"auth":3]]
+        case "settings.patch":
+            if !ignorePatch,let patch=request["patch"] as? [String:Any] {
+                for (key,value) in patch {
+                    if key=="dexcom_password" {storedSettings[key+"_configured"] = !(value is NSNull) && value as? String != ""}
+                    else {storedSettings[key]=value}
+                }
+            }
+            if loseSaveAck {throw ClockError.timeout}
+            if failPersistence {reply["error"]="persistence_failed";reply["state"]="failed"}
+            else {reply["saved"]=true}
+        default:break
+        }
+        response=try JSONSerialization.data(withJSONObject:reply);responseID=frame.id;offset=0
+    }
+    func read() async throws -> Data {
+        if holdHello,operations.last=="hello" {try await pauseUntilReleased()}
+        if holdSchema,operations.last=="schema.get" {try await pauseUntilReleased()}
+        if failNextRead {failNextRead=false;throw ClockError.timeout}
+        guard connected else {throw ClockError.disconnected}
+        let end=min(offset+172,response.count)
+        return Frame(flags:1,id:responseID,offset:offset,total:response.count,payload:response.subdata(in:offset..<end)).data
+    }
+}
+
+private final class FailingLocalSettingsStore:LocalSettingsStore {
+    let memory=MemoryLocalSettingsStore()
+    var failLoad=false,failSave=false,failRemove=false
+    var saveCount=0
+    func load(clockID:String)throws->LocalSettingsSnapshot? {
+        if failLoad {throw LocalSettingsStoreError.unavailable(-1)}
+        return try memory.load(clockID:clockID)
+    }
+    func save(_ snapshot:LocalSettingsSnapshot,clockID:String)throws {
+        if failSave {throw LocalSettingsStoreError.unavailable(-1)}
+        saveCount+=1;try memory.save(snapshot,clockID:clockID)
+    }
+    func remove(clockID:String)throws {
+        if failRemove {throw LocalSettingsStoreError.unavailable(-1)}
+        try memory.remove(clockID:clockID)
+    }
+}
+
+@MainActor final class ClockSessionTests:XCTestCase {
+    private func fixture(store:LocalSettingsStore?=nil)->(ClockModel,SessionTransport,UserDefaults,UUID) {
+        let radio=SessionTransport(),id=UUID()
+        let defaults=UserDefaults(suiteName:"SugarClockTests."+UUID().uuidString)!
+        let model=ClockModel(enableBluetooth:false,loadSaved:false,transport:radio,preferences:defaults,retryDelay:0,localSettingsStore:store)
+        model.clocks=[SavedClock(id:"clock-a",peripheral:id,nickname:"Bedside Clock")]
+        model.selected=model.clocks[0]
+        return (model,radio,defaults,id)
+    }
+    func testSingleSavedClockStartsConnectingOnLaunchAndOpeningReusesAttempt() async throws {
+        let (_,radio,defaults,id)=fixture()
+        defaults.set(try JSONEncoder().encode([SavedClock(id:"clock-a",peripheral:id,nickname:"Bedside Clock")]),forKey:"clocks.v1")
+        radio.holdConnection=true
+        let model=ClockModel(enableBluetooth:false,transport:radio,preferences:defaults,retryDelay:0)
+        model.resume()
+        await settle {radio.waiting != nil}
+        XCTAssertEqual(model.selected?.peripheral,id)
+        let opening=Task {await model.connect(id)}
+        await Task.yield()
+        radio.holdConnection=false
+        let pending=radio.waiting;radio.waiting=nil;pending?.resume()
+        await opening.value
+        XCTAssertEqual(radio.attempts,1)
+        XCTAssertTrue(model.sessionReady)
+        await model.connect(id)
+        XCTAssertEqual(radio.attempts,1)
+        model.suspend()
+    }
+    func testMultipleSavedClocksWaitForSelectionDespiteRememberedClock() async throws {
+        let (_,radio,defaults,id)=fixture()
+        let clocks=[SavedClock(id:"clock-a",peripheral:id,nickname:"Bedside"),SavedClock(id:"clock-b",peripheral:UUID(),nickname:"Kitchen")]
+        defaults.set(try JSONEncoder().encode(clocks),forKey:"clocks.v1")
+        defaults.set("clock-b",forKey:"clock.selected")
+        let model=ClockModel(enableBluetooth:false,transport:radio,preferences:defaults,retryDelay:0)
+        model.resume()
+        await Task.yield()
+        XCTAssertNil(model.selected)
+        XCTAssertFalse(model.reconnecting)
+        XCTAssertEqual(radio.attempts,0)
+        await model.connect(id)
+        XCTAssertTrue(model.sessionReady)
+        model.suspend();model.resume()
+        await settle {model.sessionReady}
+        XCTAssertEqual(radio.attempts,2)
+        model.suspend()
+    }
+    func testNoSavedClocksDoesNotStartConnectionOnLaunch() async {
+        let (_,radio,defaults,_)=fixture()
+        let model=ClockModel(enableBluetooth:false,transport:radio,preferences:defaults,retryDelay:0)
+        model.resume()
+        await Task.yield()
+        XCTAssertNil(model.selected)
+        XCTAssertEqual(radio.attempts,0)
+        model.suspend()
+    }
+    func testReconnectingPreservesClockOrderAndRetiresOldSelectionPreference() async {
+        let (model,radio,defaults,id)=fixture()
+        model.clocks.append(SavedClock(id:"clock-b",peripheral:UUID(),nickname:"Kitchen"))
+        defaults.set("clock-a",forKey:"clock.selected")
+        await model.connect(id)
+        XCTAssertEqual(model.clocks.map(\.id),["clock-a","clock-b"])
+        radio.close();await settle {radio.attempts==2 && model.sessionReady}
+        XCTAssertEqual(model.clocks.map(\.id),["clock-a","clock-b"])
+        XCTAssertNil(defaults.string(forKey:"clock.selected"))
+        let saved=try? JSONDecoder().decode([SavedClock].self,from:defaults.data(forKey:"clocks.v1")!)
+        XCTAssertEqual(saved?.map(\.id),["clock-a","clock-b"])
+        model.suspend()
+    }
+    func testUpdateMonitorOwnsReconnectAcrossRadioResumeAndExplicitSelection() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id)
+        await model.command("ota.check")
+        XCTAssertTrue(model.updatingClock)
+        radio.isPoweredOn=false;radio.close()
+        await settle {!model.sessionReady}
+        radio.isPoweredOn=true
+        model.resume()
+        await model.retrySelected()
+        await model.connect(UUID())
+        try? await Task.sleep(nanoseconds:30_000_000)
+        XCTAssertEqual(radio.attempts,1)
+        XCTAssertEqual(model.selected?.peripheral,id)
+        XCTAssertFalse(model.reconnecting)
+        try? await Task.sleep(nanoseconds:2_100_000_000)
+        await settle {!model.updatingClock}
+        XCTAssertEqual(radio.attempts,2)
+        XCTAssertTrue(model.sessionReady)
+        XCTAssertTrue(model.canSend)
+        model.suspend()
+    }
+    func testWiFiStartAndCompletionFailuresKeepPreviousResultsWithoutReconnecting() async {
+        for failAtStart in [true,false] {
+            let (model,radio,_,id)=fixture()
+            await model.connect(id)
+            model.networks=[["ssid":"Previous"]]
+            radio.scanStartFails=failAtStart;radio.scanResultsFail = !failAtStart
+            let succeeded=await model.scanWiFi(pollDelay:0)
+            XCTAssertFalse(succeeded)
+            XCTAssertEqual(model.networks.first?["ssid"] as? String,"Previous")
+            XCTAssertFalse(model.wifiScanMessage.isEmpty)
+            XCTAssertEqual(radio.scanResultsReads,failAtStart ? 0:1)
+            XCTAssertEqual(radio.attempts,1)
+            XCTAssertTrue(model.canSend)
+            model.suspend()
+        }
+    }
+    func testWiFiScanWaitsForCompletedResultsWithoutSavingSettings() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id)
+        let result=await model.scanWiFi(pollDelay:0)
+        XCTAssertTrue(result)
+        XCTAssertEqual(model.networks.first?["ssid"] as? String,"Home")
+        XCTAssertEqual(radio.scanResultsReads,2)
+        XCTAssertFalse(model.scanningWiFi)
+        XCTAssertTrue(model.wifiScanMessage.isEmpty)
+        XCTAssertFalse(radio.operations.contains("settings.patch"))
+        model.suspend()
+    }
+    func testWiFiScanStopsPollingAndRetainsPreviousResultsOnTimeout() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id)
+        model.networks=[["ssid":"Previous"]]
+        radio.scanNeverFinishes=true
+        let result=await model.scanWiFi(pollDelay:0)
+        XCTAssertFalse(result)
+        XCTAssertEqual(radio.scanResultsReads,15)
+        XCTAssertEqual(model.networks.first?["ssid"] as? String,"Previous")
+        XCTAssertFalse(model.scanningWiFi)
+        XCTAssertFalse(model.busy)
+        XCTAssertTrue(model.wifiScanMessage.contains("too long"))
+        XCTAssertTrue(model.canSend)
+        model.suspend()
+    }
+    private func settle(_ condition:()->Bool) async {
+        for _ in 0..<200 {
+            if condition() {return}
+            try? await Task.sleep(nanoseconds:1_000_000)
+        }
+        XCTFail("Session did not settle")
+    }
+    func testBackgroundReturnPreservesClockAndReconnectsWithoutPairing() async {
+        let (model,radio,defaults,id)=fixture()
+        await model.connect(id)
+        XCTAssertTrue(model.sessionReady)
+        model.suspend()
+        XCTAssertEqual(model.selected?.id,"clock-a")
+        XCTAssertEqual(model.settings["brightness"] as? Int,77)
+        XCTAssertFalse(model.canSend)
+        model.resume()
+        await settle {model.sessionReady}
+        XCTAssertEqual(radio.attempts,2)
+        let restored=ClockModel(enableBluetooth:false,transport:SessionTransport(),preferences:defaults)
+        XCTAssertEqual(restored.selected?.peripheral,id)
+        model.suspend()
+    }
+    func testTransientTimeoutRetriesAndLoadsSettingsBeforeReady() async {
+        let (model,radio,_,id)=fixture();radio.failures=1
+        await model.connect(id)
+        XCTAssertEqual(radio.attempts,2)
+        XCTAssertTrue(model.canSend)
+        XCTAssertEqual(model.fields.count,2)
+        model.suspend()
+    }
+    func testFifthConnectionAttemptCanRecoverWithoutReplayingSaves() async {
+        let (model,radio,_,id)=fixture();radio.failures=4
+        await model.connect(id)
+        XCTAssertEqual(radio.attempts,5)
+        XCTAssertTrue(model.canSend)
+        XCTAssertEqual(model.settings["brightness"] as? Int,77)
+        XCTAssertFalse(radio.operations.contains("settings.patch"))
+        model.suspend()
+    }
+    func testRecoveryContinuesPastFiveAttemptsWithoutResendingMutations() async {
+        let (model,radio,_,id)=fixture();radio.failures=10
+        await model.connect(id)
+        XCTAssertEqual(radio.attempts,11)
+        XCTAssertTrue(model.canSend)
+        XCTAssertEqual(model.clocks.count,1)
+        XCTAssertFalse(radio.operations.contains("settings.patch"))
+        model.suspend()
+    }
+    func testPermanentPairingErrorStopsInsteadOfPromptingForever() async {
+        let (model,radio,_,id)=fixture()
+        radio.connectionError=NSError(domain:CBErrorDomain,code:CBError.peerRemovedPairingInformation.rawValue)
+        await model.connect(id)
+        XCTAssertEqual(radio.attempts,1)
+        XCTAssertFalse(model.reconnecting)
+        XCTAssertFalse(model.canSend)
+        XCTAssertTrue(model.message.contains("Forget SugarClock"))
+        model.suspend()
+    }
+    func testCompletedSchemaSurvivesAppRecreationButSettingsAreAlwaysFresh() async {
+        let (model,radio,defaults,id)=fixture()
+        radio.schemaPages=5
+        await model.connect(id)
+        XCTAssertEqual(radio.schemaRequests,[0,1,2,3,4])
+        XCTAssertEqual(radio.operations.count,8)
+        model.suspend()
+        radio.storedSettings["brightness"]=91
+        let restored=ClockModel(enableBluetooth:false,transport:radio,preferences:defaults,retryDelay:0)
+        XCTAssertTrue(restored.settings.isEmpty)
+        await restored.connect(id)
+        XCTAssertEqual(radio.schemaRequests,[0,1,2,3,4])
+        XCTAssertEqual(restored.settings["brightness"] as? Int,91)
+        XCTAssertTrue(restored.canSend)
+        XCTAssertEqual(Array(radio.operations.dropFirst(8)),["hello","settings.get","status.get"])
+        restored.suspend()
+    }
+    func testRebootAndFirmwareChangeInvalidateSchemaEvenWithoutVersionBump() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id)
+        model.suspend();radio.bootID=2
+        await model.connect(id) // Suspended sessions must not initiate work.
+        XCTAssertEqual(radio.schemaRequests,[0])
+        model.resume();await settle {model.canSend}
+        XCTAssertEqual(radio.schemaRequests,[0,0])
+        model.suspend();radio.firmware="2";model.resume();await settle {model.canSend}
+        XCTAssertEqual(radio.schemaRequests,[0,0,0])
+        model.suspend()
+    }
+    func testInterruptedSchemaResumesOnlyAfterVerifyingSameBoot() async {
+        let (model,radio,_,id)=fixture()
+        radio.schemaPages=3;radio.failSchemaPage=1;radio.schemaFailuresRemaining=1
+        await model.connect(id)
+        XCTAssertEqual(radio.attempts,2)
+        XCTAssertEqual(radio.schemaRequests,[0,1,1,2])
+        XCTAssertEqual(model.fields.count,4)
+        XCTAssertTrue(model.canSend)
+        model.suspend()
+    }
+    func testInterruptedSchemaRestartsAfterClockReboots() async {
+        let (model,radio,_,id)=fixture()
+        radio.schemaPages=3;radio.failSchemaPage=1;radio.schemaFailuresRemaining=1;radio.rebootOnSchemaFailure=true
+        await model.connect(id)
+        XCTAssertEqual(radio.schemaRequests,[0,1,0,1,2])
+        XCTAssertEqual(model.fields.count,4)
+        XCTAssertTrue(model.canSend)
+        model.suspend()
+    }
+    func testCancelDuringBackoffStopsAllLaterAttemptsAndAllowsRetry() async {
+        let (_,radio,defaults,id)=fixture()
+        let model=ClockModel(enableBluetooth:false,loadSaved:false,transport:radio,preferences:defaults,retryDelay:100_000_000)
+        model.clocks=[SavedClock(id:"clock-a",peripheral:id,nickname:"Bedside")];model.selected=model.clocks[0]
+        radio.failures=100
+        let attempt=Task {await model.connect(id)}
+        await settle {model.connectionState=="Waiting for clock…"}
+        model.cancelConnection();await attempt.value
+        try? await Task.sleep(nanoseconds:120_000_000)
+        XCTAssertEqual(radio.attempts,1)
+        XCTAssertFalse(model.busy)
+        radio.failures=0
+        await model.retrySelected()
+        XCTAssertTrue(model.canSend)
+        model.suspend()
+    }
+    func testCorruptSchemaCacheFallsBackToDevice() async {
+        let (model,radio,defaults,id)=fixture()
+        defaults.set(Data("not JSON".utf8),forKey:"schema.v1.clock-a")
+        await model.connect(id)
+        XCTAssertEqual(radio.schemaRequests,[0])
+        XCTAssertTrue(model.canSend)
+        model.suspend()
+    }
+    func testRemovingClockDeletesSchemaCache() async {
+        let (model,radio,defaults,id)=fixture()
+        await model.connect(id)
+        XCTAssertNotNil(defaults.data(forKey:"schema.v1.clock-a"))
+        model.remove(model.clocks[0])
+        XCTAssertNil(defaults.data(forKey:"schema.v1.clock-a"))
+        XCTAssertTrue(model.fields.isEmpty)
+        XCTAssertFalse(radio.connected)
+        model.suspend()
+    }
+    func testStaleConnectedLinkIsReplacedByHealthCheck() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id)
+        radio.failNextRead=true // Simulate a stale link still reported as connected by iOS.
+        await model.checkConnection()
+        await settle {model.sessionReady}
+        XCTAssertEqual(radio.attempts,2)
+        model.suspend()
+    }
+    func testForegroundRadioDropAutomaticallyReconnectsSavedClock() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id)
+        radio.close()
+        await settle {radio.attempts==2 && model.sessionReady}
+        XCTAssertEqual(model.selected?.peripheral,id)
+        XCTAssertEqual(model.clocks.count,1)
+        model.suspend()
+    }
+    func testCancelStopsRetriesAndKeepsSavedClock() async {
+        let (model,radio,_,_)=fixture();radio.holdConnection=true
+        model.resume()
+        await settle {radio.waiting != nil}
+        XCTAssertFalse(model.canSend)
+        model.stopReconnecting()
+        await settle {!model.busy}
+        XCTAssertEqual(radio.attempts,1)
+        XCTAssertFalse(model.sessionReady)
+        XCTAssertEqual(model.clocks.count,1)
+        model.suspend()
+    }
+    func testLostSaveIsNeverReplayedDuringRecovery() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id);radio.failSave=true
+        let saved=await model.save(["brightness":99])
+        XCTAssertFalse(saved)
+        await settle {model.sessionReady}
+        XCTAssertEqual(radio.operations.filter{$0=="settings.patch"}.count,1)
+        XCTAssertEqual(model.saveReceipt(for:["brightness"])?.phase,.unconfirmed)
+        model.suspend()
+    }
+    func testInterruptedSaveIsUnconfirmedWhileRecoveryWaitsForMissingClock() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id)
+        radio.failSave=true;radio.holdConnection=true
+        let saved=await model.save(["brightness":99])
+        XCTAssertFalse(saved)
+        await settle {radio.waiting != nil}
+        XCTAssertTrue(model.reconnecting)
+        XCTAssertEqual(model.saveReceipt(for:["brightness"])?.phase,.unconfirmed)
+        XCTAssertEqual(radio.operations.filter {$0=="settings.patch"}.count,1)
+        model.suspend()
+        await settle {!model.busy}
+    }
+    func testSaveConfirmationDoesNotDependOnStatusAndSurvivesReconnect() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id);radio.failStatus=true
+        let before=radio.operations.filter{$0=="status.get"}.count
+        let saved=await model.save(["brightness":99])
+        XCTAssertTrue(saved)
+        XCTAssertEqual(model.settings["brightness"] as? Int,99)
+        XCTAssertEqual(radio.operations.filter{$0=="status.get"}.count,before)
+        let receipt=model.saveReceipt(for:["brightness"])!
+        guard case .saved = receipt.phase else {return XCTFail("Save not confirmed")}
+        radio.failStatus=false;radio.close()
+        await settle {radio.attempts==2 && model.sessionReady}
+        XCTAssertEqual(model.saveReceipt(for:["brightness"])?.phase,receipt.phase)
+        model.suspend()
+    }
+    func testReadbackAfterDisconnectConfirmsWithoutResendingSave() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id);radio.failSettingsAfterSave=true
+        let saved=await model.save(["brightness":99])
+        XCTAssertFalse(saved)
+        await settle {model.sessionReady}
+        guard case .saved = model.saveReceipt(for:["brightness"])?.phase else {return XCTFail("Readback not confirmed")}
+        XCTAssertEqual(radio.operations.filter{$0=="settings.patch"}.count,1)
+        model.suspend()
+    }
+    func testReadbackMismatchNeverClaimsSuccess() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id);radio.ignorePatch=true
+        let saved=await model.save(["brightness":99])
+        XCTAssertFalse(saved)
+        guard case .failed = model.saveReceipt(for:["brightness"])?.phase else {return XCTFail("Mismatch not surfaced")}
+        model.suspend()
+    }
+    func testMatchingReadbackRequiresDurableStorageEvenWithAcknowledgment() async throws {
+        for acknowledgmentLost in [false,true] {
+            for durability:Bool? in [false,nil] {
+                let (model,radio,_,id)=fixture()
+                await model.connect(id)
+                radio.durable=durability;radio.loseSaveAck=acknowledgmentLost
+                let saved=await model.save(["brightness":99])
+                XCTAssertFalse(saved)
+                await settle {model.canSend}
+                XCTAssertEqual(model.saveReceipt(for:["brightness"])?.phase,.unconfirmed)
+                XCTAssertEqual(model.settings["brightness"] as? Int,99)
+                // A later durable readback may confirm the original write, but
+                // recovery must never issue another settings.patch.
+                radio.durable=true
+                try await model.refresh()
+                guard case .saved = model.saveReceipt(for:["brightness"])?.phase else {
+                    model.suspend();return XCTFail("Durable readback did not confirm save")
+                }
+                XCTAssertEqual(radio.operations.filter{$0=="settings.patch"}.count,1)
+                model.suspend()
+            }
+        }
+    }
+    func testMissingSecretAcknowledgmentCannotBeConfirmedByConfiguredFlag() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id);radio.loseSaveAck=true
+        let saved=await model.save(["dexcom_password":"test-replacement"])
+        XCTAssertFalse(saved)
+        await settle {model.sessionReady}
+        XCTAssertEqual(model.saveReceipt(for:["dexcom_password"])?.phase,.unconfirmed)
+        XCTAssertEqual(radio.operations.filter{$0=="settings.patch"}.count,1)
+        model.suspend()
+    }
+    func testReceiptsDoNotAppearOnUnrelatedPageOrClock() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id)
+        _=await model.save(["brightness":99])
+        XCTAssertNil(model.saveReceipt(for:["alert_enabled"]))
+        let second=UUID();radio.identity="clock-b"
+        model.clocks.append(SavedClock(id:"clock-b",peripheral:second,nickname:"Kitchen"))
+        await model.connect(second)
+        XCTAssertNil(model.saveReceipt(for:["brightness"]))
+        model.suspend()
+    }
+    func testLoadedSettingsStayAvailableDuringQuietReconnect() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id);radio.holdConnection=true;radio.close()
+        await settle {radio.waiting != nil}
+        XCTAssertTrue(model.quietReconnect)
+        XCTAssertEqual(model.settings["brightness"] as? Int,77)
+        XCTAssertEqual(model.fields.count,2)
+        XCTAssertFalse(model.canSend)
+        model.suspend()
+    }
+    func testNewEditsSurviveDelayedSaveVerification() {
+        let fields:[[String:Any]]=[["key":"brightness","type":"int"]]
+        var draft=SettingsDraft(settings:["brightness":77],fields:fields)
+        draft.setText("99",key:"brightness")
+        let submitted=draft
+        draft.setText("120",key:"brightness")
+        draft.confirm(submitted:submitted,settings:["brightness":99],fields:fields)
+        XCTAssertEqual(draft.text["brightness"],"120")
+        XCTAssertEqual(draft.changed,["brightness"])
+        var unchanged=submitted
+        unchanged.confirm(submitted:submitted,settings:["brightness":99],fields:fields)
+        XCTAssertTrue(unchanged.changed.isEmpty)
+        XCTAssertEqual(unchanged.text["brightness"],"99")
+    }
+    func testWrongIdentityNeverLoadsSettingsOrRetries() async {
+        let (model,radio,_,id)=fixture();radio.identity="different-clock"
+        await model.connect(id)
+        XCTAssertFalse(model.sessionReady)
+        XCTAssertEqual(radio.attempts,1)
+        XCTAssertFalse(radio.operations.contains("settings.get"))
+        model.suspend()
+    }
+    func testCancelPendingConnectAndResumeDoesNotStrandBusyState() async {
+        let (model,radio,_,_)=fixture();radio.holdConnection=true
+        model.resume()
+        await settle {radio.waiting != nil}
+        model.suspend();radio.holdConnection=false;model.resume()
+        await settle {model.sessionReady}
+        XCTAssertFalse(model.busy)
+        XCTAssertEqual(radio.attempts,2)
+        model.suspend()
+    }
+    func testCanSwitchAwayFromPendingConnectOrStalledHello() async {
+        for helloStalled in [false,true] {
+            let (model,radio,_,id)=fixture()
+            let second=UUID()
+            model.clocks.append(SavedClock(id:"clock-b",peripheral:second,nickname:"Kitchen"))
+            radio.holdConnection = !helloStalled;radio.holdHello=helloStalled
+            let first=Task {await model.connect(id)}
+            await settle {radio.waiting != nil}
+            XCTAssertTrue(model.reconnecting)
+            XCTAssertTrue(model.canChooseAnotherClock)
+            radio.holdConnection=false;radio.holdHello=false;radio.identity="clock-b"
+            await model.connect(second)
+            await first.value
+            XCTAssertTrue(model.sessionReady)
+            XCTAssertTrue(model.canSend)
+            XCTAssertEqual(model.selected?.peripheral,second)
+            XCTAssertEqual(radio.attempts,2)
+            XCTAssertFalse(radio.operations.contains("settings.patch"))
+            model.suspend()
+        }
+    }
+    func testStopConnectingStaysStoppedUntilExplicitRetry() async {
+        let (model,radio,_,id)=fixture();radio.holdConnection=true
+        let first=Task {await model.connect(id)}
+        await settle {radio.waiting != nil}
+        model.cancelConnection()
+        await first.value
+        XCTAssertFalse(model.busy)
+        XCTAssertFalse(model.reconnecting)
+        XCTAssertEqual(model.connectionState,"Not connected")
+        radio.isPoweredOn=false;radio.isPoweredOn=true
+        await Task.yield();await Task.yield()
+        XCTAssertEqual(radio.attempts,1)
+        radio.holdConnection=false
+        await model.retrySelected()
+        XCTAssertTrue(model.sessionReady)
+        XCTAssertEqual(radio.attempts,2)
+        model.suspend()
+    }
+    func testLatestClockSelectionWinsWhileOldAttemptDrains() async {
+        let (model,radio,_,id)=fixture();radio.holdConnection=true
+        let second=UUID(),third=UUID()
+        model.clocks += [SavedClock(id:"clock-b",peripheral:second,nickname:"Kitchen"),SavedClock(id:"clock-c",peripheral:third,nickname:"Office")]
+        let first=Task {await model.connect(id)}
+        await settle {radio.waiting != nil}
+        let next=Task {await model.connect(second)}
+        let last=Task {await model.connect(third)}
+        await settle {radio.waiting != nil && radio.attempts>1}
+        radio.holdConnection=false;radio.identity="clock-c"
+        let pending=radio.waiting;radio.waiting=nil;pending?.resume()
+        await first.value;await next.value;await last.value
+        XCTAssertEqual(model.selected?.peripheral,third)
+        XCTAssertTrue(model.canSend)
+        XCTAssertFalse(radio.operations.contains("settings.patch"))
+        model.suspend()
+    }
+    func testConnectionControlsCannotInterruptWritesOrUpdates() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id)
+        radio.holdSave=true
+        let saving=Task {await model.save(["brightness":99])}
+        await settle {radio.waiting != nil}
+        XCTAssertFalse(model.canChooseAnotherClock)
+        model.cancelConnection();await model.connect(UUID())
+        XCTAssertTrue(model.sessionReady)
+        XCTAssertEqual(radio.attempts,1)
+        radio.holdSave=false
+        let pending=radio.waiting;radio.waiting=nil;pending?.resume()
+        let saved=await saving.value
+        XCTAssertTrue(saved)
+        XCTAssertEqual(radio.operations.filter {$0=="settings.patch"}.count,1)
+        await model.command("ota.check")
+        XCTAssertFalse(model.canChooseAnotherClock)
+        model.cancelConnection();await model.connect(UUID())
+        XCTAssertTrue(model.updatingClock)
+        XCTAssertEqual(model.selected?.peripheral,id)
+        model.suspend()
+    }
+    func testNewClockRetriesAreBoundedWithoutSavingOrBlockingDiscovery() async {
+        let (model,radio,_,_)=fixture()
+        model.disconnect();model.clocks=[]
+        radio.failures=100
+        await model.connect(UUID())
+        XCTAssertEqual(radio.attempts,SessionPolicy.newClockMaximumAttempts)
+        XCTAssertFalse(model.busy)
+        XCTAssertFalse(model.reconnecting)
+        XCTAssertFalse(model.sessionReady)
+        XCTAssertTrue(model.canChooseAnotherClock)
+        XCTAssertTrue(model.message.contains("middle button"))
+        XCTAssertTrue(model.clocks.isEmpty)
+        radio.isPoweredOn=false;radio.isPoweredOn=true
+        await Task.yield();await Task.yield()
+        XCTAssertEqual(radio.attempts,SessionPolicy.newClockMaximumAttempts)
+        model.suspend()
+    }
+    func testPartialAdditionStaysBoundedAcrossRetryAndAppRecreation() async throws {
+        for failsDuringSchema in [false,true] {
+            let (model,radio,defaults,_)=fixture()
+            model.clocks=[];model.disconnect()
+            let newID=UUID()
+            radio.failSettings = !failsDuringSchema
+            radio.failSchemaPage=failsDuringSchema ? 0:nil
+            radio.schemaFailuresRemaining=100
+            await model.connect(newID)
+            XCTAssertEqual(radio.attempts,3)
+            XCTAssertEqual(radio.operations.filter {$0=="hello"}.count,3)
+            XCTAssertEqual(model.selected?.peripheral,newID) // Verified, not added yet.
+            XCTAssertFalse(model.sessionReady)
+            XCTAssertFalse(model.busy)
+            XCTAssertTrue(model.clocks.isEmpty)
+            let firstSaved=try JSONDecoder().decode([SavedClock].self,from:try XCTUnwrap(defaults.data(forKey:"clocks.v1")))
+            XCTAssertTrue(firstSaved.isEmpty)
+
+            await model.retrySelected()
+            XCTAssertEqual(radio.attempts,6)
+            XCTAssertFalse(model.busy)
+            XCTAssertTrue(model.clocks.isEmpty)
+            model.suspend()
+
+            let restored=ClockModel(enableBluetooth:false,transport:radio,preferences:defaults,retryDelay:0)
+            restored.resume()
+            await Task.yield();await Task.yield()
+            XCTAssertEqual(radio.attempts,6)
+            XCTAssertNil(restored.selected)
+            XCTAssertTrue(restored.clocks.isEmpty)
+            await restored.connect(newID)
+            XCTAssertEqual(radio.attempts,9)
+            XCTAssertFalse(restored.busy)
+            XCTAssertTrue(restored.clocks.isEmpty)
+
+            radio.failSettings=false;radio.schemaFailuresRemaining=0
+            await restored.retrySelected()
+            XCTAssertTrue(restored.sessionReady)
+            XCTAssertEqual(restored.clocks.count,1)
+            XCTAssertEqual(restored.clocks[0].peripheral,newID)
+            let completed=try JSONDecoder().decode([SavedClock].self,from:try XCTUnwrap(defaults.data(forKey:"clocks.v1")))
+            XCTAssertEqual(completed.map(\.peripheral),[newID])
+            XCTAssertEqual(completed.map(\.nickname),["Bedside Clock"])
+            restored.suspend()
+        }
+    }
+    func testFailedPeripheralReplacementPreservesExistingNicknameAndIdentifier() async throws {
+        let (model,radio,defaults,oldID)=fixture()
+        model.clocks[0].nickname="My custom bedside name";model.selected=model.clocks[0];model.remember()
+        let replacementID=UUID()
+        radio.failSchemaPage=0;radio.schemaFailuresRemaining=100
+        await model.connect(replacementID)
+        XCTAssertEqual(radio.attempts,3)
+        XCTAssertEqual(model.clocks.map(\.peripheral),[oldID])
+        XCTAssertEqual(model.clocks.map(\.nickname),["My custom bedside name"])
+        let saved=try JSONDecoder().decode([SavedClock].self,from:try XCTUnwrap(defaults.data(forKey:"clocks.v1")))
+        XCTAssertEqual(saved.map(\.peripheral),[oldID])
+        XCTAssertEqual(saved.map(\.nickname),["My custom bedside name"])
+        radio.schemaFailuresRemaining=0
+        await model.retrySelected()
+        XCTAssertTrue(model.sessionReady)
+        XCTAssertEqual(model.clocks.map(\.peripheral),[replacementID])
+        XCTAssertEqual(model.clocks.map(\.nickname),["My custom bedside name"])
+        XCTAssertEqual(model.clocks.map(\.id),["clock-a"])
+        model.suspend()
+    }
+    func testRenameDuringReplacementSchemaLoadKeepsVerifiedPeripheralAndLatestName() async throws {
+        let (model,radio,defaults,oldID)=fixture()
+        model.remember()
+        let replacementID=UUID()
+        radio.holdSchema=true
+        let replacing=Task {await model.connect(replacementID)}
+        await settle {radio.waiting != nil && radio.operations.last=="schema.get"}
+        XCTAssertEqual(model.selected?.peripheral,replacementID)
+        XCTAssertEqual(model.clocks[0].peripheral,oldID)
+        // Match Save name in ClockDetailsView while a read-only session is loading.
+        model.clocks[0].nickname="Renamed during connection"
+        model.selected=model.clocks[0]
+        model.remember()
+        radio.holdSchema=false
+        let pending=radio.waiting;radio.waiting=nil;pending?.resume()
+        await replacing.value
+        XCTAssertTrue(model.canSend)
+        XCTAssertEqual(model.selected?.id,"clock-a")
+        XCTAssertEqual(model.selected?.peripheral,replacementID)
+        XCTAssertEqual(model.selected?.nickname,"Renamed during connection")
+        XCTAssertEqual(model.clocks.map(\.peripheral),[replacementID])
+        XCTAssertEqual(model.clocks.map(\.nickname),["Renamed during connection"])
+        let saved=try JSONDecoder().decode([SavedClock].self,from:try XCTUnwrap(defaults.data(forKey:"clocks.v1")))
+        XCTAssertEqual(saved.map(\.peripheral),[replacementID])
+        XCTAssertEqual(saved.map(\.nickname),["Renamed during connection"])
+        model.suspend()
+    }
+    func testSavedClockKeepsRecoveringAfterRepeatedPostHelloSchemaFailures() async {
+        let (model,radio,_,id)=fixture()
+        radio.failSchemaPage=0;radio.schemaFailuresRemaining=4
+        await model.connect(id)
+        XCTAssertEqual(radio.attempts,5)
+        XCTAssertEqual(radio.operations.filter {$0=="hello"}.count,5)
+        XCTAssertTrue(model.sessionReady)
+        XCTAssertEqual(model.clocks.count,1)
+        XCTAssertEqual(model.clocks[0].peripheral,id)
+        model.suspend()
+    }
+    func testAddClockDrainsSavedClockRecoveryAndDoesNotReconnectIt() async {
+        let (model,radio,_,_)=fixture()
+        radio.holdConnection=true
+        model.resume()
+        await settle {radio.waiting != nil}
+        let prepared=await model.prepareToAddClock()
+        XCTAssertTrue(prepared)
+        XCTAssertNil(model.selected)
+        XCTAssertFalse(model.busy)
+        XCTAssertFalse(model.reconnecting)
+        XCTAssertTrue(model.settings.isEmpty)
+        XCTAssertEqual(model.clocks.count,1)
+        radio.isPoweredOn=false;radio.isPoweredOn=true
+        await Task.yield();await Task.yield()
+        XCTAssertEqual(radio.attempts,1)
+        radio.holdConnection=false;radio.identity="clock-b"
+        let second=UUID()
+        await model.connect(second)
+        XCTAssertTrue(model.canSend)
+        XCTAssertEqual(model.selected?.peripheral,second)
+        XCTAssertEqual(model.clocks.map(\.id),["clock-a","clock-b"])
+        model.suspend()
+    }
+    func testAddClockCannotInterruptSettingsWriteOrUpdate() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id)
+        radio.holdSave=true
+        let saving=Task {await model.save(["brightness":99])}
+        await settle {radio.waiting != nil}
+        let duringSave=await model.prepareToAddClock()
+        XCTAssertFalse(duringSave)
+        XCTAssertTrue(radio.connected)
+        radio.holdSave=false
+        let pending=radio.waiting;radio.waiting=nil;pending?.resume()
+        let saved=await saving.value
+        XCTAssertTrue(saved)
+        await model.command("ota.check")
+        let duringUpdate=await model.prepareToAddClock()
+        XCTAssertFalse(duringUpdate)
+        XCTAssertTrue(model.updatingClock)
+        model.suspend()
+    }
+    func testWarmReconnectLoadsActualSettingsWithoutWaitingForStatus() async throws {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id)
+        let previousStatusRefresh=try XCTUnwrap(model.lastStatusRefresh)
+        let before=radio.operations.count
+        radio.storedSettings["brightness"]=93
+        radio.failStatus=true
+        radio.close()
+        await settle {radio.attempts==2 && model.sessionReady}
+        XCTAssertEqual(Array(radio.operations.dropFirst(before)),["hello","settings.get"])
+        XCTAssertEqual(model.settings["brightness"] as? Int,93)
+        XCTAssertEqual(model.lastStatusRefresh,previousStatusRefresh)
+        XCTAssertTrue(model.canSend)
+        XCTAssertFalse(radio.operations.contains("settings.patch"))
+        radio.failStatus=false
+        await model.checkConnection()
+        XCTAssertGreaterThan(try XCTUnwrap(model.lastStatusRefresh),previousStatusRefresh)
+        model.suspend()
+    }
+    func testClockRebootRefreshesStatusAlongsideInvalidatedSchema() async throws {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id)
+        let before=radio.operations.count
+        let previousStatus=try XCTUnwrap(model.lastStatusRefresh)
+        radio.bootID+=1;radio.close()
+        await settle {radio.attempts==2 && model.sessionReady}
+        XCTAssertEqual(Array(radio.operations.dropFirst(before)),["hello","settings.get","status.get","schema.get"])
+        XCTAssertGreaterThan(try XCTUnwrap(model.lastStatusRefresh),previousStatus)
+        model.suspend()
+    }
+    func testStopAddingUnpairedClockReturnsControlWithoutSelectingSavedClock() async {
+        let (model,radio,_,_)=fixture()
+        _=await model.prepareToAddClock()
+        radio.holdConnection=true
+        let adding=Task {await model.connect(UUID())}
+        await settle {radio.waiting != nil}
+        model.cancelConnection()
+        await adding.value
+        XCTAssertNil(model.selected)
+        XCTAssertFalse(model.busy)
+        XCTAssertFalse(model.reconnecting)
+        XCTAssertEqual(model.clocks.count,1)
+        model.suspend()
+    }
+    private func editBrightness(_ model:ClockModel,_ value:String) {
+        var draft=model.settingsDraft;draft.setText(value,key:"brightness");model.setDraft(draft)
+    }
+    func testOfflineDraftSurvivesRecreationWithoutSendingOrPretendingConnected() async throws {
+        let store=MemoryLocalSettingsStore()
+        let (model,radio,defaults,id)=fixture(store:store)
+        await model.connect(id)
+        var draft=model.settingsDraft
+        draft.setText("99",key:"brightness")
+        draft.setSecretAction(1,key:"dexcom_password");draft.setText("pending-secret",key:"dexcom_password")
+        model.setDraft(draft);model.suspend()
+        let restored=ClockModel(enableBluetooth:false,transport:radio,preferences:defaults,retryDelay:0,localSettingsStore:store)
+        XCTAssertTrue(restored.hasLoadedSettings)
+        XCTAssertFalse(restored.sessionReady)
+        XCTAssertEqual(restored.settings["brightness"] as? Int,77)
+        XCTAssertEqual(restored.pendingChangeCount,2)
+        XCTAssertEqual(restored.settingsDraft.text["dexcom_password"],"pending-secret")
+        XCTAssertNotNil(restored.lastSettingsRefresh)
+        XCTAssertFalse(radio.operations.contains("settings.patch"))
+        radio.holdConnection=true;restored.resume()
+        await settle {radio.waiting != nil}
+        XCTAssertFalse(radio.operations.contains("settings.patch"))
+        restored.suspend()
+    }
+    func testExplicitOfflineUpdateWaitsAndPreservesEditsMadeWhileWaitingAndSending() async throws {
+        for editDuringWrite in [false,true] {
+            let store=MemoryLocalSettingsStore()
+            let (model,radio,_,id)=fixture(store:store)
+            await model.connect(id);editBrightness(model,"99")
+            radio.holdConnection = !editDuringWrite;radio.holdSave=editDuringWrite
+            if !editDuringWrite {radio.close();await settle {radio.waiting != nil}}
+            let update=Task {await model.updateSettings(pollDelay:1_000_000)}
+            await settle {editDuringWrite ? model.settingsUpdatePhase == .sending && radio.waiting != nil:model.settingsUpdatePhase == .waiting}
+            editBrightness(model,"120")
+            radio.holdConnection=false;radio.holdSave=false
+            let pending=radio.waiting;radio.waiting=nil;pending?.resume()
+            await update.value
+            XCTAssertEqual(radio.operations.filter {$0=="settings.patch"}.count,1)
+            XCTAssertEqual(model.settings["brightness"] as? Int,99)
+            XCTAssertEqual(model.settingsDraft.text["brightness"],"120")
+            XCTAssertEqual(model.settingsDraft.changed,["brightness"])
+            XCTAssertNil(try store.load(clockID:"clock-a")?.submittedDraft)
+            XCTAssertEqual(try store.load(clockID:"clock-a")?.draft.text["brightness"],"120")
+            model.suspend()
+        }
+    }
+    func testUpdateReadOnlyPreflightRetriesWithoutReplayingMutation() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id);editBrightness(model,"99")
+        radio.settingsFailuresRemaining=1
+        await model.updateSettings(pollDelay:1_000_000)
+        XCTAssertEqual(radio.attempts,2)
+        XCTAssertEqual(radio.operations.filter {$0=="settings.patch"}.count,1)
+        XCTAssertEqual(model.settings["brightness"] as? Int,99)
+        XCTAssertEqual(model.pendingChangeCount,0)
+        model.suspend()
+    }
+    func testUpdateTimeoutAndExplicitCancellationKeepDraftWithoutMutation() async {
+        for timedOut in [false,true] {
+            let (model,radio,_,id)=fixture()
+            await model.connect(id);editBrightness(model,"99")
+            radio.holdConnection=true;radio.close();await settle {radio.waiting != nil}
+            let update=Task {await model.updateSettings(timeout:timedOut ? 0.02:90,pollDelay:1_000_000)}
+            await settle {model.settingsUpdatePhase == .waiting}
+            if !timedOut {model.cancelSettingsUpdate()}
+            await update.value
+            XCTAssertEqual(model.settingsUpdatePhase,.idle)
+            XCTAssertEqual(model.pendingChangeCount,1)
+            XCTAssertFalse(radio.operations.contains("settings.patch"))
+            XCTAssertTrue(model.settingsUpdateMessage.contains(timedOut ? "time":"cancelled"))
+            model.suspend()
+        }
+    }
+    func testCancellingOrTimingOutFreshReadNeverAttemptsMutation() async {
+        for timeout in [false,true] {
+            let (model,radio,_,id)=fixture()
+            await model.connect(id);editBrightness(model,"99");radio.holdSettings=true
+            let update=Task {await model.updateSettings(timeout:timeout ? 0.02:90,pollDelay:1_000_000)}
+            await settle {radio.waiting != nil && model.settingsUpdatePhase == .waiting}
+            if !timeout {model.cancelSettingsUpdate()}
+            await update.value
+            XCTAssertFalse(radio.operations.contains("settings.patch"))
+            XCTAssertEqual(model.pendingChangeCount,1)
+            radio.holdSettings=false;model.suspend()
+        }
+    }
+    func testBackgroundSwitchAndRemovalCancelOnlyUnsentUpdate() async {
+        for action in ["background","switch","remove"] {
+            let store=MemoryLocalSettingsStore()
+            let (model,radio,_,id)=fixture(store:store)
+            await model.connect(id);editBrightness(model,"99")
+            radio.holdConnection=true;radio.close();await settle {radio.waiting != nil}
+            let update=Task {await model.updateSettings(pollDelay:1_000_000)}
+            await settle {model.settingsUpdatePhase == .waiting}
+            if action=="background" {model.suspend()}
+            else if action=="remove" {model.remove(model.clocks[0])}
+            else {
+                let second=UUID();radio.holdConnection=false;radio.identity="clock-b"
+                await model.connect(second)
+                XCTAssertEqual(model.selected?.id,"clock-b")
+            }
+            await update.value
+            XCTAssertFalse(radio.operations.contains("settings.patch"))
+            if action=="remove" {XCTAssertNil(try? store.load(clockID:"clock-a"))}
+            else {XCTAssertEqual(try? store.load(clockID:"clock-a")?.draft.text["brightness"],"99")}
+            model.suspend()
+        }
+    }
+    func testConflictingAndUnsupportedDraftChangesNeverTransmit() async {
+        for externalConflict in [false,true] {
+            let (model,radio,_,id)=fixture()
+            await model.connect(id);editBrightness(model,"99")
+            if externalConflict {radio.storedSettings["brightness"]=88}
+            else {model.fields.removeAll {$0["key"] as? String=="brightness"}}
+            await model.updateSettings(pollDelay:1_000_000)
+            XCTAssertFalse(radio.operations.contains("settings.patch"))
+            XCTAssertEqual(model.pendingChangeCount,1)
+            XCTAssertFalse(model.settingsUpdateMessage.isEmpty)
+            model.suspend()
+        }
+    }
+    func testOversizedUpdateKeepsReplacementSecretWithoutSplittingRequests() async {
+        let (model,radio,_,id)=fixture()
+        radio.maximumMessage=150
+        await model.connect(id)
+        var draft=model.settingsDraft;draft.setSecretAction(1,key:"dexcom_password");draft.setText(String(repeating:"é",count:100),key:"dexcom_password");model.setDraft(draft)
+        await model.updateSettings(pollDelay:1_000_000)
+        XCTAssertFalse(radio.operations.contains("settings.patch"))
+        XCTAssertEqual(model.pendingChangeCount,1)
+        XCTAssertTrue(model.settingsUpdateMessage.contains("message size"))
+        model.suspend()
+    }
+    func testUnconfirmedSecretUpdatePersistsButNeverReplaysAcrossRecoveryOrRelaunch() async throws {
+        let store=MemoryLocalSettingsStore()
+        let (model,radio,defaults,id)=fixture(store:store)
+        await model.connect(id)
+        var draft=model.settingsDraft;draft.setSecretAction(1,key:"dexcom_password");draft.setText("replacement",key:"dexcom_password");model.setDraft(draft)
+        radio.loseSaveAck=true
+        await model.updateSettings(pollDelay:1_000_000)
+        await settle {model.sessionReady}
+        XCTAssertEqual(radio.operations.filter {$0=="settings.patch"}.count,1)
+        XCTAssertEqual(model.pendingChangeCount,1)
+        XCTAssertNotNil(try store.load(clockID:"clock-a")?.submittedDraft)
+        XCTAssertEqual(model.saveReceipt(for:["dexcom_password"])?.phase,.unconfirmed)
+        model.suspend()
+        let restored=ClockModel(enableBluetooth:false,transport:radio,preferences:defaults,retryDelay:0,localSettingsStore:store)
+        XCTAssertEqual(restored.saveReceipt(for:["dexcom_password"])?.phase,.unconfirmed)
+        await restored.connect(id)
+        XCTAssertEqual(radio.operations.filter {$0=="settings.patch"}.count,1)
+        XCTAssertEqual(restored.pendingChangeCount,1)
+        restored.suspend()
+    }
+    func testPersistenceFailedRemainsUnconfirmedUntilDurableReadbackWithoutReplay() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id);editBrightness(model,"99")
+        radio.failPersistence=true;radio.durable=false
+        await model.updateSettings(pollDelay:1_000_000)
+        await settle {model.sessionReady}
+        XCTAssertEqual(model.saveReceipt(for:["brightness"])?.phase,.unconfirmed)
+        XCTAssertEqual(model.pendingChangeCount,1)
+        radio.durable=true
+        try? await model.refresh()
+        XCTAssertEqual(model.pendingChangeCount,0)
+        XCTAssertEqual(radio.operations.filter {$0=="settings.patch"}.count,1)
+        model.suspend()
+    }
+    func testSecureStoreFailurePreventsSendingAndLosingDraftOnSwitch() async {
+        let store=FailingLocalSettingsStore()
+        let (model,radio,_,id)=fixture(store:store)
+        await model.connect(id);store.failSave=true;editBrightness(model,"99")
+        XCTAssertFalse(model.canChooseAnotherClock)
+        await model.connect(UUID())
+        XCTAssertEqual(model.selected?.peripheral,id)
+        await model.updateSettings(pollDelay:1_000_000)
+        XCTAssertFalse(radio.operations.contains("settings.patch"))
+        XCTAssertEqual(model.pendingChangeCount,1)
+        XCTAssertFalse(model.draftStorageMessage.isEmpty)
+        store.failSave=false;editBrightness(model,"120")
+        XCTAssertNil(try? store.memory.load(clockID:"clock-a")?.submittedDraft)
+        XCTAssertTrue(model.canChooseAnotherClock)
+        model.suspend()
+    }
+    func testFailedSecureLoadCannotOverwritePriorDraftAndRemovalFailureKeepsEntry() async throws {
+        let store=FailingLocalSettingsStore()
+        let (model,radio,defaults,id)=fixture(store:store)
+        await model.connect(id);editBrightness(model,"99");model.suspend()
+        let prior=store.saveCount;store.failLoad=true
+        let restored=ClockModel(enableBluetooth:false,transport:radio,preferences:defaults,retryDelay:0,localSettingsStore:store)
+        await restored.connect(id)
+        XCTAssertEqual(store.saveCount,prior)
+        XCTAssertFalse(restored.canEditSettingsDraft)
+        editBrightness(restored,"140")
+        XCTAssertEqual(restored.pendingChangeCount,0)
+        XCTAssertEqual(try store.memory.load(clockID:"clock-a")?.draft.text["brightness"],"99")
+        store.failLoad=false
+        try await restored.refresh()
+        XCTAssertTrue(restored.canEditSettingsDraft)
+        XCTAssertEqual(restored.settingsDraft.text["brightness"],"99")
+        store.failRemove=true
+        restored.remove(restored.clocks[0])
+        XCTAssertEqual(restored.clocks.count,1)
+        XCTAssertNotNil(try store.memory.load(clockID:"clock-a"))
+        XCTAssertTrue(restored.canChooseAnotherClock)
+        store.failRemove=false;restored.remove(restored.clocks[0])
+        XCTAssertTrue(restored.clocks.isEmpty)
+        XCTAssertNil(try store.memory.load(clockID:"clock-a"))
+        restored.suspend()
+    }
+    func testUpdateFeedbackDoesNotFollowSelectionToAnotherClock() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id);editBrightness(model,"99")
+        await model.updateSettings(pollDelay:1_000_000)
+        XCTAssertEqual(model.settingsUpdateMessage,"Updated on clock.")
+        radio.identity="clock-b"
+        await model.connect(UUID())
+        XCTAssertEqual(model.selected?.id,"clock-b")
+        XCTAssertTrue(model.settingsUpdateMessage.isEmpty)
+        XCTAssertTrue(model.draftStorageMessage.isEmpty)
+        XCTAssertEqual(model.pendingChangeCount,0)
+        model.suspend()
+    }
+    func testFailedSecureDiscardRetainsWorkspaceUntilRetrySucceeds() async throws {
+        let store=FailingLocalSettingsStore()
+        let (model,radio,_,id)=fixture(store:store)
+        await model.connect(id);editBrightness(model,"99")
+        store.failSave=true;model.discardSettingsChanges()
+        XCTAssertEqual(model.settingsDraft.text["brightness"],"99")
+        XCTAssertEqual(model.pendingChangeCount,1)
+        XCTAssertFalse(model.canChooseAnotherClock)
+        XCTAssertEqual(try store.memory.load(clockID:"clock-a")?.draft.text["brightness"],"99")
+        XCTAssertTrue(model.settingsUpdateMessage.contains("Couldn’t discard"))
+        store.failSave=false;model.discardSettingsChanges()
+        XCTAssertEqual(model.pendingChangeCount,0)
+        XCTAssertTrue(model.canChooseAnotherClock)
+        XCTAssertEqual(try store.memory.load(clockID:"clock-a")?.draft.changed,[])
+        model.suspend()
+    }
+    func testRemovalAndOtherCommandsCannotInterruptAttemptedUpdate() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id);editBrightness(model,"99");radio.holdSave=true
+        let update=Task {await model.updateSettings(pollDelay:1_000_000)}
+        await settle {radio.waiting != nil && model.settingsUpdatePhase == .sending}
+        model.remove(model.clocks[0]);await model.command("ota.check")
+        XCTAssertEqual(model.clocks.count,1)
+        XCTAssertFalse(model.updatingClock)
+        XCTAssertFalse(radio.operations.contains("ota.check"))
+        radio.holdSave=false
+        let pending=radio.waiting;radio.waiting=nil;pending?.resume()
+        await update.value
+        XCTAssertEqual(model.pendingChangeCount,0)
+        model.suspend()
+    }
+    func testFreshDurableSyncReconcilesMatchingEditAndPersistsItWithoutAWrite() async throws {
+        let store=MemoryLocalSettingsStore()
+        let (model,radio,_,id)=fixture(store:store)
+        radio.extraSchemaFields=[["key":"ambient_enabled","type":"bool"]]
+        radio.storedSettings["ambient_enabled"]=false
+        await model.connect(id);editBrightness(model,"99")
+        radio.storedSettings["brightness"]=99;radio.storedSettings["ambient_enabled"]=true
+        try await model.refresh()
+        XCTAssertEqual(model.pendingChangeCount,0)
+        XCTAssertEqual(model.settingsDraft.booleans["ambient_enabled"],true)
+        XCTAssertEqual(model.settingsDraft.text["brightness"],"99")
+        XCTAssertTrue(try XCTUnwrap(store.load(clockID:"clock-a")).draft.changed.isEmpty)
+        XCTAssertFalse(radio.operations.contains("settings.patch"))
+        XCTAssertNil(model.saveReceipt(for:["brightness"]))
+        model.suspend()
+    }
+    func testNonDurableReadbackDoesNotReconcileEvenWhenValuesMatch() async throws {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id);editBrightness(model,"99")
+        radio.storedSettings["brightness"]=99;radio.durable=false
+        try await model.refresh()
+        XCTAssertEqual(model.pendingChangeCount,1)
+        radio.durable=nil;try await model.refresh()
+        XCTAssertEqual(model.pendingChangeCount,1)
+        radio.durable=true;try await model.refresh()
+        XCTAssertEqual(model.pendingChangeCount,0)
+        XCTAssertFalse(radio.operations.contains("settings.patch"))
+        model.suspend()
+    }
+    func testUpdatePreflightSkipsAlreadySatisfiedSnapshotWithoutResending() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id);editBrightness(model,"99")
+        radio.storedSettings["brightness"]=99
+        await model.updateSettings(pollDelay:1_000_000)
+        XCTAssertEqual(model.pendingChangeCount,0)
+        XCTAssertFalse(radio.operations.contains("settings.patch"))
+        XCTAssertTrue(model.settingsUpdateMessage.contains("already match"))
+        model.suspend()
+    }
+    func testCachedSnapshotCannotClearEditsAndFreshSyncRetainsUncertainEvidence() async throws {
+        let store=MemoryLocalSettingsStore()
+        let (model,radio,defaults,id)=fixture(store:store)
+        await model.connect(id);editBrightness(model,"99")
+        let submitted=model.settingsDraft
+        let cached=try LocalSettingsSnapshot(settings:["brightness":99,"dexcom_password_configured":true],fields:model.fields,draft:submitted,submittedDraft:submitted)
+        try store.save(cached,clockID:"clock-a");model.suspend()
+        let restored=ClockModel(enableBluetooth:false,transport:radio,preferences:defaults,retryDelay:0,localSettingsStore:store)
+        XCTAssertEqual(restored.pendingChangeCount,1)
+        XCTAssertEqual(restored.saveReceipt(for:["brightness"])?.phase,.unconfirmed)
+        radio.storedSettings["brightness"]=99
+        await restored.connect(id)
+        XCTAssertEqual(restored.pendingChangeCount,0)
+        XCTAssertEqual(restored.saveReceipt(for:["brightness"])?.phase,.unconfirmed)
+        XCTAssertNotNil(try store.load(clockID:"clock-a")?.submittedDraft)
+        XCTAssertFalse(radio.operations.contains("settings.patch"))
+        restored.suspend()
+    }
+    func testLaterEditDuringSyncIsNotClearedByEarlierMatchingClockValue() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id);editBrightness(model,"99")
+        radio.storedSettings["brightness"]=99;radio.holdSettings=true
+        let refreshing=Task {try? await model.refresh()}
+        await settle {radio.waiting != nil}
+        XCTAssertTrue(model.syncingSettings)
+        XCTAssertEqual(model.connectionSummary,"Syncing with clock…")
+        XCTAssertTrue(model.canEditSettingsDraft)
+        editBrightness(model,"120")
+        radio.holdSettings=false
+        let pending=radio.waiting;radio.waiting=nil;pending?.resume()
+        await refreshing.value
+        XCTAssertEqual(model.settingsDraft.text["brightness"],"120")
+        XCTAssertEqual(model.pendingChangeCount,1)
+        XCTAssertFalse(model.syncingSettings)
+        model.suspend()
+    }
+    func testCachedEditorsStayAvailableWhileRefreshedSchemaLoads() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id)
+        radio.bootID+=1;radio.holdSchema=true;radio.close()
+        await settle {radio.waiting != nil && radio.operations.last=="schema.get"}
+        XCTAssertTrue(model.hasLoadedSettings)
+        XCTAssertTrue(model.canEditSettingsDraft)
+        XCTAssertTrue(model.syncingSettings)
+        XCTAssertEqual(model.connectionSummary,"Syncing with clock…")
+        XCTAssertFalse(model.canSend)
+        editBrightness(model,"120")
+        radio.holdSchema=false
+        let pending=radio.waiting;radio.waiting=nil;pending?.resume()
+        await settle {model.sessionReady}
+        XCTAssertEqual(model.settingsDraft.text["brightness"],"120")
+        XCTAssertEqual(model.pendingChangeCount,1)
+        XCTAssertFalse(radio.operations.contains("settings.patch"))
+        model.suspend()
+        XCTAssertFalse(model.syncingSettings)
+    }
+    func testSwitchingClockCannotReusePreviousSettings() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id)
+        let second=UUID();radio.identity="clock-b"
+        model.clocks.append(SavedClock(id:"clock-b",peripheral:second,nickname:"Kitchen"))
+        await model.connect(second)
+        XCTAssertEqual(radio.attempts,2)
+        XCTAssertEqual(model.selected?.id,"clock-b")
+        XCTAssertEqual(radio.operations.filter{$0=="schema.get"}.count,2)
+        model.suspend()
+    }
+}

@@ -1,0 +1,11 @@
+{
+  "hello": {"v":1,"id":1,"op":"hello"},
+  "brightness_patch": {"v":1,"id":2,"op":"settings.patch","patch":{"brightness":77,"auto_brightness":false}},
+  "saved_ack": {"v":1,"id":2,"state":"applied","saved":true},
+  "readback": {"v":1,"id":3,"op":"settings.get"},
+  "wifi_trial": {"v":1,"id":4,"op":"wifi.trial","patch":{"wifi_ssid":"Example 2.4 GHz","wifi_security":0,"wifi_password":"example-only-password"}},
+  "queued_ack": {"v":1,"id":4,"state":"queued"},
+  "clear_secret": {"v":1,"id":5,"op":"settings.patch","patch":{"dexcom_password":null}},
+  "invalid_bounds": {"v":1,"id":6,"op":"settings.patch","patch":{"brightness":256}},
+  "validation_error": {"v":1,"id":6,"state":"failed","error":"validation","field":"brightness"}
+}

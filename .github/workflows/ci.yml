@@ -13,6 +13,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - name: Launch metadata and committed asset validation
+        run: python3 ios/launch-kit/verify.py
       - name: Site analytics tests
         run: node --test tests/test_site_analytics.cjs tests/test_video_*.mjs
 
@@ -47,6 +49,20 @@ jobs:
             echo "PlatformIO registry failed; retrying build (attempt $((attempt + 1))/3)"
             sleep $((attempt * 15))
           done
+      - name: Build USB Bluetooth coexistence experiment
+        run: pio run -e esp32dev_ble_coexist_test
+      - name: BLE protocol and configuration tests with resolved dependencies
+        run: python -m unittest discover -s tests -p "test_ble*.py" -v
+      - name: Companion configuration tests with resolved dependencies
+        run: python -m unittest discover -s tests -p "test_companions*.py" -v
+      - name: NimBLE queued timer shutdown regression
+        run: python -m unittest discover -s tests -p "test_nimble_shutdown.py" -v
+      - name: Web body bounds, isolation, and credential cleanup regressions
+        run: python -m unittest discover -s tests -p "test_pr_review_regressions.py" -v
+      - name: Fleet server and production firmware config contract
+        run: python -m unittest discover -s tests -p "test_fleet_service.py" -v
+      - name: TLS encryption, large transfers, and certificate rejection
+        run: python -m unittest discover -s tests -p "test_tls.py" -v
       - name: Verify partitions, versions, rollback, and size limits
         run: python scripts/check_layout.py
       - name: Confirm generated sources are reproducible
@@ -85,3 +101,10 @@ jobs:
           done
           docker logs sugarfleet-ci
           exit 1
+
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift test --package-path ios
+      - run: xcodebuild -project ios/SugarClock.xcodeproj -scheme SugarClock -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build

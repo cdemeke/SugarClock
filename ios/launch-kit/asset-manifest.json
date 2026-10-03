@@ -1,0 +1,105 @@
+{
+  "app": "SugarClock",
+  "appVersion": "1.0.0 (24)",
+  "capturedSourceCommit": "0ff6ceefaa1325c2d0b780172f898737dc622182",
+  "data": "Synthetic fixture data in Debug-only ScreenshotPreview; production SwiftUI views; no Bluetooth connection. Labels retained.",
+  "icon": "Copy of SugarClock/Assets.xcassets/AppIcon.appiconset/icon_appstore.png; existing project branding.",
+  "files": [
+    {
+      "file": "assets/01-your-clocks.png",
+      "width": 1320,
+      "height": 2868,
+      "sha256": "a647db00b655631917c852d7dde34609008c9ed02dc25de243546bc77b0b62e0"
+    },
+    {
+      "file": "assets/02-make-it-yours.png",
+      "width": 1320,
+      "height": 2868,
+      "sha256": "54573a581e8d44dc1aa047332688547d010434bf122ed09d820c68d8682f11a6"
+    },
+    {
+      "file": "assets/03-review-changes.png",
+      "width": 1320,
+      "height": 2868,
+      "sha256": "34bb2c04ab74461b404f2f09ef9c7fdc7375e052232a5a3b1c33a348a29739d3"
+    },
+    {
+      "file": "assets/04-pixel-pets.png",
+      "width": 1320,
+      "height": 2868,
+      "sha256": "25398c7d665a2eb0f4d7b53b75061cf76b5c447ed6b6a3dff0be5bb60155a04f"
+    },
+    {
+      "file": "assets/05-display.png",
+      "width": 1320,
+      "height": 2868,
+      "sha256": "009ace45f3e6a0ceb12fa9ef7dab7d1a6949cd9abef940a6de1fd5f7b5edbabd"
+    },
+    {
+      "file": "assets/social-1200x630.png",
+      "width": 1200,
+      "height": 630,
+      "sha256": "b7e9ace3b6b92069ff97d695fb527361e4ad4229cfce03d641628aa1115881bb"
+    },
+    {
+      "file": "assets/iphone-01-clocks.png",
+      "width": 1320,
+      "height": 2868,
+      "sha256": "55d0279e82d39ed898595c5e2e768bdc95ae3142aec5c95cfd2d73792e21eeaf"
+    },
+    {
+      "file": "assets/iphone-02-settings.png",
+      "width": 1320,
+      "height": 2868,
+      "sha256": "2d673d545b17c6615e6b4596e1a4972cfc920777d50ab7184f4b6df801895384"
+    },
+    {
+      "file": "assets/iphone-03-pending.png",
+      "width": 1320,
+      "height": 2868,
+      "sha256": "9edadf9771c890cff63792b5e9ceddb7833d79de9626e4f4a9d32b33f79b0b3a"
+    },
+    {
+      "file": "assets/iphone-04-pets-dark.png",
+      "width": 1320,
+      "height": 2868,
+      "sha256": "88f1d189b146458367678a4696f3df58cf5ca58b473ea96d3b68359ba5a69f03"
+    },
+    {
+      "file": "assets/iphone-05-display.png",
+      "width": 1320,
+      "height": 2868,
+      "sha256": "085075ef26333c2bd795731e9004805f5d07ba217f5ec7dedfe552d735cbe891"
+    },
+    {
+      "file": "assets/ipad-01-clocks.png",
+      "width": 2064,
+      "height": 2752,
+      "sha256": "436bf95761631c4c8b48904db077689a0df12424f6721b75f5ee76a86a013230"
+    },
+    {
+      "file": "assets/ipad-02-settings.png",
+      "width": 2064,
+      "height": 2752,
+      "sha256": "ab168e725167e8fc58a5661fc7e02fd2dcd12c586019e3f661e8f4f5a84aff9e"
+    },
+    {
+      "file": "assets/ipad-03-pending.png",
+      "width": 2064,
+      "height": 2752,
+      "sha256": "d811279c4d21ac4aa34021cbfe7f801fc55e8375a2d2e8151a95f5121a84fc28"
+    },
+    {
+      "file": "assets/ipad-04-pets-dark.png",
+      "width": 2064,
+      "height": 2752,
+      "sha256": "2681b3a6af1d92a952e4f8a55c6c8134a6725582e35593392af99c473fecb66f"
+    },
+    {
+      "file": "assets/ipad-05-display.png",
+      "width": 2064,
+      "height": 2752,
+      "sha256": "15a246b5187781b14a838f5103a43eccd935369d268950668048786e402d3cc0"
+    }
+  ]
+}

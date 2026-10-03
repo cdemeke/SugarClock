@@ -139,6 +139,7 @@ static WaterWeather choose_water_weather() {
 static GlucoseEffect choose_glucose_effect() {
     const GlucoseReading& reading = http_get_reading();
     const AppConfig& cfg = config_get();
+    if (!cfg.glucose_enabled) return GLUCOSE_EFFECT_IN_RANGE;
     if (!reading.valid) return GLUCOSE_EFFECT_MISSING;
 
     // Usually the engine replaces Ambient Fish with its NO DATA or STALE

@@ -13,7 +13,7 @@
 #include <cassert>
 #include <initializer_list>
 
-static AppConfig cfg = {};
+static AppConfig cfg = [] { AppConfig c{}; c.glucose_enabled=true; return c; }();
 static GlucoseReading reading = {};
 static unsigned long now_ms = 0, age_ms = 0;
 static int failures = 0, drawn_glucose = 0, delta_frames = 0, button_actions = 0;
@@ -26,7 +26,7 @@ unsigned long millis() { return now_ms; }
 AppConfig& config_get() { return cfg; }
 bool config_has_wifi() { return true; }
 bool config_has_server() { return true; }
-const GlucoseReading& http_get_reading() { return reading; }
+GlucoseReading http_get_reading() { return reading; }
 unsigned long http_time_since_last_reading() { return age_ms; }
 int http_get_failure_count() { return failures; }
 bool http_has_ever_received() { return ever_received; }
@@ -243,6 +243,9 @@ int main() {
     reading.glucose = 300; assert(!engine_low_glucose_lock_active());
     // Preserve urgent-low handling even with misordered configured thresholds.
     cfg.thresh_low = 60; reading.glucose = 65; assert_low_frame();
+    cfg.glucose_enabled = false;
+    assert(!engine_low_glucose_lock_active());
+    cfg.glucose_enabled = true;
     // Disabling the option while low restores normal override precedence.
     cfg.glucose_only_when_low = false; notification = true; settle();
     assert(engine_get_state() == STATE_NOTIFY_DISPLAY);
