@@ -17,7 +17,8 @@ static AppConfig cfg = {};
 static GlucoseReading reading = {};
 static unsigned long now_ms = 0, age_ms = 0;
 static int failures = 0, drawn_glucose = 0, delta_frames = 0, button_actions = 0;
-static uint16_t drawn_color = 0;
+static uint16_t drawn_color = 0, trend_color = 0;
+static uint8_t brightness = 0;
 static uint8_t frame_level = 0;
 static bool connected = true, ap_mode = false, notification = false, ever_received = true;
 static NetCheckResult network = NC_OK, data_network = NC_OK;
@@ -75,7 +76,7 @@ long countdown_get_remaining_sec() { return 0; }
 bool weather_has_data() { return false; }
 const WeatherReading& weather_get_reading() { static WeatherReading wx = {}; return wx; }
 void weather_set_pre_fetch_callback(WeatherPreFetchCallback) {}
-void display_set_brightness(uint8_t) {}
+void display_set_brightness(uint8_t value) { brightness = value; }
 void display_set_transition_level(uint8_t level) { frame_level = level; }
 void display_clear() {}
 void display_show() {}
@@ -84,7 +85,7 @@ bool display_scroll_text(const char*, int, uint16_t, unsigned int) { return fals
 void display_draw_text(const char*, int, int, uint16_t) {}
 void display_draw_pixel(int, int, uint16_t) {}
 void display_draw_time(int, int, bool, bool, uint16_t) {}
-void display_draw_trend(int, int, int, uint16_t) {}
+void display_draw_trend(int, int, int, uint16_t color) { trend_color = color; }
 void display_draw_bar(int, int, uint16_t) {}
 int display_draw_glucose(int value, uint16_t color, bool) {
     drawn_glucose = value; drawn_color = color; return 24;
@@ -92,7 +93,7 @@ int display_draw_glucose(int value, uint16_t color, bool) {
 uint16_t display_color(uint8_t r, uint8_t g, uint8_t b) {
     return ((r & 0xf8) << 8) | ((g & 0xfc) << 3) | (b >> 3);
 }
-void display_draw_glucose_delta(int, int, uint16_t, bool) {}
+void display_draw_glucose_delta(int, int, uint16_t color, bool) { trend_color = color; }
 void glucose_render_delta_flash(int, uint16_t, bool) { ++delta_frames; }
 void glucose_render_stale(const GlucoseReading&, const AppConfig&, uint8_t) {}
 
@@ -249,5 +250,33 @@ int main() {
     notification = false; cfg.auto_cycle_enabled = false;
     engine_force_state(STATE_WEATHER_DISPLAY); settle();
     assert(engine_get_state() == STATE_WEATHER_DISPLAY);
+    // Existing installations retain their alert timeout, but numeric readings
+    // and arrows turn gray strictly after seven minutes, for either provider.
+    cfg.color_in_range = 0x34A853; cfg.brightness = 100; cfg.thresh_high = 180;
+    cfg.auto_brightness = false; reading.glucose = 112; reading.trend = TREND_FLAT;
+    const uint16_t gray = color_from_uint32(cfg.color_stale);
+    const uint16_t green = color_from_uint32(cfg.color_in_range);
+    for (int provider : {0, 1}) {
+        cfg.data_source = provider;
+        for (unsigned long age : {300000UL, 360000UL, 419999UL, 420000UL, 420001UL, 600000UL}) {
+            age_ms = age; delta_flash_active = false; last_seen_glucose = 112;
+            render_state(STATE_GLUCOSE_DISPLAY);
+            assert(drawn_glucose == 112);
+            assert(drawn_color == (age > 420000UL ? gray : green));
+            assert(trend_color == drawn_color);
+            assert(brightness == effective_brightness());
+            render_state(STATE_TREND_DISPLAY);
+            assert(trend_color == drawn_color);
+        }
+        delta_flash_active = true; delta_flash_start_ms = now_ms;
+        delta_frames = 0; age_ms = 420001;
+        render_state(STATE_GLUCOSE_DISPLAY);
+        assert(!delta_flash_active && delta_frames == 0 && drawn_glucose == 112);
+        age_ms = 0; render_state(STATE_GLUCOSE_DISPLAY);
+        assert(drawn_color == green && trend_color == green);
+    }
+    cfg.data_source = 2; age_ms = 600000;
+    render_state(STATE_GLUCOSE_DISPLAY);
+    assert(drawn_color == green);
     return 0;
 }
