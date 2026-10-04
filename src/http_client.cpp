@@ -1,8 +1,7 @@
+#include "http_client.h"
 #include "time_engine.h"
-#include <time.h>
 #include "glucose_freshness.h"
 #include "trend_mapping.h"
-#include "http_client.h"
 #include "config_manager.h"
 #include "wifi_manager.h"
 #include "libre_client.h"
@@ -10,6 +9,7 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <Arduino.h>
+#include <time.h>
 
 // Dexcom Share constants
 #define DEXCOM_APP_ID "d89443d2-327c-4a6f-89e5-496bbb0317db"

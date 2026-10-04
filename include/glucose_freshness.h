@@ -2,10 +2,11 @@
 #define GLUCOSE_FRESHNESS_H
 #include <stdint.h>
 
-// A visual warning does not change the separately configured alert policy.
+// Allow two minutes beyond the five-minute sensor cadence for upload/poll delay.
+// A shorter configured stale timeout or repeated failures still takes precedence.
 inline bool glucose_display_is_stale(int source, unsigned long age_ms,
                                      int timeout_min, int failures) {
-    return source != 2 && (age_ms > 300000UL ||
+    return source != 2 && (age_ms > 420000UL ||
            age_ms >= (unsigned long)timeout_min * 60000UL || failures >= 5);
 }
 

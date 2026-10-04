@@ -251,25 +251,25 @@ int main() {
     engine_force_state(STATE_WEATHER_DISPLAY); settle();
     assert(engine_get_state() == STATE_WEATHER_DISPLAY);
     // Existing installations retain their alert timeout, but numeric readings
-    // and arrows turn gray strictly after five minutes, for either provider.
+    // and arrows turn gray strictly after seven minutes, for either provider.
     cfg.color_in_range = 0x34A853; cfg.brightness = 100; cfg.thresh_high = 180;
     cfg.auto_brightness = false; reading.glucose = 112; reading.trend = TREND_FLAT;
     const uint16_t gray = color_from_uint32(cfg.color_stale);
     const uint16_t green = color_from_uint32(cfg.color_in_range);
     for (int provider : {0, 1}) {
         cfg.data_source = provider;
-        for (unsigned long age : {299999UL, 300000UL, 300001UL, 600000UL}) {
+        for (unsigned long age : {300000UL, 360000UL, 419999UL, 420000UL, 420001UL, 600000UL}) {
             age_ms = age; delta_flash_active = false; last_seen_glucose = 112;
             render_state(STATE_GLUCOSE_DISPLAY);
             assert(drawn_glucose == 112);
-            assert(drawn_color == (age > 300000UL ? gray : green));
+            assert(drawn_color == (age > 420000UL ? gray : green));
             assert(trend_color == drawn_color);
             assert(brightness == effective_brightness());
             render_state(STATE_TREND_DISPLAY);
             assert(trend_color == drawn_color);
         }
         delta_flash_active = true; delta_flash_start_ms = now_ms;
-        delta_frames = 0; age_ms = 300001;
+        delta_frames = 0; age_ms = 420001;
         render_state(STATE_GLUCOSE_DISPLAY);
         assert(!delta_flash_active && delta_frames == 0 && drawn_glucose == 112);
         age_ms = 0; render_state(STATE_GLUCOSE_DISPLAY);

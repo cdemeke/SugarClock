@@ -292,6 +292,8 @@ The server endpoint should return JSON in this format:
 }
 ```
 
+`timestamp` must be the **sensor reading's UTC Unix epoch in seconds**, not milliseconds, local time, or the time the endpoint was polled. Repeated responses for the same reading must retain the same timestamp. With network time synchronized, SugarClock uses this timestamp for reading age, including the gray display cue and the configured stale timeout that suppresses buzzer alerts and releases urgent/low-glucose display priority. A skewed server timestamp can therefore suppress alerts even when requests succeed; keep server time synchronized and preserve the sensor timestamp. If no sensor timestamp is available, omit it or use `0` for receipt-time fallback; that fallback cannot detect cached readings returned by successful polls.
+
 Supported trend values: `RisingFast` (↑↑), `Rising` (↑), `FortyFiveUp` (↗), `Flat` (→), `FortyFiveDown` (↘), `Falling` (↓), `FallingFast` (↓↓). Dexcom/Nightscout names `DoubleUp`, `SingleUp`, `SingleDown`, and `DoubleDown` are also accepted (case-insensitive).
 
 ---
@@ -313,8 +315,7 @@ Supported trend values: `RisingFast` (↑↑), `Rising` (↑), `FortyFiveUp` (�
 | Glucose number | Green | In range (80-180 mg/dL default) |
 | Glucose number | Orange | Low (70-80) or High (180-250) |
 | Glucose number | Red | Urgent low (<70) or Urgent high (>250) |
-| Dimmed + `!` | Yellow | Data 10-20 minutes old (warning) |
-| Glucose number | Gray | Data >20 min old or 5+ fetch failures (stale) |
+| Glucose number | Gray | Reading older than 7 minutes, configured stale timeout reached (if sooner), or 5+ fetch failures |
 | `NO DATA` | Red | 10+ failures or never received data |
 | `NO WIFI` | Red | WiFi disconnected |
 | Setup AP name / `192.168.4.1` | Teal | On-device WiFi setup is available |
