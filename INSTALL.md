@@ -315,7 +315,7 @@ Supported trend values: `RisingFast` (↑↑), `Rising` (↑), `FortyFiveUp` (�
 | Glucose number | Green | In range (80-180 mg/dL default) |
 | Glucose number | Orange | Low (70-80) or High (180-250) |
 | Glucose number | Red | Urgent low (<70) or Urgent high (>250) |
-| Glucose number | Gray | Reading older than 7 minutes, configured stale timeout reached (if sooner), or 5+ fetch failures |
+| Glucose number | Gray | Reading exceeds visual freshness allowance, configured stale timeout reached (if sooner), or 5+ fetch failures |
 | `NO DATA` | Red | 10+ failures or never received data |
 | `NO WIFI` | Red | WiFi disconnected |
 | Setup AP name / `192.168.4.1` | Teal | On-device WiFi setup is available |
@@ -377,3 +377,7 @@ pio run --target uploadfs  # flash web UI (if changed)
 ```
 
 Your configuration is stored in NVS (non-volatile storage) and persists across firmware updates. Only a factory reset erases settings.
+
+### Visual freshness allowance
+
+The gray display cutoff is the greater of seven minutes or five minutes of sensor cadence plus the configured poll interval plus one minute of delivery grace. With the default 60-second polling interval it is seven minutes; with 300-second polling it is eleven minutes. Readings turn gray strictly after that allowance. The configured stale timeout still takes precedence at its exact boundary, so a five-minute stale timeout will gray readings at five minutes regardless of polling. Long delays can still show gray; this is an age warning, not a guarantee of a connection failure.

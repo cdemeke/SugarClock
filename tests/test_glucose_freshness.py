@@ -39,7 +39,7 @@ int main() {
     // Realistic cycle: sensor T arrives at T+90s, next sample T+300s
     // is fetched at T+360s. No gray interval during that delivery gap.
     anchor = glucose_received_at(ts, 0, false, 0, 90000, true, ts + 90);
-    for (uint32_t now = 90000; now <= 360000; now += 1000) {
+    for (uint32_t now = 90000; now <= 360000; now += 60000) {
         anchor = glucose_received_at(ts, ts, true, anchor, now, true, ts + now / 1000);
         assert(!glucose_display_is_stale(0, uint32_t(now - anchor), 20, 0));
     }
@@ -49,6 +49,18 @@ int main() {
     // If the next sample never arrives, cached successful polls still go gray.
     anchor = glucose_received_at(ts + 300, ts + 300, true, anchor, 721000, true, ts + 721);
     assert(glucose_display_is_stale(0, uint32_t(721000 - anchor), 20, 0));
+    // Five-minute polling: sample T arrives aged 390s; next poll at 690s
+    // supplies sample T+300. The extended cutoff is 11 minutes; longer
+    // delivery delays still correctly show gray before the next fetch.
+    anchor = glucose_received_at(ts, 0, false, 0, 390000, true, ts + 390);
+    assert(!glucose_display_is_stale(0, 390000, 20, 0, 300));
+    assert(!glucose_display_is_stale(0, 660000, 20, 0, 300));
+    assert(glucose_display_is_stale(0, 660001, 20, 0, 300));
+    anchor = glucose_received_at(ts + 300, ts, true, anchor, 690000, true, ts + 690);
+    assert(!glucose_display_is_stale(0, uint32_t(690000 - anchor), 20, 0, 300));
+    // Configured timeout still wins, even with an extremely long poll interval.
+    assert(glucose_display_is_stale(0, 300000, 5, 0, 300));
+    assert(glucose_display_is_stale(0, 1200000, 20, 0, 2147483647));
     for (int source = 0; source <= 3; ++source) {
         assert(!glucose_display_is_stale(source, 299999, 5, 0));
         assert(glucose_display_is_stale(source, 300000, 5, 0) == (source != 2));

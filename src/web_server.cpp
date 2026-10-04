@@ -1,5 +1,5 @@
-#include "glucose_freshness.h"
 #include "web_server.h"
+#include "glucose_freshness.h"
 #include "config_manager.h"
 #include "companion.h"
 #include "wifi_manager.h"
@@ -86,7 +86,7 @@ static void handle_status(AsyncWebServerRequest* request) {
     doc["use_mmol"] = cfg.use_mmol;
     unsigned long age = http_time_since_last_reading();
     int failures = http_get_failure_count();
-    bool is_stale = glucose_display_is_stale(cfg.data_source, age, cfg.stale_timeout_min, failures);
+    bool is_stale = glucose_display_is_stale(cfg.data_source, age, cfg.stale_timeout_min, failures, cfg.poll_interval_sec);
 
     if (r.valid) {
         if (is_stale) {

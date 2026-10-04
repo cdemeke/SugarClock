@@ -2,12 +2,23 @@
 #define GLUCOSE_FRESHNESS_H
 #include <stdint.h>
 
-// Allow two minutes beyond the five-minute sensor cadence for upload/poll delay.
-// A shorter configured stale timeout or repeated failures still takes precedence.
+constexpr int GLUCOSE_DEMO_SOURCE = 2;
+constexpr unsigned long GLUCOSE_VISUAL_STALE_MS = 420000UL;
+constexpr unsigned long GLUCOSE_SENSOR_CADENCE_SEC = 300UL;
+constexpr unsigned long GLUCOSE_DELIVERY_GRACE_SEC = 60UL;
+
+// Accommodate sensor cadence, one poll interval and delivery grace. The
+// configured alert timeout remains an independent upper bound on freshness.
 inline bool glucose_display_is_stale(int source, unsigned long age_ms,
-                                     int timeout_min, int failures) {
-    return source != 2 && (age_ms > 420000UL ||
-           age_ms >= (unsigned long)timeout_min * 60000UL || failures >= 5);
+                                     int timeout_min, int failures,
+                                     int poll_interval_sec = 60) {
+    const uint64_t poll_sec = poll_interval_sec > 0 ? uint64_t(poll_interval_sec) : 0;
+    const uint64_t cadence_ms = (GLUCOSE_SENSOR_CADENCE_SEC + poll_sec +
+                                 GLUCOSE_DELIVERY_GRACE_SEC) * 1000;
+    const uint64_t visual_ms = cadence_ms > GLUCOSE_VISUAL_STALE_MS
+        ? cadence_ms : GLUCOSE_VISUAL_STALE_MS;
+    return source != GLUCOSE_DEMO_SOURCE && (age_ms > visual_ms ||
+           uint64_t(age_ms) >= uint64_t(timeout_min) * 60000 || failures >= 5);
 }
 
 // Preserve elapsed age for repeated sensor timestamps, including before NTP

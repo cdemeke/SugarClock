@@ -1,5 +1,5 @@
-#include "glucose_freshness.h"
 #include "glucose_engine.h"
+#include "glucose_freshness.h"
 #include "glucose_render.h"
 #include "hardware_pins.h"
 #include "display.h"
@@ -445,7 +445,7 @@ static void render_state(DisplayState state) {
             unsigned long age = http_time_since_last_reading();
             int failures = http_get_failure_count();
             bool is_stale = glucose_display_is_stale(cfg.data_source, age,
-                                                      cfg.stale_timeout_min, failures);
+                                                      cfg.stale_timeout_min, failures, cfg.poll_interval_sec);
 
             uint16_t color;
             if (is_stale) {
@@ -689,7 +689,7 @@ static void render_state(DisplayState state) {
                 unsigned long age = http_time_since_last_reading();
                 int failures = http_get_failure_count();
                 bool is_stale = glucose_display_is_stale(cfg.data_source, age,
-                                                      cfg.stale_timeout_min, failures);
+                                                      cfg.stale_timeout_min, failures, cfg.poll_interval_sec);
 
                 uint16_t tcolor = is_stale ? color_from_uint32(cfg.color_stale) : themed_glucose_color(reading.glucose, cfg);
 
