@@ -75,6 +75,8 @@ long countdown_get_remaining_sec() { return 0; }
 bool weather_has_data() { return false; }
 const WeatherReading& weather_get_reading() { static WeatherReading wx = {}; return wx; }
 void weather_set_pre_fetch_callback(WeatherPreFetchCallback) {}
+OtaDisplayPhase ota_get_display_phase() { return OTA_DISPLAY_NONE; }
+void ota_display_frame_shown(OtaDisplayPhase) {}
 void display_set_brightness(uint8_t) {}
 void display_set_transition_level(uint8_t level) { frame_level = level; }
 void display_clear() {}
@@ -82,6 +84,7 @@ void display_show() {}
 void display_scroll_reset() {}
 bool display_scroll_text(const char*, int, uint16_t, unsigned int) { return false; }
 void display_draw_text(const char*, int, int, uint16_t) {}
+void display_draw_centered_text(const char*, int, uint16_t) {}
 void display_draw_pixel(int, int, uint16_t) {}
 void display_draw_time(int, int, bool, bool, uint16_t) {}
 void display_draw_trend(int, int, int, uint16_t) {}

@@ -22,6 +22,7 @@ class WeatherPrefetchTests(unittest.TestCase):
                       'Callback end marker is missing; update the callback extraction before compiling.')
         callback = signature + remainder.split(end_marker, 1)[0]
         harness = r'''
+#include "ota_display.h"
 #include "weather_render.h"
 #include <assert.h>
 #include <vector>
@@ -34,6 +35,9 @@ static const int STATE_WEATHER_DISPLAY = 1;
 static int current_state = STATE_WEATHER_DISPLAY;
 static uint8_t transition_level = 73;
 static std::vector<int> calls;
+static OtaDisplayPhase ota_phase = OTA_DISPLAY_NONE;
+static OtaDisplayPhase last_ota_display_phase = OTA_DISPLAY_NONE;
+OtaDisplayPhase ota_get_display_phase() { return ota_phase; }
 TaskHandle_t xTaskGetCurrentTaskHandle() { return current_task; }
 uint32_t millis() { return 1250; }
 void display_clear() { calls.push_back(1); }
@@ -66,7 +70,18 @@ int main() {
     assert((calls == std::vector<int>{1, 2, 3, 4}));
     assert(weather_animation.epoch_ms == 1250);
 
+    // The OTA overlay owns the LED buffer, including its final rendered frame.
     calls.clear();
+    const WeatherAnimationState before_ota = weather_animation;
+    ota_phase = OTA_DISPLAY_UPDATING;
+    on_weather_pre_fetch();
+    ota_phase = OTA_DISPLAY_NONE;
+    last_ota_display_phase = OTA_DISPLAY_FAILED;
+    on_weather_pre_fetch();
+    last_ota_display_phase = OTA_DISPLAY_NONE;
+    assert(calls.empty());
+    assert(weather_animation.epoch_ms == before_ota.epoch_ms);
+
     current_state = 2;
     on_weather_pre_fetch();
     assert(calls.empty());

@@ -18,6 +18,7 @@
 #include "countdown_engine.h"
 #include "net_check.h"
 #include "sensors.h"
+#include "ota_manager.h"
 #include <Arduino.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -37,6 +38,7 @@ static bool connection_info_visible = false;
 static unsigned long connection_info_expires_ms = 0;
 static unsigned long last_render_ms = 0;
 static unsigned long boot_start_ms = 0;
+static OtaDisplayPhase last_ota_display_phase = OTA_DISPLAY_NONE;
 
 // Delta display flash
 static int last_seen_glucose = 0;
@@ -113,6 +115,9 @@ bool engine_low_glucose_lock_active() {
 // Freeze a complete compact weather frame before a blocking HTTP fetch, using
 // the same numeric rounding, layout, and current fade level as normal rendering.
 static void on_weather_pre_fetch() {
+    // The OTA overlay owns the LED buffer until its final frame is replaced.
+    if (ota_get_display_phase() != OTA_DISPLAY_NONE ||
+        last_ota_display_phase != OTA_DISPLAY_NONE) return;
     // Test Weather API also fetches from AsyncTCP. Only the engine's task may
     // touch its animation state or the LED buffer; that task keeps rendering
     // normally while a different task is fetching.
@@ -871,10 +876,51 @@ static void render_state(DisplayState state) {
     }
 }
 
+static void reset_display_transition() {
+    transition_phase = TRANSITION_NONE;
+    transition_target = current_state;
+    transition_level = 255;
+    transition_start_level = 255;
+    display_set_transition_level(255);
+    display_scroll_reset();
+    delta_flash_active = false;
+}
+
+static bool render_ota_display() {
+    OtaDisplayPhase phase = ota_get_display_phase();
+    // Verification uses the same marquee; do not restart a partially read word.
+    OtaDisplayPhase screen = phase == OTA_DISPLAY_VERIFYING ? OTA_DISPLAY_UPDATING : phase;
+    if (screen != last_ota_display_phase) {
+        reset_display_transition();
+        last_cycle_ms = millis();
+        last_ota_display_phase = screen;
+    }
+    if (screen == OTA_DISPLAY_NONE) return false;
+
+    display_set_brightness(effective_brightness());
+    display_set_transition_level(255);
+    display_clear();
+    uint16_t color = display_color(0, 200, 200);
+    if (screen == OTA_DISPLAY_REBOOTING) {
+        display_draw_centered_text("BOOT", 0, color);
+    } else {
+        display_scroll_text(screen == OTA_DISPLAY_FAILED ? "Update failed" : "Updating...",
+                            0, color, 70);
+    }
+    display_show();
+    ota_display_frame_shown(phase);
+    return true;
+}
+
 void engine_loop() {
     // Throttle rendering
     if (millis() - last_render_ms < RENDER_INTERVAL_MS) return;
     last_render_ms = millis();
+
+    if (render_ota_display()) {
+        check_alerts();
+        return;
+    }
 
     // Periodically rebuild toggle order (catches sysmon data appearing/disappearing)
     static unsigned long last_rebuild_ms = 0;
