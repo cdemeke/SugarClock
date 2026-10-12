@@ -11,9 +11,12 @@
 <p align="center">
   <a href="https://sugarclock.com/">Website</a> &bull;
   <a href="#quick-start">Quick Start</a> &bull;
-  <a href="https://sugarclock.com/setup.html">Setup Guide</a> &bull;
-  <a href="https://sugarclock.com/support.html">Help & FAQ</a>
+  <a href="https://sugarclock.com/#install">Setup Guide</a> &bull;
+  <a href="https://sugarclock.com/faq.html">Help & FAQ</a>
 </p>
+
+> [!WARNING]
+> **SugarClock is not a medical device.** It is an unofficial DIY project and is not affiliated with or endorsed by Dexcom, Abbott, Nightscout, or Ulanzi. Readings can be delayed or missing, and the clock may not sound alerts when its data is stale. Do not use SugarClock for treatment decisions or as a replacement for your CGM's own alarms; always confirm with your CGM receiver, app, or blood glucose meter.
 
 ---
 
@@ -93,7 +96,7 @@ Open **SugarClock Setup** and follow the on-screen steps. The app will walk you 
 
 When it's done, the clock restarts and your glucose reading should appear within a minute.
 
-For detailed step-by-step instructions (with screenshots), see the **[Setup Guide](https://sugarclock.com/setup.html)**.
+For browser-based installation (Chrome or Edge on any computer), see the **[Setup Guide](https://sugarclock.com/#install)**.
 
 <details>
 <summary><strong>Advanced: Build from source (all platforms)</strong></summary>
@@ -149,7 +152,7 @@ Companion integrations: see the [configuration API and legacy-field migration no
 | `NO WIFI` on display | Check SSID/password, make sure it's a 2.4 GHz network |
 | `NO DATA` on display | Check Dexcom/LibreLinkUp credentials or server URL on the config page |
 
-See the **[Help & FAQ](https://sugarclock.com/support.html)** for more.
+See the **[Help & FAQ](https://sugarclock.com/faq.html)** for more.
 
 ## Backup & Restore Factory Firmware
 
@@ -170,4 +173,4 @@ esptool.py -p /dev/cu.usbserial-* -b 460800 write_flash 0x0 tc001_factory_backup
 
 ## License
 
-MIT
+Released under the [MIT License](LICENSE).
