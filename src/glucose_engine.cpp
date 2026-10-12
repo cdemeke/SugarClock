@@ -457,7 +457,9 @@ static void render_state(DisplayState state) {
             }
 
             if (stale_warning) {
-                display_set_brightness(effective_brightness() / 3);
+                const uint8_t brightness = effective_brightness();
+                // Dimming a visible reading must not turn levels 1 or 2 off.
+                display_set_brightness(brightness > 0 && brightness < 3 ? 1 : brightness / 3);
             } else {
                 display_set_brightness(effective_brightness());
             }

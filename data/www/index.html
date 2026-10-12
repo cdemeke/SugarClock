@@ -190,10 +190,15 @@
                     <h2>Brightness</h2>
                     <div class="brightness-label-row">
                         <label for="brightness">Display brightness</label>
-                        <output id="brightness-value" for="brightness">16%</output>
+                        <output id="brightness-value" for="brightness">15.7%</output>
                     </div>
-                    <input class="brightness-slider" type="range" id="brightness" min="1" max="100" value="16" aria-valuetext="16 percent">
-                    <div class="brightness-scale" aria-hidden="true"><span>1%</span><span>100%</span></div>
+                    <input class="brightness-slider" type="range" id="brightness" min="1" max="255" step="1" value="40" aria-valuetext="15.7 percent" aria-describedby="brightness-help brightness-mode-hint">
+                    <div class="brightness-scale" aria-hidden="true"><span>0.4% · Minimum</span><span>100%</span></div>
+                    <div class="brightness-fine-controls" role="group" aria-label="Fine brightness adjustment">
+                        <button type="button" class="btn btn-outline" id="brightness-decrease" aria-label="Decrease brightness one step">− Dimmer</button>
+                        <button type="button" class="btn btn-outline" id="brightness-increase" aria-label="Increase brightness one step">+ Brighter</button>
+                    </div>
+                    <div class="hint" id="brightness-help">Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.</div>
                     <div class="hint" id="brightness-mode-hint">Manual brightness.</div>
                     <details class="wifi-advanced">
                         <summary>Advanced brightness</summary>
@@ -201,7 +206,7 @@
                             <label for="auto_brightness">Adjust brightness automatically</label>
                             <input type="checkbox" id="auto_brightness">
                         </div>
-                        <div class="hint">Uses the clock's light sensor. Moving the slider switches back to manual brightness.</div>
+                        <div class="hint">Uses the clock's light sensor. Changing brightness switches back to manual control.</div>
                     </details>
                 </div>
 
@@ -222,9 +227,9 @@
                             </div>
                         </div>
                         <div class="form-group">
-                            <label>Night Brightness (1-255)</label>
+                            <label for="night_brightness">Night Brightness (1-255)</label>
                             <input type="number" id="night_brightness" min="1" max="255" value="10">
-                            <div class="hint">Automatically dims during night hours</div>
+                            <div class="hint">Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.</div>
                         </div>
                     </div>
                 </div>
@@ -1056,17 +1061,31 @@ curl -X POST http://DEVICE_IP/api/sysmon \
         let brightnessModeChanged = false;
         function updateBrightnessLabel() {
             const slider = document.getElementById('brightness');
-            document.getElementById('brightness-value').textContent = slider.value + '%';
-            slider.setAttribute('aria-valuetext', slider.value + ' percent');
+            const percent = Number((Number(slider.value) * 100 / 255).toFixed(1));
+            document.getElementById('brightness-value').textContent = percent + '%';
+            slider.setAttribute('aria-valuetext', percent + ' percent' + (Number(slider.value) === 1 ? ', minimum' : ''));
+            document.getElementById('brightness-decrease').disabled = Number(slider.value) <= 1;
+            document.getElementById('brightness-increase').disabled = Number(slider.value) >= 255;
             document.getElementById('brightness-mode-hint').textContent = document.getElementById('auto_brightness').checked
-                ? 'Automatic brightness is on. Move the slider to choose a manual level.'
+                ? 'Automatic brightness is on. Adjust brightness to choose a manual level.'
                 : 'Manual brightness. Automatic adjustment is available under Advanced brightness.';
         }
-        document.getElementById('brightness').addEventListener('input', () => {
-            brightnessDeviceValue = Math.round(Number(document.getElementById('brightness').value) * 255 / 100);
+        function selectManualBrightness() {
+            // Keep the slider in device units so the lowest levels are reachable
+            // and existing values never make a lossy round trip through percent.
+            brightnessDeviceValue = Number(document.getElementById('brightness').value);
             brightnessChanged = true;
             document.getElementById('auto_brightness').checked = false;
             updateBrightnessLabel();
+        }
+        document.getElementById('brightness').addEventListener('input', selectManualBrightness);
+        document.getElementById('brightness-decrease').addEventListener('click', () => {
+            document.getElementById('brightness').stepDown();
+            selectManualBrightness();
+        });
+        document.getElementById('brightness-increase').addEventListener('click', () => {
+            document.getElementById('brightness').stepUp();
+            selectManualBrightness();
         });
         document.getElementById('auto_brightness').addEventListener('change', () => {
             brightnessModeChanged = true;
@@ -1368,7 +1387,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
                 // Display
                 brightnessDeviceValue = Math.max(1, Math.min(255, Number(c.brightness) || 40));
-                document.getElementById('brightness').value = Math.max(1, Math.round(brightnessDeviceValue * 100 / 255));
+                document.getElementById('brightness').value = brightnessDeviceValue;
                 brightnessChanged = false;
                 brightnessModeChanged = false;
                 document.getElementById('auto_brightness').checked = c.auto_brightness === true;

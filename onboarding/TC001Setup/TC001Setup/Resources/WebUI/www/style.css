@@ -1062,6 +1062,15 @@ select {
 
 .brightness-scale { color: var(--text-secondary); font-size: 13px; }
 
+.brightness-fine-controls {
+    display: flex;
+    gap: 12px;
+    margin: 16px 0 8px;
+}
+
+.brightness-fine-controls .btn { flex: 1; min-height: 44px; }
+.brightness-fine-controls .btn:disabled { opacity: 0.45; cursor: default; }
+
 .range-color-hint {
     margin-top: 4px;
     padding-right: 16px;

@@ -19,6 +19,7 @@ static unsigned long now_ms = 0, age_ms = 0;
 static int failures = 0, drawn_glucose = 0, delta_frames = 0, button_actions = 0;
 static uint16_t drawn_color = 0;
 static uint8_t frame_level = 0;
+static uint8_t frame_brightness = 0;
 static bool connected = true, ap_mode = false, notification = false, ever_received = true;
 static NetCheckResult network = NC_OK, data_network = NC_OK;
 
@@ -75,7 +76,7 @@ long countdown_get_remaining_sec() { return 0; }
 bool weather_has_data() { return false; }
 const WeatherReading& weather_get_reading() { static WeatherReading wx = {}; return wx; }
 void weather_set_pre_fetch_callback(WeatherPreFetchCallback) {}
-void display_set_brightness(uint8_t) {}
+void display_set_brightness(uint8_t brightness) { frame_brightness = brightness; }
 void display_set_transition_level(uint8_t level) { frame_level = level; }
 void display_clear() {}
 void display_show() {}
@@ -133,6 +134,28 @@ int main() {
     strcpy(reading.message, "hello");
     assert_low_frame();
     assert_low_frame();
+    // Stale-warning dimming keeps the new manual/night minimum levels visible.
+    // Explicit brightness 0 still means off; ordinary dimming is unchanged.
+    age_ms = STALE_WARNING_MS;
+    const uint8_t levels[] = {0, 1, 2, 3, 6};
+    const uint8_t expected[] = {0, 1, 1, 1, 2};
+    for (int i = 0; i < 5; ++i) {
+        cfg.brightness = levels[i];
+        assert_low_frame();
+        assert(frame_brightness == expected[i]);
+    }
+    cfg.night_mode_enabled = true;
+    cfg.night_start_hour = 0; cfg.night_end_hour = 23;
+    cfg.auto_brightness = true;
+    for (int i = 0; i < 5; ++i) {
+        cfg.night_brightness = levels[i];
+        assert_low_frame();
+        assert(frame_brightness == expected[i]);
+    }
+    cfg.night_mode_enabled = false;
+    cfg.auto_brightness = false;
+    cfg.brightness = 40;
+    age_ms = 0;
     for (int mode = STATE_BOOT; mode <= STATE_AMBIENT_CREATURE_DISPLAY; ++mode) {
         engine_force_state(static_cast<DisplayState>(mode));
         reading.force_mode = mode;
