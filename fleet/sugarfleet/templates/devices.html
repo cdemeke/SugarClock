@@ -24,5 +24,10 @@
 <p class="hint">Counts represent installations, not unique people. An erased clock can acquire a new installation ID.</p>
 {% endblock %}
 {% block scripts %}<script>
-document.querySelector('#device-search').addEventListener('input',event=>{const query=event.target.value.trim().toLowerCase();document.querySelectorAll('[data-search]').forEach(row=>row.hidden=!row.dataset.search.includes(query));});
+const deviceSearch=document.querySelector('#device-search');
+function filterDevices(){const query=deviceSearch.value.trim().toLowerCase();document.querySelectorAll('[data-search]').forEach(row=>row.hidden=!row.dataset.search.includes(query));}
+deviceSearch.addEventListener('input',filterDevices);
+// The overview links here with ?q= to list clocks for a firmware version or location.
+const initialQuery=new URLSearchParams(location.search).get('q');
+if(initialQuery){deviceSearch.value=initialQuery;filterDevices();}
 </script>{% endblock %}
