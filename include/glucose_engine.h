@@ -66,8 +66,8 @@ void engine_set_message(const char* msg);
 // Set the preferred default mode (glucose or time)
 void engine_set_default_mode(DisplayState mode);
 
-// True only while fresh low glucose currently locks the display.
-bool engine_low_glucose_lock_active();
+// True only while fresh out-of-range glucose currently locks the display.
+bool engine_glucose_lock_active();
 
 // Toggle between display modes (data-driven array). False if blocked by the lock.
 bool engine_toggle_mode();

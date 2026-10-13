@@ -61,7 +61,7 @@ static void handle_status(AsyncWebServerRequest* request) {
     doc["valid"] = r.valid;
     doc["data_age_sec"] = r.valid ? (millis() - r.received_at_ms) / 1000 : -1;
     doc["state"] = engine_state_name(engine_get_state());
-    doc["glucose_display_locked"] = engine_low_glucose_lock_active();
+    doc["glucose_display_locked"] = engine_glucose_lock_active();
     doc["wifi_connected"] = wifi_is_connected();
     doc["wifi_ip"] = wifi_get_ip();
     doc["wifi_rssi"] = wifi_get_rssi();
@@ -1050,8 +1050,8 @@ static void handle_display_navigation(AsyncWebServerRequest* request, bool forwa
     doc["locked"] = !changed;
     doc["mode"] = engine_state_name(engine_get_user_mode());
     if (!changed) {
-        doc["error"] = "Blood sugar display is locked while glucose is low.";
-        doc["reason"] = "low_glucose";
+        doc["error"] = "Blood sugar display is locked while glucose is low or high.";
+        doc["reason"] = "out_of_range_glucose";
     }
     String output;
     serializeJson(doc, output);

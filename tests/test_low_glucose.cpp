@@ -108,7 +108,7 @@ static void assert_low_frame() {
 }
 
 int main() {
-    cfg.thresh_low = 80; cfg.thresh_urgent_low = 70; cfg.thresh_urgent_high = 250;
+    cfg.thresh_high = 180; cfg.thresh_low = 80; cfg.thresh_urgent_low = 70; cfg.thresh_urgent_high = 250;
     cfg.stale_timeout_min = 20; cfg.auto_cycle_sec = 3;
     cfg.time_display_enabled = true; cfg.weather_enabled = true;
     cfg.timer_enabled = true; cfg.stopwatch_enabled = true;
@@ -171,7 +171,7 @@ int main() {
     // the lock, including controls and the deliberate connection-info shortcut.
     age_ms = 20UL * 60000 - 1; failures = 4; assert_low_frame();
     age_ms += 1;
-    assert(!engine_low_glucose_lock_active());
+    assert(!engine_glucose_lock_active());
     settle(); assert(engine_get_state() == STATE_STALE_WARNING);
     engine_show_connection_info(); settle();
     assert(engine_get_state() == STATE_CONNECTION_INFO_DISPLAY);
@@ -179,7 +179,7 @@ int main() {
     assert(engine_toggle_mode());
     assert(engine_toggle_mode_prev());
     age_ms = 0; failures = 5;
-    assert(!engine_low_glucose_lock_active());
+    assert(!engine_glucose_lock_active());
     settle(); assert(engine_get_state() == STATE_STALE_WARNING);
     failures = 10; settle(); assert(engine_get_state() == STATE_NO_DATA);
     failures = 0;
@@ -214,7 +214,7 @@ int main() {
     settle(); assert(engine_get_state() == STATE_NO_WIFI);
     failures = 0; assert_low_frame();
     ap_mode = true; settle(); assert(engine_get_state() == STATE_SETUP_AP);
-    assert(!engine_low_glucose_lock_active());
+    assert(!engine_glucose_lock_active());
     connected = true; ap_mode = false; assert_low_frame();
 
     // Demo uses synthetic readings, independently of network and data age.
@@ -225,7 +225,7 @@ int main() {
 
     // Invalid/cleared readings don't lock the display or invent a low value.
     reading.valid = false;
-    assert(!engine_low_glucose_lock_active());
+    assert(!engine_glucose_lock_active());
     assert(evaluate_state() == STATE_SETUP_AP);
     reading.valid = true;
     connected = true; ap_mode = false; network = NC_OK; age_ms = 0; failures = 0;
@@ -239,13 +239,39 @@ int main() {
     tick(3000); settle(); assert(engine_get_state() != saved_mode);
     // Updated thresholds take effect without rebooting, with strict boundaries.
     cfg.thresh_low = 90; reading.glucose = 89; assert_low_frame();
-    reading.glucose = 90; assert(!engine_low_glucose_lock_active());
-    reading.glucose = 300; assert(!engine_low_glucose_lock_active());
+    reading.glucose = 90; assert(!engine_glucose_lock_active());
+    // High and urgent-high readings also hold the number and block navigation.
+    for (int glucose : {181, 250, 300}) {
+        reading.glucose = glucose; assert_low_frame();
+        assert(!engine_toggle_mode()); assert(!engine_toggle_mode_prev());
+        tick(5000); assert_low_frame();
+    }
+    cfg.auto_cycle_enabled = false;
+    engine_set_default_mode(STATE_GLUCOSE_DISPLAY);
+    age_ms = 20UL * 60000;
+    assert(!engine_glucose_lock_active());
+    settle(); assert(engine_get_state() == STATE_STALE_WARNING);
+    age_ms = 0; assert_low_frame();
+    engine_set_default_mode(saved_mode); engine_rebuild_toggle_order();
+    cfg.auto_cycle_enabled = true;
+    // Recovery at the exact high boundary resumes the saved screen.
+    reading.glucose = 180; settle();
+    assert(!engine_glucose_lock_active());
+    assert(engine_get_state() == engine_get_user_mode());
+    const DisplayState recovered_mode = engine_get_user_mode();
+    tick(100); assert(engine_get_state() == recovered_mode);
+    tick(3000); settle(); assert(engine_get_state() != recovered_mode);
+    cfg.thresh_high = 200; reading.glucose = 200;
+    assert(!engine_glucose_lock_active());
+    reading.glucose = 201; assert_low_frame();
+    cfg.thresh_high = 300; reading.glucose = 251; assert_low_frame();
     // Preserve urgent-low handling even with misordered configured thresholds.
     cfg.thresh_low = 60; reading.glucose = 65; assert_low_frame();
     // Disabling the option while low restores normal override precedence.
     cfg.glucose_only_when_low = false; notification = true; settle();
     assert(engine_get_state() == STATE_NOTIFY_DISPLAY);
+    reading.glucose = 220;
+    assert(!engine_glucose_lock_active());
     notification = false; cfg.auto_cycle_enabled = false;
     engine_force_state(STATE_WEATHER_DISPLAY); settle();
     assert(engine_get_state() == STATE_WEATHER_DISPLAY);

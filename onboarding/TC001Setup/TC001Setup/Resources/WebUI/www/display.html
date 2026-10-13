@@ -140,7 +140,7 @@
             glucoseDisplayLocked=locked===true;
             document.querySelectorAll('.display-nav-btn').forEach(button=>button.disabled=glucoseDisplayLocked);
             const status=document.getElementById('display-control-status');
-            if(glucoseDisplayLocked)status.textContent='Blood sugar display is locked while glucose is low.';
+            if(glucoseDisplayLocked)status.textContent='Blood sugar display is locked while glucose is low or high.';
             else if(wasLocked)status.textContent='';
         }
 
