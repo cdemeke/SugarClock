@@ -33,19 +33,11 @@ struct AppConfig {
     char dexcom_password[64];
     bool dexcom_us;            // true=US (share2), false=international (shareous1)
 
-    // FreeStyle Libre (LibreLinkUp follower account)
-    char libre_email[64];
-    char libre_password[64];
-    char libre_region[8];      // auto-detected from login redirect, e.g. "us"; "" = unknown
-    char libre_patient_id[64]; // stable LibreLinkUp patientId, never an array index
-    char libre_patient_name[128];
-
     int poll_interval_sec;     // default 60, min 15
 
     // Display
     uint8_t brightness;        // 0-255, default 40
     bool auto_brightness;      // default true
-    bool glucose_only_when_low; // keep the glucose value visible below the low threshold, default false
     bool show_delta;           // show delta on LED display, default false
     bool use_mmol;             // true = mmol/L, false = mg/dL, default false
 
@@ -63,11 +55,9 @@ struct AppConfig {
     // Display mode
     int default_mode;          // 0=glucose, 1=time, 2=weather, 3=pixel companion
 
-    // Pixel companion display
-    bool ambient_enabled;      // include the companion in navigation/auto-cycle, default false
-    int ambient_character;     // 0=Pip, 1=Boo, 2=Mochi, 3=Sprout, 4=Pebble, 5=Inky, 6=Maple; default Pip
-    int ambient_style;         // 0=companion + text, 1=companion + icon, 2=centered companion
-    bool ambient_use_glucose_colors; // use configured glucose colors for status, default false
+    // Ambient creature display
+    bool ambient_enabled;      // include the ambient creature in navigation/auto-cycle, default false
+    union { int ambient_creature; int ambient_character; }; // Same persisted slot; canonical IDs 0...6
     bool ambient_seasonal;     // Halloween/New Year surprises, default true
 
     // Alerts (buzzer on PIN 15)
@@ -146,19 +136,43 @@ struct AppConfig {
 
     // Config validity marker
     uint32_t magic;            // 0xGLUC to verify config is initialized
+
+    // Appended to preserve the previous redo-journal layout.
+    bool glucose_enabled; // stop readings and glucose alerts when false
+
+    // Append-only extension; old BLE redo-journal prefix remains unchanged.
+    int ambient_style;
+    bool ambient_use_glucose_colors;
+    bool glucose_only_when_low; // keep the glucose value visible below the low threshold, default false
+    // FreeStyle Libre (LibreLinkUp follower account)
+    char libre_email[64];
+    char libre_password[64];
+    char libre_region[8];      // auto-detected from login redirect, e.g. "us"; "" = unknown
+    char libre_patient_id[64]; // stable LibreLinkUp patientId, never an array index
+    char libre_patient_name[128];
+
+
 };
 
 // Initialize config manager - loads from NVS or writes defaults
 void config_init();
 
 // Save current config to NVS
-void config_save();
+bool config_save();
+
+// Serialize short configuration transactions; never hold across network I/O.
+void config_lock();
+void config_unlock();
+struct ConfigGuard { ConfigGuard() { config_lock(); } ~ConfigGuard() { config_unlock(); } };
 
 // Reset to factory defaults
 void config_reset();
+bool config_bond_reset_pending();
+void config_bond_reset_finished();
 
 // Get reference to current config (mutable)
 AppConfig& config_get();
+AppConfig config_snapshot();
 
 // Check if config has WiFi credentials set
 bool config_has_wifi();
@@ -177,7 +191,8 @@ bool config_has_libre();
 bool config_update_libre_credentials(AppConfig& cfg, const char* email, const char* password);
 
 // Libre identity writers, snapshot readers, and NVS saves share this lock.
-// Recursive so a settings transaction can call the credential helper/save.+// Never hold it during an HTTP request.
+// Recursive so a settings transaction can call the credential helper/save.
+// Never hold it during an HTTP request.
 std::recursive_mutex& config_libre_mutex();
 using LibreConfigLock = std::lock_guard<std::recursive_mutex>;
 
@@ -202,6 +217,7 @@ bool config_has_enterprise();
 
 // True after defaults or saved Preferences have been loaded successfully.
 bool config_is_loaded();
+bool config_is_durable();
 
 // --- 802.1X CA certificate, stored on LittleFS at /wifi_ca.pem ---
 

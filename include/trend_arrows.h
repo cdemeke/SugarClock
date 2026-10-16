@@ -130,7 +130,7 @@ static const uint8_t TREND_BITMAP_FORTY_FIVE_DOWN[7] = {
 };
 
 // Array of pointers for indexed access
-static const uint8_t* TREND_BITMAPS[] = {
+static const uint8_t* const TREND_BITMAPS[] = {
     TREND_BITMAP_RISING_FAST,
     TREND_BITMAP_RISING,
     TREND_BITMAP_FLAT,
@@ -140,8 +140,8 @@ static const uint8_t* TREND_BITMAPS[] = {
     TREND_BITMAP_FORTY_FIVE_DOWN
 };
 
-// Trend name strings
-static const char* TREND_NAMES[] = {
+// Some translation units use only the bitmaps from this shared header.
+static const char* TREND_NAMES[] __attribute__((unused)) = {
     "RisingFast",
     "Rising",
     "Flat",

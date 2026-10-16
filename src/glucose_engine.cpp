@@ -92,7 +92,7 @@ static void draw_weather_content(uint32_t now) {
 bool engine_low_glucose_lock_active() {
     const AppConfig& cfg = config_get();
     const GlucoseReading& reading = http_get_reading();
-    if (!cfg.glucose_only_when_low || !reading.valid) return false;
+    if (!cfg.glucose_enabled || !cfg.glucose_only_when_low || !reading.valid) return false;
 
     // Match urgent-glucose freshness rules, but allow AP setup to take over.
     // Brief WiFi drops and cached reachability failures do not invalidate a
@@ -137,15 +137,21 @@ static unsigned long last_cycle_ms = 0;
 void engine_rebuild_toggle_order() {
     AppConfig& cfg = config_get();
     toggle_count = 0;
-    toggle_order[toggle_count++] = STATE_GLUCOSE_DISPLAY;
-    toggle_order[toggle_count++] = STATE_TREND_DISPLAY;
+    if (cfg.glucose_enabled) {
+        toggle_order[toggle_count++] = STATE_GLUCOSE_DISPLAY;
+        toggle_order[toggle_count++] = STATE_TREND_DISPLAY;
+    }
     if (cfg.time_display_enabled) toggle_order[toggle_count++] = STATE_TIME_DISPLAY;
-    if (cfg.weather_enabled) toggle_order[toggle_count++] = STATE_WEATHER_DISPLAY;
+    // Never cycle into a permanent loading placeholder when weather is unconfigured
+    // or its first fetch failed. The periodic rebuild admits it once data arrives.
+    if (cfg.weather_enabled && weather_has_data()) toggle_order[toggle_count++] = STATE_WEATHER_DISPLAY;
     if (cfg.ambient_enabled) toggle_order[toggle_count++] = STATE_AMBIENT_CREATURE_DISPLAY;
     if (cfg.timer_enabled) toggle_order[toggle_count++] = STATE_TIMER_DISPLAY;
     if (cfg.stopwatch_enabled) toggle_order[toggle_count++] = STATE_STOPWATCH_DISPLAY;
     if (cfg.sysmon_enabled && sysmon_has_data()) toggle_order[toggle_count++] = STATE_SYSMON_DISPLAY;
     if (cfg.countdown_enabled) toggle_order[toggle_count++] = STATE_COUNTDOWN_DISPLAY;
+
+    if (!toggle_count) toggle_order[toggle_count++] = STATE_TIME_DISPLAY;
 
     // Reset toggle_index to match current user_mode
     for (int i = 0; i < toggle_count; i++) {
@@ -220,7 +226,7 @@ static uint8_t effective_brightness() {
 // Handle buzzer alerts
 static void check_alerts() {
     AppConfig& cfg = config_get();
-    if (!cfg.alert_enabled) return;
+    if (!cfg.glucose_enabled || !cfg.alert_enabled) return;
 
     const GlucoseReading& reading = http_get_reading();
     if (!reading.valid) return;
@@ -247,6 +253,7 @@ static void check_alerts() {
 
 static bool urgent_glucose_is_active() {
     AppConfig& cfg = config_get();
+    if (!cfg.glucose_enabled) return false;
     const GlucoseReading& reading = http_get_reading();
     if (!reading.valid) return false;
 
@@ -278,7 +285,7 @@ void engine_init() {
     AppConfig& cfg = config_get();
     if (cfg.default_mode == 3 && cfg.ambient_enabled) {
         default_mode = STATE_AMBIENT_CREATURE_DISPLAY;
-    } else if (cfg.default_mode == 2 && cfg.weather_enabled) {
+    } else if (cfg.default_mode == 2 && cfg.weather_enabled && weather_has_data()) {
         default_mode = STATE_WEATHER_DISPLAY;
     } else if (cfg.default_mode == 1 && cfg.time_display_enabled) {
         default_mode = STATE_TIME_DISPLAY;
@@ -330,6 +337,14 @@ static DisplayState evaluate_state() {
         return STATE_CONNECTION_INFO_DISPLAY;
     }
 
+    if (!cfg.glucose_enabled) {
+        if (cfg.notify_enabled && notify_has_active()) return STATE_NOTIFY_DISPLAY;
+        if (user_mode==STATE_GLUCOSE_DISPLAY || user_mode==STATE_TREND_DISPLAY) engine_rebuild_toggle_order();
+        if (user_mode==STATE_TIME_DISPLAY && cfg.date_on_time_screen &&
+            time_is_available() && ((millis()/5000)%2==1)) return STATE_DATE_DISPLAY;
+        return user_mode;
+    }
+
     // Demo mode synthesizes its own readings, so skip all the connectivity and
     // freshness guards below — always fall through to the normal display.
     bool demo = (cfg.data_source == 2);
@@ -346,10 +361,13 @@ static DisplayState evaluate_state() {
             return STATE_NO_WIFI;
         }
 
-        // Associated but the network is filtering us. Distinct from NO_DATA so
-        // the user is told what to fix rather than watching a stale reading.
+        // A stale reachability probe must not replace fresh glucose or its
+        // alerts. Keep the diagnostic only when no usable reading is available.
         if (wifi_is_connected() &&
-            (netcheck_dns() == NC_FAIL || netcheck_data() == NC_FAIL)) {
+            (netcheck_dns() == NC_FAIL || netcheck_data() == NC_FAIL) &&
+            (!http_get_reading().valid || !http_has_ever_received() ||
+             http_time_since_last_reading() >= stale_ms ||
+             http_get_failure_count() >= FAILURE_STALE_COUNT)) {
             return STATE_NET_LIMITED;
         }
 
@@ -1031,12 +1049,13 @@ void engine_set_default_mode(DisplayState mode) {
     if (mode == STATE_TIME_DISPLAY && !config_get().time_display_enabled) {
         mode = STATE_GLUCOSE_DISPLAY;
     }
-    if (mode == STATE_WEATHER_DISPLAY && !config_get().weather_enabled) {
+    if (mode == STATE_WEATHER_DISPLAY && (!config_get().weather_enabled || !weather_has_data())) {
         mode = STATE_GLUCOSE_DISPLAY;
     }
     if (mode == STATE_AMBIENT_CREATURE_DISPLAY && !config_get().ambient_enabled) {
         mode = STATE_GLUCOSE_DISPLAY;
     }
+    if (!config_get().glucose_enabled && (mode==STATE_GLUCOSE_DISPLAY || mode==STATE_TREND_DISPLAY)) mode=toggle_order[0];
     default_mode = mode;
     user_mode = mode;
 }
@@ -1098,13 +1117,9 @@ void engine_right_button_action() {
         case STATE_STOPWATCH_DISPLAY:
             stopwatch_toggle_start_pause();
             break;
-        case STATE_AMBIENT_CREATURE_DISPLAY:
-            ambient_fish_interact();
-            engine_reset_auto_cycle();
-            break;
         default:
-            // Navigate backwards through screens
-            engine_toggle_mode_prev();
+            // Navigate forwards through screens, including Pixel Pets.
+            engine_toggle_mode();
             break;
     }
 }
@@ -1117,6 +1132,10 @@ void engine_right_long_action() {
             break;
         case STATE_STOPWATCH_DISPLAY:
             stopwatch_reset();
+            break;
+        case STATE_AMBIENT_CREATURE_DISPLAY:
+            ambient_fish_interact();
+            engine_reset_auto_cycle();
             break;
         default:
             // Default: clear overrides

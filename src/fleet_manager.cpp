@@ -1,8 +1,15 @@
+#include "ble_manager.h"
 #include "fleet_manager.h"
 
 #include "config_manager.h"
+#include "config_patch.h"
+#include "sensitive_memory.h"
+#include <memory>
+#include <new>
 #include "companion.h"
+#include "settings_apply.h"
 #include "fleet_policy.h"
+#include "network_schedule.h"
 #include "glucose_engine.h"
 #include "http_client.h"
 #include "notify_engine.h"
@@ -22,6 +29,7 @@
 #include <esp_ota_ops.h>
 #include <esp_system.h>
 #include <time.h>
+#include <atomic>
 
 #ifndef SUGARCLOCK_VERSION
 #error "SUGARCLOCK_VERSION must be injected from VERSION"
@@ -43,7 +51,7 @@ static char installation_id[37];
 static char credential[44];
 static char channel[16] = "stable";
 static bool registered = false;
-static volatile bool worker_running = false;
+static std::atomic<bool> worker_running{false};
 static bool restart_requested = false;
 static uint32_t next_attempt_ms = 0;
 static unsigned failure_count = 0;
@@ -393,6 +401,7 @@ static bool save_maintenance(JsonObjectConst payload) {
     maintenance_start = start_hour * 60 + start_minute;
     maintenance_end = end_hour * 60 + end_minute;
     maintenance_automatic = payload["automatic_install"].as<bool>();
+    ConfigGuard guard;
     AppConfig& cfg = config_get();
     copy_text(cfg.timezone, sizeof(cfg.timezone), timezone);
     cfg.auto_update_enabled = maintenance_automatic;
@@ -414,7 +423,15 @@ static bool apply_config_patch(JsonObjectConst changes) {
         const char* name = pair.key().c_str();
         JsonVariantConst value = pair.value();
         bool valid =
-            (strcmp(name, "brightness") == 0 && value.is<int>() && value.as<int>() >= 0 && value.as<int>() <= 255) ||
+            (strcmp(name, "ambient_enabled") == 0 && value.is<bool>()) ||
+            (strcmp(name, "notify_allow_buzzer") == 0 && value.is<bool>()) ||
+            (strcmp(name, "sysmon_enabled") == 0 && value.is<bool>()) ||
+            (strcmp(name, "notify_default_duration") == 0 && value.is<int>() && value.as<int>() >= 5 && value.as<int>() <= 300) ||
+            (strcmp(name, "sysmon_display_mode") == 0 && value.is<int>() && value.as<int>() >= 0 && value.as<int>() <= 1) ||
+            (strcmp(name, "sysmon_warn_pct") == 0 && value.is<int>() && value.as<int>() >= 0 && value.as<int>() <= 100) ||
+            (strcmp(name, "sysmon_crit_pct") == 0 && value.is<int>() && value.as<int>() >= 0 && value.as<int>() <= 100) ||
+            (strcmp(name, "sysmon_label") == 0 && value.is<const char*>() && strlen(value.as<const char*>()) >= 1 && strlen(value.as<const char*>()) <= 7) ||
+            (strcmp(name, "brightness") == 0 && value.is<int>() && value.as<int>() >= 1 && value.as<int>() <= 255) ||
             (strcmp(name, "auto_brightness") == 0 && value.is<bool>()) ||
             (strcmp(name, "show_delta") == 0 && value.is<bool>()) ||
             (strcmp(name, "use_mmol") == 0 && value.is<bool>()) ||
@@ -423,8 +440,7 @@ static bool apply_config_patch(JsonObjectConst changes) {
             (strcmp(name, "ambient_use_glucose_colors") == 0 && value.is<bool>()) ||
             (strcmp(name, "ambient_style") == 0 && value.is<int>() && companion_style_valid(value.as<int>())) ||
             (strcmp(name, "ambient_creature") == 0 && value.is<int>() && value.as<int>() >= 0 && value.as<int>() <= 1) ||
-            (strcmp(name, "ambient_character") == 0 && value.is<int>() && companion_valid(value.as<int>())) ||
-            (strcmp(name, "ambient_enabled") == 0 && value.is<bool>()) ||
+            (strcmp(name, "ambient_character") == 0 && value.is<int>() && value.as<int>() >= 0 && value.as<int>() <= 6) ||
             (strcmp(name, "ambient_seasonal") == 0 && value.is<bool>()) ||
             (strcmp(name, "notify_enabled") == 0 && value.is<bool>()) ||
             (strcmp(name, "glucose_only_when_low") == 0 && value.is<bool>()) ||
@@ -432,32 +448,14 @@ static bool apply_config_patch(JsonObjectConst changes) {
             (strcmp(name, "auto_cycle_sec") == 0 && value.is<int>() && value.as<int>() >= 3 && value.as<int>() <= 300);
         if (!valid) return false;
     }
-    AppConfig& cfg = config_get();
-    for (JsonPairConst pair : changes) {
-        const char* name = pair.key().c_str();
-        JsonVariantConst value = pair.value();
-        if (strcmp(name, "brightness") == 0) cfg.brightness = value.as<int>();
-        else if (strcmp(name, "auto_brightness") == 0 && value.is<bool>()) cfg.auto_brightness = value.as<bool>();
-        else if (strcmp(name, "show_delta") == 0 && value.is<bool>()) cfg.show_delta = value.as<bool>();
-        else if (strcmp(name, "use_mmol") == 0 && value.is<bool>()) cfg.use_mmol = value.as<bool>();
-        else if (strcmp(name, "time_display_enabled") == 0 && value.is<bool>()) cfg.time_display_enabled = value.as<bool>();
-        else if (strcmp(name, "default_mode") == 0) cfg.default_mode = value.as<int>();
-        else if (strcmp(name, "ambient_use_glucose_colors") == 0) cfg.ambient_use_glucose_colors = value.as<bool>();
-        else if (strcmp(name, "ambient_style") == 0) cfg.ambient_style = value.as<int>();
-        else if (strcmp(name, "ambient_creature") == 0 && !changes.containsKey("ambient_character")) cfg.ambient_character = value.as<int>();
-        else if (strcmp(name, "ambient_character") == 0) cfg.ambient_character = value.as<int>();
-        else if (strcmp(name, "ambient_enabled") == 0 && value.is<bool>()) cfg.ambient_enabled = value.as<bool>();
-        else if (strcmp(name, "ambient_seasonal") == 0 && value.is<bool>()) cfg.ambient_seasonal = value.as<bool>();
-        else if (strcmp(name, "notify_enabled") == 0 && value.is<bool>()) cfg.notify_enabled = value.as<bool>();
-        else if (strcmp(name, "glucose_only_when_low") == 0 && value.is<bool>()) cfg.glucose_only_when_low = value.as<bool>();
-        else if (strcmp(name, "auto_cycle_enabled") == 0 && value.is<bool>()) cfg.auto_cycle_enabled = value.as<bool>();
-        else if (strcmp(name, "auto_cycle_sec") == 0) cfg.auto_cycle_sec = value.as<int>();
-    }
-    if (!cfg.time_display_enabled && cfg.default_mode == 1) cfg.default_mode = 0;
-    if (!cfg.ambient_enabled && cfg.default_mode == 3) cfg.default_mode = 0;
-    config_save();
-    engine_rebuild_toggle_order();
-    return true;
+    ConfigGuard guard;
+    // The expanded configuration must not consume the OTA/fleet worker stack.
+    std::unique_ptr<AppConfig> candidate(new (std::nothrow) AppConfig);
+    if(!candidate) return false;
+    *candidate=config_get();
+    SensitiveScope<AppConfig> erase_candidate(*candidate);
+    if(config_patch(*candidate,changes)) return false;
+    return settings_apply(*candidate);
 }
 
 static bool handle_command(JsonObjectConst command) {
@@ -501,8 +499,9 @@ static bool handle_command(JsonObjectConst command) {
         return post_result(id, ok ? "succeeded" : "failed", ok ? nullptr : "unsupported_config_field");
     }
     if (strcmp(type, "ota_pause") == 0 && payload["paused"].is<bool>()) {
+        { ConfigGuard guard;
         config_get().auto_update_enabled = !payload["paused"].as<bool>();
-        config_save();
+        config_save(); }
         return post_result(id, "succeeded");
     }
     if (strcmp(type, "ota_check") == 0) {
@@ -681,7 +680,7 @@ static void fleet_worker(void*) {
     if (ok && registered) ok = check_in(next_seconds, manual, !had_pending_outcome || manual);
     if (ok) {
         failure_count = 0;
-        next_seconds = fleet_checkin_seconds(next_seconds);
+        next_seconds = scnet::management_interval(next_seconds);
         int jitter = static_cast<int>(esp_random() % 31U) - 15;
         next_attempt_ms = millis() + (next_seconds + jitter) * 1000UL;
     } else {
@@ -696,7 +695,9 @@ static void fleet_worker(void*) {
                           static_cast<unsigned long>(delay_ms / 1000UL));
         }
     }
-    worker_running = false;
+    Serial.printf("[NET SCHEDULE] Management end result=%s next_in=%us\n",
+                  ok ? "ok":"retry",unsigned((next_attempt_ms-millis())/1000));
+    ble_release_network();worker_running = false;
     if (!ota_is_busy()) {
         http_set_paused(false);
         weather_set_paused(false);
@@ -719,8 +720,13 @@ void fleet_init() {
 }
 
 void fleet_loop() {
-    if (worker_running || ota_is_busy() || !wifi_is_connected() || wifi_is_ap_mode() ||
-        !time_is_available() || static_cast<int32_t>(millis() - next_attempt_ms) < 0) return;
+    if (worker_running || http_is_fetching() || ota_is_busy() || !wifi_is_connected() || wifi_is_ap_mode() ||
+        !time_is_available()) return;
+    bool grouped=ble_network_batch_window();
+    if(!scnet::management_ready(millis(),next_attempt_ms,grouped,failure_count!=0,
+                               http_dexcom_due_within(300000))) return;
+    if(!ble_acquire_network()) return;
+    Serial.printf("[NET SCHEDULE] Management start grouped=%d retry=%u\n",int(grouped),failure_count);
     worker_running = true;
     // The ESP32 cannot reliably hold simultaneous TLS handshakes. This bounded
     // attempt runs after core traffic and pauses only future requests. Failed
@@ -728,10 +734,11 @@ void fleet_loop() {
     http_set_paused(true);
     weather_set_paused(true);
     if (xTaskCreate(fleet_worker, "fleet", 14336, nullptr, 1, nullptr) != pdPASS) {
-        worker_running = false;
+        ble_release_network();worker_running = false;
         http_set_paused(false);
         weather_set_paused(false);
-        next_attempt_ms = millis() + 30000;
+        ++failure_count;
+        next_attempt_ms = millis() + fleet_retry_delay_ms(failure_count);
         Serial.println("[FLEET] Task creation failed");
     }
 }

@@ -1620,7 +1620,19 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             res.textContent = '';
             try {
                 const r = await fetch('/api/test/glucose', { method: 'POST' });
-                const d = await r.json();
+                let d = await r.json();
+                if (r.status === 202 && d.queued) {
+                    const generation = d.after_generation;
+                    const deadline = Date.now() + 60000;
+                    do {
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        const result = await fetch('/api/test/glucose/result');
+                        if (!result.ok) throw new Error('Could not read connection result');
+                        d = await result.json();
+                        if (!d.pending && d.generation > generation) break;
+                    } while (Date.now() < deadline);
+                    if (d.pending || !(d.generation > generation)) throw new Error('Connection test timed out');
+                }
                 if (document.getElementById('data_source').value === '3') {
                     const configResponse = await fetch('/api/config');
                     const saved = await configResponse.json();

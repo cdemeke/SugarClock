@@ -1,0 +1,42 @@
+# PR 29 review corrections — firmware 0.3.2 / iOS build 11
+
+## Behavior
+
+- Blood Sugar Off adds the alert-disable dependency only to the submitted patch. Off then On before saving no longer leaves a hidden alert edit. Explicit alert edits remain intact. Once Off is saved and confirmed, enabling readings leaves alerts off; delayed confirmation preserves later reading-switch edits without restoring alerts.
+- Bluetooth, web and fleet settings patches share `settings_apply`. After persistence, screen rotation, manual brightness and time-zone effects use the configuration actually retained by `config_save`. A rejected journal can restore committed settings; a pending recovery journal retains the candidate. Both paths reconcile runtime effects while still reporting persistence failure. Failed transactions also invalidate provider work conservatively, covering rollback. Successful cosmetic changes do not provoke a provider refresh.
+- Wi-Fi scan-start failure and later driver failure are reported over Bluetooth instead of presenting a stale cache as a successful scan. An already-running scan can be reused. Starting a successful retry clears failure state. Wi-Fi trials mark interrupted scans failed. The web page labels previous results when the latest search failed; the app retains its previous list and reports search failure without unnecessarily reconnecting Bluetooth.
+- The firmware-update monitor owns reconnection until it completes or is cancelled. Automatic reconnection, explicit reconnect/retry and switching to another clock cannot take over during monitoring. The power-state publisher is injectable for regression tests. The pre-existing busy flag already serialized requests; this adds ownership across the monitor's waiting intervals.
+- Reconnecting updates saved clocks in place; new clocks append. The old `clock.selected` preference is removed when preferences are saved. Launch still starts on My Clocks and only preconnects when exactly one clock is saved.
+
+## Automated validation
+
+- 58 Swift tests pass. New cases cover the unsaved toggle reversal, explicit alert edits, delayed confirmation of a saved Off, scan failures at start/completion, stable clock ordering and persisted order, retiring the selection preference, and radio/foreground/explicit reconnect events during update monitoring.
+- 59 repository Python tests pass. New C++ harnesses execute production settings-application and Wi-Fi/Bluetooth scan code against controlled persistence and driver outcomes. Persistence cases cover success, journal rejection, mirror failure and journal-cleanup failure.
+- Complete iOS simulator build and signed Release archive 1.0.0 (11) pass.
+- Normal `esp32dev` firmware builds at 1,587,200 bytes, with 247,808 bytes free in the application slot. Static RAM remains 93,544 bytes. SHA-256: `97cfd3be5674174745491e39062703fddc26ac4349f42d64a9369431e9997073`.
+- Both web page copies and the generated embedded web asset are synchronized.
+
+## Physical qualification
+
+On September 8, 2026, a fresh full-flash backup and partition/OTA-metadata check identified the active application at 0x10000. Only that application was replaced. Flash verification matched the new image, and the entire first 64 KiB (bootloader, partitions, settings/bonds and OTA metadata) matched the backup byte for byte before restart. The clock booted as 0.3.2 and received a glucose reading. A local-API setting change saved and read back correctly; all original exposed settings were restored and verified. An explicit Wi-Fi search completed with 12 networks, and a glucose reading remained available. Persistence and Wi-Fi driver failures are injected in host tests, not induced on the owner's live clock. End-to-end iPhone alert-toggle, Bluetooth power-toggle during OTA, and multi-clock behavior remain physical follow-ups.
+
+
+## Follow-up review: fleet contract and interruptible recovery
+
+- Fleet config validation is narrowed to the firmware’s 12 currently supported remote settings, including brightness 1–255. Unsupported or mixed invalid patches fail before queue insertion. Thresholds, timezone and polling changes remain local; `poll_interval_sec` is not a wire key and neither it nor local `poll_interval` is accepted remotely. Existing queued commands are not migrated.
+- Five connection attempts remain, but My Clocks allows switching during read-only recovery and provides Stop connecting. Switching drains the cancelled task before reusing the transport, with latest-selection ownership across the await. These controls cannot interrupt a save, command or OTA monitor. Settings pages retain their compact loading row without a Cancel button.
+- Validation: 66 Swift tests and 61 repository Python tests pass. New tests exercise pending connection and stalled hello cancellation, rapid clock selection, stop/retry, save and OTA protection, mixed-patch queue rejection, and an executable comparison of the server against the production firmware fleet gate plus config validator. CI repeats the fleet contract after installing firmware dependencies. The complete simulator build passes; a labeled My Clocks screenshot verifies the recovery controls. Physical two-clock testing remains outstanding. This review update does not flash a clock or publish a TestFlight build.
+
+## Follow-up review: Wi-Fi request bodies
+
+Both findings were confirmed against ESPAsyncWebServer 3.6.0: its body callback passes the remaining TCP chunk without clamping it to Content-Length, and the Wi-Fi connection and CA upload handlers used shared static buffers with no chunk bounds checks. The local web routes remain unauthenticated; this correction addresses request memory handling without changing the local access model.
+
+- Wi-Fi connection, CA upload, and configuration posts now share a bounded per-request accumulator. It checks declared length, offset, remaining length, and sequential progress before copying. Changed totals, missing or repeated chunks, and trailing callbacks after a response cannot submit an operation. Allocation failure returns a busy response.
+- Complete bodies are wiped and freed when the handler returns. Partial bodies are wiped and freed on rejection or disconnect, using the pinned library's disconnect callback before request destruction. ArduinoJson's temporary allocations and local credential/configuration copies are also wiped; intentional copies held by the configuration or Wi-Fi trial remain available for their operation.
+- Regression tests execute the production handlers with interleaved requests, maximum-sized bodies, byte-at-a-time fragments, short Content-Length with a 4,000-byte chunk, overflowing offsets/lengths, changed totals, allocation failure, aborts, and validation/storage failures. Allocation instrumentation verifies every owned byte is zero before release. The handler test runs with AddressSanitizer and UndefinedBehaviorSanitizer; CI repeats the suite after resolving ArduinoJson so it cannot silently skip on a fresh checkout.
+- The previous handlers reproduce a global-buffer-overflow under AddressSanitizer with the reported input. The corrected handlers pass the same regression, and all 62 repository Python tests pass.
+- The normal firmware build passes at 1,588,144 bytes. Static RAM falls from 93,544 to 88,424 bytes (5,120 bytes recovered); active requests allocate their bounded buffers from the heap. Malformed uploads are tested on the host, not on the owner's clock. This correction does not flash the clock or publish an iOS build.
+
+## Separate glucose-units fix
+
+The mmol/L display correction and its focused tests are maintained in [PR #32](https://github.com/cdemeke/SugarClock/pull/32), based directly on `main`. They are excluded from this PR, along with the combined test build’s 0.3.3 version bump. The owner’s already-installed combined 0.3.3 firmware is unchanged by this branch split. All 62 repository host tests pass after extraction.
