@@ -1,6 +1,7 @@
 #include "web_server.h"
 #include "config_manager.h"
 #include "companion.h"
+#include "dexcom_accounts.h"
 #include "wifi_manager.h"
 #include "http_client.h"
 #include "libre_client.h"
@@ -53,6 +54,7 @@ static uint32_t hex_to_color(const char* hex) {
 
 // GET /api/status
 static void handle_status(AsyncWebServerRequest* request) {
+    LibreConfigLock snapshot_lock(config_libre_mutex());
     JsonDocument doc;
 
     const GlucoseReading& r = http_get_reading();
@@ -62,6 +64,11 @@ static void handle_status(AsyncWebServerRequest* request) {
     doc["data_age_sec"] = r.valid ? (millis() - r.received_at_ms) / 1000 : -1;
     doc["state"] = engine_state_name(engine_get_state());
     doc["glucose_display_locked"] = engine_low_glucose_lock_active();
+    doc["account"] = http_selected_account();
+    doc["account_count"] = http_account_count();
+    char account_label[6];
+    http_account_label(http_selected_account(), account_label, sizeof(account_label));
+    doc["account_label"] = account_label;
     doc["wifi_connected"] = wifi_is_connected();
     doc["wifi_ip"] = wifi_get_ip();
     doc["wifi_rssi"] = wifi_get_rssi();
@@ -185,6 +192,19 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     doc["dexcom_username"] = cfg.dexcom_username;
     doc["has_dexcom_password"] = strlen(cfg.dexcom_password) > 0;
     doc["dexcom_us"] = cfg.dexcom_us;
+    doc["dexcom_label"] = cfg.dexcom_label;
+    doc["max_cgm_accounts"] = CGM_MAX_ACCOUNTS;
+    JsonArray extra_accounts = doc["extra_dexcom"].to<JsonArray>();
+    for (int i = 0; i < CGM_MAX_ACCOUNTS - 1; ++i) {
+        const auto& a = cfg.extra_dexcom[i];
+        if (!a.username[0]) continue;
+        JsonObject item = extra_accounts.add<JsonObject>();
+        item["slot"] = i + 1;
+        item["label"] = a.label;
+        item["username"] = a.username;
+        item["has_password"] = a.password[0] != '\0';
+        item["us"] = a.us;
+    }
     doc["libre_email"] = cfg.libre_email;
     doc["has_libre_password"] = strlen(cfg.libre_password) > 0;
     doc["libre_region"] = cfg.libre_region;
@@ -285,8 +305,44 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     request->send(200, "application/json", output);
 }
 
+// Slots are stable IDs, never array positions: removing person 2 must never
+// cause person 3 to inherit their password. Omitted array preserves all slots;
+// a supplied array replaces the set and wipes omitted slots.
+inline bool validate_dexcom_accounts(JsonDocument& doc, const AppConfig& cfg,
+                                    DexcomAccount* proposed) {
+    const auto object = doc.as<JsonObjectConst>();
+    if (object.containsKey("dexcom_label") && !dexcom_text_valid(doc["dexcom_label"] | (const char*)nullptr, 5, true)) return false;
+    for (const char* key : {"dexcom_username", "dexcom_password"})
+        if (object.containsKey(key) && !dexcom_text_valid(doc[key] | (const char*)nullptr, 63)) return false;
+    if (object.containsKey("dexcom_username") && cfg.dexcom_password[0] &&
+        strcmp(doc["dexcom_username"], cfg.dexcom_username) != 0 &&
+        strlen(doc["dexcom_username"] | "") && !strlen(doc["dexcom_password"] | "")) return false;
+    bool has_extra = false;
+    if (object.containsKey("extra_dexcom")) has_extra = doc["extra_dexcom"].size() > 0;
+    else for (const auto& a : cfg.extra_dexcom) has_extra |= a.username[0] != '\0';
+    if ((doc["data_source"] | cfg.data_source) == 1 && has_extra &&
+        (!strlen(doc["dexcom_username"] | cfg.dexcom_username) ||
+         (!strlen(doc["dexcom_password"] | "") && !cfg.dexcom_password[0]))) return false;
+    if (!object.containsKey("extra_dexcom")) return true;
+    if (!doc["extra_dexcom"].is<JsonArray>() || doc["extra_dexcom"].size() >= CGM_MAX_ACCOUNTS) return false;
+    bool seen[CGM_MAX_ACCOUNTS] = {};
+    for (JsonObjectConst item : doc["extra_dexcom"].as<JsonArrayConst>()) {
+        if (!item["slot"].is<int>()) return false;
+        const int slot = item["slot"];
+        if (slot < 1 || slot >= CGM_MAX_ACCOUNTS || seen[slot]) return false;
+        seen[slot] = true;
+        if (!item["us"].is<bool>() ||
+            (item.containsKey("password") && !item["password"].is<const char*>())) return false;
+        if (!dexcom_prepare_account(proposed[slot - 1], cfg.extra_dexcom[slot - 1],
+                                    item["username"] | (const char*)nullptr,
+                                    item["password"] | "", item["label"] | (const char*)nullptr,
+                                    item["us"].as<bool>())) return false;
+    }
+    return true;
+}
+
 // POST /api/config (JSON body) — accumulate chunks before parsing
-static char config_body[4096];
+static char config_body[6144];
 
 static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
     if (total > sizeof(config_body) - 1) {
@@ -324,6 +380,18 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
 
     AppConfig& cfg = config_get();
     std::unique_lock<std::recursive_mutex> lock(config_libre_mutex());
+    // Validate the complete account transaction before applying any settings.
+    DexcomAccount proposed[CGM_MAX_ACCOUNTS - 1] = {};
+    const bool replace_accounts = doc.as<JsonObjectConst>().containsKey("extra_dexcom");
+    if (!validate_dexcom_accounts(doc, cfg, proposed)) {
+        request->send(400, "application/json", "{\"error\":\"Use up to four Dexcom accounts, unique slots 1-3, names up to 5 printable characters, and credentials up to 63 characters. Configure Account 1 first. New or changed usernames require a password.\"}");
+        return;
+    }
+    const int previous_source = cfg.data_source;
+    DexcomAccount previous_primary = {};
+    strcpy(previous_primary.username, cfg.dexcom_username);
+    strcpy(previous_primary.password, cfg.dexcom_password);
+    previous_primary.us = cfg.dexcom_us;
     const char* requested_person = doc["libre_patient_id"] | "";
     const char* requested_email = doc["libre_email"] | cfg.libre_email;
     LibrePatient selected_person = {};
@@ -391,6 +459,20 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     }
     if (doc["dexcom_us"].is<bool>()) {
         cfg.dexcom_us = doc["dexcom_us"].as<bool>();
+    }
+    if (doc["dexcom_label"].is<const char*>())
+        strcpy(cfg.dexcom_label, doc["dexcom_label"].as<const char*>());
+    if (replace_accounts) {
+        for (int i = 0; i < CGM_MAX_ACCOUNTS - 1; ++i) {
+            if (!dexcom_identity_equal(cfg.extra_dexcom[i], proposed[i])) http_reset_account(i + 1);
+            cfg.extra_dexcom[i] = proposed[i];
+        }
+    }
+    if (previous_source != cfg.data_source ||
+        strcmp(previous_primary.username, cfg.dexcom_username) != 0 ||
+        strcmp(previous_primary.password, cfg.dexcom_password) != 0 ||
+        previous_primary.us != cfg.dexcom_us) {
+        http_reset_account(0);
     }
     char previous_email[sizeof(cfg.libre_email)];
     strcpy(previous_email, cfg.libre_email);
@@ -983,6 +1065,29 @@ static void handle_test_weather_mock(AsyncWebServerRequest* request, uint8_t* da
 // POST /api/test/glucose
 static void handle_test_glucose(AsyncWebServerRequest* request) {
     AppConfig& cfg = config_get();
+    // Explicit slot testing does not change the person shown on the clock.
+    if (request->hasParam("account")) {
+        const String value = request->getParam("account")->value();
+        if (value.length() != 1 || value[0] < '0' || value[0] >= '0' + CGM_MAX_ACCOUNTS ||
+            !http_account_enabled(value[0] - '0')) {
+            request->send(400, "application/json", "{\"ok\":false,\"error\":\"Unknown account\"}");
+            return;
+        }
+        const int index = value[0] - '0';
+        GlucoseReading reading = {};
+        int code = 0;
+        bool ok = http_test_account(index, reading, code);
+        JsonDocument doc;
+        doc["ok"] = ok;
+        doc["account"] = index;
+        doc["http_code"] = code;
+        if (ok) { doc["glucose"] = reading.glucose; doc["trend"] = TREND_NAMES[reading.trend]; }
+        else doc["error"] = "Connection failed or busy. Check saved credentials and Share, then retry.";
+        String output;
+        serializeJson(doc, output);
+        request->send(ok ? 200 : 502, "application/json", output);
+        return;
+    }
 
     // Demo mode: no network involved, just return a synthetic reading.
     if (cfg.data_source == 2) {

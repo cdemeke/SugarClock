@@ -251,7 +251,7 @@
                         <h2><label for="glucose_only_when_low">Show Only Blood Sugar When Low</label></h2>
                         <input type="checkbox" id="glucose_only_when_low" aria-describedby="low-only-hint">
                     </div>
-                    <p class="hint" id="low-only-hint">Keep the blood sugar value visible while fresh readings are below your configured Low threshold, including urgent lows. Other screens and navigation are blocked. Notifications, including urgent ones, are hidden and may expire unseen. Stale readings, repeated glucose fetch failures, or Wi-Fi setup mode release the lock. Brief Wi-Fi drops and failed network checks do not hide a fresh low reading. Off by default.</p>
+                    <p class="hint" id="low-only-hint">Keep the blood sugar value visible while fresh readings are below your configured Low threshold, including urgent lows. Other screens and navigation are blocked. Notifications, including urgent ones, are hidden and may expire unseen. Stale readings, repeated glucose fetch failures, or Wi-Fi setup mode release the lock. Brief Wi-Fi drops and failed network checks do not hide a fresh low reading. With multiple Dexcom accounts, names appear briefly before readings and the clock rotates among people who are low. Off by default.</p>
                 </div>
 
                 <div class="card">
@@ -386,6 +386,12 @@
                     </div>
 
                     <div id="dexcom-fields" style="display:none;">
+                        <h3>Account 1</h3>
+                        <div class="form-group">
+                            <label for="dexcom_label">Display name</label>
+                            <input type="text" id="dexcom_label" maxlength="5" pattern="[ -~]{0,5}" placeholder="CGM1">
+                            <div class="hint">Use up to 5 letters or numbers so the name fits on the clock. A blank name uses the account number.</div>
+                        </div>
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Username</label>
@@ -406,6 +412,13 @@
                                 <option value="0">International (shareous1.dexcom.com)</option>
                             </select>
                         </div>
+                    </div>
+
+                    <div id="dexcom-accounts" style="display:none;">
+                        <h3>More Dexcom accounts</h3>
+                        <p class="hint">Add up to 4 accounts total. Each person's name appears before their glucose and trend. Enable Auto-Cycle in Display to rotate automatically. Alerts use all accounts and your shared thresholds. Save changes before testing connections.</p>
+                        <div id="extra-dexcom-rows"></div>
+                        <button type="button" class="btn btn-secondary" id="add-dexcom-account">Add Dexcom account</button>
                     </div>
 
                     <div id="libre-fields" style="display:none;">
@@ -966,6 +979,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             const src = document.getElementById('data_source').value;
             document.getElementById('custom-fields').style.display = src === '0' ? 'block' : 'none';
             document.getElementById('dexcom-fields').style.display = src === '1' ? 'block' : 'none';
+            document.getElementById('dexcom-accounts').style.display = src === '1' ? 'block' : 'none';
             document.getElementById('libre-fields').style.display = src === '3' ? 'block' : 'none';
             document.getElementById('demo-fields').style.display = src === '2' ? 'block' : 'none';
         }
@@ -1330,6 +1344,61 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
         document.getElementById('customize_range_colors').addEventListener('change', updateRangeColorControls);
 
+        const dexcomRows = new Map();
+        let dexcomAccountsLoaded = false;
+        function updateAddAccountButton() {
+            document.getElementById('add-dexcom-account').disabled = dexcomRows.size >= 3;
+        }
+        function addDexcomAccount(account = {}) {
+            const slot = account.slot || [1, 2, 3].find(id => !dexcomRows.has(id));
+            if (!slot || dexcomRows.has(slot)) return;
+            const row = document.createElement('fieldset');
+            row.className = 'dexcom-account';
+            const legend = document.createElement('legend');
+            legend.textContent = 'Account ' + (slot + 1);
+            row.appendChild(legend);
+            const fields = {};
+            for (const [key, title, type, max] of [['label', 'Display name', 'text', 5], ['username', 'Username', 'text', 63], ['password', 'Password', 'password', 63]]) {
+                const label = document.createElement('label');
+                label.textContent = title;
+                const input = document.createElement('input');
+                input.type = type; input.maxLength = max;
+                input.autocomplete = 'off';
+                input.value = account[key] || '';
+                input.placeholder = key === 'label' ? 'CGM' + (slot + 1) : key === 'password' && account.has_password ? 'Saved — leave blank to keep' : '';
+                if (key === 'label') input.pattern = '[ -~]{0,5}';
+                label.appendChild(input); row.appendChild(label); fields[key] = input;
+            }
+            const region = document.createElement('label'); region.textContent = 'Region';
+            const select = document.createElement('select');
+            for (const [value, title] of [['1', 'US'], ['0', 'International']]) {
+                const option = document.createElement('option'); option.value = value; option.textContent = title; select.appendChild(option);
+            }
+            select.value = account.us === false ? '0' : '1';
+            region.appendChild(select); row.appendChild(region); fields.us = select;
+            const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'btn btn-secondary'; remove.textContent = 'Remove account';
+            remove.onclick = () => { row.remove(); dexcomRows.delete(slot); updateAddAccountButton(); };
+            row.appendChild(remove);
+            const test = document.createElement('button'); test.type = 'button'; test.className = 'btn btn-secondary'; test.textContent = 'Test saved account';
+            const result = document.createElement('p'); result.className = 'hint'; result.setAttribute('aria-live', 'polite');
+            test.onclick = async () => {
+                test.disabled = true; result.textContent = 'Testing saved account...';
+                try {
+                    const response = await fetch('/api/test/glucose?account=' + slot, {method: 'POST'});
+                    const data = await response.json();
+                    result.textContent = data.ok ? 'Glucose: ' + data.glucose + ' mg/dL, Trend: ' + data.trend : data.error || 'Connection failed';
+                } catch (_) { result.textContent = 'Connection failed'; }
+                test.disabled = false;
+            };
+            row.appendChild(test); row.appendChild(result);
+            document.getElementById('extra-dexcom-rows').appendChild(row);
+            dexcomRows.set(slot, fields); updateAddAccountButton();
+        }
+        function collectDexcomAccounts() {
+            return Array.from(dexcomRows, ([slot, fields]) => ({slot, label: fields.label.value.trim(), username: fields.username.value.trim(), password: fields.password.value, us: fields.us.value === '1'}));
+        }
+        document.getElementById('add-dexcom-account').addEventListener('click', () => addDexcomAccount());
+
         async function loadConfig() {
             try {
                 const r = await fetch('/api/config');
@@ -1357,6 +1426,13 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 document.getElementById('dexcom_username').value = c.dexcom_username || '';
                 document.getElementById('dexcom_password').value = c.dexcom_password || '';
                 document.getElementById('dexcom_us').value = c.dexcom_us ? '1' : '0';
+                document.getElementById('dexcom_label').value = c.dexcom_label || '';
+                document.getElementById('dexcom_password').placeholder = c.has_dexcom_password ? 'Saved — leave blank to keep' : '';
+                document.getElementById('extra-dexcom-rows').replaceChildren();
+                dexcomRows.clear();
+                (c.extra_dexcom || []).forEach(addDexcomAccount);
+                dexcomAccountsLoaded = true;
+                updateAddAccountButton();
                 document.getElementById('libre_email').value = c.libre_email || '';
                 librePeopleEmail = c.libre_email || '';
                 updateLibrePeople(c);
@@ -1493,6 +1569,8 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 dexcom_username: document.getElementById('dexcom_username').value,
                 dexcom_password: document.getElementById('dexcom_password').value,
                 dexcom_us: document.getElementById('dexcom_us').value === '1',
+                dexcom_label: document.getElementById('dexcom_label').value.trim(),
+                ...(dexcomAccountsLoaded ? {extra_dexcom: collectDexcomAccounts()} : {}),
                 libre_email: document.getElementById('libre_email').value.trim(),
                 libre_password: document.getElementById('libre_password').value,
                 libre_patient_id: document.getElementById('libre_patient_id').value,
@@ -1553,7 +1631,12 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
             try {
                 const r = await fetch('/api/config', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
-                showToast(r.ok ? 'Configuration saved!' : 'Save failed', r.ok ? 'success' : 'error');
+                const result = await r.json();
+                showToast(r.ok ? 'Configuration saved!' : result.error || 'Save failed', r.ok ? 'success' : 'error');
+                if (r.ok) {
+                    document.getElementById('dexcom_password').value = '';
+                    for (const fields of dexcomRows.values()) { fields.password.value = ''; fields.password.placeholder = 'Saved — leave blank to keep'; }
+                }
             } catch (e) { showToast('Network error', 'error'); }
         });
 
@@ -1619,7 +1702,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             res.className = 'test-result';
             res.textContent = '';
             try {
-                const r = await fetch('/api/test/glucose', { method: 'POST' });
+                const r = await fetch(document.getElementById('data_source').value === '1' ? '/api/test/glucose?account=0' : '/api/test/glucose', { method: 'POST' });
                 const d = await r.json();
                 if (document.getElementById('data_source').value === '3') {
                     const configResponse = await fetch('/api/config');

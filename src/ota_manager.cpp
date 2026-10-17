@@ -145,9 +145,7 @@ bool ota_is_busy() {
 
 static OtaSafetyInputs collect_safety_inputs() {
     AppConfig& cfg = config_get();
-    const GlucoseReading& reading = http_get_reading();
-    bool urgent_glucose = reading.valid &&
-        (reading.glucose < cfg.thresh_urgent_low || reading.glucose > cfg.thresh_urgent_high);
+    bool urgent_glucose = http_find_alert(cfg.thresh_urgent_low, cfg.thresh_urgent_high) >= 0;
     TimerState timer_state = timer_get_state();
 
     OtaSafetyInputs inputs = {};

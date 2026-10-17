@@ -15,6 +15,9 @@
 
 static AppConfig cfg = {};
 static GlucoseReading reading = {};
+static GlucoseReading extra_readings[3] = {};
+static int test_accounts = 1, test_selected = 0;
+static char drawn_label[32] = "";
 static unsigned long now_ms = 0, age_ms = 0;
 static int failures = 0, drawn_glucose = 0, delta_frames = 0, button_actions = 0;
 static uint16_t drawn_color = 0;
@@ -26,10 +29,26 @@ unsigned long millis() { return now_ms; }
 AppConfig& config_get() { return cfg; }
 bool config_has_wifi() { return true; }
 bool config_has_server() { return true; }
-const GlucoseReading& http_get_reading() { return reading; }
+GlucoseReading http_get_reading() { return test_selected == 0 ? reading : extra_readings[test_selected - 1]; }
+bool http_account_enabled(int index) { return index >= 0 && index < test_accounts; }
+int http_account_count() { return test_accounts; }
+int http_selected_account() { return test_selected; }
+void http_select_account(int i) { test_selected = i >= 0 && i < test_accounts ? i : 0; }
+void http_account_label(int i, char* out, size_t size) { snprintf(out, size, "CGM%d", i + 1); }
+int http_find_alert(int low, int high, int start) {
+    if (cfg.data_source != 2 && (failures >= 5 || age_ms >= (unsigned long)cfg.stale_timeout_min * 60000UL)) return -1;
+    for (int n = 0; n < 4; ++n) {
+        const int i = (start + n) % 4;
+        if (i >= test_accounts) continue;
+        const auto& r = i == 0 ? reading : extra_readings[i - 1];
+        if (r.valid && (r.glucose < low || r.glucose > high)) return i;
+    }
+    return -1;
+}
+
 unsigned long http_time_since_last_reading() { return age_ms; }
 int http_get_failure_count() { return failures; }
-bool http_has_ever_received() { return ever_received; }
+bool http_has_ever_received() { return test_accounts == 1 ? ever_received : http_get_reading().valid; }
 int http_get_delta() { return -5; }
 int http_get_history(GlucoseHistoryEntry*, int) { return 0; }
 bool wifi_is_connected() { return connected; }
@@ -81,7 +100,7 @@ void display_clear() {}
 void display_show() {}
 void display_scroll_reset() {}
 bool display_scroll_text(const char*, int, uint16_t, unsigned int) { return false; }
-void display_draw_text(const char*, int, int, uint16_t) {}
+void display_draw_text(const char* text, int, int, uint16_t) { snprintf(drawn_label, sizeof(drawn_label), "%s", text); }
 void display_draw_pixel(int, int, uint16_t) {}
 void display_draw_time(int, int, bool, bool, uint16_t) {}
 void display_draw_trend(int, int, int, uint16_t) {}
@@ -249,5 +268,48 @@ int main() {
     notification = false; cfg.auto_cycle_enabled = false;
     engine_force_state(STATE_WEATHER_DISPLAY); settle();
     assert(engine_get_state() == STATE_WEATHER_DISPLAY);
+    // Multi-person rotation visits each glucose/trend pair in both directions.
+    engine_clear_force();
+    test_accounts = 4; test_selected = 0;
+    reading.glucose = 110; reading.valid = true;
+    for (auto& r : extra_readings) { r = reading; r.glucose = 150; }
+    cfg.data_source = 1; cfg.thresh_low = 80;
+    cfg.time_display_enabled = cfg.weather_enabled = cfg.timer_enabled = false;
+    cfg.stopwatch_enabled = cfg.ambient_enabled = cfg.sysmon_enabled = cfg.countdown_enabled = false;
+    engine_set_default_mode(STATE_GLUCOSE_DISPLAY); engine_rebuild_toggle_order();
+    assert(toggle_count == 8);
+    for (int i = 1; i <= 8; ++i) {
+        assert(engine_toggle_mode());
+        assert(test_selected == (i % 8) / 2);
+        assert(engine_get_user_mode() == (i % 2 ? STATE_TREND_DISPLAY : STATE_GLUCOSE_DISPLAY));
+        engine_rebuild_toggle_order(); // rebuild must retain the selected person
+    }
+    assert(engine_toggle_mode_prev());
+    assert(test_selected == 3 && engine_get_user_mode() == STATE_TREND_DISPLAY);
+    assert(engine_toggle_mode()); assert(test_selected == 0);
+    cfg.auto_cycle_enabled = true;
+    engine_reset_auto_cycle(); tick(3000); assert(engine_get_user_mode() == STATE_TREND_DISPLAY);
+    tick(3000); assert(test_selected == 1);
+    cfg.auto_cycle_enabled = false;
+    settle(); tick(1300);
+    // A missing account shows its own NO DATA and cannot trap navigation.
+    extra_readings[0].valid = false;
+    settle(); assert(engine_get_state() == STATE_NO_DATA);
+    assert(engine_toggle_mode()); assert(engine_toggle_mode());
+    assert(test_selected == 2);
+    settle(); tick(1300); assert(engine_get_state() == STATE_GLUCOSE_DISPLAY);
+    // An off-screen low takes priority. Two lows alternate without showing
+    // normal accounts, even when ordinary auto-cycle is disabled.
+    cfg.glucose_only_when_low = true;
+    extra_readings[2].glucose = 65;
+    tick(); assert(test_selected == 3 && engine_low_glucose_lock_active());
+    assert(strcmp(drawn_label, "CGM4") == 0);
+    tick(1300); assert(drawn_glucose == 65);
+    extra_readings[1].glucose = 70;
+    tick(3000); assert(test_selected == 2);
+    assert(!engine_toggle_mode() && !engine_toggle_mode_prev());
+    tick(1300); assert(drawn_glucose == 70);
+    extra_readings[1].glucose = extra_readings[2].glucose = 100;
+    tick(); assert(!engine_low_glucose_lock_active());
     return 0;
 }

@@ -19,6 +19,8 @@
 #include "net_check.h"
 #include "sensors.h"
 #include <Arduino.h>
+#include <climits>
+#include <algorithm>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
@@ -91,23 +93,8 @@ static void draw_weather_content(uint32_t now) {
 
 bool engine_low_glucose_lock_active() {
     const AppConfig& cfg = config_get();
-    const GlucoseReading& reading = http_get_reading();
-    if (!cfg.glucose_only_when_low || !reading.valid) return false;
-
-    // Match urgent-glucose freshness rules, but allow AP setup to take over.
-    // Brief WiFi drops and cached reachability failures do not invalidate a
-    // fresh glucose reading. Demo readings do not depend on connectivity.
-    if (cfg.data_source != 2) {
-        const unsigned long stale_ms = (unsigned long)cfg.stale_timeout_min * 60000UL;
-        if (http_time_since_last_reading() >= stale_ms ||
-            http_get_failure_count() >= FAILURE_STALE_COUNT ||
-            wifi_is_ap_mode()) {
-            return false;
-        }
-    }
-
-    // Defensive: configuration does not require these thresholds to be ordered.
-    return reading.glucose < cfg.thresh_low || reading.glucose < cfg.thresh_urgent_low;
+    if (!cfg.glucose_only_when_low || (cfg.data_source != 2 && wifi_is_ap_mode())) return false;
+    return http_find_alert(std::max(cfg.thresh_low, cfg.thresh_urgent_low), INT_MAX) >= 0;
 }
 
 // Freeze a complete compact weather frame before a blocking HTTP fetch, using
@@ -127,7 +114,8 @@ static void on_weather_pre_fetch() {
 }
 
 // Data-driven toggle order
-static DisplayState toggle_order[12];
+static DisplayState toggle_order[18];
+static int toggle_accounts[18];
 static int toggle_count = 0;
 static int toggle_index = 0;
 
@@ -137,8 +125,14 @@ static unsigned long last_cycle_ms = 0;
 void engine_rebuild_toggle_order() {
     AppConfig& cfg = config_get();
     toggle_count = 0;
-    toggle_order[toggle_count++] = STATE_GLUCOSE_DISPLAY;
-    toggle_order[toggle_count++] = STATE_TREND_DISPLAY;
+    for (int& account : toggle_accounts) account = -1;
+    for (int i = 0; i < CGM_MAX_ACCOUNTS; ++i) {
+        if (!http_account_enabled(i)) continue;
+        toggle_accounts[toggle_count] = i;
+        toggle_order[toggle_count++] = STATE_GLUCOSE_DISPLAY;
+        toggle_accounts[toggle_count] = i;
+        toggle_order[toggle_count++] = STATE_TREND_DISPLAY;
+    }
     if (cfg.time_display_enabled) toggle_order[toggle_count++] = STATE_TIME_DISPLAY;
     if (cfg.weather_enabled) toggle_order[toggle_count++] = STATE_WEATHER_DISPLAY;
     if (cfg.ambient_enabled) toggle_order[toggle_count++] = STATE_AMBIENT_CREATURE_DISPLAY;
@@ -149,13 +143,15 @@ void engine_rebuild_toggle_order() {
 
     // Reset toggle_index to match current user_mode
     for (int i = 0; i < toggle_count; i++) {
-        if (toggle_order[i] == user_mode) {
+        if (toggle_order[i] == user_mode &&
+            (toggle_accounts[i] < 0 || toggle_accounts[i] == http_selected_account())) {
             toggle_index = i;
             return;
         }
     }
     toggle_index = 0;
     user_mode = toggle_order[0];
+    http_select_account(0);
 }
 
 // Get color for glucose value using custom theme colors from config
@@ -222,21 +218,8 @@ static void check_alerts() {
     AppConfig& cfg = config_get();
     if (!cfg.alert_enabled) return;
 
-    const GlucoseReading& reading = http_get_reading();
-    if (!reading.valid) return;
-
-    // Check if snoozed
     if (millis() < alert_snooze_until_ms) return;
-
-    // Do not sound alerts if glucose data is stale
-    unsigned long stale_ms = (unsigned long)cfg.stale_timeout_min * 60UL * 1000UL;
-    unsigned long age = http_time_since_last_reading();
-    int failures = http_get_failure_count();
-    bool is_stale = (cfg.data_source != 2) && (age >= stale_ms || failures >= FAILURE_STALE_COUNT);
-    if (is_stale) return;
-
-    bool should_alert = (reading.glucose < cfg.alert_low || reading.glucose > cfg.alert_high);
-    if (!should_alert) return;
+    if (http_find_alert(cfg.alert_low, cfg.alert_high) < 0) return;
 
     // Beep periodically using shared buzzer module
     if (millis() - last_beep_ms >= BEEP_INTERVAL_MS) {
@@ -247,19 +230,7 @@ static void check_alerts() {
 
 static bool urgent_glucose_is_active() {
     AppConfig& cfg = config_get();
-    const GlucoseReading& reading = http_get_reading();
-    if (!reading.valid) return false;
-
-    if (cfg.data_source != 2) {
-        unsigned long stale_ms = (unsigned long)cfg.stale_timeout_min * 60UL * 1000UL;
-        if (http_time_since_last_reading() >= stale_ms ||
-            http_get_failure_count() >= FAILURE_STALE_COUNT) {
-            return false;
-        }
-    }
-
-    return reading.glucose < cfg.thresh_urgent_low ||
-           reading.glucose > cfg.thresh_urgent_high;
+    return http_find_alert(cfg.thresh_urgent_low, cfg.thresh_urgent_high) >= 0;
 }
 
 // Snooze alerts (called from button handler)
@@ -414,6 +385,27 @@ static void render_state(DisplayState state) {
     AppConfig& cfg = config_get();
     display_set_brightness(effective_brightness());
     display_set_transition_level(transition_level);
+
+    static DisplayState previous_render_state = STATE_BOOT;
+    static int previous_render_account = -1;
+    static unsigned long label_started_ms = 0;
+    const int account = http_selected_account();
+    const bool account_screen = state == STATE_GLUCOSE_DISPLAY || state == STATE_TREND_DISPLAY ||
+        state == STATE_STALE_WARNING || state == STATE_NO_DATA;
+    if (account != previous_render_account || state != previous_render_state) {
+        label_started_ms = millis();
+        if (account != previous_render_account) { delta_flash_active = false; last_seen_glucose = 0; }
+    }
+    previous_render_account = account;
+    previous_render_state = state;
+    if (account_screen && http_account_count() > 1 && millis() - label_started_ms < 1200UL) {
+        char label[6];
+        http_account_label(account, label, sizeof(label));
+        display_clear();
+        display_draw_text(label, (MATRIX_WIDTH - strlen(label) * 6) / 2, 0, display_color(255, 255, 255));
+        display_show();
+        return;
+    }
 
     switch (state) {
         case STATE_BOOT: {
@@ -886,6 +878,24 @@ void engine_loop() {
     // Auto-cycle display modes
     AppConfig& cfg = config_get();
     const bool low_glucose_active = engine_low_glucose_lock_active();
+    static unsigned long last_low_account_ms = 0;
+    static bool was_low = false;
+    if (low_glucose_active) {
+        int start = http_selected_account();
+        if (!was_low) last_low_account_ms = millis();
+        if (millis() - last_low_account_ms >= (unsigned long)cfg.auto_cycle_sec * 1000UL) {
+            start = (start + 1) % CGM_MAX_ACCOUNTS;
+            last_low_account_ms = millis();
+        }
+        http_select_account(http_find_alert(std::max(cfg.thresh_low, cfg.thresh_urgent_low), INT_MAX, start));
+    } else if (was_low && toggle_accounts[toggle_index] >= 0) {
+        http_select_account(toggle_accounts[toggle_index]);
+    }
+    was_low = low_glucose_active;
+    if (!low_glucose_active && connection_info_visible) {
+        const int urgent = http_find_alert(cfg.thresh_urgent_low, cfg.thresh_urgent_high);
+        if (urgent >= 0) http_select_account(urgent);
+    }
     if (low_glucose_active) {
         // Preserve the selected screen, and give it a full cycle after recovery.
         last_cycle_ms = millis();
@@ -898,6 +908,11 @@ void engine_loop() {
             last_cycle_ms = millis();
             toggle_index = (toggle_index + 1) % toggle_count;
             user_mode = toggle_order[toggle_index];
+            if (toggle_accounts[toggle_index] >= 0) {
+                http_select_account(toggle_accounts[toggle_index]);
+                delta_flash_active = false;
+                last_seen_glucose = 0;
+            }
             Serial.printf("[ENGINE] Auto-cycle to %s\n", engine_state_name(user_mode));
         }
     }
@@ -1045,6 +1060,11 @@ bool engine_toggle_mode() {
     if (engine_low_glucose_lock_active()) return false;
     toggle_index = (toggle_index + 1) % toggle_count;
     user_mode = toggle_order[toggle_index];
+    if (toggle_accounts[toggle_index] >= 0) {
+        http_select_account(toggle_accounts[toggle_index]);
+        delta_flash_active = false;
+        last_seen_glucose = 0;
+    }
     last_cycle_ms = millis(); // reset auto-cycle timer on manual toggle
     Serial.printf("[ENGINE] Toggled to %s\n", engine_state_name(user_mode));
     return true;
@@ -1054,6 +1074,11 @@ bool engine_toggle_mode_prev() {
     if (engine_low_glucose_lock_active()) return false;
     toggle_index = (toggle_index - 1 + toggle_count) % toggle_count;
     user_mode = toggle_order[toggle_index];
+    if (toggle_accounts[toggle_index] >= 0) {
+        http_select_account(toggle_accounts[toggle_index]);
+        delta_flash_active = false;
+        last_seen_glucose = 0;
+    }
     last_cycle_ms = millis(); // reset auto-cycle timer on manual toggle
     Serial.printf("[ENGINE] Toggled prev to %s\n", engine_state_name(user_mode));
     return true;
