@@ -682,7 +682,7 @@
   "South Africa (SAST)": "南アフリカ (SAST)",
   "Sprout — Dinosaur": "スプラウト — 恐竜",
   "Stale Data": "古いデータ",
-  "Stale Timeout (minutes)": "古いタイムアウト (分)",
+  "Stale Timeout (minutes)": "測定値が古くなるまでの時間（分）",
   "Stale reading": "古い読み取り値",
   "Stale reading · ": "古い読み物 ·",
   "Start Hour (0-23)": "開始時間 (0-23)",
