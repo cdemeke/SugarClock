@@ -682,7 +682,7 @@
   "South Africa (SAST)": "Afrique du Sud (SAST)",
   "Sprout — Dinosaur": "Sprout — Dinosaure",
   "Stale Data": "Données obsolètes",
-  "Stale Timeout (minutes)": "Délai d'expiration périmé (minutes)",
+  "Stale Timeout (minutes)": "Délai avant qu’une mesure soit périmée (minutes)",
   "Stale reading": "Lecture obsolète",
   "Stale reading · ": "Lecture obsolète ·",
   "Start Hour (0-23)": "Heure de début (0-23)",
