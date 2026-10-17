@@ -5,6 +5,14 @@
 #include <stddef.h>
 #include <mutex>
 
+constexpr int CGM_MAX_ACCOUNTS = 4;
+struct DexcomAccount {
+    char label[6]; // Five printable characters fit on the 32-pixel display.
+    char username[64];
+    char password[64];
+    bool us;
+};
+
 // Application configuration stored in NVS
 struct AppConfig {
     // WiFi
@@ -32,6 +40,9 @@ struct AppConfig {
     char dexcom_username[64];
     char dexcom_password[64];
     bool dexcom_us;            // true=US (share2), false=international (shareous1)
+
+    char dexcom_label[6];
+    DexcomAccount extra_dexcom[CGM_MAX_ACCOUNTS - 1]; // Empty username disables a slot.
 
     // FreeStyle Libre (LibreLinkUp follower account)
     char libre_email[64];
