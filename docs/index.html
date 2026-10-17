@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SugarClock - Glucose Visible at a Glance</title>
+  <title data-i18n="SugarClock - Glucose Visible at a Glance">SugarClock - Glucose Visible at a Glance</title>
   <meta name="description"
     content="SugarClock turns an affordable Ulanzi TC001 smart pixel clock into an open source CGM display for people with diabetes and families.">
 
@@ -25,24 +25,27 @@
   <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
   <script defer src="js/analytics-config.js"></script>
   <script defer src="js/analytics.js"></script>
+    <link rel="stylesheet" href="js/i18n.css">
+    <script src="js/i18n.js"></script>
 </head>
 
 <body>
   <nav class="site-nav">
     <div class="container">
-      <a href="index.html" class="nav-brand" aria-label="SugarClock home">
+      <a href="index.html" class="nav-brand" aria-label="SugarClock home" data-i18n-aria-label="SugarClock home">
         <img src="images/logo.png" alt="" class="nav-logo">
         <span>SugarClock</span>
       </a>
 
       <ul class="nav-links">
-        <li><a href="#why">Why</a></li>
-        <li><a href="#process">Process</a></li>
-        <li><a href="faq.html" data-track-event="faq_link_clicked" data-track-location="navigation">FAQ</a></li>
+        <li><a href="#why"><span data-i18n="Why">Why</span></a></li>
+        <li><a href="#process"><span data-i18n="Process">Process</span></a></li>
+        <li><a href="faq.html" data-track-event="faq_link_clicked" data-track-location="navigation"><span data-i18n="FAQ">FAQ</span></a></li>
       </ul>
 
       <div class="nav-actions">
-        <a href="#install" class="btn btn-sm" data-track-event="install_cta_clicked" data-track-location="navigation">Install Now</a>
+        <div data-language-picker></div>
+        <a href="#install" class="btn btn-sm" data-track-event="install_cta_clicked" data-track-location="navigation"><span data-i18n="Install Now">Install Now</span></a>
       </div>
     </div>
   </nav>
@@ -51,38 +54,38 @@
     <section class="hero">
       <div class="container">
         <div class="masthead fade-up">
-          <img src="images/logo.png" alt="SugarClock display showing a glucose trend" class="brand-mark">
+          <img src="images/logo.png" alt="SugarClock display showing a glucose trend" class="brand-mark" data-i18n-alt="SugarClock display showing a glucose trend">
           <div class="brand-lockup">
             <h1 class="brand-title">SugarClock</h1>
-            <p class="masthead-tagline">A glanceable CGM for shared spaces.</p>
+            <p class="masthead-tagline"><span data-i18n="A glanceable CGM for shared spaces.">A glanceable CGM for shared spaces.</span></p>
           </div>
 
           <ul class="reassurance-list">
-            <li><i data-feather="check" aria-hidden="true"></i>No subscription</li>
-            <li><i data-feather="check" aria-hidden="true"></i>Works with Dexcom / Libre / Nightscout</li>
-            <li><i data-feather="check" aria-hidden="true"></i>No coding required</li>
+            <li><i data-feather="check" aria-hidden="true"></i><span data-i18n="No subscription">No subscription</span></li>
+            <li><i data-feather="check" aria-hidden="true"></i><span data-i18n="Works with Dexcom / Libre / Nightscout">Works with Dexcom / Libre / Nightscout</span></li>
+            <li><i data-feather="check" aria-hidden="true"></i><span data-i18n="No coding required">No coding required</span></li>
           </ul>
         </div>
 
         <div class="hero-stack">
           <div class="hero-actions">
-            <a href="#install" class="btn btn-primary" data-track-event="install_cta_clicked" data-track-location="hero">Install Now</a>
+            <a href="#install" class="btn btn-primary" data-track-event="install_cta_clicked" data-track-location="hero"><span data-i18n="Install Now">Install Now</span></a>
             <a href="https://github.com/cdemeke/SugarClock" class="btn btn-secondary" target="_blank"
-              rel="noopener" data-track-event="github_viewed" data-track-location="hero"><i data-feather="github" aria-hidden="true"></i>View on GitHub</a>
+              rel="noopener" data-track-event="github_viewed" data-track-location="hero"><i data-feather="github" aria-hidden="true"></i><span data-i18n="View on GitHub">View on GitHub</span></a>
           </div>
 
           <figure class="hero-photo-wrap">
             <button class="youtube-facade" type="button" data-video-id="vfTbYTnHQdA"
               data-track-event="demo_video_requested"
-              aria-label="Play video: SugarClock demo">
+              aria-label="Play video: SugarClock demo" data-i18n-aria-label="Play video: SugarClock demo">
               <img src="https://img.youtube.com/vi/vfTbYTnHQdA/maxresdefault.jpg"
-                alt="SugarClock demo video thumbnail" loading="lazy">
+                alt="SugarClock demo video thumbnail" loading="lazy" data-i18n-alt="SugarClock demo video thumbnail">
               <span class="youtube-play" aria-hidden="true"></span>
             </button>
           </figure>
 
-          <p class="trust-note">Built on about <strong>$40 hardware</strong>, open source, and designed as a
-            convenience display for your home.</p>
+          <p class="trust-note"><span data-i18n="Built on about">Built on about</span> <strong><span data-i18n="$40 hardware">$40 hardware</span></strong><span data-i18n=", open source, and designed as a convenience display for your home.">, open source, and designed as a
+            convenience display for your home.</span></p>
         </div>
       </div>
     </section>
@@ -90,41 +93,41 @@
     <section id="why" class="section-py">
       <div class="container">
         <div class="section-header fade-up">
-          <span class="section-label">Why</span>
-          <h2>What makes SugarClock different</h2>
-          <p class="section-desc"><strong>Most CGM displays are expensive, locked down, or hard to customize.</strong>
-            SugarClock is different: it is affordable, open, and made for everyday visibility.</p>
+          <span class="section-label"><span data-i18n="Why">Why</span></span>
+          <h2><span data-i18n="What makes SugarClock different">What makes SugarClock different</span></h2>
+          <p class="section-desc"><strong><span data-i18n="Most CGM displays are expensive, locked down, or hard to customize.">Most CGM displays are expensive, locked down, or hard to customize.</span></strong>
+            <span data-i18n="SugarClock is different: it is affordable, open, and made for everyday visibility.">SugarClock is different: it is affordable, open, and made for everyday visibility.</span></p>
         </div>
 
         <div class="comparison-shell fade-up delay-1">
           <table class="comparison-table">
             <thead>
               <tr>
-                <th>Traditional Solutions</th>
+                <th><span data-i18n="Traditional Solutions">Traditional Solutions</span></th>
                 <th class="highlight-col">SugarClock</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td>$100-$200+ displays <span class="detail">Dedicated devices can be expensive or hard to customize.</span></td>
-                <td class="highlight-col"><strong>~$40 hardware</strong> <span class="detail">Built around the Ulanzi TC001 smart clock.</span> <a href="#buy-clock" class="table-link">Where to buy</a></td>
+                <td><span data-i18n="$100-$200+ displays">$100-$200+ displays</span> <span class="detail"><span data-i18n="Dedicated devices can be expensive or hard to customize.">Dedicated devices can be expensive or hard to customize.</span></span></td>
+                <td class="highlight-col"><strong><span data-i18n="~$40 hardware">~$40 hardware</span></strong> <span class="detail"><span data-i18n="Built around the Ulanzi TC001 smart clock.">Built around the Ulanzi TC001 smart clock.</span></span> <a href="#buy-clock" class="table-link"><span data-i18n="Where to buy">Where to buy</span></a></td>
               </tr>
               <tr>
-                <td>Closed software <span class="detail">Limited visibility into how data is fetched or shown.</span></td>
-                <td class="highlight-col"><strong>Open source</strong> <span class="detail">MIT licensed firmware and web UI.</span></td>
+                <td><span data-i18n="Closed software">Closed software</span> <span class="detail"><span data-i18n="Limited visibility into how data is fetched or shown.">Limited visibility into how data is fetched or shown.</span></span></td>
+                <td class="highlight-col"><strong><span data-i18n="Open source">Open source</span></strong> <span class="detail"><span data-i18n="MIT licensed firmware and web UI.">MIT licensed firmware and web UI.</span></span></td>
               </tr>
               <tr>
-                <td>Configuration friction <span class="detail">Often requires vendor accounts or hidden settings.</span></td>
-                <td class="highlight-col"><strong>Browser setup</strong> <span class="detail">Install from the web and configure locally.</span></td>
+                <td><span data-i18n="Configuration friction">Configuration friction</span> <span class="detail"><span data-i18n="Often requires vendor accounts or hidden settings.">Often requires vendor accounts or hidden settings.</span></span></td>
+                <td class="highlight-col"><strong><span data-i18n="Browser setup">Browser setup</span></strong> <span class="detail"><span data-i18n="Install from the web and configure locally.">Install from the web and configure locally.</span></span></td>
               </tr>
               <tr>
-                <td>Narrow integrations <span class="detail">Support can be tied to one ecosystem.</span></td>
-                <td class="highlight-col"><strong>Dexcom + Libre + Nightscout</strong> <span class="detail">Use Dexcom Share, LibreLinkUp, or any compatible JSON API.</span></td>
+                <td><span data-i18n="Narrow integrations">Narrow integrations</span> <span class="detail"><span data-i18n="Support can be tied to one ecosystem.">Support can be tied to one ecosystem.</span></span></td>
+                <td class="highlight-col"><strong><span data-i18n="Dexcom + Libre + Nightscout">Dexcom + Libre + Nightscout</span></strong> <span class="detail"><span data-i18n="Use Dexcom Share, LibreLinkUp, or any compatible JSON API.">Use Dexcom Share, LibreLinkUp, or any compatible JSON API.</span></span></td>
               </tr>
               <tr>
-                <td>Hard to inspect <span class="detail">You cannot always see what runs on the device.</span></td>
-                <td class="highlight-col"><strong>Hackable</strong> <span class="detail"><a href="https://github.com/cdemeke/SugarClock"
-                    target="_blank" rel="noopener" data-track-event="github_viewed" data-track-location="comparison">Read the source</a> and make it yours.</span></td>
+                <td><span data-i18n="Hard to inspect">Hard to inspect</span> <span class="detail"><span data-i18n="You cannot always see what runs on the device.">You cannot always see what runs on the device.</span></span></td>
+                <td class="highlight-col"><strong><span data-i18n="Hackable">Hackable</span></strong> <span class="detail"><a href="https://github.com/cdemeke/SugarClock"
+                    target="_blank" rel="noopener" data-track-event="github_viewed" data-track-location="comparison"><span data-i18n="Read the source">Read the source</span></a> <span data-i18n="and make it yours.">and make it yours.</span></span></td>
               </tr>
             </tbody>
           </table>
@@ -135,54 +138,54 @@
     <section id="process" class="section-py">
       <div class="container">
         <div class="section-header fade-up">
-          <span class="section-label">Process</span>
-          <h2>From clock to CGM display</h2>
-          <p class="section-desc">Setup takes about 5 minutes and does not require coding.</p>
+          <span class="section-label"><span data-i18n="Process">Process</span></span>
+          <h2><span data-i18n="From clock to CGM display">From clock to CGM display</span></h2>
+          <p class="section-desc"><span data-i18n="Setup takes about 5 minutes and does not require coding.">Setup takes about 5 minutes and does not require coding.</span></p>
         </div>
 
         <div class="process-grid fade-up delay-1">
           <article class="process-card" id="buy-clock">
             <i data-feather="shopping-bag"></i>
-            <h3>Pick up a compatible clock</h3>
-            <p>Start with the affordable Ulanzi TC001 smart pixel clock.</p>
+            <h3><span data-i18n="Pick up a compatible clock">Pick up a compatible clock</span></h3>
+            <p><span data-i18n="Start with the affordable Ulanzi TC001 smart pixel clock.">Start with the affordable Ulanzi TC001 smart pixel clock.</span></p>
             <div class="buy-links">
-              <span>Buy from</span>
+              <span><span data-i18n="Buy from">Buy from</span></span>
               <a href="https://www.amazon.com/ULANZI-TC001-Smart-Pixel-Clock/dp/B0CXX91TY5" target="_blank"
-                rel="noopener" data-track-event="purchase_link_clicked" data-track-vendor="amazon">Amazon.com</a>
+                rel="noopener" data-track-event="purchase_link_clicked" data-track-vendor="amazon"><span data-i18n="Amazon.com">Amazon.com</span></a>
               <a href="https://www.ulanzi.com/products/ulanzi-pixel-smart-clock-2882" target="_blank"
-                rel="noopener" data-track-event="purchase_link_clicked" data-track-vendor="ulanzi">Ulanzi</a>
+                rel="noopener" data-track-event="purchase_link_clicked" data-track-vendor="ulanzi"><span data-i18n="Ulanzi">Ulanzi</span></a>
             </div>
           </article>
 
           <article class="process-card">
             <i data-feather="hard-drive"></i>
-            <h3>Plug it into your computer</h3>
-            <p>Use a USB-C data cable so your browser can see the clock.</p>
+            <h3><span data-i18n="Plug it into your computer">Plug it into your computer</span></h3>
+            <p><span data-i18n="Use a USB-C data cable so your browser can see the clock.">Use a USB-C data cable so your browser can see the clock.</span></p>
           </article>
 
           <article class="process-card">
             <i data-feather="download-cloud"></i>
-            <h3>Install SugarClock directly from your browser</h3>
-            <p>Click Install and follow the guided prompts. No terminal or coding.</p>
-            <a href="#install" class="card-link" data-track-event="install_cta_clicked" data-track-location="process">Go to install</a>
+            <h3><span data-i18n="Install SugarClock directly from your browser">Install SugarClock directly from your browser</span></h3>
+            <p><span data-i18n="Click Install and follow the guided prompts. No terminal or coding.">Click Install and follow the guided prompts. No terminal or coding.</span></p>
+            <a href="#install" class="card-link" data-track-event="install_cta_clicked" data-track-location="process"><span data-i18n="Go to install">Go to install</span></a>
           </article>
 
           <article class="process-card">
             <i data-feather="activity"></i>
-            <h3>Connect your CGM data</h3>
-            <p>Add Dexcom Share, LibreLinkUp, or Nightscout details on the clock's local setup page.</p>
+            <h3><span data-i18n="Connect your CGM data">Connect your CGM data</span></h3>
+            <p><span data-i18n="Add Dexcom Share, LibreLinkUp, or Nightscout details on the clock&#x27;s local setup page.">Add Dexcom Share, LibreLinkUp, or Nightscout details on the clock's local setup page.</span></p>
           </article>
 
           <article class="process-card">
             <i data-feather="sliders"></i>
-            <h3>Choose your display settings</h3>
-            <p>Set units, brightness, ranges, and the display style that works for your space.</p>
+            <h3><span data-i18n="Choose your display settings">Choose your display settings</span></h3>
+            <p><span data-i18n="Set units, brightness, ranges, and the display style that works for your space.">Set units, brightness, ranges, and the display style that works for your space.</span></p>
           </article>
 
           <article class="process-card">
             <i data-feather="home"></i>
-            <h3>Put it where your family can see it</h3>
-            <p>Place it on a desk, nightstand, kitchen counter, or caregiver station.</p>
+            <h3><span data-i18n="Put it where your family can see it">Put it where your family can see it</span></h3>
+            <p><span data-i18n="Place it on a desk, nightstand, kitchen counter, or caregiver station.">Place it on a desk, nightstand, kitchen counter, or caregiver station.</span></p>
           </article>
         </div>
       </div>
@@ -191,21 +194,21 @@
     <section id="install" class="section-py install-section">
       <div class="container">
         <div class="section-header fade-up">
-          <span class="section-label">Install</span>
-          <h2>You're a few minutes away from a working display.</h2>
-          <p class="section-desc">Use Chrome or Edge on a computer. SugarClock guides you through each step,
-            and the Mac setup app is available when browser installation is not supported.</p>
+          <span class="section-label"><span data-i18n="Install">Install</span></span>
+          <h2><span data-i18n="You&#x27;re a few minutes away from a working display.">You're a few minutes away from a working display.</span></h2>
+          <p class="section-desc"><span data-i18n="Use Chrome or Edge on a computer. SugarClock guides you through each step, and the Mac setup app is available when browser installation is not supported.">Use Chrome or Edge on a computer. SugarClock guides you through each step,
+            and the Mac setup app is available when browser installation is not supported.</span></p>
         </div>
 
-        <aside class="install-panel clean-card" aria-label="Installation reporting notice">
-          <h3>Built-in installation reporting</h3>
-          <p>SugarClock automatically sends its random installation ID, firmware version, activity and health,
+        <aside class="install-panel clean-card" aria-label="Installation reporting notice" data-i18n-aria-label="Installation reporting notice">
+          <h3><span data-i18n="Built-in installation reporting">Built-in installation reporting</span></h3>
+          <p><span data-i18n="SugarClock automatically sends its random installation ID, firmware version, activity and health, configured data source (Dexcom, Libre, custom or demo), and enabled features such as weather and display pet to the fleet service. The administrator can view individual installations and add nicknames. Your network address may be used to estimate city and country.">SugarClock automatically sends its random installation ID, firmware version, activity and health,
             configured data source (Dexcom, Libre, custom or demo), and enabled features such as weather and
             display pet to the fleet service. The administrator can view individual installations and add nicknames.
-            Your network address may be used to estimate city and country.</p>
-          <p>Reporting cannot be switched off. These linked records are pseudonymous, not anonymous.
+            Your network address may be used to estimate city and country.</span></p>
+          <p><span data-i18n="Reporting cannot be switched off. These linked records are pseudonymous, not anonymous. Fleet reports exclude glucose readings, account credentials, Wi-Fi names, and your configured weather location. Automatic updates follow the administrator’s stable rollout; selected test clocks may receive candidates.">Reporting cannot be switched off. These linked records are pseudonymous, not anonymous.
             Fleet reports exclude glucose readings, account credentials, Wi-Fi names, and your configured weather location.
-            Automatic updates follow the administrator’s stable rollout; selected test clocks may receive candidates.</p>
+            Automatic updates follow the administrator’s stable rollout; selected test clocks may receive candidates.</span></p>
         </aside>
 
         <div id="mac-app-card" class="install-panel clean-card install-flash-card hidden-initial fade-up delay-1">
@@ -215,23 +218,23 @@
                 <i data-feather="monitor"></i>
               </div>
               <div>
-                <h2>Install with the Mac App</h2>
-                <p class="text-muted text-sm">Your browser does not support direct USB installation, so the app walks
-                  you through the same setup.</p>
+                <h2><span data-i18n="Install with the Mac App">Install with the Mac App</span></h2>
+                <p class="text-muted text-sm"><span data-i18n="Your browser does not support direct USB installation, so the app walks you through the same setup.">Your browser does not support direct USB installation, so the app walks
+                  you through the same setup.</span></p>
               </div>
             </div>
 
             <ol class="install-prereq-list">
-              <li><strong>Download and open</strong> the SugarClock Setup app on your Mac.</li>
-              <li><strong>Plug in the clock</strong> with a USB-C data cable.</li>
-              <li><strong>Follow the prompts</strong> to install SugarClock and connect Wi-Fi.</li>
+              <li><strong><span data-i18n="Download and open">Download and open</span></strong> <span data-i18n="the SugarClock Setup app on your Mac.">the SugarClock Setup app on your Mac.</span></li>
+              <li><strong><span data-i18n="Plug in the clock">Plug in the clock</span></strong> <span data-i18n="with a USB-C data cable.">with a USB-C data cable.</span></li>
+              <li><strong><span data-i18n="Follow the prompts">Follow the prompts</span></strong> <span data-i18n="to install SugarClock and connect Wi-Fi.">to install SugarClock and connect Wi-Fi.</span></li>
             </ol>
 
             <div class="install-button-wrap">
               <a href="https://github.com/cdemeke/SugarClock/releases/latest" target="_blank" rel="noopener"
                 class="btn btn-lg" data-track-event="installer_download_clicked" data-track-location="install" data-track-method="mac">
                 <i data-feather="download"></i>
-                Download Mac App
+                <span data-i18n="Download Mac App">Download Mac App</span>
               </a>
             </div>
           </div>
@@ -244,25 +247,25 @@
                 <i data-feather="zap"></i>
               </div>
               <div>
-                <h2>Install SugarClock</h2>
-                <p class="text-muted text-sm">Browser-based setup for the Ulanzi TC001 smart pixel clock.</p>
+                <h2><span data-i18n="Install SugarClock">Install SugarClock</span></h2>
+                <p class="text-muted text-sm"><span data-i18n="Browser-based setup for the Ulanzi TC001 smart pixel clock.">Browser-based setup for the Ulanzi TC001 smart pixel clock.</span></p>
               </div>
             </div>
 
-            <p class="install-prereq-note">These steps assume you already have a <a href="#buy-clock">Ulanzi TC001
-                smart pixel clock</a>. Need one first? Use the buying links above.</p>
+            <p class="install-prereq-note"><span data-i18n="These steps assume you already have a">These steps assume you already have a</span> <a href="#buy-clock"><span data-i18n="Ulanzi TC001 smart pixel clock">Ulanzi TC001
+                smart pixel clock</span></a><span data-i18n=". Need one first? Use the buying links above.">. Need one first? Use the buying links above.</span></p>
 
             <ol class="install-prereq-list">
-              <li><strong>Plug in the clock</strong> with a USB-C data cable.</li>
-              <li><strong>Click Install</strong> and choose the clock when your browser asks.</li>
-              <li><strong>Finish setup locally</strong> by following the prompt on the display.</li>
+              <li><strong><span data-i18n="Plug in the clock">Plug in the clock</span></strong> <span data-i18n="with a USB-C data cable.">with a USB-C data cable.</span></li>
+              <li><strong><span data-i18n="Click Install">Click Install</span></strong> <span data-i18n="and choose the clock when your browser asks.">and choose the clock when your browser asks.</span></li>
+              <li><strong><span data-i18n="Finish setup locally">Finish setup locally</span></strong> <span data-i18n="by following the prompt on the display.">by following the prompt on the display.</span></li>
             </ol>
 
             <div class="callout callout-info">
               <div class="callout-icon"><i data-feather="volume-2"></i></div>
               <div class="callout-text">
-                <strong>You may hear beeping during installation.</strong> That is expected while the clock updates,
-                and it stops when setup is complete.
+                <strong><span data-i18n="You may hear beeping during installation.">You may hear beeping during installation.</span></strong> <span data-i18n="That is expected while the clock updates, and it stops when setup is complete.">That is expected while the clock updates,
+                and it stops when setup is complete.</span>
               </div>
             </div>
 
@@ -270,13 +273,13 @@
               <esp-web-install-button id="install-btn" manifest="manifest.json">
                 <button class="btn btn-lg" type="button" slot="activate" data-track-event="firmware_install_clicked" data-track-method="web">
                   <i data-feather="zap"></i>
-                  Install SugarClock
+                  <span data-i18n="Install SugarClock">Install SugarClock</span>
                 </button>
               </esp-web-install-button>
             </div>
 
             <p class="text-muted text-sm text-center">
-              SugarClock is not a medical device. Use your CGM receiver, app, or meter for medical decisions.
+              <span data-i18n="SugarClock is not a medical device. Use your CGM receiver, app, or meter for medical decisions.">SugarClock is not a medical device. Use your CGM receiver, app, or meter for medical decisions.</span>
             </p>
           </div>
         </div>
@@ -285,11 +288,11 @@
 
     <section class="cta-band">
       <div class="container fade-up">
-        <h2>Keep your number in sight.</h2>
-        <p>Give yourself and your family a dedicated display for the number you check all day.</p>
+        <h2><span data-i18n="Keep your number in sight.">Keep your number in sight.</span></h2>
+        <p><span data-i18n="Give yourself and your family a dedicated display for the number you check all day.">Give yourself and your family a dedicated display for the number you check all day.</span></p>
         <div class="cta-actions">
-          <a href="#install" class="btn btn-primary" data-track-event="install_cta_clicked" data-track-location="bottom_cta">Install SugarClock</a>
-          <a href="faq.html" class="btn btn-secondary" data-track-event="faq_link_clicked" data-track-location="bottom_cta">Read FAQ</a>
+          <a href="#install" class="btn btn-primary" data-track-event="install_cta_clicked" data-track-location="bottom_cta"><span data-i18n="Install SugarClock">Install SugarClock</span></a>
+          <a href="faq.html" class="btn btn-secondary" data-track-event="faq_link_clicked" data-track-location="bottom_cta"><span data-i18n="Read FAQ">Read FAQ</span></a>
         </div>
       </div>
     </section>
@@ -303,23 +306,23 @@
             <img src="images/logo.png" alt="" class="nav-logo">
             <span>SugarClock</span>
           </a>
-          <p class="mt-3">An open-source DIY project for making glucose data more visible and accessible.</p>
+          <p class="mt-3"><span data-i18n="An open-source DIY project for making glucose data more visible and accessible.">An open-source DIY project for making glucose data more visible and accessible.</span></p>
         </div>
         <div class="footer-links">
-          <h4>Links</h4>
+          <h4><span data-i18n="Links">Links</span></h4>
           <ul>
-            <li><a href="faq.html" data-track-event="faq_link_clicked" data-track-location="footer">FAQ</a></li>
-            <li><a href="https://github.com/cdemeke/SugarClock/issues" target="_blank" rel="noopener" data-track-event="support_link_clicked" data-track-location="footer">Issue Tracker</a></li>
-            <li><a href="https://github.com/cdemeke/SugarClock" target="_blank" rel="noopener" data-track-event="github_viewed" data-track-location="footer">Source Code</a></li>
+            <li><a href="faq.html" data-track-event="faq_link_clicked" data-track-location="footer"><span data-i18n="FAQ">FAQ</span></a></li>
+            <li><a href="https://github.com/cdemeke/SugarClock/issues" target="_blank" rel="noopener" data-track-event="support_link_clicked" data-track-location="footer"><span data-i18n="Issue Tracker">Issue Tracker</span></a></li>
+            <li><a href="https://github.com/cdemeke/SugarClock" target="_blank" rel="noopener" data-track-event="github_viewed" data-track-location="footer"><span data-i18n="Source Code">Source Code</span></a></li>
           </ul>
         </div>
         <div class="footer-links">
-          <h4>Project</h4>
-          <p>Released under the MIT License by SugarClock contributors.</p>
+          <h4><span data-i18n="Project">Project</span></h4>
+          <p><span data-i18n="Released under the MIT License by SugarClock contributors.">Released under the MIT License by SugarClock contributors.</span></p>
         </div>
       </div>
       <div class="footer-bottom">
-        <p>&copy; 2026 SugarClock Contributors. All rights reserved.</p>
+        <p><span data-i18n="© 2026 SugarClock Contributors. All rights reserved.">&copy; 2026 SugarClock Contributors. All rights reserved.</span></p>
       </div>
     </div>
   </footer>

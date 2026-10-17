@@ -43,34 +43,38 @@ def generate_web_assets():
         return
 
     assets = []
-    for root, _, files in os.walk(DATA_WWW_DIR):
-        for f in sorted(files):
-            if f.startswith('.'):
-                continue
-            full_path = os.path.join(root, f)
-            rel_path = "/" + os.path.relpath(full_path, DATA_WWW_DIR)
-            ext = os.path.splitext(f)[1].lower()
-            mime = MIME_MAP.get(ext, "application/octet-stream")
+    sources = [(DATA_WWW_DIR, "/"),
+               (os.path.join(ROOT_DIR, "web", "i18n", "device-locales"), "/locales/")]
+    for source_dir, prefix in sources:
+        for root, directories, files in os.walk(source_dir):
+            directories.sort()
+            for f in sorted(files):
+                if f.startswith('.'):
+                    continue
+                full_path = os.path.join(root, f)
+                rel_path = prefix + os.path.relpath(full_path, source_dir)
+                ext = os.path.splitext(f)[1].lower()
+                mime = MIME_MAP.get(ext, "application/octet-stream")
 
-            with open(full_path, "rb") as fp:
-                raw_data = fp.read()
+                with open(full_path, "rb") as fp:
+                    raw_data = fp.read()
 
-            # mtime=0 makes identical source assets produce byte-identical
-            # firmware. SHA-256 is also used for the cache tag so MD5 is not
-            # present anywhere in the OTA implementation.
-            payload, encoding = encode_asset(raw_data)
-            etag = hashlib.sha256(payload).hexdigest()[:16]
-            ident = "asset_" + sanitize_ident(rel_path.lstrip("/")) + "_data"
+                # mtime=0 makes identical source assets produce byte-identical
+                # firmware. SHA-256 is also used for the cache tag so MD5 is not
+                # present anywhere in the OTA implementation.
+                payload, encoding = encode_asset(raw_data)
+                etag = hashlib.sha256(payload).hexdigest()[:16]
+                ident = "asset_" + sanitize_ident(rel_path.lstrip("/")) + "_data"
 
-            assets.append({
-                "rel_path": rel_path,
-                "ident": ident,
-                "mime": mime,
-                "raw_size": len(raw_data),
-                "data": payload,
-                "encoding": encoding,
-                "etag": etag
-            })
+                assets.append({
+                    "rel_path": rel_path,
+                    "ident": ident,
+                    "mime": mime,
+                    "raw_size": len(raw_data),
+                    "data": payload,
+                    "encoding": encoding,
+                    "etag": etag
+                })
 
     # Generate header
     header_content = """#ifndef WEB_ASSETS_H
