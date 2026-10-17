@@ -50,7 +50,11 @@ async function pageFor(locale='en-US', mobile=false) {
 }
 async function ready(page, language){await page.waitForFunction(code=>window.I18n?.language===code&&document.querySelector('[data-language-select]'),language);}
 async function choose(page, language){await page.locator('[data-language-select]').selectOption(language);await ready(page,language);}
-async function noOverflow(page){assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1), 'page should fit viewport');}
+async function noOverflow(page){
+ const layout=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,language:document.documentElement.lang,
+  overflow:[...document.body.querySelectorAll('*')].filter(el=>{const r=el.getBoundingClientRect();return r.width>0&&(r.right>innerWidth+1||r.left < -1)&&!el.closest('.sidebar');}).slice(0,10).map(el=>({tag:el.tagName,id:el.id,class:el.className,text:el.textContent.slice(0,80),width:el.getBoundingClientRect().width}))}));
+ assert.ok(layout.scroll<=layout.width+1, 'page should fit viewport: '+JSON.stringify(layout));
+}
 async function capture(page,name){if(process.env.CAPTURE_SCREENSHOTS){await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:path.join(screenshots,name+'.png'),fullPage:false,animations:'disabled'});}}
 
 test('all 20 languages render marketing and admin without overflow or script errors',async()=>{

@@ -47,3 +47,17 @@ html[dir="rtl"] .fleet-donut, html[dir="rtl"] .activity-svg { direction: ltr; }
 html[dir="rtl"] .sidebar .brand-copy { text-align: right; }
 
 .capacity-counts span span { margin-inline-start: .25em; }
+
+/* Translated text can be much wider with Linux/Android fallback fonts. */
+@media (max-width: 800px) {
+  .site-nav .container { display: flex; flex-wrap: wrap; justify-content: space-between; }
+  .site-nav .nav-links { flex: 1 1 180px; min-width: 0; padding-bottom: 0; }
+  .site-nav .nav-actions { flex: 1 1 100%; }
+  .hero-actions .btn, .reassurance-list li { white-space: normal; }
+  .reassurance-list { flex-wrap: wrap; }
+  .refresh-control { max-width: 100%; min-width: 0; flex-wrap: wrap; }
+  .metric .delta, .version-badge { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .legend-row { flex-wrap: wrap; }
+  .bar-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .bar-value { white-space: normal; overflow-wrap: anywhere; text-align: end; }
+}
