@@ -317,10 +317,12 @@ static DisplayState evaluate_state() {
             return STATE_NO_WIFI;
         }
 
-        // Associated but the network is filtering us. Distinct from NO_DATA so
-        // the user is told what to fix rather than watching a stale reading.
+        // The data probe targets Account 1's host. With multiple regions,
+        // use each account's own failures/freshness instead of letting that
+        // one host suppress every other person's reading. DNS remains global.
         if (wifi_is_connected() &&
-            (netcheck_dns() == NC_FAIL || netcheck_data() == NC_FAIL)) {
+            (netcheck_dns() == NC_FAIL ||
+             (http_account_count() == 1 && netcheck_data() == NC_FAIL))) {
             return STATE_NET_LIMITED;
         }
 
