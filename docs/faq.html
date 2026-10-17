@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FAQ - SugarClock</title>
+  <title data-i18n="FAQ - SugarClock">FAQ - SugarClock</title>
   <meta name="description"
     content="Frequently asked questions about SugarClock — installation, configuration, and troubleshooting.">
 
@@ -24,24 +24,27 @@
   <script src="https://unpkg.com/feather-icons"></script>
   <script defer src="js/analytics-config.js"></script>
   <script defer src="js/analytics.js"></script>
+    <link rel="stylesheet" href="js/i18n.css">
+    <script src="js/i18n.js"></script>
 </head>
 
 <body>
   <nav class="site-nav">
     <div class="container">
-      <a href="index.html" class="nav-brand" aria-label="SugarClock home">
+      <a href="index.html" class="nav-brand" aria-label="SugarClock home" data-i18n-aria-label="SugarClock home">
         <img src="images/logo.png" alt="" class="nav-logo">
         <span>SugarClock</span>
       </a>
 
       <ul class="nav-links">
-        <li><a href="index.html#why">Why</a></li>
-        <li><a href="index.html#process">Process</a></li>
-        <li><a href="faq.html" data-track-event="faq_link_clicked" data-track-location="navigation">FAQ</a></li>
+        <li><a href="index.html#why"><span data-i18n="Why">Why</span></a></li>
+        <li><a href="index.html#process"><span data-i18n="Process">Process</span></a></li>
+        <li><a href="faq.html" data-track-event="faq_link_clicked" data-track-location="navigation"><span data-i18n="FAQ">FAQ</span></a></li>
       </ul>
 
       <div class="nav-actions">
-        <a href="index.html#install" class="btn btn-sm" data-track-event="install_cta_clicked" data-track-location="navigation">Install Now</a>
+        <div data-language-picker></div>
+        <a href="index.html#install" class="btn btn-sm" data-track-event="install_cta_clicked" data-track-location="navigation"><span data-i18n="Install Now">Install Now</span></a>
       </div>
     </div>
   </nav>
@@ -50,136 +53,136 @@
     <section class="section-py">
       <div class="container narrow-container">
         <div class="section-header fade-up">
-          <h1>FAQ</h1>
+          <h1><span data-i18n="FAQ">FAQ</span></h1>
         </div>
 
         <div class="faq-accordion fade-up delay-1">
-          <h3 class="faq-group-title">General</h3>
+          <h3 class="faq-group-title"><span data-i18n="General">General</span></h3>
 
           <!-- Keep data-question-id stable when editing the displayed question. -->
           <div class="faq-item">
             <button class="faq-question" type="button" data-question-id="what-exactly-is-sugarclock">
-              <span>What exactly is SugarClock?</span>
+              <span><span data-i18n="What exactly is SugarClock?">What exactly is SugarClock?</span></span>
               <i data-feather="chevron-down"></i>
             </button>
             <div class="faq-answer">
-              <p>SugarClock is free, open-source software that turns an inexpensive Ulanzi TC001 pixel clock into a
+              <p><span data-i18n="SugarClock is free, open-source software that turns an inexpensive Ulanzi TC001 pixel clock into a dedicated glucose monitor display. It connects to Dexcom Share, FreeStyle Libre, or Nightscout over Wi-Fi and shows the current reading on the clock&#x27;s LED display.">SugarClock is free, open-source software that turns an inexpensive Ulanzi TC001 pixel clock into a
                 dedicated glucose monitor display. It connects to Dexcom Share, FreeStyle Libre, or Nightscout over Wi-Fi and shows the
-                current reading on the clock's LED display.</p>
+                current reading on the clock's LED display.</span></p>
             </div>
           </div>
 
           <div class="faq-item">
             <button class="faq-question" type="button" data-question-id="is-this-a-medical-device">
-              <span>Is this a medical device?</span>
+              <span><span data-i18n="Is this a medical device?">Is this a medical device?</span></span>
               <i data-feather="chevron-down"></i>
             </button>
             <div class="faq-answer">
-              <p><strong>No.</strong> SugarClock is not a medical device and should not be used to make treatment
+              <p><strong><span data-i18n="No.">No.</span></strong> <span data-i18n="SugarClock is not a medical device and should not be used to make treatment decisions. Always rely on your CGM receiver, CGM app, or blood glucose meter for dosing insulin or making medical decisions.">SugarClock is not a medical device and should not be used to make treatment
                 decisions. Always rely on your CGM receiver, CGM app, or blood glucose meter for dosing insulin or
-                making medical decisions.</p>
+                making medical decisions.</span></p>
             </div>
           </div>
 
           <div class="faq-item">
             <button class="faq-question" type="button" data-question-id="which-cgms-does-it-work-with">
-              <span>Which CGMs does it work with?</span>
+              <span><span data-i18n="Which CGMs does it work with?">Which CGMs does it work with?</span></span>
               <i data-feather="chevron-down"></i>
             </button>
             <div class="faq-answer">
-              <p>SugarClock works with Dexcom CGMs through Dexcom Share, and with FreeStyle Libre 2, 2 Plus, 3 and
+              <p><span data-i18n="SugarClock works with Dexcom CGMs through Dexcom Share, and with FreeStyle Libre 2, 2 Plus, 3 and 3 Plus sensors through LibreLinkUp. It also works with CGM data sent to a Nightscout server or a similar compatible JSON API.">SugarClock works with Dexcom CGMs through Dexcom Share, and with FreeStyle Libre 2, 2 Plus, 3 and
                 3 Plus sensors through LibreLinkUp. It also works with CGM data sent to a Nightscout server or a
-                similar compatible JSON API.</p>
+                similar compatible JSON API.</span></p>
             </div>
           </div>
 
-          <h3 class="faq-group-title">Installation</h3>
+          <h3 class="faq-group-title"><span data-i18n="Installation">Installation</span></h3>
 
           <div class="faq-item">
             <button class="faq-question" type="button" data-question-id="do-i-need-to-know-how-to-code">
-              <span>Do I need to know how to code?</span>
+              <span><span data-i18n="Do I need to know how to code?">Do I need to know how to code?</span></span>
               <i data-feather="chevron-down"></i>
             </button>
             <div class="faq-answer">
-              <p>No. The browser installer flashes the firmware, and the clock's local settings page handles the rest.
-                You only need the clock, a USB-C data cable, Wi-Fi details, and your CGM source information.</p>
+              <p><span data-i18n="No. The browser installer flashes the firmware, and the clock&#x27;s local settings page handles the rest. You only need the clock, a USB-C data cable, Wi-Fi details, and your CGM source information.">No. The browser installer flashes the firmware, and the clock's local settings page handles the rest.
+                You only need the clock, a USB-C data cable, Wi-Fi details, and your CGM source information.</span></p>
             </div>
           </div>
 
           <div class="faq-item">
             <button class="faq-question" type="button" data-question-id="what-if-setup-fails">
-              <span>What if setup fails?</span>
+              <span><span data-i18n="What if setup fails?">What if setup fails?</span></span>
               <i data-feather="chevron-down"></i>
             </button>
             <div class="faq-answer">
-              <p>You can run the installer again. If the display is blank or the clock does not connect, reconnect the
-                USB cable, select the device again, and re-flash SugarClock.</p>
+              <p><span data-i18n="You can run the installer again. If the display is blank or the clock does not connect, reconnect the USB cable, select the device again, and re-flash SugarClock.">You can run the installer again. If the display is blank or the clock does not connect, reconnect the
+                USB cable, select the device again, and re-flash SugarClock.</span></p>
             </div>
           </div>
 
           <div class="faq-item" id="factory-restore">
             <button class="faq-question" type="button" data-question-id="can-i-restore-the-original-clock-software">
-              <span>Can I restore the original clock software?</span>
+              <span><span data-i18n="Can I restore the original clock software?">Can I restore the original clock software?</span></span>
               <i data-feather="chevron-down"></i>
             </button>
             <div class="faq-answer">
-              <p>Yes, if you backed up the factory firmware before flashing SugarClock. You can restore it with the same
-                flashing tools. The Ulanzi community also shares factory firmware images.</p>
+              <p><span data-i18n="Yes, if you backed up the factory firmware before flashing SugarClock. You can restore it with the same flashing tools. The Ulanzi community also shares factory firmware images.">Yes, if you backed up the factory firmware before flashing SugarClock. You can restore it with the same
+                flashing tools. The Ulanzi community also shares factory firmware images.</span></p>
             </div>
           </div>
 
           <div class="faq-item">
             <button class="faq-question" type="button" data-question-id="can-sugarclock-connect-to-school-or-wpa2-enterprise-wi-fi">
-              <span>Can SugarClock connect to school or WPA2-Enterprise Wi-Fi?</span>
+              <span><span data-i18n="Can SugarClock connect to school or WPA2-Enterprise Wi-Fi?">Can SugarClock connect to school or WPA2-Enterprise Wi-Fi?</span></span>
               <i data-feather="chevron-down"></i>
             </button>
             <div class="faq-answer">
-              <p>Yes. Install the firmware, take the clock on site, join the open
-                <strong>SugarClock-Setup</strong> network from your phone, and open
-                <code>http://192.168.4.1</code> in Safari or Chrome. Enterprise networks are marked in the list and
-                support PEAP or EAP-TTLS with a username and password.</p>
-              <p>Enter the identity exactly as school IT specifies: it may be
-                <code>user@district.org</code>, <code>DISTRICT\user</code>, or a bare username. An optional CA
-                certificate can be uploaded for server validation.</p>
-              <p>Ask IT to allow outbound HTTPS to <code>share2.dexcom.com</code>,
-                <code>shareous1.dexcom.com</code>, <code>api.openweathermap.org</code>, and your Nightscout host when
+              <p><span data-i18n="Yes. Install the firmware, take the clock on site, join the open">Yes. Install the firmware, take the clock on site, join the open</span>
+                <strong><span data-i18n="SugarClock-Setup">SugarClock-Setup</span></strong> <span data-i18n="network from your phone, and open">network from your phone, and open</span>
+                <code>http://192.168.4.1</code> <span data-i18n="in Safari or Chrome. Enterprise networks are marked in the list and support PEAP or EAP-TTLS with a username and password.">in Safari or Chrome. Enterprise networks are marked in the list and
+                support PEAP or EAP-TTLS with a username and password.</span></p>
+              <p><span data-i18n="Enter the identity exactly as school IT specifies: it may be">Enter the identity exactly as school IT specifies: it may be</span>
+                <code>user@district.org</code>, <code>DISTRICT\user</code><span data-i18n=", or a bare username. An optional CA certificate can be uploaded for server validation.">, or a bare username. An optional CA
+                certificate can be uploaded for server validation.</span></p>
+              <p><span data-i18n="Ask IT to allow outbound HTTPS to">Ask IT to allow outbound HTTPS to</span> <code>share2.dexcom.com</code>,
+                <code>shareous1.dexcom.com</code>, <code>api.openweathermap.org</code><span data-i18n=", and your Nightscout host when used, plus NTP over UDP port 123. Hotel-style browser sign-in portals are not supported; use a travel router or phone hotspot for those.">, and your Nightscout host when
                 used, plus NTP over UDP port 123. Hotel-style browser sign-in portals are not supported; use a travel
-                router or phone hotspot for those.</p>
+                router or phone hotspot for those.</span></p>
             </div>
           </div>
 
-          <h3 class="faq-group-title">Technical</h3>
+          <h3 class="faq-group-title"><span data-i18n="Technical">Technical</span></h3>
 
           <div class="faq-item">
             <button class="faq-question" type="button" data-question-id="does-it-have-a-battery">
-              <span>Does it have a battery?</span>
+              <span><span data-i18n="Does it have a battery?">Does it have a battery?</span></span>
               <i data-feather="chevron-down"></i>
             </button>
             <div class="faq-answer">
-              <p>The Ulanzi TC001 has a small internal battery, but it is not designed for extended Wi-Fi and LED use.
-                Keep it plugged into USB power for normal SugarClock operation.</p>
+              <p><span data-i18n="The Ulanzi TC001 has a small internal battery, but it is not designed for extended Wi-Fi and LED use. Keep it plugged into USB power for normal SugarClock operation.">The Ulanzi TC001 has a small internal battery, but it is not designed for extended Wi-Fi and LED use.
+                Keep it plugged into USB power for normal SugarClock operation.</span></p>
             </div>
           </div>
 
           <div class="faq-item">
             <button class="faq-question" type="button" data-question-id="is-my-glucose-data-private">
-              <span>Is my glucose data private?</span>
+              <span><span data-i18n="Is my glucose data private?">Is my glucose data private?</span></span>
               <i data-feather="chevron-down"></i>
             </button>
             <div class="faq-answer">
-              <p>Your glucose data flows from your configured data source to the clock. SugarClock stores settings
-                locally on the device.</p>
+              <p><span data-i18n="Your glucose data flows from your configured data source to the clock. SugarClock stores settings locally on the device.">Your glucose data flows from your configured data source to the clock. SugarClock stores settings
+                locally on the device.</span></p>
             </div>
           </div>
 
           <div class="faq-item">
             <button class="faq-question" type="button" data-question-id="how-do-i-find-the-clock-s-ip-address">
-              <span>How do I find the clock's IP address?</span>
+              <span><span data-i18n="How do I find the clock&#x27;s IP address?">How do I find the clock's IP address?</span></span>
               <i data-feather="chevron-down"></i>
             </button>
             <div class="faq-answer">
-              <p>The clock scrolls its IP address on the LED display when it connects. You can also check your router's
-                connected devices page or use a network scanner app on your phone.</p>
+              <p><span data-i18n="The clock scrolls its IP address on the LED display when it connects. You can also check your router&#x27;s connected devices page or use a network scanner app on your phone.">The clock scrolls its IP address on the LED display when it connects. You can also check your router's
+                connected devices page or use a network scanner app on your phone.</span></p>
             </div>
           </div>
         </div>
@@ -195,23 +198,23 @@
             <img src="images/logo.png" alt="" class="nav-logo">
             <span>SugarClock</span>
           </a>
-          <p class="mt-3">An open-source DIY project for making glucose data more visible and accessible.</p>
+          <p class="mt-3"><span data-i18n="An open-source DIY project for making glucose data more visible and accessible.">An open-source DIY project for making glucose data more visible and accessible.</span></p>
         </div>
         <div class="footer-links">
-          <h4>Links</h4>
+          <h4><span data-i18n="Links">Links</span></h4>
           <ul>
-            <li><a href="index.html#install" data-track-event="install_cta_clicked" data-track-location="footer">Install</a></li>
-            <li><a href="https://github.com/cdemeke/SugarClock/issues" target="_blank" rel="noopener" data-track-event="support_link_clicked" data-track-location="footer">Issue Tracker</a></li>
-            <li><a href="https://github.com/cdemeke/SugarClock" target="_blank" rel="noopener" data-track-event="github_viewed" data-track-location="footer">Source Code</a></li>
+            <li><a href="index.html#install" data-track-event="install_cta_clicked" data-track-location="footer"><span data-i18n="Install">Install</span></a></li>
+            <li><a href="https://github.com/cdemeke/SugarClock/issues" target="_blank" rel="noopener" data-track-event="support_link_clicked" data-track-location="footer"><span data-i18n="Issue Tracker">Issue Tracker</span></a></li>
+            <li><a href="https://github.com/cdemeke/SugarClock" target="_blank" rel="noopener" data-track-event="github_viewed" data-track-location="footer"><span data-i18n="Source Code">Source Code</span></a></li>
           </ul>
         </div>
         <div class="footer-links">
-          <h4>Project</h4>
-          <p>Released under the MIT License by SugarClock contributors.</p>
+          <h4><span data-i18n="Project">Project</span></h4>
+          <p><span data-i18n="Released under the MIT License by SugarClock contributors.">Released under the MIT License by SugarClock contributors.</span></p>
         </div>
       </div>
       <div class="footer-bottom">
-        <p>&copy; 2026 SugarClock Contributors. All rights reserved.</p>
+        <p><span data-i18n="© 2026 SugarClock Contributors. All rights reserved.">&copy; 2026 SugarClock Contributors. All rights reserved.</span></p>
       </div>
     </div>
   </footer>
