@@ -23,6 +23,7 @@ class Element {
   all(tag) { return this.children.flatMap(child => [...(child.tag === tag ? [child] : []), ...child.all(tag)]); }
 }
 const settle = () => new Promise(resolve => setImmediate(resolve));
+const I18n = require('./i18n_harness.cjs');
 const source = fs.readFileSync('fleet/sugarfleet/static/overview.js', 'utf8');
 function payload(overrides = {}) {
   return {
@@ -39,12 +40,12 @@ async function boot(initial) {
   let response = initial;
   const calls = [];
   const fleet = {
-    element(tag, text, className) {const el = new Element(tag, text); el.className = className; return el;},
+    element(tag, text, className) {const el = new Element(tag, I18n.t(text)); el.className = className; return el;},
     label(value) {return value;},
     async request(...args) {calls.push(args); if (response instanceof Error) throw response; return typeof response === 'function' ? response(...args) : response;},
     async action(button, output, callback) {button.disabled = true; try {await callback();} finally {button.disabled = false;}},
   };
-  vm.runInNewContext(source, {fleet, document: {getElementById: node, createElementNS: (_, tag) => new Element(tag), createTextNode: text => new Element('#text', text)}, Date, Number, Math});
+  vm.runInNewContext(source, {fleet, I18n, document: {getElementById: node, createElementNS: (_, tag) => new Element(tag), createTextNode: text => new Element('#text', text)}, Date, Number, Math});
   await settle();
   return {node, calls, respond(value) {response = value;}, async refresh() {await node('refresh').listeners.click();}, async cleanup() {await node('cleanup').listeners.click();}};
 }

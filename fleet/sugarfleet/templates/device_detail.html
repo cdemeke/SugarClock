@@ -1,46 +1,46 @@
 {% extends "base.html" %}
 {% block title %}{{ device.friendly_name or device.installation_id[:8] }} · SugarClock Fleet{% endblock %}
 {% block content %}
-<a class="back" href="{{ url_for('admin.device_list_page') }}">← Devices</a>
+<a class="back" href="{{ url_for('admin.device_list_page') }}"><span data-i18n="← Devices">← Devices</span></a>
 <div class="heading"><div><h1>{{ device.friendly_name or device.installation_id[:8] }}</h1><p class="identifier">{{ device.installation_id }}</p></div><span class="pill {{ device.connectivity }}">{{ 'blocked' if device.blocked_at else device.connectivity }}</span></div>
 <section class="grid">
-  <div class="card"><h2>Clock identity</h2>
+  <div class="card"><h2><span data-i18n="Clock identity">Clock identity</span></h2>
     <form id="identity-form">
-      <label>Nickname<input id="friendly-name" maxlength="80" value="{{ device.friendly_name }}" placeholder="e.g. My desk"></label>
-      <button>Save nickname</button><span id="identity-result" class="form-result" role="status"></span>
+      <label><span data-i18n="Nickname">Nickname</span><input id="friendly-name" maxlength="80" value="{{ device.friendly_name }}" placeholder="e.g. My desk"></label>
+      <button><span data-i18n="Save nickname">Save nickname</span></button><span id="identity-result" class="form-result" role="status"></span>
     </form>
-    <p><strong>Approximate location:</strong> {{ device.detected_location.label if device.detected_location else 'Not available' }}</p>
-    <p class="hint">Nicknames are private to this dashboard. Release selections always follow the installation ID, even when you rename a clock.</p>
+    <p><strong><span data-i18n="Approximate location:">Approximate location:</span></strong> {{ device.detected_location.label if device.detected_location else 'Not available' }}</p>
+    <p class="hint"><span data-i18n="Nicknames are private to this dashboard. Release selections always follow the installation ID, even when you rename a clock.">Nicknames are private to this dashboard. Release selections always follow the installation ID, even when you rename a clock.</span></p>
   </div>
-  <div class="card"><h2>Updates and connection</h2><dl>
-    <dt>Firmware</dt><dd>{{ device.firmware_version }}</dd>
-    <dt>Update control</dt><dd>{{ 'Fleet controlled' if device.rollout_capable else 'Legacy updater — bridge update needed' }}</dd>
-    <dt>Last seen</dt><dd data-time="{{ device.last_seen }}"></dd>
-    <dt>Last result</dt><dd>{{ device.last_ota_result or 'Not reported' }}</dd>
-    <dt>Battery</dt><dd>{{ device.battery_percent if device.battery_percent is not none else 'Unknown' }}{% if device.battery_percent is not none %}%{% endif %}</dd>
-    </dl><p><a href="/admin/releases">Select this clock for a candidate release →</a></p>
+  <div class="card"><h2><span data-i18n="Updates and connection">Updates and connection</span></h2><dl>
+    <dt><span data-i18n="Firmware">Firmware</span></dt><dd>{{ device.firmware_version }}</dd>
+    <dt><span data-i18n="Update control">Update control</span></dt><dd>{{ 'Fleet controlled' if device.rollout_capable else 'Legacy updater — bridge update needed' }}</dd>
+    <dt><span data-i18n="Last seen">Last seen</span></dt><dd data-time="{{ device.last_seen }}"></dd>
+    <dt><span data-i18n="Last result">Last result</span></dt><dd>{{ device.last_ota_result or 'Not reported' }}</dd>
+    <dt><span data-i18n="Battery">Battery</span></dt><dd>{{ device.battery_percent if device.battery_percent is not none else 'Unknown' }}{% if device.battery_percent is not none %}%{% endif %}</dd>
+    </dl><p><a href="/admin/releases"><span data-i18n="Select this clock for a candidate release →">Select this clock for a candidate release →</span></a></p>
   </div>
 </section>
-<section class="card action-card"><h2>Enabled features</h2><p class="hint">Current reported configuration, not a history of screen usage. Missing fields are unknown.</p><p>Reported <span data-time="{{ device.features_reported_at or '' }}"></span></p><dl id="features"></dl></section>
-<section class="card action-card"><h2>Release history</h2><div id="release-history" role="status">Loading…</div></section>
-<details class="card action-card"><summary>Advanced diagnostics and controls</summary>
-  <dl><dt>Partitions</dt><dd>{{ device.running_partition or 'Unknown' }} / {{ device.boot_partition or 'Unknown' }}</dd><dt>Timezone</dt><dd>{{ device.timezone }}</dd><dt>Free heap</dt><dd>{{ device.free_heap_bucket or 'Unknown' }}</dd><dt>Wi-Fi signal</dt><dd>{{ device.wifi_signal_bucket or 'Unknown' }}</dd></dl>
-  <form id="command-form"><label>Action<select id="command-type"><option value="restart">Restart during maintenance window</option><option value="notify">Display a notification</option></select></label><label id="notification-field" hidden>Notification<input id="notification-message" maxlength="63" placeholder="Short message for this clock"></label><button>Queue action</button><span id="command-result" class="form-result" role="status"></span></form>
-  <form id="state-form"><label>Installation status<select id="device-state"><option value="active">Active — allow reporting and updates</option><option value="retired">Retired — stop managing this installation</option><option value="blocked">Blocked — reject this installation</option></select></label><button class="secondary">Save status</button><span id="state-result" class="form-result" role="status"></span></form>
+<section class="card action-card"><h2><span data-i18n="Enabled features">Enabled features</span></h2><p class="hint"><span data-i18n="Current reported configuration, not a history of screen usage. Missing fields are unknown.">Current reported configuration, not a history of screen usage. Missing fields are unknown.</span></p><p><span data-i18n="Reported">Reported</span> <span data-time="{{ device.features_reported_at or '' }}"></span></p><dl id="features"></dl></section>
+<section class="card action-card"><h2><span data-i18n="Release history">Release history</span></h2><div id="release-history" role="status"><span data-i18n="Loading…">Loading…</span></div></section>
+<details class="card action-card"><summary><span data-i18n="Advanced diagnostics and controls">Advanced diagnostics and controls</span></summary>
+  <dl><dt><span data-i18n="Partitions">Partitions</span></dt><dd>{{ device.running_partition or 'Unknown' }} / {{ device.boot_partition or 'Unknown' }}</dd><dt><span data-i18n="Timezone">Timezone</span></dt><dd>{{ device.timezone }}</dd><dt><span data-i18n="Free heap">Free heap</span></dt><dd>{{ device.free_heap_bucket or 'Unknown' }}</dd><dt><span data-i18n="Wi-Fi signal">Wi-Fi signal</span></dt><dd>{{ device.wifi_signal_bucket or 'Unknown' }}</dd></dl>
+  <form id="command-form"><label><span data-i18n="Action">Action</span><select id="command-type"><option value="restart" data-i18n="Restart during maintenance window">Restart during maintenance window</option><option value="notify" data-i18n="Display a notification">Display a notification</option></select></label><label id="notification-field" hidden><span data-i18n="Notification">Notification</span><input id="notification-message" maxlength="63" placeholder="Short message for this clock" data-i18n-placeholder="Short message for this clock"></label><button><span data-i18n="Queue action">Queue action</span></button><span id="command-result" class="form-result" role="status"></span></form>
+  <form id="state-form"><label><span data-i18n="Installation status">Installation status</span><select id="device-state"><option value="active" data-i18n="Active — allow reporting and updates">Active — allow reporting and updates</option><option value="retired" data-i18n="Retired — stop managing this installation">Retired — stop managing this installation</option><option value="blocked" data-i18n="Blocked — reject this installation">Blocked — reject this installation</option></select></label><button class="secondary"><span data-i18n="Save status">Save status</span></button><span id="state-result" class="form-result" role="status"></span></form>
 </details>
-<div class="card table-wrap"><h2>Recent diagnostic actions</h2><table><thead><tr><th>Action</th><th>Status</th><th>Attempts</th><th>Created</th><th>Result</th></tr></thead><tbody>{% for command in commands %}<tr><td>{{ command.type }}</td><td>{{ command.status }}</td><td>{{ command.attempt_count }}</td><td data-time="{{ command.created_at }}"></td><td>{{ command.result.reason if command.result else '—' }}</td></tr>{% else %}<tr><td colspan="5" class="empty">No actions queued.</td></tr>{% endfor %}</tbody></table></div>
+<div class="card table-wrap"><h2><span data-i18n="Recent diagnostic actions">Recent diagnostic actions</span></h2><table><thead><tr><th><span data-i18n="Action">Action</span></th><th><span data-i18n="Status">Status</span></th><th><span data-i18n="Attempts">Attempts</span></th><th><span data-i18n="Created">Created</span></th><th><span data-i18n="Result">Result</span></th></tr></thead><tbody>{% for command in commands %}<tr><td>{{ command.type }}</td><td>{{ command.status }}</td><td>{{ command.attempt_count }}</td><td data-time="{{ command.created_at }}"></td><td>{{ command.result.reason if command.result else '—' }}</td></tr>{% else %}<tr><td colspan="5" class="empty"><span data-i18n="No actions queued.">No actions queued.</span></td></tr>{% endfor %}</tbody></table></div>
 {% endblock %}
 {% block scripts %}<script>
 const device={{ device|tojson }};
 const features=device.features||{};
 const fields=['data_source','companion_enabled','companion_character','weather_enabled','timer_enabled','stopwatch_enabled','countdown_enabled','auto_cycle_enabled','notifications_enabled','sysmon_enabled','night_mode_enabled','auto_brightness','time_display_enabled'];
 const featureList=document.querySelector('#features');
-fields.forEach(key=>{const value=features[key];featureList.append(fleet.element('dt',fleet.label(key)),fleet.element('dd',value===undefined||value===null?'Unknown':typeof value==='boolean'?(value?'Enabled':'Disabled'):key==='companion_character'?(['Fish','Ghost','Axolotl','Dinosaur','Turtle','Octopus','Red panda'][value]||String(value)):fleet.label(value)));});
+fields.forEach(key=>{const value=features[key];featureList.append(fleet.element('dt',I18n.message(fleet.label(key))),fleet.element('dd',I18n.message(value===undefined||value===null ? 'Unknown' : typeof value==='boolean' ? value ? 'Enabled' : 'Disabled' : key==='companion_character' ? ['Fish','Ghost','Axolotl','Dinosaur','Turtle','Octopus','Red panda'][value] || String(value) : fleet.label(value))));});
 document.querySelector('#identity-form').addEventListener('submit',event=>{event.preventDefault();fleet.action(event.submitter,document.querySelector('#identity-result'),async()=>{await fleet.request({{ url_for('admin.update_device',device_id=device.id)|tojson }},{friendly_name:document.querySelector('#friendly-name').value},'PATCH');location.reload();});});
 const type=document.querySelector('#command-type');
 type.addEventListener('change',()=>document.querySelector('#notification-field').hidden=type.value!=='notify');
-document.querySelector('#command-form').addEventListener('submit',event=>{event.preventDefault();fleet.action(event.submitter,document.querySelector('#command-result'),async()=>{const payload=type.value==='notify'?{message:document.querySelector('#notification-message').value,duration_seconds:30,allow_buzzer:false}:{override_window:false};await fleet.request({{ url_for('admin.queue_command',device_id=device.id)|tojson }},{type:type.value,payload});document.querySelector('#command-result').textContent='Queued for the next check-in.';});});
+document.querySelector('#command-form').addEventListener('submit',event=>{event.preventDefault();fleet.action(event.submitter,document.querySelector('#command-result'),async()=>{const payload=type.value==='notify'?{message:document.querySelector('#notification-message').value,duration_seconds:30,allow_buzzer:false}:{override_window:false};await fleet.request({{ url_for('admin.queue_command',device_id=device.id)|tojson }},{type:type.value,payload});I18n.text(document.querySelector('#command-result'), 'Queued for the next check-in.');});});
 document.querySelector('#device-state').value=device.blocked_at?'blocked':device.connectivity==='retired'?'retired':'active';
 document.querySelector('#state-form').addEventListener('submit',event=>{event.preventDefault();fleet.action(event.submitter,document.querySelector('#state-result'),async()=>{await fleet.request(`/admin/api/devices/${device.id}/state`,{state:document.querySelector('#device-state').value});location.reload();});});
-(async()=>{const target=document.querySelector('#release-history');try{const data=await fleet.request('/admin/api/rollouts',undefined,'GET');target.replaceChildren();let found=false;for(const rollout of data.rollouts){for(const item of rollout.targets||[]){if(item.installation_id!==device.installation_id)continue;found=true;const p=fleet.element('p',`${rollout.version||rollout.release_version} · ${fleet.label(item.status)}${item.reason?' · '+fleet.label(item.reason):''}`);target.append(p);}}if(!found)target.textContent='No release targets yet.';}catch(error){target.textContent=error.message;}})();
+(async()=>{const target=document.querySelector('#release-history');try{const data=await fleet.request('/admin/api/rollouts',undefined,'GET');target.replaceChildren();let found=false;for(const rollout of data.rollouts){for(const item of rollout.targets||[]){if(item.installation_id!==device.installation_id)continue;found=true;const p=fleet.element('p',`${rollout.version||rollout.release_version} · ${fleet.label(item.status)}${item.reason?' · '+fleet.label(item.reason):''}`);target.append(p);}}if(!found)I18n.text(target, 'No release targets yet.');}catch(error){I18n.text(target, error.message, false);}})();
 </script>{% endblock %}

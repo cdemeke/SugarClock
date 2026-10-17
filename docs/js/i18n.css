@@ -1,0 +1,49 @@
+/* Shared selector, wrapping, and bidirectional interface rules. */
+.language-picker { display: flex; align-items: center; gap: .6rem; margin: 0; font: 500 13px/1.5 system-ui, sans-serif; color: inherit; }
+.language-picker select { width: auto; max-width: 15rem; min-height: 40px; margin: 0; padding: .45rem 2rem .45rem .65rem; border: 1px solid currentColor; border-radius: 8px; font: inherit; color: inherit; background-color: var(--surface, var(--card, var(--paper, #fff))); }
+.language-picker select:focus-visible { outline: 3px solid var(--accent, #16894a); outline-offset: 3px; }
+.language-status { display: block; max-width: 24rem; font-size: 12px; }
+.language-status:empty { display: none; }
+.language-bar { display: flex; justify-content: flex-end; padding: 16px 36px 0; }
+[data-language-picker] { min-width: 0; }
+html[dir="rtl"] body { letter-spacing: normal; }
+html[dir="rtl"] .app-shell-page { padding-left: 0; padding-right: 264px; }
+html[dir="rtl"] .sidebar { inset: 0 0 0 auto; border-right: 0; border-left: 1px solid var(--border); }
+html[dir="rtl"] .sidebar-close, html[dir="rtl"] .chevron, html[dir="rtl"] .theme-toggle { margin-left: 0; margin-right: auto; }
+html[dir="rtl"] .sidebar-link, html[dir="rtl"] .tab-btn, html[dir="rtl"] .theme-toggle,
+html[dir="rtl"] th, html[dir="rtl"] td, html[dir="rtl"] .clock-display-heading { text-align: start; }
+html[dir="rtl"] .pw-toggle { right: auto; left: 6px; }
+html[dir="rtl"] .pw-wrap input { padding-right: 12px; padding-left: 42px; }
+html[dir="rtl"] .login { margin-left: 0; margin-right: auto; }
+/* Physical clock pixels, charts, technical identifiers, and measurements keep their order. */
+canvas, pre, code, .identifier, .glucose-value, .glucose-reading, .delta, .ambient-matrix,
+input[type="number"], input[type="url"], input[type="email"], input[type="password"], input[type="time"], input[type="datetime-local"], input[type="range"] { direction: ltr; unicode-bidi: isolate; }
+input[type="text"], textarea { unicode-bidi: plaintext; }
+.page-header, .page-title-with-icon, .form-row, .nav-actions, .site-nav > .container, header { flex-wrap: wrap; }
+.card, .page-header, .heading { overflow-wrap: anywhere; }
+.sidebar-nav { overflow-y: auto; min-height: 0; }
+.sidebar-link, .tab-btn, .btn, button, .faq-question { white-space: normal; }
+.site-nav .nav-actions { display: flex; gap: 12px; align-items: center; }
+@media (max-width: 800px) {
+  .language-bar { padding: 14px 16px 0; min-height: 60px; }
+  .app-shell-page .language-picker > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .language-picker select { max-width: 12rem; }
+  html[dir="rtl"] .app-shell-page { padding-right: 0; }
+  html[dir="rtl"] .sidebar { transform: translateX(102%); }
+  html[dir="rtl"] .app-shell-page.nav-open .sidebar { transform: translateX(0); }
+  html[dir="rtl"] .mobile-nav-toggle { left: auto; right: 14px; }
+  header { gap: 12px; }
+  .site-nav .nav-actions { flex-wrap: wrap; justify-content: center; }
+}
+@media (max-width: 450px) {
+  .site-nav .nav-actions { width: 100%; }
+  .site-nav .nav-actions .language-picker > span { display: none; }
+  .language-picker select { max-width: 11rem; }
+}
+
+.brightness-scale { direction: ltr; }
+html[dir="rtl"] .bar-row { text-align: start; }
+html[dir="rtl"] .fleet-donut, html[dir="rtl"] .activity-svg { direction: ltr; }
+html[dir="rtl"] .sidebar .brand-copy { text-align: right; }
+
+.capacity-counts span span { margin-inline-start: .25em; }

@@ -46,7 +46,7 @@ class FleetDashboardTests(unittest.TestCase):
         for path, label in (('/admin/overview', 'Overview'), ('/admin/devices', 'Devices'),
                             ('/admin/devices/1', 'Devices'), ('/admin/releases', 'Releases')):
             response = self.get(path)
-            self.assertEqual(re.findall(r'aria-current="page">(.*?)</a>', response.text), [label])
+            self.assertEqual([re.sub(r'<[^>]+>', '', text) for text in re.findall(r'aria-current="page">(.*?)</a>', response.text)], [label])
 
     def test_nickname_is_escaped_and_identity_stays_stable(self):
         with self.app.app_context():
