@@ -177,11 +177,34 @@ test('locations group by country, expand to cities, and link to the device searc
   assert.equal(spain.tag, 'button');
   assert.equal(spain.attributes['aria-expanded'], 'true'); // The largest multi-city country starts open.
   assert.match(spain.textContent, /2 cities13 · 65%/);
+  assert.equal(byClass(spain, 'span', 'country-flag')[0].textContent, '🇪🇸');
+  assert.equal(byClass(spain, 'span', 'country-flag')[0].attributes['aria-hidden'], 'true');
+  assert.equal(byClass(usa, 'span', 'country-flag')[0].textContent, '🇺🇸');
+  assert.equal(byClass(unknown, 'span', 'country-flag').length, 0);
   assert.deepEqual(cities.children.map(row => row.href), ['/admin/devices?q=Valdepenas', '/admin/devices?q=Madrid']);
   assert.equal(usa.href, '/admin/devices?q=Washington');
   assert.equal(unknown.tag, 'div');
   spain.listeners.click();
   assert.equal(app.node('location-counts').children[0].children.length, 3);
+});
+
+test('country-only location codes render country flag emoji and link correctly', async () => {
+  const app = await boot(payload({counts: {...payload().counts, active_30d: 5}, location_counts: {'FR': 5}}));
+  const list = app.node('location-counts').children[0];
+  const [france] = list.children;
+  assert.equal(byClass(france, 'span', 'country-flag')[0].textContent, '🇫🇷');
+  assert.equal(france.href, '/admin/devices?q=FR');
+  assert.equal(byClass(france, 'span', 'bar-sublabel').length, 0);
+});
+
+test('mixed city and country-only locations expand and link all records', async () => {
+  const app = await boot(payload({counts: {...payload().counts, active_30d: 8}, location_counts: {'FR': 5, 'Paris, FR': 3}}));
+  const list = app.node('location-counts').children[0];
+  const [france, subrows] = list.children;
+  assert.equal(france.tag, 'button');
+  assert.match(france.textContent, /2 locations8 · 100%/);
+  assert.equal(subrows.children[0].href, '/admin/devices?q=Paris');
+  assert.equal(subrows.children[1].href, '/admin/devices?q=FR');
 });
 
 test('failed refresh retains previous counts and allows recovery', async () => {

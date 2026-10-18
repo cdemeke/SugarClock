@@ -430,6 +430,14 @@
   }
 
   let openCountries = new Set(), locationsTouched = false;
+  const countryEmoji = code => {
+    if (!code || !/^[A-Za-z]{2}$/.test(code)) return '';
+    const upper = code.toUpperCase();
+    return String.fromCodePoint(
+      0x1F1E6 - 65 + upper.charCodeAt(0),
+      0x1F1E6 - 65 + upper.charCodeAt(1)
+    );
+  };
   function renderLocations(counts, total) {
     const node = target('location-counts');
     node.replaceChildren();
@@ -442,24 +450,29 @@
     try { names = new Intl.DisplayNames(undefined, {type: 'region'}); } catch { names = undefined; }
     const groups = new Map();
     rows.forEach(([label, count]) => {
-      const match = /^(.*), ([A-Z]{2})$/.exec(label);
-      const key = match ? match[2] : label;
+      const match = /^(?:(.*), )?([A-Z]{2})$/.exec(label);
+      const code = match ? match[2] : undefined;
+      const key = code || label;
       if (!groups.has(key)) {
         let name = key;
-        if (match) try { name = names?.of(key) || key; } catch { name = key; }
-        groups.set(key, {name, count: 0, cities: []});
+        if (code) try { name = names?.of(code) || code; } catch { name = code; }
+        groups.set(key, {name, code, count: 0, cities: [], countryOnly: 0});
       }
       const group = groups.get(key);
       group.count += count;
-      if (match) group.cities.push([match[1], count]);
+      if (match?.[1]) group.cities.push([match[1], count]);
+      else if (code) group.countryOnly += count;
     });
     const sorted = [...groups.entries()].sort((a, b) => b[1].count - a[1].count || a[1].name.localeCompare(b[1].name));
-    if (!locationsTouched && sorted[0]?.[1].cities.length > 1) openCountries.add(sorted[0][0]); // Open the largest country until the user chooses.
+    const hasMultiple = group => group && (group.cities.length + (group.countryOnly ? 1 : 0)) > 1;
+    if (!locationsTouched && hasMultiple(sorted[0]?.[1])) openCountries.add(sorted[0][0]); // Open the largest country until the user chooses.
     const peak = sorted[0][1].count;
     const list = element('div', null, 'bar-list');
     sorted.forEach(([key, group]) => {
-      const expandable = group.cities.length > 1;
-      const row = element(expandable ? 'button' : group.cities.length ? 'a' : 'div', null, 'bar-row location-row');
+      const hasCountryOnly = group.countryOnly > 0;
+      const totalLocations = group.cities.length + (hasCountryOnly ? 1 : 0);
+      const expandable = totalLocations > 1;
+      const row = element(expandable ? 'button' : (group.cities.length || hasCountryOnly) ? 'a' : 'div', null, 'bar-row location-row');
       if (expandable) {
         row.type = 'button';
         row.setAttribute('aria-expanded', String(openCountries.has(key)));
@@ -468,10 +481,24 @@
           if (openCountries.has(key)) openCountries.delete(key); else openCountries.add(key);
           renderLocations(counts, total);
         });
-      } else if (group.cities.length) row.href = devicesLink(group.cities[0][0]); // Device labels may include a region, so search by city.
+      } else if (group.cities.length) {
+        row.href = devicesLink(group.cities[0][0]); // Device labels may include a region, so search by city.
+      } else if (hasCountryOnly) {
+        row.href = devicesLink(key);
+      }
       const label = element('span', null, 'bar-label');
+      const emoji = countryEmoji(group.code || key);
+      if (emoji) {
+        const flag = element('span', emoji, 'country-flag');
+        flag.setAttribute('aria-hidden', 'true');
+        label.append(flag);
+      }
       label.append(element('span', group.name));
-      if (group.cities.length) label.append(element('span', group.cities.length === 1 ? group.cities[0][0] : I18n.message("{0} cities", [group.cities.length]), 'bar-sublabel'));
+      if (group.cities.length && !hasCountryOnly) {
+        label.append(element('span', group.cities.length === 1 ? group.cities[0][0] : I18n.message("{0} cities", [group.cities.length]), 'bar-sublabel'));
+      } else if (expandable) {
+        label.append(element('span', I18n.message("{0} locations", [totalLocations]), 'bar-sublabel'));
+      }
       const value = element('span', null, 'bar-value');
       value.append(element('strong', number(group.count)), document.createTextNode(` · ${Math.round(percent(group.count, total))}%`));
       row.append(label, value, bar(group.count, peak, key === 'Unknown'));
@@ -484,6 +511,12 @@
           link.append(element('span', city, 'bar-label'), element('span', number(count), 'bar-value'), bar(count, peak, true));
           cities.append(link);
         });
+        if (hasCountryOnly) {
+          const link = element('a', null, 'bar-row city-row');
+          link.href = devicesLink(key);
+          link.append(element('span', I18n.message('{0} (other)', [group.name]), 'bar-label'), element('span', number(group.countryOnly), 'bar-value'), bar(group.countryOnly, peak, true));
+          cities.append(link);
+        }
         list.append(cities);
       }
     });

@@ -112,10 +112,10 @@
     }
   }
   const nameOf = code => languages.find(([value]) => value === code)[1];
-  const svg = path => `<svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">${path}</svg>`;
-  const globe = svg('<circle cx="10" cy="10" r="7.25"/><path d="M2.75 10h14.5M10 2.75c2 2 3 4.4 3 7.25s-1 5.25-3 7.25c-2-2-3-4.4-3-7.25s1-5.25 3-7.25Z"/>');
-  const chevron = svg('<path d="m6 8 4 4 4-4"/>');
-  const check = svg('<path d="m5 10.5 3.2 3L15 6.5"/>');
+  const svg = (path, stroke = '1.8') => `<svg viewBox="0 0 20 20" aria-hidden="true" focusable="false" stroke-width="${stroke}">${path}</svg>`;
+  const globe = svg('<circle cx="10" cy="10" r="7.25"/><path d="M2.75 10h14.5M10 2.75c2 2 3 4.4 3 7.25s-1 5.25-3 7.25c-2-2-3-4.4-3-7.25s1-5.25 3-7.25Z"/>', '1.9');
+  const chevron = svg('<path d="m6 8 4 4 4-4"/>', '2');
+  const check = svg('<path d="m5 10.5 3.2 3L15 6.5"/>', '2.2');
   function setBusy(busy) {
     document.querySelectorAll('.language-picker').forEach(picker => {
       picker.classList.toggle('is-loading', busy);
@@ -133,9 +133,12 @@
       picker.querySelector('.language-menu').setAttribute('aria-label', t('Language'));
       picker.querySelector('.language-menu-heading').textContent = t('Language');
       picker.querySelectorAll('[data-language-option]').forEach(item => {
-        const selected = item.dataset.languageOption === (preference || 'auto');
+        const optionVal = item.dataset.languageOption;
+        const selected = optionVal === (preference || 'auto');
         item.setAttribute('aria-checked', String(selected));
-        if (item.dataset.languageOption === 'auto') {
+        const isActiveLanguage = optionVal === locale;
+        item.classList.toggle('is-current-locale', isActiveLanguage);
+        if (optionVal === 'auto') {
           item.querySelector('.language-option-name > span').textContent = t('Use browser language');
           item.querySelector('.language-option-detail').textContent = nameOf(browserLanguage());
         }
@@ -156,7 +159,7 @@
     menu.hidden = false;
     picker.querySelector('.language-trigger').setAttribute('aria-expanded', 'true');
     // Keep the panel on screen when the trigger sits near a viewport edge.
-    const bounds = menu.getBoundingClientRect(), gutter = 8;
+    const bounds = menu.getBoundingClientRect(), gutter = 12;
     const shift = bounds.left < gutter ? gutter - bounds.left
       : bounds.right > innerWidth - gutter ? innerWidth - gutter - bounds.right : 0;
     if (shift) menu.style.setProperty('--language-menu-shift', shift + 'px');
