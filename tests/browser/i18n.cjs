@@ -48,8 +48,16 @@ async function pageFor(locale='en-US', mobile=false) {
   await page.route('https://unpkg.com/esp-web-tools**',route=>route.fulfill({contentType:'text/javascript',body:''}));
   return {page,context,errors};
 }
-async function ready(page, language){await page.waitForFunction(code=>window.I18n?.language===code&&document.querySelector('[data-language-select]'),language);}
-async function choose(page, language){await page.locator('[data-language-select]').selectOption(language);await ready(page,language);}
+async function ready(page, language){await page.waitForFunction(code=>window.I18n?.language===code&&document.querySelector('[data-language-trigger]'),language);}
+// The device picker lives in the sidebar, which is a closed drawer on phones.
+async function pick(page, value){
+ const trigger=page.locator('[data-language-trigger]');
+ const onScreen=()=>trigger.evaluate(el=>{const r=el.getBoundingClientRect();return r.width>0&&r.left>=0&&r.right<=innerWidth;});
+ if(!(await onScreen())){await page.locator('.mobile-nav-toggle').click();await page.waitForFunction(()=>{const r=document.querySelector('[data-language-trigger]').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth;});}
+ await trigger.click();await page.locator(`[data-language-option="${value}"]`).click();
+ assert.equal(await trigger.getAttribute('aria-expanded'),'false');
+}
+async function choose(page, language){await pick(page,language);await ready(page,language);}
 async function noOverflow(page){
  const layout=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,language:document.documentElement.lang,
   overflow:[...document.body.querySelectorAll('*')].filter(el=>{const r=el.getBoundingClientRect();return r.width>0&&(r.right>innerWidth+1||r.left < -1)&&!el.closest('.sidebar');}).slice(0,10).map(el=>({tag:el.tagName,id:el.id,class:el.className,text:el.textContent.slice(0,80),width:el.getBoundingClientRect().width}))}));
@@ -69,13 +77,16 @@ test('all 20 languages render marketing and admin without overflow or script err
 });
 test('regional browser language, persistence, FAQ navigation and English override',async()=>{
  const {page,context,errors}=await pageFor('es-MX');await page.goto(siteURL);await ready(page,'es');
- assert.equal(await page.locator('[data-i18n="Language"]').innerText(),'Idioma');
+ assert.equal(await page.locator('[data-language-trigger]').getAttribute('aria-label'),'Idioma: Español');
+ await page.locator('[data-language-trigger]').press('ArrowDown');
+ assert.equal(await page.evaluate(()=>document.activeElement.dataset.languageOption),'auto');
+ await page.keyboard.press('Escape');assert.equal(await page.evaluate(()=>'languageTrigger' in document.activeElement.dataset),true);
  await capture(page,'marketing-spanish-desktop');
  await page.goto(siteURL+'/faq.html');await ready(page,'es');
  const question=page.locator('.faq-question').first();await question.click();
  assert.ok(await question.evaluate(el=>el.closest('.faq-item').classList.contains('active')));
  await choose(page,'en');await page.reload();await ready(page,'en');
- await page.locator('[data-language-select]').selectOption('auto');await ready(page,'es');
+ await pick(page,'auto');await ready(page,'es');
  assert.deepEqual(errors,[]);await context.close();
 });
 test('language changes preserve form state and API payloads, including data equal to UI copy',async()=>{
@@ -108,7 +119,7 @@ test('unsupported locale, unavailable storage, failed catalog, rapid selection a
  await page.goto(siteURL);await ready(page,'en');
  await choose(page,'es');
  await page.route('**/locales/de.json',route=>route.fulfill({status:503,body:'Unavailable'}));
- await page.locator('[data-language-select]').selectOption('de');await page.waitForFunction(()=>document.querySelector('[data-language-status]').textContent.length>0);
+ await pick(page,'de');await page.waitForFunction(()=>document.querySelector('[data-language-status]').textContent.length>0);
  assert.equal(await page.locator('html').getAttribute('lang'),'es');
  await page.evaluate(async()=>{await Promise.all([I18n.setLanguage('fr'),I18n.setLanguage('ar'),I18n.setLanguage('en')]);});
  assert.equal(await page.locator('html').getAttribute('lang'),'en');

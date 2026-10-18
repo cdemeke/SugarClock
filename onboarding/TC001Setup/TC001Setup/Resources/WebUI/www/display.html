@@ -28,11 +28,10 @@
             <a class="sidebar-link" href="/debug.html"><img class="nav-image-icon" src="/diagnostics-icon.png" alt=""><span data-i18n="Diagnostics">Diagnostics</span></a>
             <a class="sidebar-link" href="/device.html"><svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><rect x="5" y="5" width="10" height="10" rx="2"/><path d="M8 2v3M12 2v3M8 15v3M12 15v3M2 8h3M15 8h3M2 12h3M15 12h3"/></svg><span data-i18n="Device">Device</span></a>
         </nav>
-        <div class="sidebar-footer"><button class="theme-toggle" type="button" onclick="toggleTheme()" title="Toggle color mode" data-i18n-title="Toggle color mode"><span class="theme-icon" aria-hidden="true">&#9790;</span><span class="theme-label"><span data-i18n="Switch to dark mode">Switch to dark mode</span></span></button><div class="sidebar-footer-note"><span data-i18n="Connected to">Connected to</span> <a href="https://sugarclock.com" target="_blank" rel="noopener">SugarClock</a></div></div>
+        <div class="sidebar-footer"><div data-language-picker="sidebar"></div><button class="theme-toggle" type="button" onclick="toggleTheme()" title="Toggle color mode" data-i18n-title="Toggle color mode"><span class="theme-icon" aria-hidden="true">&#9790;</span><span class="theme-label"><span data-i18n="Switch to dark mode">Switch to dark mode</span></span></button><div class="sidebar-footer-note"><span data-i18n="Connected to">Connected to</span> <a href="https://sugarclock.com" target="_blank" rel="noopener">SugarClock</a></div></div>
     </aside>
 
     <main class="app-main">
-    <div class="language-bar" data-language-picker></div>
     <div class="page">
         <div class="page-header dashboard-page-header">
             <img class="dashboard-header-icon" src="/dashboard-icon.png" alt="">
@@ -149,6 +148,13 @@
 
         let readingUnits = null;
         let latestReading = null;
+        // English keeps the compact form; other languages get the browser's own relative-time wording.
+        function readingAge(d){
+            const s=d.data_age_sec,stale=d.color==='gray';
+            if(I18n.language==='en')return(stale?'Stale reading · ':'Updated ')+fmtAge(s);
+            const [value,unit]=s<60?[s,'second']:s<3600?[Math.floor(s/60),'minute']:[Math.floor(s/3600),'hour'];
+            return I18n.t(stale?'Stale reading':'Updated ').trim()+' · '+new Intl.RelativeTimeFormat(I18n.language,{numeric:'always'}).format(-value,unit);
+        }
         function renderReading(){
             const d=latestReading;
             const gv=document.getElementById('glucose-value'),ta=document.getElementById('trend-arrow'),dd=document.getElementById('delta-display');
@@ -160,7 +166,8 @@
             const cc=d?(colorMap[d.color]||''):'';gv.className='value '+cc;ta.className='trend '+cc;
             if(valid&&Number.isFinite(d.delta)){I18n.text(dd, GlucoseFormat.value(d.delta,readingUnits,true)+' '+unit, false);dd.className='delta '+(d.delta>0?'delta-positive':d.delta<0?'delta-negative':'delta-neutral');}else{I18n.text(dd, '', false);dd.className='delta';}
             const age=document.getElementById('data-age');
-            I18n.text(age, !d ? 'Reading unavailable' : !d.valid ? 'No glucose reading' : !Number.isFinite(d.data_age_sec)||d.data_age_sec<0 ? 'Reading age unavailable' : (d.color==='gray'?'Stale reading · ':'Updated ')+fmtAge(d.data_age_sec));
+            if(!d||!d.valid||!Number.isFinite(d.data_age_sec)||d.data_age_sec<0)I18n.text(age, !d ? 'Reading unavailable' : !d.valid ? 'No glucose reading' : 'Reading age unavailable');
+            else I18n.text(age, readingAge(d), false);
         }
 
         async function refresh(){
@@ -217,6 +224,7 @@
         }
 
         refresh();setInterval(refresh,5000);loadCapabilities();
+        document.addEventListener('languagechange',()=>{if(latestReading)renderReading();});
 
         function toggleTheme(){
             const d=document.documentElement;
