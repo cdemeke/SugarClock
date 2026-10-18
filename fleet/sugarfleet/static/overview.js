@@ -458,19 +458,29 @@
       if (!groups.has(key)) {
         let name = key;
         if (code) try { name = names?.of(code) || code; } catch { name = code; }
-        groups.set(key, {name, count: 0, cities: []});
+        groups.set(key, {name, code, count: 0, cities: [], countryOnly: 0});
       }
       const group = groups.get(key);
       group.count += count;
-      if (match?.[1]) group.cities.push([match[1], count]);
+      if (match?.[1]) {
+        group.cities.push([match[1], count]);
+      } else if (code) {
+        group.countryOnly += count;
+      }
     });
     const sorted = [...groups.entries()].sort((a, b) => b[1].count - a[1].count || a[1].name.localeCompare(b[1].name));
-    if (!locationsTouched && sorted[0]?.[1].cities.length > 1) openCountries.add(sorted[0][0]); // Open the largest country until the user chooses.
+    if (!locationsTouched && sorted[0]) {
+      const topEntries = sorted[0][1].cities.length + (sorted[0][1].countryOnly ? 1 : 0);
+      if (topEntries > 1) openCountries.add(sorted[0][0]); // Open the largest country until the user chooses.
+    }
     const peak = sorted[0][1].count;
     const list = element('div', null, 'bar-list');
     sorted.forEach(([key, group]) => {
-      const expandable = group.cities.length > 1;
-      const row = element(expandable ? 'button' : group.cities.length ? 'a' : 'div', null, 'bar-row location-row');
+      const entries = [...group.cities];
+      if (group.countryOnly) entries.push(['Unknown city', group.countryOnly, key]);
+      entries.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+      const expandable = entries.length > 1;
+      const row = element(expandable ? 'button' : entries.length ? 'a' : 'div', null, 'bar-row location-row');
       if (expandable) {
         row.type = 'button';
         row.setAttribute('aria-expanded', String(openCountries.has(key)));
@@ -479,7 +489,10 @@
           if (openCountries.has(key)) openCountries.delete(key); else openCountries.add(key);
           renderLocations(counts, total);
         });
-      } else if (group.cities.length) row.href = devicesLink(group.cities[0][0]); // Device labels may include a region, so search by city.
+      } else if (entries.length) {
+        const [name, , searchKey] = entries[0];
+        row.href = devicesLink(searchKey || name);
+      }
       const label = element('span', null, 'bar-label');
       const emoji = countryEmoji(key);
       if (emoji) {
@@ -488,17 +501,20 @@
         label.append(flag);
       }
       label.append(element('span', group.name));
-      if (group.cities.length) label.append(element('span', group.cities.length === 1 ? group.cities[0][0] : `${group.cities.length} cities`, 'bar-sublabel'));
+      const sublabel = group.countryOnly
+        ? (group.cities.length ? `${group.cities.length} cit${group.cities.length === 1 ? 'y' : 'ies'} + other` : undefined)
+        : (group.cities.length === 1 ? group.cities[0][0] : group.cities.length > 1 ? `${group.cities.length} cities` : undefined);
+      if (sublabel) label.append(element('span', sublabel, 'bar-sublabel'));
       const value = element('span', null, 'bar-value');
       value.append(element('strong', number(group.count)), document.createTextNode(` · ${Math.round(percent(group.count, total))}%`));
       row.append(label, value, bar(group.count, peak, key === 'Unknown'));
       list.append(row);
       if (expandable && openCountries.has(key)) {
         const cities = element('div', null, 'city-list');
-        group.cities.forEach(([city, count]) => {
+        entries.forEach(([name, count, searchKey]) => {
           const link = element('a', null, 'bar-row city-row');
-          link.href = devicesLink(city);
-          link.append(element('span', city, 'bar-label'), element('span', number(count), 'bar-value'), bar(count, peak, true));
+          link.href = devicesLink(searchKey || name);
+          link.append(element('span', name, 'bar-label'), element('span', number(count), 'bar-value'), bar(count, peak, true));
           cities.append(link);
         });
         list.append(cities);

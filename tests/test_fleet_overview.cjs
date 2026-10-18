@@ -187,12 +187,29 @@ test('locations group by country, expand to cities, and link to the device searc
   assert.equal(app.node('location-counts').children[0].children.length, 3);
 });
 
-test('country-only location codes render country flag emoji without city sublabel', async () => {
+test('country-only location codes render country flag emoji, link to country search, and omit city sublabel', async () => {
   const app = await boot(payload({counts: {...payload().counts, active_30d: 5}, location_counts: {'FR': 5}}));
   const list = app.node('location-counts').children[0];
   const [france] = list.children;
+  assert.equal(france.tag, 'a');
+  assert.equal(france.href, '/admin/devices?q=FR');
   assert.equal(byClass(france, 'span', 'country-flag')[0].textContent, '🇫🇷');
   assert.equal(byClass(france, 'span', 'bar-sublabel').length, 0);
+});
+
+test('mixed country-only and city reports expand, include country-only rows, and preserve all clocks in links', async () => {
+  const app = await boot(payload({counts: {...payload().counts, active_30d: 8}, location_counts: {'FR': 5, 'Paris, FR': 3}}));
+  const list = app.node('location-counts').children[0];
+  const [france, cities] = list.children;
+  assert.equal(france.tag, 'button');
+  assert.equal(france.attributes['aria-expanded'], 'true');
+  assert.match(france.textContent, /1 city \+ other8 · 100%/);
+  assert.equal(cities.children.length, 2);
+  const [unknownCity, paris] = cities.children;
+  assert.equal(unknownCity.href, '/admin/devices?q=FR');
+  assert.match(unknownCity.textContent, /Unknown city5/);
+  assert.equal(paris.href, '/admin/devices?q=Paris');
+  assert.match(paris.textContent, /Paris3/);
 });
 
 test('failed refresh retains previous counts and allows recovery', async () => {
