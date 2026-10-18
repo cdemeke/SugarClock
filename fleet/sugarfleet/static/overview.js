@@ -432,6 +432,14 @@
   }
 
   let openCountries = new Set(), locationsTouched = false;
+  const countryEmoji = code => {
+    if (!code || !/^[A-Za-z]{2}$/.test(code)) return '';
+    const upper = code.toUpperCase();
+    return String.fromCodePoint(
+      0x1F1E6 - 65 + upper.charCodeAt(0),
+      0x1F1E6 - 65 + upper.charCodeAt(1)
+    );
+  };
   function renderLocations(counts, total) {
     const node = target('location-counts');
     node.replaceChildren();
@@ -444,16 +452,17 @@
     try { names = new Intl.DisplayNames(undefined, {type: 'region'}); } catch { names = undefined; }
     const groups = new Map();
     rows.forEach(([label, count]) => {
-      const match = /^(.*), ([A-Z]{2})$/.exec(label);
-      const key = match ? match[2] : label;
+      const match = /^(?:(.*), )?([A-Z]{2})$/.exec(label);
+      const code = match ? match[2] : undefined;
+      const key = code || label;
       if (!groups.has(key)) {
         let name = key;
-        if (match) try { name = names?.of(key) || key; } catch { name = key; }
+        if (code) try { name = names?.of(code) || code; } catch { name = code; }
         groups.set(key, {name, count: 0, cities: []});
       }
       const group = groups.get(key);
       group.count += count;
-      if (match) group.cities.push([match[1], count]);
+      if (match?.[1]) group.cities.push([match[1], count]);
     });
     const sorted = [...groups.entries()].sort((a, b) => b[1].count - a[1].count || a[1].name.localeCompare(b[1].name));
     if (!locationsTouched && sorted[0]?.[1].cities.length > 1) openCountries.add(sorted[0][0]); // Open the largest country until the user chooses.
@@ -472,6 +481,12 @@
         });
       } else if (group.cities.length) row.href = devicesLink(group.cities[0][0]); // Device labels may include a region, so search by city.
       const label = element('span', null, 'bar-label');
+      const emoji = countryEmoji(key);
+      if (emoji) {
+        const flag = element('span', emoji, 'country-flag');
+        flag.setAttribute('aria-hidden', 'true');
+        label.append(flag);
+      }
       label.append(element('span', group.name));
       if (group.cities.length) label.append(element('span', group.cities.length === 1 ? group.cities[0][0] : `${group.cities.length} cities`, 'bar-sublabel'));
       const value = element('span', null, 'bar-value');

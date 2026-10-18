@@ -176,11 +176,23 @@ test('locations group by country, expand to cities, and link to the device searc
   assert.equal(spain.tag, 'button');
   assert.equal(spain.attributes['aria-expanded'], 'true'); // The largest multi-city country starts open.
   assert.match(spain.textContent, /2 cities13 · 65%/);
+  assert.equal(byClass(spain, 'span', 'country-flag')[0].textContent, '🇪🇸');
+  assert.equal(byClass(spain, 'span', 'country-flag')[0].attributes['aria-hidden'], 'true');
+  assert.equal(byClass(usa, 'span', 'country-flag')[0].textContent, '🇺🇸');
+  assert.equal(byClass(unknown, 'span', 'country-flag').length, 0);
   assert.deepEqual(cities.children.map(row => row.href), ['/admin/devices?q=Valdepenas', '/admin/devices?q=Madrid']);
   assert.equal(usa.href, '/admin/devices?q=Washington');
   assert.equal(unknown.tag, 'div');
   spain.listeners.click();
   assert.equal(app.node('location-counts').children[0].children.length, 3);
+});
+
+test('country-only location codes render country flag emoji without city sublabel', async () => {
+  const app = await boot(payload({counts: {...payload().counts, active_30d: 5}, location_counts: {'FR': 5}}));
+  const list = app.node('location-counts').children[0];
+  const [france] = list.children;
+  assert.equal(byClass(france, 'span', 'country-flag')[0].textContent, '🇫🇷');
+  assert.equal(byClass(france, 'span', 'bar-sublabel').length, 0);
 });
 
 test('failed refresh retains previous counts and allows recovery', async () => {
