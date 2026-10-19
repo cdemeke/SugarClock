@@ -500,7 +500,7 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
         cfg.color_urgent_high = hex_to_color(doc["color_urgent_high"] | "#ea4335");
     }
     if (doc["color_stale"].is<const char*>()) {
-        cfg.color_stale = hex_to_color(doc["color_stale"] | "#808080");
+        cfg.color_stale = hex_to_color(doc["color_stale"] | "#390e3b");
     }
 
     // Clock & weather colors
