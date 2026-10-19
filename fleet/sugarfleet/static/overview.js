@@ -21,6 +21,7 @@
     return node;
   };
   const devicesLink = query => `/admin/devices?q=${encodeURIComponent(query)}`;
+  const devicesLocationLink = location => `/admin/devices?location=${encodeURIComponent(location)}`;
   const isoDay = time => new Date(time).toISOString().slice(0, 10);
   const dayLabel = (day, options = {month: 'short', day: 'numeric'}) => new Date(`${day}T12:00:00Z`).toLocaleDateString(undefined, {timeZone: 'UTC', ...options});
   const signed = value => `${value > 0 ? '+' : value < 0 ? '−' : '±'}${number(Math.abs(value))}`;
@@ -463,7 +464,7 @@
       const group = groups.get(key);
       group.count += count;
       if (match?.[1]) {
-        group.cities.push([match[1], count]);
+        group.cities.push([match[1], count, label]);
       } else if (code) {
         group.countryOnly += count;
       }
@@ -490,8 +491,8 @@
           renderLocations(counts, total);
         });
       } else if (entries.length) {
-        const [name, , searchKey] = entries[0];
-        row.href = devicesLink(searchKey || name);
+        const [, , locationKey] = entries[0];
+        row.href = devicesLocationLink(locationKey);
       }
       const label = element('span', null, 'bar-label');
       const emoji = countryEmoji(key);
@@ -502,7 +503,7 @@
       }
       label.append(element('span', group.name));
       const sublabel = group.countryOnly
-        ? (group.cities.length ? `${group.cities.length} cit${group.cities.length === 1 ? 'y' : 'ies'} + other` : undefined)
+        ? (group.cities.length ? `${group.cities.length} cit${group.cities.length === 1 ? 'y' : 'ies'} + unknown` : undefined)
         : (group.cities.length === 1 ? group.cities[0][0] : group.cities.length > 1 ? `${group.cities.length} cities` : undefined);
       if (sublabel) label.append(element('span', sublabel, 'bar-sublabel'));
       const value = element('span', null, 'bar-value');
@@ -511,9 +512,9 @@
       list.append(row);
       if (expandable && openCountries.has(key)) {
         const cities = element('div', null, 'city-list');
-        entries.forEach(([name, count, searchKey]) => {
+        entries.forEach(([name, count, locationKey]) => {
           const link = element('a', null, 'bar-row city-row');
-          link.href = devicesLink(searchKey || name);
+          link.href = devicesLocationLink(locationKey);
           link.append(element('span', name, 'bar-label'), element('span', number(count), 'bar-value'), bar(count, peak, true));
           cities.append(link);
         });

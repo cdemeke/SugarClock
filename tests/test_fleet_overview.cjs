@@ -169,7 +169,7 @@ test('snapshots missing newer fields render as unknown rather than zero', async 
   assert.match(app.node('daily-counts').all('tbody')[0].textContent, /7———/);
 });
 
-test('locations group by country, expand to cities, and link to the device search', async () => {
+test('locations group by country, expand to cities, and link to exact device locations', async () => {
   const app = await boot(payload({counts: {...payload().counts, active_30d: 20}, location_counts: {'Valdepenas, ES': 12, 'Madrid, ES': 1, 'Washington, US': 5, Unknown: 2}}));
   const list = app.node('location-counts').children[0];
   const [spain, cities, usa, unknown] = list.children;
@@ -180,35 +180,35 @@ test('locations group by country, expand to cities, and link to the device searc
   assert.equal(byClass(spain, 'span', 'country-flag')[0].attributes['aria-hidden'], 'true');
   assert.equal(byClass(usa, 'span', 'country-flag')[0].textContent, '🇺🇸');
   assert.equal(byClass(unknown, 'span', 'country-flag').length, 0);
-  assert.deepEqual(cities.children.map(row => row.href), ['/admin/devices?q=Valdepenas', '/admin/devices?q=Madrid']);
-  assert.equal(usa.href, '/admin/devices?q=Washington');
+  assert.deepEqual(cities.children.map(row => row.href), ['/admin/devices?location=Valdepenas%2C%20ES', '/admin/devices?location=Madrid%2C%20ES']);
+  assert.equal(usa.href, '/admin/devices?location=Washington%2C%20US');
   assert.equal(unknown.tag, 'div');
   spain.listeners.click();
   assert.equal(app.node('location-counts').children[0].children.length, 3);
 });
 
-test('country-only location codes render country flag emoji, link to country search, and omit city sublabel', async () => {
+test('country-only location codes render country flag emoji, link to country location filter, and omit city sublabel', async () => {
   const app = await boot(payload({counts: {...payload().counts, active_30d: 5}, location_counts: {'FR': 5}}));
   const list = app.node('location-counts').children[0];
   const [france] = list.children;
   assert.equal(france.tag, 'a');
-  assert.equal(france.href, '/admin/devices?q=FR');
+  assert.equal(france.href, '/admin/devices?location=FR');
   assert.equal(byClass(france, 'span', 'country-flag')[0].textContent, '🇫🇷');
   assert.equal(byClass(france, 'span', 'bar-sublabel').length, 0);
 });
 
-test('mixed country-only and city reports expand, include country-only rows, and preserve all clocks in links', async () => {
+test('mixed country-only and city reports expand, include country-only rows, and preserve all clocks in exact location links', async () => {
   const app = await boot(payload({counts: {...payload().counts, active_30d: 8}, location_counts: {'FR': 5, 'Paris, FR': 3}}));
   const list = app.node('location-counts').children[0];
   const [france, cities] = list.children;
   assert.equal(france.tag, 'button');
   assert.equal(france.attributes['aria-expanded'], 'true');
-  assert.match(france.textContent, /1 city \+ other8 · 100%/);
+  assert.match(france.textContent, /1 city \+ unknown8 · 100%/);
   assert.equal(cities.children.length, 2);
   const [unknownCity, paris] = cities.children;
-  assert.equal(unknownCity.href, '/admin/devices?q=FR');
+  assert.equal(unknownCity.href, '/admin/devices?location=FR');
   assert.match(unknownCity.textContent, /Unknown city5/);
-  assert.equal(paris.href, '/admin/devices?q=Paris');
+  assert.equal(paris.href, '/admin/devices?location=Paris%2C%20FR');
   assert.match(paris.textContent, /Paris3/);
 });
 
