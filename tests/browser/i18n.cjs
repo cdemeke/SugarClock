@@ -52,7 +52,8 @@ async function ready(page, language){await page.waitForFunction(code=>window.I18
 // The device picker lives in the sidebar, which is a closed drawer on phones.
 async function pick(page, value){
  const trigger=page.locator('[data-language-trigger]');
- const onScreen=()=>trigger.evaluate(el=>{const r=el.getBoundingClientRect();return r.width>0&&r.left>=0&&r.right<=innerWidth;});
+ const settled=()=>page.waitForFunction(()=>new Promise(done=>{const el=document.querySelector('[data-language-trigger]');const a=el.getBoundingClientRect().left;setTimeout(()=>requestAnimationFrame(()=>done(el.getBoundingClientRect().left===a)),100);}));
+ const onScreen=async()=>{await settled();return trigger.evaluate(el=>{const r=el.getBoundingClientRect();return r.width>0&&r.left>=0&&r.right<=innerWidth;});};
  if(!(await onScreen())){await page.locator('.mobile-nav-toggle').click();await page.waitForFunction(()=>{const r=document.querySelector('[data-language-trigger]').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth;});}
  await trigger.click();await page.locator(`[data-language-option="${value}"]`).click();
  assert.equal(await trigger.getAttribute('aria-expanded'),'false');
