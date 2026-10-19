@@ -543,9 +543,9 @@
                         <span class="color-hex" id="hex_urgent_high">#ea4335</span>
                     </div>
                     <div class="color-row">
-                        <input type="color" id="color_stale" value="#808080">
+                        <input type="color" id="color_stale" value="#390e3b">
                         <span class="color-label">Stale Data</span>
-                        <span class="color-hex" id="hex_stale">#808080</span>
+                        <span class="color-hex" id="hex_stale">#390e3b</span>
                     </div>
                     </div>
                 </div>
@@ -724,6 +724,9 @@
                         <p class="card-intro" style="margin-bottom:16px;">
                             Show current temperature in the display cycle. Uses OpenWeatherMap.
                         </p>
+                        <div class="weather-key-warning" id="weather_key_warning" role="status" hidden>
+                            &#9888;&#65039; An OpenWeatherMap API key is required for weather to appear on the clock. Get a free key at <a href="https://openweathermap.org/appid" target="_blank">openweathermap.org</a>.
+                        </div>
                         <div class="form-group">
                             <label>API Key</label>
                             <div class="pw-wrap">
@@ -1328,7 +1331,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
         // Keep these aligned with the theme defaults in config_set_defaults().
         const RANGE_COLOR_DEFAULTS = {
             urgent_low: '#ea4335', low: '#fbbc04', in_range: '#34a853',
-            high: '#fbbc04', urgent_high: '#ea4335', stale: '#808080'
+            high: '#fbbc04', urgent_high: '#ea4335', stale: '#390e3b'
         };
 
         function updateRangeColorControls() {
@@ -1470,7 +1473,9 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
                 // Weather
                 document.getElementById('weather_enabled').checked = c.weather_enabled || false;
-                document.getElementById('weather_api_key').value = c.weather_api_key || '';
+                weatherKeySaved = c.has_weather_api_key === true;
+                document.getElementById('weather_api_key').value = '';
+                updateWeatherKeyState();
                 document.getElementById('weather_city').value = c.weather_city || '';
                 document.getElementById('weather_use_f').value = c.weather_use_f ? '1' : '0';
                 document.getElementById('weather_poll_min').value = c.weather_poll_min || 15;
@@ -1573,6 +1578,11 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             try {
                 const r = await fetch('/api/config', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
                 showToast(r.ok ? 'Configuration saved!' : 'Save failed', r.ok ? 'success' : 'error');
+                if (r.ok && data.weather_api_key.trim()) {
+                    weatherKeySaved = true;
+                    document.getElementById('weather_api_key').value = '';
+                    updateWeatherKeyState();
+                }
             } catch (e) { showToast('Network error', 'error'); }
         });
 
@@ -1602,6 +1612,17 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             try { await fetch('/api/restart', { method: 'POST' }); showToast('Restarting...'); }
             catch (e) { showToast('Failed', 'error'); }
         });
+
+        // Weather needs an API key; GET /api/config only reports whether one is saved.
+        let weatherKeySaved = false;
+        function updateWeatherKeyState() {
+            const key = document.getElementById('weather_api_key');
+            key.placeholder = weatherKeySaved ? 'Saved \u2014 leave blank to keep' : '';
+            document.getElementById('weather_key_warning').hidden =
+                !document.getElementById('weather_enabled').checked || weatherKeySaved || key.value.trim() !== '';
+        }
+        document.getElementById('weather_enabled').addEventListener('change', updateWeatherKeyState);
+        document.getElementById('weather_api_key').addEventListener('input', updateWeatherKeyState);
 
         // Test Weather API
         document.getElementById('test-weather-btn').addEventListener('click', async function() {

@@ -75,6 +75,13 @@ class FleetDashboardTests(unittest.TestCase):
             base_url='http://127.0.0.1:8081', headers={'X-CSRF-Token':token})
         self.assertEqual(response.status_code, 200, response.text)
 
+    def test_devices_table_renders_data_location_for_filtering(self):
+        response = self.get('/admin/devices')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('data-location="Boston, US"', response.text)
+        self.assertIn('data-location="London, GB"', response.text)
+        self.assertIn('data-location="Toronto, CA"', response.text)
+
 
 if __name__ == '__main__':
     unittest.main()
