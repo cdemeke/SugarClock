@@ -247,14 +247,6 @@
                 </div>
 
                 <div class="card">
-                    <div class="card-header-toggle">
-                        <h2><label for="glucose_only_when_low">Show Only Blood Sugar When Low</label></h2>
-                        <input type="checkbox" id="glucose_only_when_low" aria-describedby="low-only-hint">
-                    </div>
-                    <p class="hint" id="low-only-hint">Keep the blood sugar value visible while fresh readings are below your configured Low threshold, including urgent lows. Other screens and navigation are blocked. Notifications, including urgent ones, are hidden and may expire unseen. Stale readings, repeated glucose fetch failures, or Wi-Fi setup mode release the lock. Brief Wi-Fi drops and failed network checks do not hide a fresh low reading. Off by default.</p>
-                </div>
-
-                <div class="card">
                     <h2>Remote Control</h2>
                     <p class="card-intro" style="margin:-8px 0 16px;">
                         Switch the device display from here.
@@ -500,6 +492,14 @@
                             <input type="number" id="thresh_urgent_high" min="150" max="400" value="250">
                         </div>
                     </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header-toggle">
+                        <h2><label for="glucose_only_when_low">Show only blood sugar when low or high</label></h2>
+                        <input type="checkbox" id="glucose_only_when_low" aria-describedby="glucose-focus-hint">
+                    </div>
+                    <p class="hint" id="glucose-focus-hint">Hide the clock, pets, and other screens while blood sugar is outside your set thresholds. Rotation resumes when blood sugar returns to range.</p>
                 </div>
 
                 <div class="card">
