@@ -21,6 +21,7 @@
     return node;
   };
   const devicesLink = query => `/admin/devices?q=${encodeURIComponent(query)}`;
+  const devicesLocationLink = location => `/admin/devices?location=${encodeURIComponent(location)}`;
   const isoDay = time => new Date(time).toISOString().slice(0, 10);
   const dayLabel = (day, options = {month: 'short', day: 'numeric'}) => new Date(`${day}T12:00:00Z`).toLocaleDateString(undefined, {timeZone: 'UTC', ...options});
   const signed = value => `${value > 0 ? '+' : value < 0 ? '−' : '±'}${number(Math.abs(value))}`;
@@ -460,19 +461,23 @@
       }
       const group = groups.get(key);
       group.count += count;
-      if (match?.[1]) group.cities.push([match[1], count]);
+      if (match?.[1]) group.cities.push([match[1], count, label]);
       else if (code) group.countryOnly += count;
     });
     const sorted = [...groups.entries()].sort((a, b) => b[1].count - a[1].count || a[1].name.localeCompare(b[1].name));
-    const hasMultiple = group => group && (group.cities.length + (group.countryOnly ? 1 : 0)) > 1;
-    if (!locationsTouched && hasMultiple(sorted[0]?.[1])) openCountries.add(sorted[0][0]); // Open the largest country until the user chooses.
+    const entriesOf = group => {
+      const entries = [...group.cities];
+      if (group.countryOnly) entries.push([I18n.message('{0} (other)', [group.name]), group.countryOnly, group.code]);
+      const name = entry => typeof entry[0] === 'string' ? entry[0] : group.name;
+      return entries.sort((a, b) => b[1] - a[1] || name(a).localeCompare(name(b)));
+    };
+    if (!locationsTouched && sorted[0] && entriesOf(sorted[0][1]).length > 1) openCountries.add(sorted[0][0]); // Open the largest country until the user chooses.
     const peak = sorted[0][1].count;
     const list = element('div', null, 'bar-list');
     sorted.forEach(([key, group]) => {
-      const hasCountryOnly = group.countryOnly > 0;
-      const totalLocations = group.cities.length + (hasCountryOnly ? 1 : 0);
-      const expandable = totalLocations > 1;
-      const row = element(expandable ? 'button' : (group.cities.length || hasCountryOnly) ? 'a' : 'div', null, 'bar-row location-row');
+      const entries = entriesOf(group);
+      const expandable = entries.length > 1;
+      const row = element(expandable ? 'button' : entries.length ? 'a' : 'div', null, 'bar-row location-row');
       if (expandable) {
         row.type = 'button';
         row.setAttribute('aria-expanded', String(openCountries.has(key)));
@@ -481,10 +486,8 @@
           if (openCountries.has(key)) openCountries.delete(key); else openCountries.add(key);
           renderLocations(counts, total);
         });
-      } else if (group.cities.length) {
-        row.href = devicesLink(group.cities[0][0]); // Device labels may include a region, so search by city.
-      } else if (hasCountryOnly) {
-        row.href = devicesLink(key);
+      } else if (entries.length) {
+        row.href = devicesLocationLink(entries[0][2]);
       }
       const label = element('span', null, 'bar-label');
       const emoji = countryEmoji(group.code || key);
@@ -494,10 +497,10 @@
         label.append(flag);
       }
       label.append(element('span', group.name));
-      if (group.cities.length && !hasCountryOnly) {
+      if (group.cities.length && !group.countryOnly) {
         label.append(element('span', group.cities.length === 1 ? group.cities[0][0] : I18n.message("{0} cities", [group.cities.length]), 'bar-sublabel'));
       } else if (expandable) {
-        label.append(element('span', I18n.message("{0} locations", [totalLocations]), 'bar-sublabel'));
+        label.append(element('span', I18n.message("{0} locations", [entries.length]), 'bar-sublabel'));
       }
       const value = element('span', null, 'bar-value');
       value.append(element('strong', number(group.count)), document.createTextNode(` · ${Math.round(percent(group.count, total))}%`));
@@ -505,18 +508,12 @@
       list.append(row);
       if (expandable && openCountries.has(key)) {
         const cities = element('div', null, 'city-list');
-        group.cities.forEach(([city, count]) => {
+        entries.forEach(([name, count, locationKey]) => {
           const link = element('a', null, 'bar-row city-row');
-          link.href = devicesLink(city);
-          link.append(element('span', city, 'bar-label'), element('span', number(count), 'bar-value'), bar(count, peak, true));
+          link.href = devicesLocationLink(locationKey);
+          link.append(element('span', name, 'bar-label'), element('span', number(count), 'bar-value'), bar(count, peak, true));
           cities.append(link);
         });
-        if (hasCountryOnly) {
-          const link = element('a', null, 'bar-row city-row');
-          link.href = devicesLink(key);
-          link.append(element('span', I18n.message('{0} (other)', [group.name]), 'bar-label'), element('span', number(group.countryOnly), 'bar-value'), bar(group.countryOnly, peak, true));
-          cities.append(link);
-        }
         list.append(cities);
       }
     });
