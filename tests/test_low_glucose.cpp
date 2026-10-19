@@ -134,6 +134,27 @@ int main() {
     strcpy(reading.message, "hello");
     assert_low_frame();
     assert_low_frame();
+    // Stale readings change color instead of dimming, so the new manual/night
+    // minimum levels stay visible. Explicit brightness 0 still means off.
+    age_ms = 600000;
+    const uint8_t levels[] = {0, 1, 2, 3, 6};
+    for (int i = 0; i < 5; ++i) {
+        cfg.brightness = levels[i];
+        assert_low_frame();
+        assert(brightness == levels[i]);
+    }
+    cfg.night_mode_enabled = true;
+    cfg.night_start_hour = 0; cfg.night_end_hour = 23;
+    cfg.auto_brightness = true;
+    for (int i = 0; i < 5; ++i) {
+        cfg.night_brightness = levels[i];
+        assert_low_frame();
+        assert(brightness == levels[i]);
+    }
+    cfg.night_mode_enabled = false;
+    cfg.auto_brightness = false;
+    cfg.brightness = 40;
+    age_ms = 0;
     for (int mode = STATE_BOOT; mode <= STATE_AMBIENT_CREATURE_DISPLAY; ++mode) {
         engine_force_state(static_cast<DisplayState>(mode));
         reading.force_mode = mode;
