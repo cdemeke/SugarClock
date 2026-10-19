@@ -6,11 +6,28 @@
 #include <mutex>
 
 constexpr int CGM_MAX_ACCOUNTS = 4;
-struct DexcomAccount {
-    char label[6]; // Five printable characters fit on the 32-pixel display.
-    char username[64];
-    char password[64];
-    bool us;
+// Values match the legacy data_source codes; 2 was Demo, now a global switch.
+enum CgmProvider : int {
+    CGM_NONE = -1,
+    CGM_CUSTOM = 0,
+    CGM_DEXCOM = 1,
+    CGM_LIBRE = 3,
+    CGM_NIGHTSCOUT = 4,
+};
+constexpr int CGM_DEMO_SOURCE = 2;
+
+// One person shown on the clock. Fields unused by the provider stay empty.
+struct CgmAccount {
+    int provider;              // CgmProvider; CGM_NONE disables slots 2-4
+    char label[6];             // Five printable characters fit on the 32-pixel display.
+    char username[64];         // Dexcom username or LibreLinkUp email
+    char password[64];         // Dexcom or LibreLinkUp password
+    bool us;                   // Dexcom: true=US (share2), false=international (shareous1)
+    char url[256];             // Nightscout site or custom endpoint
+    char token[256];           // Nightscout access token or custom bearer token
+    char region[8];            // LibreLinkUp region detected at login, e.g. "us"
+    char patient_id[64];       // stable LibreLinkUp patientId, never an array index
+    char patient_name[128];
 };
 
 // Application configuration stored in NVS
@@ -29,27 +46,9 @@ struct AppConfig {
     char wifi_anon_identity[128];  // optional outer identity
     bool wifi_validate_ca;         // default false; only meaningful with /wifi_ca.pem present
 
-    // Data source: 0=custom URL, 1=Dexcom Share, 2=Demo (synthetic data), 3=FreeStyle Libre
-    int data_source;
-
-    // Custom server
-    char server_url[256];
-    char auth_token[256];
-
-    // Dexcom Share
-    char dexcom_username[64];
-    char dexcom_password[64];
-    bool dexcom_us;            // true=US (share2), false=international (shareous1)
-
-    char dexcom_label[6];
-    DexcomAccount extra_dexcom[CGM_MAX_ACCOUNTS - 1]; // Empty username disables a slot.
-
-    // FreeStyle Libre (LibreLinkUp follower account)
-    char libre_email[64];
-    char libre_password[64];
-    char libre_region[8];      // auto-detected from login redirect, e.g. "us"; "" = unknown
-    char libre_patient_id[64]; // stable LibreLinkUp patientId, never an array index
-    char libre_patient_name[128];
+    // Demo shows synthetic data and leaves the saved accounts untouched.
+    bool demo_mode;
+    CgmAccount cgm[CGM_MAX_ACCOUNTS];
 
     int poll_interval_sec;     // default 60, min 15
 
@@ -174,31 +173,27 @@ AppConfig& config_get();
 // Check if config has WiFi credentials set
 bool config_has_wifi();
 
-// Check if config has server URL set
+// True in demo mode or when the first account is configured
 bool config_has_server();
 
-// Check if Dexcom Share is configured
-bool config_has_dexcom();
+// Legacy data_source code: 2 in demo mode, otherwise the first account's provider.
+int config_data_source();
 
-// Check if FreeStyle Libre (LibreLinkUp) is configured
-bool config_has_libre();
-
-// Shared by the web API and installer overlay. nullptr leaves a field alone;
-// an empty password keeps the saved secret. Email changes clear account caches.
-bool config_update_libre_credentials(AppConfig& cfg, const char* email, const char* password);
-
-// Libre identity writers, snapshot readers, and NVS saves share this lock.
-// Recursive so a settings transaction can call the credential helper/save.+// Never hold it during an HTTP request.
+// Account identity writers, snapshot readers, and NVS saves share this lock.
+// Recursive so a settings transaction can call config_save().
+// Never hold it during an HTTP request.
 std::recursive_mutex& config_libre_mutex();
 using LibreConfigLock = std::lock_guard<std::recursive_mutex>;
 
+// One slot's LibreLinkUp identity, captured before a request.
 struct LibreConfigSnapshot {
+    int slot;
     char email[64];
     char password[64];
     char region[8];
     char patient_id[64];
     char patient_name[128];
-    explicit LibreConfigSnapshot(const AppConfig& cfg);
+    LibreConfigSnapshot(const AppConfig& cfg, int slot);
     bool matches(const AppConfig& cfg) const;
 };
 

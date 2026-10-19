@@ -224,7 +224,7 @@ final class SetupState: ObservableObject {
             config["libre_email"] = libreEmail.trimmingCharacters(in: .whitespaces)
             config["libre_password"] = librePassword
         case .nightscout:
-            config["data_source"] = 0
+            config["data_source"] = 4
             config["server_url"] = nightscoutURL
             config["auth_token"] = nightscoutToken
         case .customURL:

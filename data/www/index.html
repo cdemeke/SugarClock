@@ -256,7 +256,7 @@
                         <h2><label for="glucose_only_when_low">Show Only Blood Sugar When Low</label></h2>
                         <input type="checkbox" id="glucose_only_when_low" aria-describedby="low-only-hint">
                     </div>
-                    <p class="hint" id="low-only-hint">Keep the blood sugar value visible while fresh readings are below your configured Low threshold, including urgent lows. Other screens and navigation are blocked. Notifications, including urgent ones, are hidden and may expire unseen. Stale readings, repeated glucose fetch failures, or Wi-Fi setup mode release the lock. Brief Wi-Fi drops and failed network checks do not hide a fresh low reading. With multiple Dexcom accounts, names appear briefly before readings and the clock rotates among people who are low. Off by default.</p>
+                    <p class="hint" id="low-only-hint">Keep the blood sugar value visible while fresh readings are below your configured Low threshold, including urgent lows. Other screens and navigation are blocked. Notifications, including urgent ones, are hidden and may expire unseen. Stale readings, repeated glucose fetch failures, or Wi-Fi setup mode release the lock. Brief Wi-Fi drops and failed network checks do not hide a fresh low reading. With multiple people, names appear briefly before readings and the clock rotates among people who are low. Off by default.</p>
                 </div>
 
                 <div class="card">
@@ -362,92 +362,16 @@
             <div class="tab-panel active" id="tab-glucose">
                 <div class="card">
                     <h2>Data Source</h2>
-                    <div class="form-group">
-                        <label>Source Type</label>
-                        <select id="data_source" onchange="toggleSource()">
-                            <option value="0">Custom URL</option>
-                            <option value="1">Dexcom Share</option>
-                            <option value="3">FreeStyle Libre (LibreLinkUp)</option>
-                            <option value="2">Demo Mode (no real data)</option>
-                        </select>
+                    <div class="toggle-row">
+                        <label for="demo_mode">Demo Mode (no real data)</label>
+                        <input type="checkbox" id="demo_mode" onchange="toggleSource()">
                     </div>
+                    <div class="form-group"><div class="hint" id="demo-hint">Demo mode shows a fake glucose value that gently fluctuates in the 80&ndash;100 range. No WiFi or CGM connection is needed &mdash; great for recording videos or giving demos. Your saved accounts are kept and return when you turn it off.</div></div>
 
-                    <div id="demo-fields" style="display:none;">
-                        <div class="form-group"><div class="hint">Demo mode shows a fake glucose value that gently fluctuates in the 80&ndash;100 range. No WiFi or CGM connection is needed &mdash; great for recording videos or giving demos.</div></div>
-                    </div>
-
-                    <div id="custom-fields">
-                        <div class="form-group">
-                            <label>Server URL</label>
-                            <input type="url" id="server_url" placeholder="https://example.com/api/glucose" maxlength="255">
-                        </div>
-                        <div class="form-group">
-                            <label>Auth Token</label>
-                            <div class="pw-wrap">
-                                <input type="password" id="auth_token" maxlength="255">
-                                <button type="button" class="pw-toggle" onclick="togglePw('auth_token')">&#128065;</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="dexcom-fields" style="display:none;">
-                        <h3>Account 1</h3>
-                        <div class="form-group">
-                            <label for="dexcom_label">Display name</label>
-                            <input type="text" id="dexcom_label" maxlength="5" pattern="[ -~]{0,5}" placeholder="CGM1">
-                            <div class="hint">Use up to 5 letters or numbers so the name fits on the clock. A blank name uses the account number.</div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Username</label>
-                                <input type="text" id="dexcom_username" maxlength="63">
-                            </div>
-                            <div class="form-group">
-                                <label>Password</label>
-                                <div class="pw-wrap">
-                                    <input type="password" id="dexcom_password" maxlength="63">
-                                    <button type="button" class="pw-toggle" onclick="togglePw('dexcom_password')">&#128065;</button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Region</label>
-                            <select id="dexcom_us">
-                                <option value="1">US (share2.dexcom.com)</option>
-                                <option value="0">International (shareous1.dexcom.com)</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div id="dexcom-accounts" style="display:none;">
-                        <h3>More Dexcom accounts</h3>
-                        <p class="hint">Add up to 4 accounts total. Each person's name appears before their glucose and trend. Enable Auto-Cycle in Display to rotate automatically. Alerts use all accounts and your shared thresholds. Save changes before testing connections.</p>
-                        <div id="extra-dexcom-rows"></div>
-                        <button type="button" class="btn btn-secondary" id="add-dexcom-account">Add Dexcom account</button>
-                    </div>
-
-                    <div id="libre-fields" style="display:none;">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>LibreLinkUp Email</label>
-                                <input type="text" id="libre_email" maxlength="63" inputmode="email" autocomplete="off" autocapitalize="off" spellcheck="false">
-                            </div>
-                            <div class="form-group">
-                                <label>LibreLinkUp Password</label>
-                                <div class="pw-wrap">
-                                    <input type="password" id="libre_password" maxlength="63" autocomplete="off">
-                                    <button type="button" class="pw-toggle" onclick="togglePw('libre_password')">&#128065;</button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="libre_patient_id">Person to display</label>
-                            <select id="libre_patient_id"><option value="">Save and test to load people</option></select>
-                            <div class="hint">With multiple people sharing, choose one here and save. The clock remembers that person and will never switch automatically.</div>
-                        </div>
-                        <div class="form-group">
-                            <div class="hint">Use your LibreLinkUp login, not LibreLink or LibreView. In the Libre app, go to Connected Apps &rarr; LibreLinkUp and invite this email, then sign in to LibreLinkUp once to accept the terms. Region is detected automatically.</div>
-                        </div>
+                    <div id="cgm-accounts">
+                        <p class="hint">Show up to 4 people. Each person can use Dexcom Share, FreeStyle Libre (LibreLinkUp), Nightscout, or a custom URL, in any mix. With more than one person, or a display name, the name appears briefly before their glucose and trend. Enable Auto-Cycle in Display to rotate automatically. Alerts check everyone with your shared thresholds. Save changes before testing an account.</p>
+                        <div id="cgm-account-rows"></div>
+                        <button type="button" class="btn btn-secondary" id="add-cgm-account">Add person</button>
                     </div>
 
                     <div class="divider"></div>
@@ -967,29 +891,8 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             inp.type = inp.type === 'password' ? 'text' : 'password';
         }
 
-        let librePeopleEmail = '';
-        function updateLibrePeople(c) {
-            const select = document.getElementById('libre_patient_id');
-            select.replaceChildren();
-            const people = c.libre_patients || [];
-            select.add(new Option(people.length ? 'Choose a person' : 'Save and test to load people', ''));
-            people.forEach(p => select.add(new Option(p.name.trim() || p.id, p.id)));
-            if (c.libre_patient_id && !people.some(p => p.id === c.libre_patient_id)) {
-                select.add(new Option((c.libre_patient_name || 'Saved person') + ' (saved)', c.libre_patient_id));
-            }
-            select.value = c.libre_patient_id || '';
-        }
-        document.getElementById('libre_email').addEventListener('input', () => {
-            if (document.getElementById('libre_email').value.trim() !== librePeopleEmail) updateLibrePeople({});
-        });
-
         function toggleSource() {
-            const src = document.getElementById('data_source').value;
-            document.getElementById('custom-fields').style.display = src === '0' ? 'block' : 'none';
-            document.getElementById('dexcom-fields').style.display = src === '1' ? 'block' : 'none';
-            document.getElementById('dexcom-accounts').style.display = src === '1' ? 'block' : 'none';
-            document.getElementById('libre-fields').style.display = src === '3' ? 'block' : 'none';
-            document.getElementById('demo-fields').style.display = src === '2' ? 'block' : 'none';
+            document.getElementById('cgm-accounts').style.display = document.getElementById('demo_mode').checked ? 'none' : 'block';
         }
 
         function showToast(msg, type) {
@@ -1366,41 +1269,105 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
         document.getElementById('customize_range_colors').addEventListener('change', updateRangeColorControls);
 
-        const dexcomRows = new Map();
-        let dexcomAccountsLoaded = false;
+        // Provider codes match the firmware's CgmProvider values.
+        const CGM_PROVIDERS = [[1, 'Dexcom Share'], [3, 'FreeStyle Libre (LibreLinkUp)'], [4, 'Nightscout'], [0, 'Custom URL']];
+        const CGM_SAVED_SECRET = 'Saved — leave blank to keep';
+        const cgmRows = new Map();
+        let cgmAccountsLoaded = false;
         function updateAddAccountButton() {
-            document.getElementById('add-dexcom-account').disabled = dexcomRows.size >= 3;
+            document.getElementById('add-cgm-account').disabled = cgmRows.size >= 4;
         }
-        function addDexcomAccount(account = {}) {
-            const slot = account.slot || [1, 2, 3].find(id => !dexcomRows.has(id));
-            if (!slot || dexcomRows.has(slot)) return;
+        function cgmInput(parent, title, type, max) {
+            const label = document.createElement('label');
+            const caption = document.createElement('span');
+            caption.textContent = title;
+            label.appendChild(caption);
+            const input = document.createElement(type === 'select' ? 'select' : 'input');
+            if (type !== 'select') { input.type = type; input.maxLength = max; input.autocomplete = 'off'; }
+            label.appendChild(input);
+            parent.appendChild(label);
+            input.caption = caption;
+            return input;
+        }
+        function setLibrePeople(fields, account) {
+            const select = fields.patient;
+            select.replaceChildren();
+            const people = account.patients || [];
+            select.add(new Option(people.length ? 'Choose a person' : 'Save and test to load people', ''));
+            people.forEach(p => select.add(new Option(p.name.trim() || p.id, p.id)));
+            if (account.patient_id && !people.some(p => p.id === account.patient_id)) {
+                select.add(new Option((account.patient_name || 'Saved person') + ' (saved)', account.patient_id));
+            }
+            select.value = account.patient_id || '';
+            fields.peopleEmail = account.username || '';
+        }
+        function addCgmAccount(account = {}) {
+            const slot = account.slot ?? [0, 1, 2, 3].find(id => !cgmRows.has(id));
+            if (slot === undefined || cgmRows.has(slot)) return;
             const row = document.createElement('fieldset');
-            row.className = 'dexcom-account';
+            row.className = 'cgm-account';
             const legend = document.createElement('legend');
-            legend.textContent = 'Account ' + (slot + 1);
+            legend.textContent = 'Person ' + (slot + 1);
             row.appendChild(legend);
-            const fields = {};
-            for (const [key, title, type, max] of [['label', 'Display name', 'text', 5], ['username', 'Username', 'text', 63], ['password', 'Password', 'password', 63]]) {
-                const label = document.createElement('label');
-                label.textContent = title;
-                const input = document.createElement('input');
-                input.type = type; input.maxLength = max;
-                input.autocomplete = 'off';
-                input.value = account[key] || '';
-                input.placeholder = key === 'label' ? 'CGM' + (slot + 1) : key === 'password' && account.has_password ? 'Saved — leave blank to keep' : '';
-                if (key === 'label') input.pattern = '[ -~]{0,5}';
-                label.appendChild(input); row.appendChild(label); fields[key] = input;
+            const fields = {row, saved: account};
+            fields.provider = cgmInput(row, 'Source', 'select');
+            for (const [value, title] of CGM_PROVIDERS) fields.provider.add(new Option(title, String(value)));
+            fields.provider.value = String(account.provider ?? 1);
+            fields.label = cgmInput(row, 'Display name', 'text', 5);
+            fields.label.pattern = '[ -~]{0,5}';
+            fields.label.placeholder = 'CGM' + (slot + 1);
+            fields.label.value = account.label || '';
+            const login = document.createElement('div');
+            fields.username = cgmInput(login, 'Username', 'text', 63);
+            fields.username.value = account.username || '';
+            fields.password = cgmInput(login, 'Password', 'password', 63);
+            fields.us = cgmInput(login, 'Region', 'select');
+            fields.us.add(new Option('US (share2.dexcom.com)', '1'));
+            fields.us.add(new Option('International (shareous1.dexcom.com)', '0'));
+            fields.us.value = account.us === false ? '0' : '1';
+            fields.patient = cgmInput(login, 'Person to display', 'select');
+            setLibrePeople(fields, account);
+            row.appendChild(login);
+            const site = document.createElement('div');
+            fields.url = cgmInput(site, 'Site URL', 'url', 255);
+            fields.url.value = account.url || '';
+            fields.token = cgmInput(site, 'Access token (optional)', 'password', 255);
+            row.appendChild(site);
+            const hint = document.createElement('p');
+            hint.className = 'hint';
+            row.appendChild(hint);
+            const update = () => {
+                const provider = Number(fields.provider.value);
+                const same = provider === fields.saved.provider;
+                login.style.display = provider === 1 || provider === 3 ? 'block' : 'none';
+                site.style.display = provider === 0 || provider === 4 ? 'block' : 'none';
+                fields.us.parentNode.style.display = provider === 1 ? 'block' : 'none';
+                fields.patient.parentNode.style.display = provider === 3 ? 'block' : 'none';
+                fields.username.caption.textContent = provider === 3 ? 'LibreLinkUp email' : 'Username';
+                fields.password.caption.textContent = provider === 3 ? 'LibreLinkUp password' : 'Password';
+                fields.url.caption.textContent = provider === 4 ? 'Site URL' : 'Server URL';
+                fields.url.placeholder = provider === 4 ? 'https://yoursite.example.com' : 'https://example.com/api/glucose';
+                fields.token.caption.textContent = provider === 4 ? 'Access token (optional)' : 'Auth token (optional)';
+                fields.password.placeholder = same && fields.saved.has_password ? CGM_SAVED_SECRET : '';
+                fields.token.placeholder = same && fields.saved.has_token ? CGM_SAVED_SECRET : '';
+                hint.textContent = {
+                    1: 'Use the Dexcom account of the person sharing, with Share turned on in the Dexcom app.',
+                    3: 'Use your LibreLinkUp login, not LibreLink or LibreView. People who share the same login can each be added with their own person selected. Region is detected automatically.',
+                    4: 'Your Nightscout address. If the site requires authentication, create a token with the readable role in Admin Tools and paste it here.',
+                    0: 'A URL returning SugarClock JSON: {"glucose": 120, "trend": "Flat", "timestamp": 1700000000}. The token is sent as a Bearer header.'
+                }[provider];
+            };
+            fields.update = update;
+            fields.provider.addEventListener('change', update);
+            fields.username.addEventListener('input', () => {
+                if (fields.username.value.trim() !== fields.peopleEmail) setLibrePeople(fields, {username: fields.peopleEmail});
+            });
+            update();
+            if (slot > 0) {
+                const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'btn btn-secondary'; remove.textContent = 'Remove person';
+                remove.onclick = () => { row.remove(); cgmRows.delete(slot); updateAddAccountButton(); };
+                row.appendChild(remove);
             }
-            const region = document.createElement('label'); region.textContent = 'Region';
-            const select = document.createElement('select');
-            for (const [value, title] of [['1', 'US'], ['0', 'International']]) {
-                const option = document.createElement('option'); option.value = value; option.textContent = title; select.appendChild(option);
-            }
-            select.value = account.us === false ? '0' : '1';
-            region.appendChild(select); row.appendChild(region); fields.us = select;
-            const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'btn btn-secondary'; remove.textContent = 'Remove account';
-            remove.onclick = () => { row.remove(); dexcomRows.delete(slot); updateAddAccountButton(); };
-            row.appendChild(remove);
             const test = document.createElement('button'); test.type = 'button'; test.className = 'btn btn-secondary'; test.textContent = 'Test saved account';
             const result = document.createElement('p'); result.className = 'hint'; result.setAttribute('aria-live', 'polite');
             test.onclick = async () => {
@@ -1408,18 +1375,43 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 try {
                     const response = await fetch('/api/test/glucose?account=' + slot, {method: 'POST'});
                     const data = await response.json();
+                    applyTestedAccount(data);
                     result.textContent = data.ok ? 'Glucose: ' + data.glucose + ' mg/dL, Trend: ' + data.trend : data.error || 'Connection failed';
                 } catch (_) { result.textContent = 'Connection failed'; }
                 test.disabled = false;
             };
             row.appendChild(test); row.appendChild(result);
-            document.getElementById('extra-dexcom-rows').appendChild(row);
-            dexcomRows.set(slot, fields); updateAddAccountButton();
+            // Keep people in slot order; a removal never renumbers anyone.
+            const next = Array.from(cgmRows.keys()).filter(id => id > slot).sort()[0];
+            const container = document.getElementById('cgm-account-rows');
+            if (next === undefined) container.appendChild(row); else container.insertBefore(row, cgmRows.get(next).row);
+            cgmRows.set(slot, fields); updateAddAccountButton();
         }
-        function collectDexcomAccounts() {
-            return Array.from(dexcomRows, ([slot, fields]) => ({slot, label: fields.label.value.trim(), username: fields.username.value.trim(), password: fields.password.value, us: fields.us.value === '1'}));
+        // A Libre test returns the login's people; refresh only an unchanged login.
+        function applyTestedAccount(data) {
+            const tested = (data.account_config || [])[0];
+            const fields = tested && cgmRows.get(tested.slot);
+            if (fields && Number(fields.provider.value) === 3 && fields.username.value.trim() === tested.username) {
+                const chosen = fields.patient.value;
+                setLibrePeople(fields, {...tested, patient_id: chosen || tested.patient_id});
+            }
         }
-        document.getElementById('add-dexcom-account').addEventListener('click', () => addDexcomAccount());
+        function collectCgmAccounts() {
+            return Array.from(cgmRows, ([slot, f]) => ({
+                slot, provider: Number(f.provider.value), label: f.label.value.trim(),
+                username: f.username.value.trim(), password: f.password.value, us: f.us.value === '1',
+                url: f.url.value.trim(), token: f.token.value, patient_id: f.patient.value
+            })).sort((a, b) => a.slot - b.slot);
+        }
+        function markCgmSecretsSaved() {
+            for (const fields of cgmRows.values()) {
+                const provider = Number(fields.provider.value);
+                fields.saved = {...fields.saved, provider, has_password: fields.saved.has_password || fields.password.value !== '', has_token: fields.saved.has_token || fields.token.value !== ''};
+                fields.password.value = ''; fields.token.value = '';
+                fields.update();
+            }
+        }
+        document.getElementById('add-cgm-account').addEventListener('click', () => addCgmAccount({provider: 1}));
 
         async function loadConfig() {
             try {
@@ -1442,24 +1434,13 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                     : '';
                 setCaState(c.has_wifi_ca);
                 onSecurityChange();
-                document.getElementById('data_source').value = c.data_source || 0;
-                document.getElementById('server_url').value = c.server_url || '';
-                document.getElementById('auth_token').value = c.auth_token || '';
-                document.getElementById('dexcom_username').value = c.dexcom_username || '';
-                document.getElementById('dexcom_password').value = c.dexcom_password || '';
-                document.getElementById('dexcom_us').value = c.dexcom_us ? '1' : '0';
-                document.getElementById('dexcom_label').value = c.dexcom_label || '';
-                document.getElementById('dexcom_password').placeholder = c.has_dexcom_password ? 'Saved — leave blank to keep' : '';
-                document.getElementById('extra-dexcom-rows').replaceChildren();
-                dexcomRows.clear();
-                (c.extra_dexcom || []).forEach(addDexcomAccount);
-                dexcomAccountsLoaded = true;
+                document.getElementById('demo_mode').checked = c.demo_mode === true;
+                document.getElementById('cgm-account-rows').replaceChildren();
+                cgmRows.clear();
+                const accounts = c.cgm_accounts && c.cgm_accounts.length ? c.cgm_accounts : [{slot: 0, provider: 1}];
+                accounts.forEach(addCgmAccount);
+                cgmAccountsLoaded = true;
                 updateAddAccountButton();
-                document.getElementById('libre_email').value = c.libre_email || '';
-                librePeopleEmail = c.libre_email || '';
-                updateLibrePeople(c);
-                document.getElementById('libre_password').value = '';
-                document.getElementById('libre_password').placeholder = c.has_libre_password ? 'Saved \u2014 leave blank to keep' : '';
                 document.getElementById('poll_interval').value = c.poll_interval;
                 document.getElementById('stale_timeout').value = c.stale_timeout_min || 20;
                 toggleSource();
@@ -1587,17 +1568,8 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             }
 
             const data = {
-                data_source: parseInt(document.getElementById('data_source').value),
-                server_url: document.getElementById('server_url').value,
-                auth_token: document.getElementById('auth_token').value,
-                dexcom_username: document.getElementById('dexcom_username').value,
-                dexcom_password: document.getElementById('dexcom_password').value,
-                dexcom_us: document.getElementById('dexcom_us').value === '1',
-                dexcom_label: document.getElementById('dexcom_label').value.trim(),
-                ...(dexcomAccountsLoaded ? {extra_dexcom: collectDexcomAccounts()} : {}),
-                libre_email: document.getElementById('libre_email').value.trim(),
-                libre_password: document.getElementById('libre_password').value,
-                libre_patient_id: document.getElementById('libre_patient_id').value,
+                demo_mode: document.getElementById('demo_mode').checked,
+                ...(cgmAccountsLoaded ? {cgm_accounts: collectCgmAccounts()} : {}),
                 poll_interval: poll,
                 stale_timeout_min: parseInt(document.getElementById('stale_timeout').value),
                 brightness: brightnessDeviceValue,
@@ -1658,8 +1630,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 const result = await r.json();
                 showToast(r.ok ? 'Configuration saved!' : result.error || 'Save failed', r.ok ? 'success' : 'error');
                 if (r.ok) {
-                    document.getElementById('dexcom_password').value = '';
-                    for (const fields of dexcomRows.values()) { fields.password.value = ''; fields.password.placeholder = 'Saved — leave blank to keep'; }
+                    markCgmSecretsSaved();
                     if (data.weather_api_key.trim()) {
                         weatherKeySaved = true;
                         document.getElementById('weather_api_key').value = '';
@@ -1742,14 +1713,9 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             res.className = 'test-result';
             res.textContent = '';
             try {
-                const r = await fetch(document.getElementById('data_source').value === '1' ? '/api/test/glucose?account=0' : '/api/test/glucose', { method: 'POST' });
+                const r = await fetch('/api/test/glucose', { method: 'POST' });
                 const d = await r.json();
-                if (document.getElementById('data_source').value === '3') {
-                    const configResponse = await fetch('/api/config');
-                    const saved = await configResponse.json();
-                    librePeopleEmail = saved.libre_email || '';
-                    if (document.getElementById('libre_email').value.trim() === librePeopleEmail) updateLibrePeople(saved);
-                }
+                applyTestedAccount(d);
                 if (d.ok) {
                     res.textContent = 'Glucose: ' + d.glucose + ' mg/dL, Trend: ' + d.trend;
                     res.className = 'test-result test-success';

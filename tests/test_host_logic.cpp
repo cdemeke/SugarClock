@@ -4,6 +4,7 @@
 #include "semver.h"
 #include "libre_session.h"
 #include "libre_patient.h"
+#include "cgm_accounts.h"
 #include "config_manager.h"
 
 #include <assert.h>
@@ -33,6 +34,17 @@ struct FakeLibre : public LibreTransport {
         return LIBRE_READ_OK;
     }
 };
+
+// Mirrors the web settings transaction for one Libre slot.
+static bool set_libre(AppConfig& cfg, int slot, const char* email, const char* password,
+                      const char* patient) {
+    LibreConfigLock lock(config_libre_mutex());
+    CgmAccountInput in = {CGM_LIBRE, "", email, password, true, "", "", patient};
+    CgmAccount next = {};
+    if (!cgm_prepare_account(next, cfg.cgm[slot], in)) return false;
+    cfg.cgm[slot] = next;
+    return true;
+}
 
 static const uint32_t LIBRE_TS = 1789065600UL;  // 9/10/2026 6:40:00 PM UTC
 static const uint32_t MIN_MS = 60UL * 1000UL;
@@ -211,77 +223,97 @@ static void test_libre_person_binding_and_account_changes() {
     assert(libre_patient_index(missing, 1, "") == LIBRE_PATIENT_INVALID);
 
     AppConfig cfg = {};
-    strcpy(cfg.libre_email, "old@example.com");
-    strcpy(cfg.libre_password, "old-password");
-    strcpy(cfg.libre_region, "us");
-    strcpy(cfg.libre_patient_id, "person-a");
-    strcpy(cfg.libre_patient_name, "Alice");
-    // Both web config and the installer overlay use this production helper.
-    assert(!config_update_libre_credentials(cfg, "old@example.com", ""));
-    assert(strcmp(cfg.libre_region, "us") == 0);
-    assert(strcmp(cfg.libre_patient_id, "person-a") == 0);
-    assert(config_update_libre_credentials(cfg, nullptr, "new-password"));
-    assert(strcmp(cfg.libre_region, "us") == 0);
-    assert(strcmp(cfg.libre_patient_id, "person-a") == 0);
-    assert(config_update_libre_credentials(cfg, "new@example.com", "other-password"));
-    assert(!cfg.libre_region[0] && !cfg.libre_patient_id[0] && !cfg.libre_patient_name[0]);
-    assert(strcmp(cfg.libre_email, "new@example.com") == 0);
-    assert(strcmp(cfg.libre_password, "other-password") == 0);
-    assert(!config_update_libre_credentials(cfg, nullptr, nullptr));
+    CgmAccount& a = cfg.cgm[1];
+    a = cgm_empty_account(CGM_LIBRE);
+    strcpy(a.username, "old@example.com");
+    strcpy(a.password, "old-password");
+    strcpy(a.region, "us");
+    strcpy(a.patient_id, "person-a");
+    strcpy(a.patient_name, "Alice");
+    // The web settings transaction uses this production helper for every slot.
+    CgmAccount next = {};
+    assert(set_libre(cfg, 1, "old@example.com", "", "person-a"));
+    assert(strcmp(a.region, "us") == 0 && strcmp(a.patient_name, "Alice") == 0);
+    assert(strcmp(a.password, "old-password") == 0);
+    assert(set_libre(cfg, 1, "old@example.com", "new-password", "person-a"));
+    assert(strcmp(a.region, "us") == 0);
+    assert(strcmp(a.patient_id, "person-a") == 0);
+    // A new login never inherits the old login's region, person or password.
+    assert(!set_libre(cfg, 1, "new@example.com", "", "person-a"));
+    assert(set_libre(cfg, 1, "new@example.com", "other-password", "person-a"));
+    assert(!a.region[0] && !a.patient_id[0] && !a.patient_name[0]);
+    assert(strcmp(a.username, "new@example.com") == 0);
+    assert(strcmp(a.password, "other-password") == 0);
+    // Nor does a slot switched to another provider keep its secret.
+    CgmAccountInput dexcom = {CGM_DEXCOM, "", "new@example.com", "", true, "", "", ""};
+    assert(!cgm_prepare_account(next, a, dexcom));
 }
 
 static void test_libre_discovery_during_account_change() {
     AppConfig cfg = {};
-    config_update_libre_credentials(cfg, "old@example.com", "password");
+    cfg.cgm[2] = cgm_empty_account(CGM_LIBRE);
+    set_libre(cfg, 2, "old@example.com", "password", "");
     std::promise<void> fetch_started, settings_saved;
     auto started = fetch_started.get_future();
     auto saved = settings_saved.get_future();
     std::thread poll([&]() {
-        LibreConfigSnapshot original(cfg);
+        LibreConfigSnapshot original(cfg, 2);
         fetch_started.set_value();
         // The response for the old account arrives after settings were saved.
         saved.wait();
         assert(!config_apply_libre_discovery(cfg, original, "us", "old-person", "Old Person"));
     });
     started.wait();
-    config_update_libre_credentials(cfg, "new@example.com", "new-password");
+    set_libre(cfg, 2, "new@example.com", "new-password", "");
     settings_saved.set_value();
     poll.join();
-    assert(strcmp(cfg.libre_email, "new@example.com") == 0);
-    assert(!cfg.libre_region[0] && !cfg.libre_patient_id[0] && !cfg.libre_patient_name[0]);
+    const CgmAccount& a = cfg.cgm[2];
+    assert(strcmp(a.username, "new@example.com") == 0);
+    assert(!a.region[0] && !a.patient_id[0] && !a.patient_name[0]);
 
     // The new account can still auto-bind, with one combined region/person save.
-    LibreConfigSnapshot current(cfg);
+    LibreConfigSnapshot current(cfg, 2);
     assert(config_apply_libre_discovery(cfg, current, "eu2", "new-person", "New Person"));
-    LibreConfigSnapshot bound(cfg);
+    LibreConfigSnapshot bound(cfg, 2);
     assert(!config_apply_libre_discovery(cfg, bound, "eu2", "new-person", "New Person"));
-    assert(strcmp(cfg.libre_patient_id, "new-person") == 0);
+    assert(strcmp(a.patient_id, "new-person") == 0);
+    // Discovery for one slot never writes another slot sharing the login.
+    cfg.cgm[3] = cfg.cgm[2];
+    cfg.cgm[3].patient_id[0] = '\0';
+    LibreConfigSnapshot other(cfg, 3);
+    assert(config_apply_libre_discovery(cfg, other, "eu2", "second-person", "Second Person"));
+    assert(strcmp(a.patient_id, "new-person") == 0);
+    assert(strcmp(cfg.cgm[3].patient_id, "second-person") == 0);
+    // A slot that stopped being Libre rejects late discovery.
+    cfg.cgm[3].provider = CGM_DEXCOM;
+    LibreConfigSnapshot stale = other;
+    assert(!config_apply_libre_discovery(cfg, stale, "us", "x", "X"));
 
     // Explicit selection and password changes also invalidate pending discovery.
     {
         LibreConfigLock lock(config_libre_mutex());
-        strcpy(cfg.libre_patient_id, "chosen-person");
-        strcpy(cfg.libre_patient_name, "Chosen Person");
+        strcpy(cfg.cgm[2].patient_id, "chosen-person");
+        strcpy(cfg.cgm[2].patient_name, "Chosen Person");
     }
     assert(!config_apply_libre_discovery(cfg, bound, "us", "new-person", "Outdated Name"));
-    LibreConfigSnapshot selected(cfg);
-    config_update_libre_credentials(cfg, nullptr, "changed-password");
+    LibreConfigSnapshot selected(cfg, 2);
+    set_libre(cfg, 2, "new@example.com", "changed-password", "chosen-person");
     assert(!config_apply_libre_discovery(cfg, selected, "us", "old-person", "Old Person"));
-    assert(strcmp(cfg.libre_region, "eu2") == 0);
-    assert(strcmp(cfg.libre_patient_id, "chosen-person") == 0);
+    assert(strcmp(a.region, "eu2") == 0);
+    assert(strcmp(a.patient_id, "chosen-person") == 0);
 
     // Concurrent NVS-style snapshots never see mixed account/person fields.
     std::thread writer([&]() {
         for (int i = 0; i < 2000; ++i) {
             LibreConfigLock lock(config_libre_mutex());
             const char* account = i % 2 ? "a@example.com" : "b@example.com";
-            config_update_libre_credentials(cfg, account, "password");
-            LibreConfigSnapshot before(cfg);
+            set_libre(cfg, 2, account, "password", "");
+            LibreConfigSnapshot before(cfg, 2);
             config_apply_libre_discovery(cfg, before, "us", account, account);
         }
     });
     for (int i = 0; i < 2000; ++i) {
-        LibreConfigSnapshot snapshot(cfg);
+        LibreConfigSnapshot snapshot(cfg, 2);
         if (strcmp(snapshot.email, "new@example.com") != 0) {
             assert(strcmp(snapshot.email, snapshot.patient_id) == 0);
             assert(strcmp(snapshot.email, snapshot.patient_name) == 0);

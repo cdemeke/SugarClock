@@ -16,18 +16,21 @@ struct LibreReading {
     unsigned long age_sec;      // how old the reading was when fetched
 };
 
-// Fetch the latest reading. Logs in (and follows region redirects) as needed.
+// Fetch the latest reading for one account slot. Logs in (and follows region
+// redirects) as needed. Slots sharing a login share its session, and a slot
+// read within LIBRE_MIN_REQUEST_INTERVAL_MS of another reuses that response.
 // Returns false on any failure; see libre_last_http_code()/libre_last_message().
-bool libre_fetch(LibreReading& out, bool* attempted = nullptr);
+bool libre_fetch(int slot, LibreReading& out, bool* attempted = nullptr);
 
-// Hostname of the LibreLinkUp API for the configured (or not-yet-detected) region
-void libre_api_host(char* out, size_t n);
+// Hostname of the LibreLinkUp API for a slot's detected (or unknown) region
+void libre_api_host(int slot, char* out, size_t n);
 
-// Drop the cached session and login backoff (call after credentials change)
+// Forget every session and backoff (boot only; changed credentials get a
+// fresh login automatically)
 void libre_reset_session();
 
-// Cached people from the most recent connections response for this account.
-LibrePatients libre_get_patients();
+// Cached people from the most recent connections response for this login.
+LibrePatients libre_get_patients(const char* email);
 
 // HTTP code of the last request (-1 = connection failure)
 int libre_last_http_code();

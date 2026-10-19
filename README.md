@@ -53,32 +53,51 @@ Try the virtual 32×8 SugarClock in [`docs/demo/`](docs/demo/README.md): glucose
 | WiFi (2.4 GHz) | The clock connects to your home WiFi |
 | Dexcom account, LibreLinkUp account, or Nightscout URL | Your glucose data source |
 
-### Multiple Dexcom accounts
+### Multiple people, any mix of CGMs
 
-In **Settings → Blood Sugar**, choose **Dexcom Share**, configure Account 1,
-then select **Add Dexcom account** for up to **four accounts total**. Give each
-person a short display name (up to five characters), enter their Share credentials
-and US/international region, and save. Use each account's test button after saving.
-Blank passwords keep the saved password for that same account; changing a username
-requires entering its password again. Removing an account takes effect when saved.
-Existing single-account configurations continue to work without re-entering credentials.
+In **Settings → Blood Sugar**, configure Person 1, then select **Add person** for up
+to **four people total**. Each person picks their own source — **Dexcom Share**,
+**FreeStyle Libre** (LibreLinkUp), **Nightscout**, or a **custom URL** — so two Dexcom
+accounts, one Libre and one Nightscout site work side by side. Give each person a
+short display name (up to five characters), fill in their source's fields, and save.
+Use each person's test button after saving.
+
+- **Dexcom Share:** username, password and US/international region.
+- **FreeStyle Libre:** your LibreLinkUp email and password, then (after saving and
+  testing) the person to display. Several people who share with the **same**
+  LibreLinkUp login can each be added with the same login and a different person;
+  they share one login session and one request, so this doesn't add load on LibreLinkUp.
+- **Nightscout:** the site address (e.g. `https://yoursite.example.com`). If the site
+  requires authentication, create a token with the *readable* role in Nightscout's
+  Admin Tools and paste it as the access token. Don't use your API secret.
+- **Custom URL:** an endpoint returning SugarClock's JSON format (see INSTALL.md),
+  with an optional bearer token.
+
+Blank passwords and tokens keep the saved value for that same person, source and
+login or site; changing any of those requires entering the secret again, so a saved
+secret never moves to another person or server. Removing a person takes effect when
+saved and never renumbers anyone else. Existing single-source configurations keep
+working without re-entering credentials.
 
 Enable **Auto-Cycle** in **Display** to rotate through each person's glucose and
 trend screens, followed by your other enabled screens. Previous/next buttons also
 visit every person. Their name appears briefly before their reading, trend, or
-no-data status. The web display identifies the person currently selected. Each
-account keeps its own history, delta, freshness, failures, and login session.
+no-data status (also for a single person who has a display name). The web display
+identifies the person currently selected. Each person keeps their own history,
+delta, freshness, failures, and login session.
 
-Units, thresholds, alerts, and rotation speed are shared. Alerts check every
-account, including those off screen. With “Show Only Blood Sugar When Low,” the
-clock shows the people with fresh low readings and rotates among them if several
-are low, even with ordinary Auto-Cycle off. Names still appear before readings.
-A failed or stale account does not stop the other accounts from updating.
+Units, thresholds, alerts, and rotation speed are shared. Alerts check everyone,
+including people off screen. With “Show Only Blood Sugar When Low,” the clock shows
+the people with fresh low readings and rotates among them if several are low, even
+with ordinary Auto-Cycle off. A failed or stale source does not stop the others
+from updating.
+
+**Demo Mode** is a separate switch: it replaces everyone with a synthetic reading
+for videos and demos, and your saved people return when you turn it off.
 
 Four is a conservative firmware limit: histories and sessions use fixed-size
-storage, and requests run sequentially so extra accounts do not require extra
-simultaneous TLS connections. This feature supports multiple **Dexcom Share**
-accounts; Libre, custom URL, and demo sources retain their single-source behavior.
+storage, and requests run one at a time so extra people do not require extra
+simultaneous TLS connections.
 
 ### FreeStyle Libre setup
 

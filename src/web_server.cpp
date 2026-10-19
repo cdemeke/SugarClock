@@ -2,7 +2,7 @@
 #include "glucose_freshness.h"
 #include "config_manager.h"
 #include "companion.h"
-#include "dexcom_accounts.h"
+#include "cgm_accounts.h"
 #include "wifi_manager.h"
 #include "http_client.h"
 #include "libre_client.h"
@@ -94,7 +94,7 @@ static void handle_status(AsyncWebServerRequest* request) {
     doc["use_mmol"] = cfg.use_mmol;
     unsigned long age = http_time_since_last_reading();
     int failures = http_get_failure_count();
-    bool is_stale = glucose_display_is_stale(cfg.data_source, age, cfg.stale_timeout_min, failures, cfg.poll_interval_sec);
+    bool is_stale = glucose_display_is_stale(config_data_source(), age, cfg.stale_timeout_min, failures, cfg.poll_interval_sec);
 
     if (r.valid) {
         if (is_stale) {
@@ -152,16 +152,30 @@ static void handle_status(AsyncWebServerRequest* request) {
     request->send(200, "application/json", output);
 }
 
-static void add_libre_people(JsonDocument& doc) {
-    LibreConfigLock lock(config_libre_mutex());
-    const AppConfig& cfg = config_get();
-    doc["libre_patient_id"] = String(cfg.libre_patient_id);
-    doc["libre_patient_name"] = String(cfg.libre_patient_name);
-    LibrePatients snapshot = libre_get_patients();
-    JsonArray list = doc["libre_patients"].to<JsonArray>();
+// Caller holds config_libre_mutex(). Secrets are reported only as present.
+static void add_account(JsonArray list, int slot, const CgmAccount& a) {
+    JsonObject item = list.add<JsonObject>();
+    item["slot"] = slot;
+    item["provider"] = a.provider;
+    item["label"] = String(a.label);
+    if (cgm_uses_login(a.provider)) {
+        item["username"] = String(a.username);
+        item["has_password"] = a.password[0] != '\0';
+    }
+    if (a.provider == CGM_DEXCOM) item["us"] = a.us;
+    if (cgm_uses_url(a.provider)) {
+        item["url"] = String(a.url);
+        item["has_token"] = a.token[0] != '\0';
+    }
+    if (a.provider != CGM_LIBRE) return;
+    item["region"] = String(a.region);
+    item["patient_id"] = String(a.patient_id);
+    item["patient_name"] = String(a.patient_name);
+    JsonArray people = item["patients"].to<JsonArray>();
+    LibrePatients snapshot = libre_get_patients(a.username);
     if (!snapshot) return;
     for (const LibrePatient& entry : snapshot->people) {
-        JsonObject person = list.add<JsonObject>();
+        JsonObject person = people.add<JsonObject>();
         // Explicit string copies: JSON serialization outlives this snapshot.
         person["id"] = String(entry.id);
         person["name"] = String(entry.name);
@@ -187,29 +201,13 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     doc["wifi_anon_identity"] = cfg.wifi_anon_identity;
     doc["wifi_validate_ca"] = cfg.wifi_validate_ca;
     doc["has_wifi_ca"] = config_ca_exists();
-    doc["data_source"] = cfg.data_source;
-    doc["server_url"] = cfg.server_url;
-    doc["has_auth_token"] = strlen(cfg.auth_token) > 0;
-    doc["dexcom_username"] = cfg.dexcom_username;
-    doc["has_dexcom_password"] = strlen(cfg.dexcom_password) > 0;
-    doc["dexcom_us"] = cfg.dexcom_us;
-    doc["dexcom_label"] = cfg.dexcom_label;
+    doc["demo_mode"] = cfg.demo_mode;
+    doc["data_source"] = config_data_source();
     doc["max_cgm_accounts"] = CGM_MAX_ACCOUNTS;
-    JsonArray extra_accounts = doc["extra_dexcom"].to<JsonArray>();
-    for (int i = 0; i < CGM_MAX_ACCOUNTS - 1; ++i) {
-        const auto& a = cfg.extra_dexcom[i];
-        if (!a.username[0]) continue;
-        JsonObject item = extra_accounts.add<JsonObject>();
-        item["slot"] = i + 1;
-        item["label"] = a.label;
-        item["username"] = a.username;
-        item["has_password"] = a.password[0] != '\0';
-        item["us"] = a.us;
+    JsonArray accounts = doc["cgm_accounts"].to<JsonArray>();
+    for (int i = 0; i < CGM_MAX_ACCOUNTS; ++i) {
+        if (i == 0 || cfg.cgm[i].provider != CGM_NONE) add_account(accounts, i, cfg.cgm[i]);
     }
-    doc["libre_email"] = cfg.libre_email;
-    doc["has_libre_password"] = strlen(cfg.libre_password) > 0;
-    doc["libre_region"] = cfg.libre_region;
-    add_libre_people(doc);
     doc["poll_interval"] = cfg.poll_interval_sec;
     doc["brightness"] = cfg.brightness;
     doc["auto_brightness"] = cfg.auto_brightness;
@@ -306,44 +304,75 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     request->send(200, "application/json", output);
 }
 
-// Slots are stable IDs, never array positions: removing person 2 must never
-// cause person 3 to inherit their password. Omitted array preserves all slots;
-// a supplied array replaces the set and wipes omitted slots.
-inline bool validate_dexcom_accounts(JsonDocument& doc, const AppConfig& cfg,
-                                    DexcomAccount* proposed) {
-    const auto object = doc.as<JsonObjectConst>();
-    if (object.containsKey("dexcom_label") && !dexcom_text_valid(doc["dexcom_label"] | (const char*)nullptr, 5, true)) return false;
-    for (const char* key : {"dexcom_username", "dexcom_password"})
-        if (object.containsKey(key) && !dexcom_text_valid(doc[key] | (const char*)nullptr, 63)) return false;
-    if (object.containsKey("dexcom_username") && cfg.dexcom_password[0] &&
-        strcmp(doc["dexcom_username"], cfg.dexcom_username) != 0 &&
-        strlen(doc["dexcom_username"] | "") && !strlen(doc["dexcom_password"] | "")) return false;
-    bool has_extra = false;
-    if (object.containsKey("extra_dexcom")) has_extra = doc["extra_dexcom"].size() > 0;
-    else for (const auto& a : cfg.extra_dexcom) has_extra |= a.username[0] != '\0';
-    if ((doc["data_source"] | cfg.data_source) == 1 && has_extra &&
-        (!strlen(doc["dexcom_username"] | cfg.dexcom_username) ||
-         (!strlen(doc["dexcom_password"] | "") && !cfg.dexcom_password[0]))) return false;
-    if (!object.containsKey("extra_dexcom")) return true;
-    if (!doc["extra_dexcom"].is<JsonArray>() || doc["extra_dexcom"].size() >= CGM_MAX_ACCOUNTS) return false;
+// Validate the complete account set before applying any setting. Slots are
+// stable IDs, never array positions: removing person 2 must never let person 3
+// inherit their password. An omitted array keeps every account; a supplied one
+// replaces the set, must include account 1, and clears omitted slots.
+static bool prepare_accounts(JsonDocument& doc, const AppConfig& cfg, CgmAccount* proposed,
+                             char* error, size_t error_size) {
+    for (int i = 0; i < CGM_MAX_ACCOUNTS; ++i) proposed[i] = cfg.cgm[i];
+    if (!doc.as<JsonObjectConst>().containsKey("cgm_accounts")) return true;
+    JsonArrayConst list = doc["cgm_accounts"].as<JsonArrayConst>();
+    if (list.isNull() || list.size() < 1 || list.size() > CGM_MAX_ACCOUNTS) {
+        snprintf(error, error_size, "Use one to %d accounts", CGM_MAX_ACCOUNTS);
+        return false;
+    }
     bool seen[CGM_MAX_ACCOUNTS] = {};
-    for (JsonObjectConst item : doc["extra_dexcom"].as<JsonArrayConst>()) {
-        if (!item["slot"].is<int>()) return false;
-        const int slot = item["slot"];
-        if (slot < 1 || slot >= CGM_MAX_ACCOUNTS || seen[slot]) return false;
+    for (int i = 1; i < CGM_MAX_ACCOUNTS; ++i) proposed[i] = cgm_empty_account();
+    for (JsonObjectConst item : list) {
+        const int slot = item["slot"].is<int>() ? item["slot"].as<int>() : -1;
+        if (slot < 0 || slot >= CGM_MAX_ACCOUNTS || seen[slot]) {
+            snprintf(error, error_size, "Each account needs a unique slot from 0 to %d", CGM_MAX_ACCOUNTS - 1);
+            return false;
+        }
         seen[slot] = true;
-        if (!item["us"].is<bool>() ||
-            (item.containsKey("password") && !item["password"].is<const char*>())) return false;
-        if (!dexcom_prepare_account(proposed[slot - 1], cfg.extra_dexcom[slot - 1],
-                                    item["username"] | (const char*)nullptr,
-                                    item["password"] | "", item["label"] | (const char*)nullptr,
-                                    item["us"].as<bool>())) return false;
+        for (const char* key : {"label", "username", "password", "url", "token", "patient_id"}) {
+            if (item.containsKey(key) && !item[key].is<const char*>()) {
+                snprintf(error, error_size, "Account %d: %s must be text", slot + 1, key);
+                return false;
+            }
+        }
+        CgmAccountInput in = {};
+        in.provider = item["provider"].is<int>() ? item["provider"].as<int>() : CGM_NONE;
+        in.label = item["label"] | "";
+        in.username = item["username"] | "";
+        in.password = item["password"] | "";
+        in.us = item["us"] | true;
+        in.url = item["url"] | "";
+        in.token = item["token"] | "";
+        in.patient_id = item["patient_id"] | "";
+        const CgmAccount& saved = cfg.cgm[slot];
+        CgmAccount& next = proposed[slot];
+        if (!cgm_prepare_account(next, saved, in)) {
+            snprintf(error, error_size,
+                     cgm_uses_url(in.provider)
+                         ? "Account %d: enter an http:// or https:// address and a name of up to 5 printable characters"
+                         : "Account %d: enter a login (a new or changed login needs its password) and a name of up to 5 printable characters",
+                     slot + 1);
+            return false;
+        }
+        // Never accept an arbitrary person ID: it must come from this login's list.
+        if (next.provider == CGM_LIBRE && next.patient_id[0] &&
+            strcmp(next.patient_id, saved.patient_id) != 0) {
+            LibrePatients snapshot = libre_get_patients(next.username);
+            int index = snapshot ? libre_patient_index(snapshot->people.data(), snapshot->people.size(), next.patient_id)
+                                 : LIBRE_PATIENT_MISSING;
+            if (index < 0) {
+                snprintf(error, error_size, "Account %d: test the Libre connection, then select a person from the list", slot + 1);
+                return false;
+            }
+            strcpy(next.patient_name, snapshot->people[index].name);
+        }
+    }
+    if (!seen[0]) {
+        snprintf(error, error_size, "Account 1 is required");
+        return false;
     }
     return true;
 }
 
 // POST /api/config (JSON body) — accumulate chunks before parsing
-static char config_body[6144];
+static char config_body[8192];
 
 static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
     if (total > sizeof(config_body) - 1) {
@@ -381,33 +410,15 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
 
     AppConfig& cfg = config_get();
     std::unique_lock<std::recursive_mutex> lock(config_libre_mutex());
-    // Validate the complete account transaction before applying any settings.
-    DexcomAccount proposed[CGM_MAX_ACCOUNTS - 1] = {};
-    const bool replace_accounts = doc.as<JsonObjectConst>().containsKey("extra_dexcom");
-    if (!validate_dexcom_accounts(doc, cfg, proposed)) {
-        request->send(400, "application/json", "{\"error\":\"Use up to four Dexcom accounts, unique slots 1-3, names up to 5 printable characters, and credentials up to 63 characters. Configure Account 1 first. New or changed usernames require a password.\"}");
+    CgmAccount proposed[CGM_MAX_ACCOUNTS];
+    char account_error[160];
+    if (!prepare_accounts(doc, cfg, proposed, account_error, sizeof(account_error))) {
+        JsonDocument error;
+        error["error"] = account_error;
+        String output;
+        serializeJson(error, output);
+        request->send(400, "application/json", output);
         return;
-    }
-    const int previous_source = cfg.data_source;
-    DexcomAccount previous_primary = {};
-    strcpy(previous_primary.username, cfg.dexcom_username);
-    strcpy(previous_primary.password, cfg.dexcom_password);
-    previous_primary.us = cfg.dexcom_us;
-    const char* requested_person = doc["libre_patient_id"] | "";
-    const char* requested_email = doc["libre_email"] | cfg.libre_email;
-    LibrePatient selected_person = {};
-    // Validate before applying any settings. Never accept an arbitrary ID or
-    // carry an old account's selection into a newly supplied account.
-    if (strcmp(requested_email, cfg.libre_email) == 0 && requested_person[0] &&
-        strcmp(requested_person, cfg.libre_patient_id) != 0) {
-        LibrePatients snapshot = libre_get_patients();
-        int index = snapshot ? libre_patient_index(snapshot->people.data(), snapshot->people.size(), requested_person)
-                             : LIBRE_PATIENT_MISSING;
-        if (index < 0) {
-            request->send(400, "application/json", "{\"error\":\"Test the Libre connection, then select a person from the list\"}");
-            return;
-        }
-        selected_person = snapshot->people[index];
     }
 
     if (doc["wifi_ssid"].is<const char*>()) {
@@ -443,47 +454,13 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
         strncpy(cfg.wifi_anon_identity, doc["wifi_anon_identity"] | "", sizeof(cfg.wifi_anon_identity) - 1);
         cfg.wifi_anon_identity[sizeof(cfg.wifi_anon_identity) - 1] = '\0';
     }
-    if (doc["data_source"].is<int>()) {
-        cfg.data_source = doc["data_source"].as<int>();
-    }
-    if (doc["server_url"].is<const char*>()) {
-        strncpy(cfg.server_url, doc["server_url"] | "", sizeof(cfg.server_url) - 1);
-    }
-    if (doc["auth_token"].is<const char*>() && strlen(doc["auth_token"] | "") > 0) {
-        strncpy(cfg.auth_token, doc["auth_token"] | "", sizeof(cfg.auth_token) - 1);
-    }
-    if (doc["dexcom_username"].is<const char*>()) {
-        strncpy(cfg.dexcom_username, doc["dexcom_username"] | "", sizeof(cfg.dexcom_username) - 1);
-    }
-    if (doc["dexcom_password"].is<const char*>() && strlen(doc["dexcom_password"] | "") > 0) {
-        strncpy(cfg.dexcom_password, doc["dexcom_password"] | "", sizeof(cfg.dexcom_password) - 1);
-    }
-    if (doc["dexcom_us"].is<bool>()) {
-        cfg.dexcom_us = doc["dexcom_us"].as<bool>();
-    }
-    if (doc["dexcom_label"].is<const char*>())
-        strcpy(cfg.dexcom_label, doc["dexcom_label"].as<const char*>());
-    if (replace_accounts) {
-        for (int i = 0; i < CGM_MAX_ACCOUNTS - 1; ++i) {
-            if (!dexcom_identity_equal(cfg.extra_dexcom[i], proposed[i])) http_reset_account(i + 1);
-            cfg.extra_dexcom[i] = proposed[i];
-        }
-    }
-    if (previous_source != cfg.data_source ||
-        strcmp(previous_primary.username, cfg.dexcom_username) != 0 ||
-        strcmp(previous_primary.password, cfg.dexcom_password) != 0 ||
-        previous_primary.us != cfg.dexcom_us) {
-        http_reset_account(0);
-    }
-    char previous_email[sizeof(cfg.libre_email)];
-    strcpy(previous_email, cfg.libre_email);
-    bool libre_changed = config_update_libre_credentials(
-        cfg, doc["libre_email"] | (const char*)nullptr, doc["libre_password"] | (const char*)nullptr);
-    bool libre_person_changed = strcmp(previous_email, cfg.libre_email) != 0;
-    if (!libre_person_changed && selected_person.id[0]) {
-        strcpy(cfg.libre_patient_id, selected_person.id);
-        strcpy(cfg.libre_patient_name, selected_person.name);
-        libre_person_changed = true;
+    const bool previous_demo = cfg.demo_mode;
+    if (doc["demo_mode"].is<bool>()) cfg.demo_mode = doc["demo_mode"].as<bool>();
+    else if (doc["data_source"].is<int>()) cfg.demo_mode = doc["data_source"].as<int>() == CGM_DEMO_SOURCE;
+    for (int i = 0; i < CGM_MAX_ACCOUNTS; ++i) {
+        // Labels and Libre discovery keep history; any identity change drops it.
+        if (previous_demo != cfg.demo_mode || !cgm_identity_equal(cfg.cgm[i], proposed[i])) http_reset_account(i);
+        cfg.cgm[i] = proposed[i];
     }
     if (doc["poll_interval"].is<int>()) {
         cfg.poll_interval_sec = max(15, doc["poll_interval"].as<int>());
@@ -716,8 +693,6 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
 
     config_save();
     engine_rebuild_toggle_order();
-    if (libre_changed) libre_reset_session();
-    if (libre_person_changed && cfg.data_source == 3) http_clear_readings();
     lock.unlock();
 
     // Apply brightness immediately
@@ -1063,10 +1038,10 @@ static void handle_test_weather_mock(AsyncWebServerRequest* request, uint8_t* da
     request->send(200, "application/json", output);
 }
 
-// POST /api/test/glucose
+// POST /api/test/glucose[?account=N]. Testing a slot never changes the
+// person shown on the clock; without a slot, demo mode or account 1 is tested.
 static void handle_test_glucose(AsyncWebServerRequest* request) {
-    AppConfig& cfg = config_get();
-    // Explicit slot testing does not change the person shown on the clock.
+    int index = 0;
     if (request->hasParam("account")) {
         const String value = request->getParam("account")->value();
         if (value.length() != 1 || value[0] < '0' || value[0] >= '0' + CGM_MAX_ACCOUNTS ||
@@ -1074,77 +1049,45 @@ static void handle_test_glucose(AsyncWebServerRequest* request) {
             request->send(400, "application/json", "{\"ok\":false,\"error\":\"Unknown account\"}");
             return;
         }
-        const int index = value[0] - '0';
-        GlucoseReading reading = {};
-        int code = 0;
-        bool ok = http_test_account(index, reading, code);
-        JsonDocument doc;
-        doc["ok"] = ok;
-        doc["account"] = index;
-        doc["http_code"] = code;
-        if (ok) { doc["glucose"] = reading.glucose; doc["trend"] = TREND_NAMES[reading.trend]; }
-        else doc["error"] = "Connection failed or busy. Check saved credentials and Share, then retry.";
-        String output;
-        serializeJson(doc, output);
-        request->send(ok ? 200 : 502, "application/json", output);
-        return;
+        index = value[0] - '0';
     }
-
-    // Demo mode: no network involved, just return a synthetic reading.
-    if (cfg.data_source == 2) {
-        http_force_fetch();
-        const GlucoseReading& r = http_get_reading();
-        JsonDocument doc;
-        doc["ok"] = true;
-        doc["http_code"] = 200;
-        doc["glucose"] = r.glucose;
-        doc["trend"] = TREND_NAMES[r.trend];
-        String output;
-        serializeJson(doc, output);
-        request->send(200, "application/json", output);
-        return;
-    }
-
-    if (!wifi_is_connected()) {
+    const bool demo = config_get().demo_mode;
+    if (!demo && !wifi_is_connected()) {
         request->send(503, "application/json", "{\"ok\":false,\"error\":\"WiFi not connected\"}");
         return;
     }
-    if (!config_has_server()) {
+    if (index == 0 && !config_has_server()) {
         request->send(400, "application/json", "{\"ok\":false,\"error\":\"No data source configured\"}");
         return;
     }
 
-    bool ok = http_force_fetch();
+    GlucoseReading reading = {};
+    int code = 0;
+    char message[160] = "";
+    const bool ok = http_test_account(index, reading, code, message, sizeof(message));
     JsonDocument doc;
     doc["ok"] = ok;
-    if (cfg.data_source == 3) add_libre_people(doc);
-    doc["http_code"] = http_get_last_response_code();
-
+    doc["account"] = index;
+    doc["http_code"] = code;
     if (ok) {
-        const GlucoseReading& r = http_get_reading();
-        doc["glucose"] = r.glucose;
-        doc["trend"] = TREND_NAMES[r.trend];
+        doc["glucose"] = reading.glucose;
+        doc["trend"] = TREND_NAMES[reading.trend];
     } else {
-        int code = http_get_last_response_code();
-        const char* body = http_get_last_response_body();
-        if (code > 0 && strlen(body) > 0) {
-            char err[384];
-            snprintf(err, sizeof(err), "HTTP %d: %s", code, body);
-            doc["error"] = err;
-        } else if (code > 0) {
-            char err[32];
-            snprintf(err, sizeof(err), "HTTP %d", code);
-            doc["error"] = err;
-        } else if (strlen(body) > 0) {
-            doc["error"] = body;
-        } else {
-            doc["error"] = "Connection failed";
+        char err[200];
+        if (code > 0 && message[0]) snprintf(err, sizeof(err), "HTTP %d: %s", code, message);
+        else if (code > 0) snprintf(err, sizeof(err), "HTTP %d", code);
+        else snprintf(err, sizeof(err), "%s", message[0] ? message : "Connection failed or busy; retry shortly");
+        doc["error"] = err;
+    }
+    {
+        LibreConfigLock lock(config_libre_mutex());
+        if (config_get().cgm[index].provider == CGM_LIBRE) {
+            add_account(doc["account_config"].to<JsonArray>(), index, config_get().cgm[index]);
         }
     }
-
     String output;
     serializeJson(doc, output);
-    request->send(ok ? 200 : (http_get_last_response_code() == 429 ? 429 : 502), "application/json", output);
+    request->send(ok ? 200 : (code == 429 ? 429 : 502), "application/json", output);
 }
 
 // POST /api/display/next or /prev. Report the result of the navigation attempt,

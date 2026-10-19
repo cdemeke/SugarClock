@@ -229,6 +229,13 @@ LibreResult LibreSession::fetch(LibreTransport& transport, uint32_t now_ms,
     rejections_ = 0;
     awaiting_action_ = false;
 
+    return libre_classify_read(read, raw, clock_synced, now_epoch);
+}
+
+LibreResult libre_classify_read(LibreReadResult read, const LibreRawReading& raw,
+                                bool clock_synced, uint32_t now_epoch) {
+    LibreResult result = LibreResult();
+    result.trend = TREND_UNKNOWN;
     if (read == LIBRE_READ_EMPTY || raw.glucose <= 0) {
         result.status = LIBRE_FETCH_NO_DATA;
         return result;

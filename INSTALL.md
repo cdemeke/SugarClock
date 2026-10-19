@@ -296,6 +296,11 @@ The server endpoint should return JSON in this format:
 
 Supported trend values: `RisingFast` (↑↑), `Rising` (↑), `FortyFiveUp` (↗), `Flat` (→), `FortyFiveDown` (↘), `Falling` (↓), `FallingFast` (↓↓). Dexcom/Nightscout names `DoubleUp`, `SingleUp`, `SingleDown`, and `DoubleDown` are also accepted (case-insensitive).
 
+This format is for the **Custom URL** source. A Nightscout site does not need it:
+choose **Nightscout** as the source and enter the site address (plus a read-only
+access token if the site requires one); SugarClock reads the latest entry from
+Nightscout's `/api/v1/entries/sgv.json` API directly.
+
 ---
 
 ## Button Controls

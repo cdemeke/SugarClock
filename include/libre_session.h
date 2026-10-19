@@ -108,6 +108,11 @@ private:
     uint32_t action_retry_ms_;
 };
 
+// Classify an authorized read (OK or EMPTY): no data, fresh, stale or bad time.
+// Also used for readings served from another slot's shared connections list.
+LibreResult libre_classify_read(LibreReadResult read, const LibreRawReading& raw,
+                                bool clock_synced, uint32_t now_epoch);
+
 // Parse FactoryTimestamp to epoch seconds; 0 when malformed or out of range
 uint32_t libre_parse_timestamp(const char* s);
 

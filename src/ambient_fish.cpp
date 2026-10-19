@@ -143,7 +143,7 @@ static GlucoseEffect choose_glucose_effect() {
 
     // Usually the engine replaces Ambient Fish with its NO DATA or STALE
     // screen first. This local guard also keeps forced/debug rendering quiet.
-    if (cfg.data_source != 2) {
+    if (!cfg.demo_mode) {
         unsigned long stale_ms = (unsigned long)cfg.stale_timeout_min * 60UL * 1000UL;
         if (!http_has_ever_received() ||
             http_time_since_last_reading() >= stale_ms ||

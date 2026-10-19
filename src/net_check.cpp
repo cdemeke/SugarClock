@@ -43,21 +43,23 @@ static void resolve_data_host() {
     AppConfig& cfg = config_get();
     data_host[0] = '\0';
 
-    if (cfg.data_source == 2) {
+    if (cfg.demo_mode) {
         return; // demo mode synthesises readings; nothing to reach
     }
-    if (cfg.data_source == 1) {
-        strncpy(data_host, cfg.dexcom_us ? "share2.dexcom.com" : "shareous1.dexcom.com",
+    // The first account's host; other accounts report their own failures.
+    const CgmAccount& account = cfg.cgm[0];
+    if (account.provider == CGM_DEXCOM) {
+        strncpy(data_host, account.us ? "share2.dexcom.com" : "shareous1.dexcom.com",
                 sizeof(data_host) - 1);
         return;
     }
-    if (cfg.data_source == 3) {
-        libre_api_host(data_host, sizeof(data_host));
+    if (account.provider == CGM_LIBRE) {
+        libre_api_host(0, data_host, sizeof(data_host));
         return;
     }
 
     // Custom URL / Nightscout: strip scheme, path, port and credentials
-    const char* url = cfg.server_url;
+    const char* url = account.url;
     if (url[0] == '\0') return;
     const char* p = strstr(url, "://");
     p = p ? p + 3 : url;

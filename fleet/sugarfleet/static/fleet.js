@@ -13,7 +13,7 @@ window.fleet = {
     return element;
   },
   date(value) { return value ? new Date(Number(value)*1000).toLocaleString() : 'Not reported'; },
-  label(value) { const names={dexcom:'Dexcom',libre:'FreeStyle Libre',custom:'Custom source',demo:'Demo',companion_enabled:'Companion',weather_enabled:'Weather',sysmon_enabled:'System monitor',notifications_enabled:'Notifications'}; return names[value] || String(value).replaceAll('_', ' '); },
+  label(value) { const names={dexcom:'Dexcom',libre:'FreeStyle Libre',nightscout:'Nightscout',custom:'Custom source',demo:'Demo',companion_enabled:'Companion',weather_enabled:'Weather',sysmon_enabled:'System monitor',notifications_enabled:'Notifications'}; return names[value] || String(value).replaceAll('_', ' '); },
   async action(button, output, callback) {
     button.disabled = true; output.textContent = 'Saving…';
     try { await callback(); } catch (error) { output.textContent = error.message; }
