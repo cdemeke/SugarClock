@@ -1,5 +1,7 @@
-#include "trend_mapping.h"
 #include "http_client.h"
+#include "time_engine.h"
+#include "glucose_freshness.h"
+#include "trend_mapping.h"
 #include "config_manager.h"
 #include "wifi_manager.h"
 #include "libre_client.h"
@@ -7,6 +9,7 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <Arduino.h>
+#include <time.h>
 
 // Dexcom Share constants
 #define DEXCOM_APP_ID "d89443d2-327c-4a6f-89e5-496bbb0317db"
@@ -248,8 +251,6 @@ static bool dexcom_fetch_glucose(AccountState& s, const DexcomAccount& cfg) {
         JsonObject reading = arr[0];
 
         s.current_reading.glucose = reading["Value"] | 0;
-        const unsigned long previous_received = s.current_reading.received_at_ms;
-        s.current_reading.timestamp = 0;
         s.current_reading.received_at_ms = millis();
         s.current_reading.force_mode = -1;
         s.current_reading.message[0] = '\0';
@@ -264,6 +265,7 @@ static bool dexcom_fetch_glucose(AccountState& s, const DexcomAccount& cfg) {
         }
 
         // Parse timestamp from "Date(1234567890000)" or "WT" field
+        s.current_reading.timestamp = 0;
         const char* wt = reading["WT"] | reading["ST"] | "";
         if (strlen(wt) > 0) {
             // Extract epoch ms from "Date(1234567890000)" or "/Date(1234567890000)/"
@@ -273,13 +275,13 @@ static bool dexcom_fetch_glucose(AccountState& s, const DexcomAccount& cfg) {
             }
         }
 
-        if (s.ever_received && s.current_reading.timestamp != 0 &&
-            s.current_reading.timestamp == s.last_recorded_timestamp) {
-            s.current_reading.received_at_ms = previous_received;
-        }
         s.current_reading.valid = (s.current_reading.glucose > 0);
 
         if (s.current_reading.valid) {
+            const bool synced = time_is_network_synced();
+            s.current_reading.received_at_ms = glucose_received_at(
+                s.current_reading.timestamp, s.last_recorded_timestamp, s.ever_received,
+                s.last_success_ms, millis(), synced, synced ? uint32_t(time(nullptr)) : 0);
             record_reading(s, s.current_reading.glucose, s.current_reading.timestamp);
             s.failure_count = 0;
             s.ever_received = true;
@@ -402,6 +404,10 @@ static void generic_fetch(AccountState& s) {
             s.current_reading.message[sizeof(s.current_reading.message) - 1] = '\0';
 
             if (s.current_reading.valid) {
+                const bool synced = time_is_network_synced();
+                s.current_reading.received_at_ms = glucose_received_at(
+                    s.current_reading.timestamp, s.last_recorded_timestamp, s.ever_received,
+                    s.last_success_ms, millis(), synced, synced ? uint32_t(time(nullptr)) : 0);
                 record_reading(s, s.current_reading.glucose, s.current_reading.timestamp);
                 s.failure_count = 0;
                 s.ever_received = true;

@@ -1,4 +1,5 @@
 #include "glucose_engine.h"
+#include "glucose_freshness.h"
 #include "glucose_render.h"
 #include "hardware_pins.h"
 #include "display.h"
@@ -24,7 +25,6 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
-#define STALE_WARNING_MS   (10UL * 60 * 1000)   // 10 minutes
 #define FAILURE_STALE_COUNT    5
 #define FAILURE_NODATA_COUNT   10
 
@@ -82,7 +82,16 @@ static void draw_weather_content(uint32_t now) {
     const uint16_t color = color_from_uint32(cfg.color_weather);
     if (!weather_has_data()) {
         weather_animation_reset(weather_animation);
-        display_draw_text("WX...", 4, 0, color);
+        // No key means no fetch will ever run, so say so instead of "loading".
+        if (cfg.weather_api_key[0] == '\0') {
+            if ((now / 2000) % 2 == 0) {
+                display_draw_text("NO", 10, 0, color);
+            } else {
+                display_draw_text("KEY", 7, 0, color);
+            }
+        } else {
+            display_draw_text("WX...", 4, 0, color);
+        }
         return;
     }
 
@@ -134,7 +143,10 @@ void engine_rebuild_toggle_order() {
         toggle_order[toggle_count++] = STATE_TREND_DISPLAY;
     }
     if (cfg.time_display_enabled) toggle_order[toggle_count++] = STATE_TIME_DISPLAY;
-    if (cfg.weather_enabled) toggle_order[toggle_count++] = STATE_WEATHER_DISPLAY;
+    // Without an API key there is nothing to show, unless a mock preview is active.
+    if (cfg.weather_enabled && (cfg.weather_api_key[0] != '\0' || weather_has_data())) {
+        toggle_order[toggle_count++] = STATE_WEATHER_DISPLAY;
+    }
     if (cfg.ambient_enabled) toggle_order[toggle_count++] = STATE_AMBIENT_CREATURE_DISPLAY;
     if (cfg.timer_enabled) toggle_order[toggle_count++] = STATE_TIMER_DISPLAY;
     if (cfg.stopwatch_enabled) toggle_order[toggle_count++] = STATE_STOPWATCH_DISPLAY;
@@ -435,13 +447,11 @@ static void render_state(DisplayState state) {
                 break;
             }
 
-            // Check for stale warning (dim + yellow dot) or stale (gray)
+            // Visual freshness is independent of the configured alert timeout.
             unsigned long age = http_time_since_last_reading();
-            unsigned long stale_warn_ms = STALE_WARNING_MS;
-            unsigned long stale_ms = (unsigned long)cfg.stale_timeout_min * 60UL * 1000UL;
             int failures = http_get_failure_count();
-            bool is_stale = (cfg.data_source != 2) && (age >= stale_ms || failures >= FAILURE_STALE_COUNT);
-            bool stale_warning = (cfg.data_source != 2) && (age >= stale_warn_ms && !is_stale);
+            bool is_stale = glucose_display_is_stale(cfg.data_source, age,
+                                                      cfg.stale_timeout_min, failures, cfg.poll_interval_sec);
 
             uint16_t color;
             if (is_stale) {
@@ -450,11 +460,9 @@ static void render_state(DisplayState state) {
                 color = themed_glucose_color(reading.glucose, cfg);
             }
 
-            if (stale_warning) {
-                display_set_brightness(effective_brightness() / 3);
-            } else {
-                display_set_brightness(effective_brightness());
-            }
+            display_set_brightness(effective_brightness());
+            // Keep the last value visible even if it ages during a delta flash.
+            if (is_stale) delta_flash_active = false;
 
             // Never replace the low value with a delta-only flash, including
             // one that was already active when the low reading arrived.
@@ -484,11 +492,6 @@ static void render_state(DisplayState state) {
 
             if (reading.trend != TREND_UNKNOWN) {
                 display_draw_trend(reading.trend, arrow_x, 0, color);
-            }
-
-            // Stale warning indicator
-            if (stale_warning) {
-                display_draw_text("!", MATRIX_WIDTH - 4, 0, display_color(255, 255, 0));
             }
 
             display_show();
@@ -690,9 +693,9 @@ static void render_state(DisplayState state) {
                 display_draw_text("---", 7, 0, display_color(100, 100, 100));
             } else {
                 unsigned long age = http_time_since_last_reading();
-                unsigned long stale_ms = (unsigned long)cfg.stale_timeout_min * 60UL * 1000UL;
                 int failures = http_get_failure_count();
-                bool is_stale = (cfg.data_source != 2) && (age >= stale_ms || failures >= FAILURE_STALE_COUNT);
+                bool is_stale = glucose_display_is_stale(cfg.data_source, age,
+                                                      cfg.stale_timeout_min, failures, cfg.poll_interval_sec);
 
                 uint16_t tcolor = is_stale ? color_from_uint32(cfg.color_stale) : themed_glucose_color(reading.glucose, cfg);
 
