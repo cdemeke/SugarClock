@@ -937,5 +937,15 @@
   "View {0} recorded snapshot": "Duba {0} da aka yi rikodin hoto",
   "View {0} recorded snapshots": "Duba {0} hotuna da aka yi rikodin",
   "An OpenWeatherMap API key is required for weather to appear on the clock.": "Ana buƙatar maɓallin API na OpenWeatherMap don yanayi ya bayyana a agogo.",
-  "API key needed": "Ana buƙatar maɓallin API"
+  "API key needed": "Ana buƙatar maɓallin API",
+  "Minimum": "Mafi ƙanƙanta",
+  "Fine brightness adjustment": "Daidaita haske kaɗan-kaɗan",
+  "Decrease brightness one step": "Rage haske mataki ɗaya",
+  "Increase brightness one step": "Ƙara haske mataki ɗaya",
+  "Dimmer": "Rage haske",
+  "Brighter": "Ƙara haske",
+  "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "Yi amfani da “Rage haske” da “Ƙara haske” don ƙananan gyare-gyare. Mafi ƙanƙanta ba yana nufin a kashe ba; idan lambobi suna da wuyar gani, ƙara haske.",
+  "Uses the clock's light sensor. Changing brightness switches back to manual control.": "Yana amfani da na'urar gano haske ta agogon. Canza haske yana komawa sarrafa da hannu.",
+  "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "Yana maye gurbin haske na hannu da na atomatik a lokacin dare. 1 shi ne mafi ƙanƙanta (0.4%), ba kashewa ba. Ƙara shi idan lambobi suna da wuyar gani.",
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "Haske na atomatik yana kunne. Daidaita haske don zaɓar mataki na hannu."
 }

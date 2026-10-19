@@ -937,5 +937,15 @@
   "View {0} recorded snapshot": "{0}টি রেকর্ড করা স্ন্যাপশট দেখুন",
   "View {0} recorded snapshots": "{0}টি রেকর্ড করা স্ন্যাপশট দেখুন",
   "An OpenWeatherMap API key is required for weather to appear on the clock.": "ঘড়িতে আবহাওয়া দেখাতে একটি OpenWeatherMap API কী প্রয়োজন।",
-  "API key needed": "API কী প্রয়োজন"
+  "API key needed": "API কী প্রয়োজন",
+  "Minimum": "সর্বনিম্ন",
+  "Fine brightness adjustment": "উজ্জ্বলতার সূক্ষ্ম সমন্বয়",
+  "Decrease brightness one step": "উজ্জ্বলতা এক ধাপ কমান",
+  "Increase brightness one step": "উজ্জ্বলতা এক ধাপ বাড়ান",
+  "Dimmer": "আরও ম্লান",
+  "Brighter": "আরও উজ্জ্বল",
+  "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "ছোট পরিবর্তনের জন্য “আরও ম্লান” ও “আরও উজ্জ্বল” ব্যবহার করুন। সর্বনিম্ন মানে বন্ধ নয়; সংখ্যা দেখতে অসুবিধা হলে উজ্জ্বলতা বাড়ান।",
+  "Uses the clock's light sensor. Changing brightness switches back to manual control.": "ঘড়ির আলো সেন্সর ব্যবহার করে। উজ্জ্বলতা পরিবর্তন করলে আবার ম্যানুয়াল নিয়ন্ত্রণে ফিরে যায়।",
+  "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "রাতের সময় ম্যানুয়াল ও স্বয়ংক্রিয় উজ্জ্বলতার পরিবর্তে এটি প্রযোজ্য হয়। 1 হলো সর্বনিম্ন সেটিং (0.4%), বন্ধ নয়। সংখ্যা দেখতে অসুবিধা হলে এটি বাড়ান।",
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "স্বয়ংক্রিয় উজ্জ্বলতা চালু আছে। ম্যানুয়াল স্তর বেছে নিতে উজ্জ্বলতা সমন্বয় করুন।"
 }

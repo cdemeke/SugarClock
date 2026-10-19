@@ -937,5 +937,15 @@
   "View {0} recorded snapshot": "பதிவுசெய்யப்பட்ட {0} ஸ்னாப்ஷாட்டைப் பார்க்கவும்",
   "View {0} recorded snapshots": "பதிவுசெய்யப்பட்ட {0} ஸ்னாப்ஷாட்களைக் காண்க",
   "An OpenWeatherMap API key is required for weather to appear on the clock.": "கடிகாரத்தில் வானிலை தோன்ற OpenWeatherMap API விசை தேவை.",
-  "API key needed": "API விசை தேவை"
+  "API key needed": "API விசை தேவை",
+  "Minimum": "குறைந்தபட்சம்",
+  "Fine brightness adjustment": "ஒளிர்வை நுணுக்கமாக சரிசெய்தல்",
+  "Decrease brightness one step": "ஒளிர்வை ஒரு படி குறைக்கவும்",
+  "Increase brightness one step": "ஒளிர்வை ஒரு படி அதிகரிக்கவும்",
+  "Dimmer": "மங்கலாக்கு",
+  "Brighter": "பிரகாசமாக்கு",
+  "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "சிறிய மாற்றங்களுக்கு “மங்கலாக்கு” மற்றும் “பிரகாசமாக்கு” ஐப் பயன்படுத்தவும். குறைந்தபட்சம் என்பது அணைப்பு அல்ல; எண்கள் தெரிவது கடினமாக இருந்தால் ஒளிர்வை அதிகரிக்கவும்.",
+  "Uses the clock's light sensor. Changing brightness switches back to manual control.": "கடிகாரத்தின் ஒளி சென்சாரைப் பயன்படுத்துகிறது. ஒளிர்வை மாற்றினால் மீண்டும் கைமுறை கட்டுப்பாட்டுக்குத் திரும்பும்.",
+  "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "இரவு நேரங்களில் கைமுறை மற்றும் தானியங்கி ஒளிர்வுக்குப் பதிலாக இது பயன்படும். 1 என்பது குறைந்தபட்ச அமைப்பு (0.4%), அணைப்பு அல்ல. எண்கள் தெரிவது கடினமாக இருந்தால் இதை அதிகரிக்கவும்.",
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "தானியங்கி ஒளிர்வு இயக்கத்தில் உள்ளது. கைமுறை நிலையைத் தேர்வுசெய்ய ஒளிர்வைச் சரிசெய்யவும்."
 }

@@ -937,5 +937,15 @@
   "View {0} recorded snapshot": "{0} ریکارڈ شدہ سنیپ شاٹ دیکھیں",
   "View {0} recorded snapshots": "{0} ریکارڈ شدہ سنیپ شاٹس دیکھیں",
   "An OpenWeatherMap API key is required for weather to appear on the clock.": "گھڑی پر موسم دکھانے کے لیے OpenWeatherMap API کلید درکار ہے۔",
-  "API key needed": "API کلید درکار ہے"
+  "API key needed": "API کلید درکار ہے",
+  "Minimum": "کم از کم",
+  "Fine brightness adjustment": "چمک کی باریک ایڈجسٹمنٹ",
+  "Decrease brightness one step": "چمک ایک درجہ کم کریں",
+  "Increase brightness one step": "چمک ایک درجہ بڑھائیں",
+  "Dimmer": "مدھم",
+  "Brighter": "زیادہ روشن",
+  "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "چھوٹی تبدیلیوں کے لیے “مدھم” اور “زیادہ روشن” استعمال کریں۔ کم از کم کا مطلب بند نہیں ہے؛ اگر نمبر دیکھنا مشکل ہو تو چمک بڑھائیں۔",
+  "Uses the clock's light sensor. Changing brightness switches back to manual control.": "گھڑی کا روشنی سینسر استعمال کرتا ہے۔ چمک تبدیل کرنے سے دستی کنٹرول پر واپس آ جاتا ہے۔",
+  "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "رات کے اوقات میں دستی اور خودکار چمک کی جگہ لیتا ہے۔ 1 کم از کم سیٹنگ ہے (0.4%)، بند نہیں۔ اگر نمبر دیکھنا مشکل ہو تو اسے بڑھائیں۔",
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "خودکار چمک آن ہے۔ دستی سطح منتخب کرنے کے لیے چمک ایڈجسٹ کریں۔"
 }

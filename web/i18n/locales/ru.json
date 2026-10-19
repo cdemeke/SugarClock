@@ -937,5 +937,15 @@
   "View {0} recorded snapshot": "Просмотреть {0} записанный снимок",
   "View {0} recorded snapshots": "Просмотреть {0} записанных снимков",
   "An OpenWeatherMap API key is required for weather to appear on the clock.": "Чтобы погода отображалась на часах, нужен API-ключ OpenWeatherMap.",
-  "API key needed": "Нужен API-ключ"
+  "API key needed": "Нужен API-ключ",
+  "Minimum": "Минимум",
+  "Fine brightness adjustment": "Точная настройка яркости",
+  "Decrease brightness one step": "Уменьшить яркость на один шаг",
+  "Increase brightness one step": "Увеличить яркость на один шаг",
+  "Dimmer": "Темнее",
+  "Brighter": "Ярче",
+  "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "Используйте «Темнее» и «Ярче» для небольших изменений. Минимум не выключает экран; если цифры плохо видны, увеличьте яркость.",
+  "Uses the clock's light sensor. Changing brightness switches back to manual control.": "Использует датчик освещённости часов. Изменение яркости возвращает ручное управление.",
+  "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "В ночные часы заменяет ручную и автоматическую яркость. 1 — минимальное значение (0,4 %), а не выключение. Увеличьте его, если цифры плохо видны.",
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "Автоматическая яркость включена. Измените яркость, чтобы выбрать ручной уровень."
 }

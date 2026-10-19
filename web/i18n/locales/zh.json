@@ -937,5 +937,15 @@
   "View {0} recorded snapshot": "查看{0}记录的快照",
   "View {0} recorded snapshots": "查看 {0} 个记录的快照",
   "An OpenWeatherMap API key is required for weather to appear on the clock.": "天气要显示在时钟上，需要 OpenWeatherMap API 密钥。",
-  "API key needed": "需要 API 密钥"
+  "API key needed": "需要 API 密钥",
+  "Minimum": "最低",
+  "Fine brightness adjustment": "亮度微调",
+  "Decrease brightness one step": "将亮度降低一级",
+  "Increase brightness one step": "将亮度提高一级",
+  "Dimmer": "调暗",
+  "Brighter": "调亮",
+  "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "使用“调暗”和“调亮”进行小幅调整。最低亮度并不是关闭；如果数字难以看清，请提高亮度。",
+  "Uses the clock's light sensor. Changing brightness switches back to manual control.": "使用时钟的光线传感器。更改亮度会切换回手动控制。",
+  "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "在夜间时段覆盖手动和自动亮度。1 是最低设置（0.4%），不是关闭。如果数字难以看清，请调高该值。",
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "自动亮度已开启。调整亮度即可选择手动级别。"
 }

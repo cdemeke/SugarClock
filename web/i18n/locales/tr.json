@@ -937,5 +937,15 @@
   "View {0} recorded snapshot": "{0} kayıtlı anlık görüntüyü görüntüle",
   "View {0} recorded snapshots": "{0} kayıtlı anlık görüntüyü görüntüle",
   "An OpenWeatherMap API key is required for weather to appear on the clock.": "Hava durumunun saatte görünmesi için bir OpenWeatherMap API anahtarı gerekir.",
-  "API key needed": "API anahtarı gerekli"
+  "API key needed": "API anahtarı gerekli",
+  "Minimum": "En düşük",
+  "Fine brightness adjustment": "Hassas parlaklık ayarı",
+  "Decrease brightness one step": "Parlaklığı bir adım azalt",
+  "Increase brightness one step": "Parlaklığı bir adım artır",
+  "Dimmer": "Daha koyu",
+  "Brighter": "Daha parlak",
+  "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "Küçük ayarlar için “Daha koyu” ve “Daha parlak” düğmelerini kullanın. En düşük ayar kapalı demek değildir; rakamlar zor görünüyorsa parlaklığı artırın.",
+  "Uses the clock's light sensor. Changing brightness switches back to manual control.": "Saatin ışık sensörünü kullanır. Parlaklığı değiştirmek manuel kontrole geri döner.",
+  "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "Gece saatlerinde manuel ve otomatik parlaklığın yerine geçer. 1 en düşük ayardır (%0,4), kapalı değildir. Rakamlar zor görünüyorsa artırın.",
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "Otomatik parlaklık açık. Manuel bir seviye seçmek için parlaklığı ayarlayın."
 }

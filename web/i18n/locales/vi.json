@@ -937,5 +937,15 @@
   "View {0} recorded snapshot": "Xem ảnh chụp nhanh được ghi lại {0}",
   "View {0} recorded snapshots": "Xem {0} ảnh chụp nhanh đã ghi",
   "An OpenWeatherMap API key is required for weather to appear on the clock.": "Cần có khóa API OpenWeatherMap để thời tiết hiển thị trên đồng hồ.",
-  "API key needed": "Cần khóa API"
+  "API key needed": "Cần khóa API",
+  "Minimum": "Tối thiểu",
+  "Fine brightness adjustment": "Tinh chỉnh độ sáng",
+  "Decrease brightness one step": "Giảm độ sáng một bậc",
+  "Increase brightness one step": "Tăng độ sáng một bậc",
+  "Dimmer": "Tối hơn",
+  "Brighter": "Sáng hơn",
+  "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "Dùng “Tối hơn” và “Sáng hơn” để điều chỉnh nhỏ. Mức tối thiểu không phải là tắt; nếu khó nhìn thấy số, hãy tăng độ sáng.",
+  "Uses the clock's light sensor. Changing brightness switches back to manual control.": "Dùng cảm biến ánh sáng của đồng hồ. Thay đổi độ sáng sẽ chuyển lại về điều khiển thủ công.",
+  "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "Thay thế độ sáng thủ công và tự động trong giờ ban đêm. 1 là mức tối thiểu (0,4%), không phải tắt. Hãy tăng lên nếu khó nhìn thấy số.",
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "Độ sáng tự động đang bật. Điều chỉnh độ sáng để chọn mức thủ công."
 }

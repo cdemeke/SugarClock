@@ -937,5 +937,15 @@
   "View {0} recorded snapshot": "{0} の記録されたスナップショットを表示する",
   "View {0} recorded snapshots": "{0} 個の記録されたスナップショットを表示する",
   "An OpenWeatherMap API key is required for weather to appear on the clock.": "時計に天気を表示するには、OpenWeatherMap の API キーが必要です。",
-  "API key needed": "API キーが必要です"
+  "API key needed": "API キーが必要です",
+  "Minimum": "最小",
+  "Fine brightness adjustment": "明るさの微調整",
+  "Decrease brightness one step": "明るさを1段階下げる",
+  "Increase brightness one step": "明るさを1段階上げる",
+  "Dimmer": "暗く",
+  "Brighter": "明るく",
+  "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "細かい調整には「暗く」と「明るく」を使います。最小はオフではありません。数字が見えにくい場合は明るさを上げてください。",
+  "Uses the clock's light sensor. Changing brightness switches back to manual control.": "時計の光センサーを使用します。明るさを変更すると手動制御に戻ります。",
+  "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "夜間の時間帯は手動・自動の明るさより優先されます。1 は最小設定（0.4%）で、オフではありません。数字が見えにくい場合は値を上げてください。",
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "自動調整がオンです。明るさを調整すると手動レベルを選べます。"
 }

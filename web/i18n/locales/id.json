@@ -937,5 +937,15 @@
   "View {0} recorded snapshot": "Lihat {0} rekaman cuplikan",
   "View {0} recorded snapshots": "Lihat {0} rekaman cuplikan",
   "An OpenWeatherMap API key is required for weather to appear on the clock.": "Kunci API OpenWeatherMap diperlukan agar cuaca muncul di jam.",
-  "API key needed": "Kunci API diperlukan"
+  "API key needed": "Kunci API diperlukan",
+  "Minimum": "Minimum",
+  "Fine brightness adjustment": "Penyesuaian kecerahan halus",
+  "Decrease brightness one step": "Kurangi kecerahan satu langkah",
+  "Increase brightness one step": "Tambah kecerahan satu langkah",
+  "Dimmer": "Lebih redup",
+  "Brighter": "Lebih terang",
+  "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "Gunakan “Lebih redup” dan “Lebih terang” untuk penyesuaian kecil. Minimum bukan berarti mati; jika angka sulit dilihat, tambah kecerahan.",
+  "Uses the clock's light sensor. Changing brightness switches back to manual control.": "Menggunakan sensor cahaya jam. Mengubah kecerahan akan kembali ke kontrol manual.",
+  "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "Menggantikan kecerahan manual dan otomatis selama jam malam. 1 adalah pengaturan minimum (0,4%), bukan mati. Naikkan jika angka sulit dilihat.",
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "Kecerahan otomatis aktif. Sesuaikan kecerahan untuk memilih tingkat manual."
 }

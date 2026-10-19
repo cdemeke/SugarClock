@@ -193,10 +193,15 @@
                     <h2><span data-i18n="Brightness">Brightness</span></h2>
                     <div class="brightness-label-row">
                         <label for="brightness"><span data-i18n="Display brightness">Display brightness</span></label>
-                        <output id="brightness-value" for="brightness">16%</output>
+                        <output id="brightness-value" for="brightness">15.7%</output>
                     </div>
-                    <input class="brightness-slider" type="range" id="brightness" min="1" max="100" value="16" aria-valuetext="16 percent">
-                    <div class="brightness-scale" aria-hidden="true"><span>1%</span><span>100%</span></div>
+                    <input class="brightness-slider" type="range" id="brightness" min="1" max="255" step="1" value="40" aria-valuetext="15.7 percent" aria-describedby="brightness-help brightness-mode-hint">
+                    <div class="brightness-scale" aria-hidden="true"><span>0.4% · <span data-i18n="Minimum">Minimum</span></span><span>100%</span></div>
+                    <div class="brightness-fine-controls" role="group" aria-label="Fine brightness adjustment" data-i18n-aria-label="Fine brightness adjustment">
+                        <button type="button" class="btn btn-outline" id="brightness-decrease" aria-label="Decrease brightness one step" data-i18n-aria-label="Decrease brightness one step">− <span data-i18n="Dimmer">Dimmer</span></button>
+                        <button type="button" class="btn btn-outline" id="brightness-increase" aria-label="Increase brightness one step" data-i18n-aria-label="Increase brightness one step">+ <span data-i18n="Brighter">Brighter</span></button>
+                    </div>
+                    <div class="hint" id="brightness-help"><span data-i18n="Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.">Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.</span></div>
                     <div class="hint" id="brightness-mode-hint"><span data-i18n="Manual brightness.">Manual brightness.</span></div>
                     <details class="wifi-advanced">
                         <summary><span data-i18n="Advanced brightness">Advanced brightness</span></summary>
@@ -204,7 +209,7 @@
                             <label for="auto_brightness"><span data-i18n="Adjust brightness automatically">Adjust brightness automatically</span></label>
                             <input type="checkbox" id="auto_brightness">
                         </div>
-                        <div class="hint"><span data-i18n="Uses the clock&#x27;s light sensor. Moving the slider switches back to manual brightness.">Uses the clock's light sensor. Moving the slider switches back to manual brightness.</span></div>
+                        <div class="hint"><span data-i18n="Uses the clock&#x27;s light sensor. Changing brightness switches back to manual control.">Uses the clock's light sensor. Changing brightness switches back to manual control.</span></div>
                     </details>
                 </div>
 
@@ -225,9 +230,9 @@
                             </div>
                         </div>
                         <div class="form-group">
-                            <label><span data-i18n="Night Brightness (1-255)">Night Brightness (1-255)</span></label>
+                            <label for="night_brightness"><span data-i18n="Night Brightness (1-255)">Night Brightness (1-255)</span></label>
                             <input type="number" id="night_brightness" min="1" max="255" value="10">
-                            <div class="hint"><span data-i18n="Automatically dims during night hours">Automatically dims during night hours</span></div>
+                            <div class="hint"><span data-i18n="Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.">Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.</span></div>
                         </div>
                     </div>
                 </div>
@@ -1062,15 +1067,31 @@ curl -X POST http://DEVICE_IP/api/sysmon \
         let brightnessModeChanged = false;
         function updateBrightnessLabel() {
             const slider = document.getElementById('brightness');
-            I18n.text(document.getElementById('brightness-value'), slider.value + '%', false);
-            slider.setAttribute('aria-valuetext', slider.value + ' percent');
-            I18n.text(document.getElementById('brightness-mode-hint'), document.getElementById('auto_brightness').checked ? 'Automatic brightness is on. Move the slider to choose a manual level.' : 'Manual brightness. Automatic adjustment is available under Advanced brightness.');
+            const percent = Number((Number(slider.value) * 100 / 255).toFixed(1));
+            I18n.text(document.getElementById('brightness-value'), percent + '%', false);
+            slider.setAttribute('aria-valuetext', percent + ' percent' + (Number(slider.value) === 1 ? ', minimum' : ''));
+            document.getElementById('brightness-decrease').disabled = Number(slider.value) <= 1;
+            document.getElementById('brightness-increase').disabled = Number(slider.value) >= 255;
+            I18n.text(document.getElementById('brightness-mode-hint'), document.getElementById('auto_brightness').checked
+                ? 'Automatic brightness is on. Adjust brightness to choose a manual level.'
+                : 'Manual brightness. Automatic adjustment is available under Advanced brightness.');
         }
-        document.getElementById('brightness').addEventListener('input', () => {
-            brightnessDeviceValue = Math.round(Number(document.getElementById('brightness').value) * 255 / 100);
+        function selectManualBrightness() {
+            // Keep the slider in device units so the lowest levels are reachable
+            // and existing values never make a lossy round trip through percent.
+            brightnessDeviceValue = Number(document.getElementById('brightness').value);
             brightnessChanged = true;
             document.getElementById('auto_brightness').checked = false;
             updateBrightnessLabel();
+        }
+        document.getElementById('brightness').addEventListener('input', selectManualBrightness);
+        document.getElementById('brightness-decrease').addEventListener('click', () => {
+            document.getElementById('brightness').stepDown();
+            selectManualBrightness();
+        });
+        document.getElementById('brightness-increase').addEventListener('click', () => {
+            document.getElementById('brightness').stepUp();
+            selectManualBrightness();
         });
         document.getElementById('auto_brightness').addEventListener('change', () => {
             brightnessModeChanged = true;
@@ -1362,7 +1383,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
                 // Display
                 brightnessDeviceValue = Math.max(1, Math.min(255, Number(c.brightness) || 40));
-                document.getElementById('brightness').value = Math.max(1, Math.round(brightnessDeviceValue * 100 / 255));
+                document.getElementById('brightness').value = brightnessDeviceValue;
                 brightnessChanged = false;
                 brightnessModeChanged = false;
                 document.getElementById('auto_brightness').checked = c.auto_brightness === true;

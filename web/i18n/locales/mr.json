@@ -937,5 +937,15 @@
   "View {0} recorded snapshot": "{0} रेकॉर्ड केलेला स्नॅपशॉट पहा",
   "View {0} recorded snapshots": "{0} रेकॉर्ड केलेले स्नॅपशॉट पहा",
   "An OpenWeatherMap API key is required for weather to appear on the clock.": "घड्याळावर हवामान दिसण्यासाठी OpenWeatherMap API की आवश्यक आहे.",
-  "API key needed": "API की आवश्यक आहे"
+  "API key needed": "API की आवश्यक आहे",
+  "Minimum": "किमान",
+  "Fine brightness adjustment": "ब्राइटनेसचे बारीक समायोजन",
+  "Decrease brightness one step": "ब्राइटनेस एक पायरी कमी करा",
+  "Increase brightness one step": "ब्राइटनेस एक पायरी वाढवा",
+  "Dimmer": "मंद करा",
+  "Brighter": "उजळ करा",
+  "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "लहान बदलांसाठी “मंद करा” आणि “उजळ करा” वापरा. किमान म्हणजे बंद नाही; अंक दिसण्यास अवघड असल्यास ब्राइटनेस वाढवा.",
+  "Uses the clock's light sensor. Changing brightness switches back to manual control.": "घड्याळाचा प्रकाश सेन्सर वापरतो. ब्राइटनेस बदलल्यास पुन्हा मॅन्युअल नियंत्रणावर जाते.",
+  "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "रात्रीच्या वेळेत मॅन्युअल आणि स्वयंचलित ब्राइटनेसऐवजी हे वापरले जाते. 1 ही किमान सेटिंग (0.4%) आहे, बंद नाही. अंक दिसण्यास अवघड असल्यास ती वाढवा.",
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "स्वयंचलित ब्राइटनेस चालू आहे. मॅन्युअल पातळी निवडण्यासाठी ब्राइटनेस समायोजित करा."
 }

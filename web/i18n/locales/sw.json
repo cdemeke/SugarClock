@@ -937,5 +937,15 @@
   "View {0} recorded snapshot": "Tazama {0} muhtasari uliorekodiwa",
   "View {0} recorded snapshots": "Tazama picha {0} zilizorekodiwa",
   "An OpenWeatherMap API key is required for weather to appear on the clock.": "Ufunguo wa API wa OpenWeatherMap unahitajika ili hali ya hewa ionekane kwenye saa.",
-  "API key needed": "Ufunguo wa API unahitajika"
+  "API key needed": "Ufunguo wa API unahitajika",
+  "Minimum": "Kiwango cha chini",
+  "Fine brightness adjustment": "Marekebisho madogo ya mwangaza",
+  "Decrease brightness one step": "Punguza mwangaza hatua moja",
+  "Increase brightness one step": "Ongeza mwangaza hatua moja",
+  "Dimmer": "Fifisha",
+  "Brighter": "Ng'arisha",
+  "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "Tumia “Fifisha” na “Ng'arisha” kwa marekebisho madogo. Kiwango cha chini si kuzima; ikiwa namba ni ngumu kuona, ongeza mwangaza.",
+  "Uses the clock's light sensor. Changing brightness switches back to manual control.": "Hutumia kihisi mwanga cha saa. Kubadilisha mwangaza kunarudisha udhibiti wa mkono.",
+  "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "Hubadilisha mwangaza wa mkono na wa kiotomatiki wakati wa saa za usiku. 1 ni kiwango cha chini (0.4%), si kuzima. Kiongeze ikiwa namba ni ngumu kuona.",
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "Mwangaza wa kiotomatiki umewashwa. Rekebisha mwangaza ili kuchagua kiwango cha mkono."
 }

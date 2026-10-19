@@ -937,5 +937,15 @@
   "View {0} recorded snapshot": "Ver {0} instantánea grabada",
   "View {0} recorded snapshots": "Ver {0} instantáneas grabadas",
   "An OpenWeatherMap API key is required for weather to appear on the clock.": "Se necesita una clave API de OpenWeatherMap para que el tiempo aparezca en el reloj.",
-  "API key needed": "Falta la clave API"
+  "API key needed": "Falta la clave API",
+  "Minimum": "Mínimo",
+  "Fine brightness adjustment": "Ajuste fino del brillo",
+  "Decrease brightness one step": "Reducir el brillo un nivel",
+  "Increase brightness one step": "Aumentar el brillo un nivel",
+  "Dimmer": "Más tenue",
+  "Brighter": "Más brillante",
+  "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "Usa «Más tenue» y «Más brillante» para ajustes pequeños. El mínimo no apaga la pantalla; si cuesta ver los números, aumenta el brillo.",
+  "Uses the clock's light sensor. Changing brightness switches back to manual control.": "Usa el sensor de luz del reloj. Cambiar el brillo vuelve al control manual.",
+  "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "Sustituye el brillo manual y automático durante las horas nocturnas. 1 es el ajuste mínimo (0,4 %), no apagado. Auméntalo si cuesta ver los números.",
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "El brillo automático está activado. Ajusta el brillo para elegir un nivel manual."
 }

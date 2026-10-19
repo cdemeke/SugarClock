@@ -937,5 +937,15 @@
   "View {0} recorded snapshot": "రికార్డ్ చేసిన {0} స్నాప్‌షాట్‌ని వీక్షించండి",
   "View {0} recorded snapshots": "రికార్డ్ చేయబడిన {0} స్నాప్‌షాట్‌లను వీక్షించండి",
   "An OpenWeatherMap API key is required for weather to appear on the clock.": "గడియారంలో వాతావరణం కనిపించాలంటే OpenWeatherMap API కీ అవసరం.",
-  "API key needed": "API కీ అవసరం"
+  "API key needed": "API కీ అవసరం",
+  "Minimum": "కనిష్ఠం",
+  "Fine brightness adjustment": "ప్రకాశం సూక్ష్మ సర్దుబాటు",
+  "Decrease brightness one step": "ప్రకాశాన్ని ఒక మెట్టు తగ్గించండి",
+  "Increase brightness one step": "ప్రకాశాన్ని ఒక మెట్టు పెంచండి",
+  "Dimmer": "మసకగా",
+  "Brighter": "ప్రకాశవంతంగా",
+  "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "చిన్న మార్పుల కోసం “మసకగా” మరియు “ప్రకాశవంతంగా” ఉపయోగించండి. కనిష్ఠం అంటే ఆఫ్ కాదు; అంకెలు కనిపించడం కష్టంగా ఉంటే ప్రకాశాన్ని పెంచండి.",
+  "Uses the clock's light sensor. Changing brightness switches back to manual control.": "గడియారం యొక్క కాంతి సెన్సార్‌ను ఉపయోగిస్తుంది. ప్రకాశాన్ని మార్చితే మళ్లీ మాన్యువల్ నియంత్రణకు మారుతుంది.",
+  "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "రాత్రి సమయంలో మాన్యువల్ మరియు ఆటోమేటిక్ ప్రకాశానికి బదులుగా ఇది వర్తిస్తుంది. 1 కనిష్ఠ సెట్టింగ్ (0.4%), ఆఫ్ కాదు. అంకెలు కనిపించడం కష్టంగా ఉంటే దీన్ని పెంచండి.",
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "ఆటోమేటిక్ ప్రకాశం ఆన్‌లో ఉంది. మాన్యువల్ స్థాయిని ఎంచుకోవడానికి ప్రకాశాన్ని సర్దుబాటు చేయండి."
 }

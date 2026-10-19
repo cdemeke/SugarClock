@@ -937,5 +937,15 @@
   "View {0} recorded snapshot": "عرض {0} لقطة مسجلة",
   "View {0} recorded snapshots": "عرض {0} لقطات مسجلة",
   "An OpenWeatherMap API key is required for weather to appear on the clock.": "يلزم مفتاح OpenWeatherMap API لكي يظهر الطقس على الساعة.",
-  "API key needed": "مفتاح API مطلوب"
+  "API key needed": "مفتاح API مطلوب",
+  "Minimum": "الحد الأدنى",
+  "Fine brightness adjustment": "ضبط دقيق للسطوع",
+  "Decrease brightness one step": "خفض السطوع درجة واحدة",
+  "Increase brightness one step": "رفع السطوع درجة واحدة",
+  "Dimmer": "أخفت",
+  "Brighter": "أسطع",
+  "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "استخدم «أخفت» و«أسطع» للتعديلات الصغيرة. الحد الأدنى لا يعني الإيقاف؛ إذا كان من الصعب رؤية الأرقام، فارفع السطوع.",
+  "Uses the clock's light sensor. Changing brightness switches back to manual control.": "يستخدم مستشعر الضوء في الساعة. يؤدي تغيير السطوع إلى العودة إلى التحكم اليدوي.",
+  "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "يتجاوز السطوع اليدوي والتلقائي خلال ساعات الليل. القيمة 1 هي الحد الأدنى (0.4%) وليست إيقافًا. ارفعها إذا كان من الصعب رؤية الأرقام.",
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "السطوع التلقائي مفعّل. اضبط السطوع لاختيار مستوى يدوي."
 }
