@@ -494,11 +494,13 @@ int http_account_count() {
     return count;
 }
 
-void http_account_label(int index, char* out, size_t size) {
+bool http_account_label(int index, char* out, size_t size) {
     LibreConfigLock lock(config_libre_mutex());
     const auto a = credentials(index >= 0 && index < CGM_MAX_ACCOUNTS ? index : 0);
-    if (a.label[0]) snprintf(out, size, "%s", a.label);
+    const bool custom = a.label[0] && config_get().data_source == 1;
+    if (custom) snprintf(out, size, "%s", a.label);
     else snprintf(out, size, "CGM%d", index + 1);
+    return custom;
 }
 
 int http_selected_account() {

@@ -68,7 +68,8 @@ static void handle_status(AsyncWebServerRequest* request) {
     doc["account"] = http_selected_account();
     doc["account_count"] = http_account_count();
     char account_label[6];
-    http_account_label(http_selected_account(), account_label, sizeof(account_label));
+    doc["account_label_custom"] =
+        http_account_label(http_selected_account(), account_label, sizeof(account_label));
     doc["account_label"] = account_label;
     doc["wifi_connected"] = wifi_is_connected();
     doc["wifi_ip"] = wifi_get_ip();

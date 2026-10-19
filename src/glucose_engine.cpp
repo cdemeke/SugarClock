@@ -412,9 +412,10 @@ static void render_state(DisplayState state) {
     }
     previous_render_account = account;
     previous_render_state = state;
-    if (account_screen && http_account_count() > 1 && millis() - label_started_ms < 1200UL) {
-        char label[6];
-        http_account_label(account, label, sizeof(label));
+    char label[6];
+    // A single person is announced only when the user gave them a name.
+    if (account_screen && millis() - label_started_ms < 1200UL &&
+        (http_account_label(account, label, sizeof(label)) || http_account_count() > 1)) {
         display_clear();
         display_draw_text(label, (MATRIX_WIDTH - strlen(label) * 6) / 2, 0, display_color(255, 255, 255));
         display_show();

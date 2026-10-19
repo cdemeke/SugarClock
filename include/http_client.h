@@ -44,7 +44,8 @@ bool http_account_enabled(int index);
 int http_account_count();
 int http_selected_account();
 void http_select_account(int index);
-void http_account_label(int index, char* out, size_t size);
+// Returns true when the person has a user-chosen Dexcom display name.
+bool http_account_label(int index, char* out, size_t size);
 void http_reset_account(int index);
 int http_find_alert(int low, int high, int start = 0);
 bool http_test_account(int index, GlucoseReading& reading, int& code);

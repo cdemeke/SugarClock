@@ -35,7 +35,11 @@ bool http_account_enabled(int index) { return index >= 0 && index < test_account
 int http_account_count() { return test_accounts; }
 int http_selected_account() { return test_selected; }
 void http_select_account(int i) { test_selected = i >= 0 && i < test_accounts ? i : 0; }
-void http_account_label(int i, char* out, size_t size) { snprintf(out, size, "CGM%d", i + 1); }
+static bool test_custom_label = false;
+bool http_account_label(int i, char* out, size_t size) {
+    snprintf(out, size, test_custom_label ? "Theo" : "CGM%d", i + 1);
+    return test_custom_label;
+}
 int http_find_alert(int low, int high, int start) {
     if (cfg.data_source != 2 && (failures >= 5 || age_ms >= (unsigned long)cfg.stale_timeout_min * 60000UL)) return -1;
     for (int n = 0; n < 4; ++n) {
@@ -367,5 +371,18 @@ int main() {
     tick(1300); assert(drawn_glucose == 70);
     extra_readings[1].glucose = extra_readings[2].glucose = 100;
     tick(); assert(!engine_low_glucose_lock_active());
+    // One person is announced only when they have a display name.
+    cfg.glucose_only_when_low = false; test_accounts = 1; test_selected = 0;
+    reading.glucose = 120; reading.valid = true; age_ms = 0;
+    for (bool named : {false, true}) {
+        test_custom_label = named;
+        render_state(STATE_TREND_DISPLAY);
+        drawn_label[0] = '\0'; drawn_glucose = 0;
+        render_state(STATE_GLUCOSE_DISPLAY);
+        assert((strcmp(drawn_label, "Theo") == 0) == named);
+        assert(drawn_glucose == (named ? 0 : 120));
+        now_ms += 1300; render_state(STATE_GLUCOSE_DISPLAY);
+        assert(drawn_glucose == 120);
+    }
     return 0;
 }

@@ -151,7 +151,7 @@
             const gv=document.getElementById('glucose-value'),ta=document.getElementById('trend-arrow'),dd=document.getElementById('delta-display');
             const unit=readingUnits===null?'--':readingUnits?'mmol/L':'mg/dL';
             document.getElementById('unit-label').textContent=unit;
-            document.getElementById('glucose-summary-heading').textContent = d && d.account_count > 1 ? d.account_label + ' — latest blood sugar' : 'Latest blood sugar';
+            document.getElementById('glucose-summary-heading').textContent = d && (d.account_count > 1 || d.account_label_custom) ? d.account_label + ' — latest blood sugar' : 'Latest blood sugar';
             const valid=d&&d.valid&&Number.isFinite(d.glucose)&&d.glucose>0&&readingUnits!==null;
             gv.textContent=valid?GlucoseFormat.value(d.glucose,readingUnits):'---';
             ta.textContent=valid?(trendMap[d.trend]||'?'):'';
