@@ -541,9 +541,9 @@
                         <span class="color-hex" id="hex_urgent_high"><span data-i18n="#ea4335">#ea4335</span></span>
                     </div>
                     <div class="color-row">
-                        <input type="color" id="color_stale" value="#808080">
+                        <input type="color" id="color_stale" value="#390e3b">
                         <span class="color-label"><span data-i18n="Stale Data">Stale Data</span></span>
-                        <span class="color-hex" id="hex_stale">#808080</span>
+                        <span class="color-hex" id="hex_stale">#390e3b</span>
                     </div>
                     </div>
                 </div>
@@ -1309,7 +1309,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
         // Keep these aligned with the theme defaults in config_set_defaults().
         const RANGE_COLOR_DEFAULTS = {
             urgent_low: '#ea4335', low: '#fbbc04', in_range: '#34a853',
-            high: '#fbbc04', urgent_high: '#ea4335', stale: '#808080'
+            high: '#fbbc04', urgent_high: '#ea4335', stale: '#390e3b'
         };
 
         function updateRangeColorControls() {
