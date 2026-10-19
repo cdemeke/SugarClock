@@ -72,7 +72,7 @@
       total.append(dot);
     }
     if (Number.isFinite(previous) && value !== previous) {
-      const delta = element('span', `${signed(value - previous)} vs. 7 days ago`, `delta ${value > previous ? 'up' : 'down'}`);
+      const delta = element('span', I18n.message("{0} vs. 7 days ago", [signed(value - previous)]), `delta ${value > previous ? 'up' : 'down'}`);
       total.append(delta);
     }
     card.append(heading, total);
@@ -98,10 +98,10 @@
       status.append(part);
     });
     target('metrics').replaceChildren(
-      metric('Registered', counts.total, ceiling ? `of ${number(ceiling)} cap` : 'Stored installations', {previous: weekAgo(days, 'total'), meter: capacity}),
-      metric('Online now', counts.online, counts.total ? `${Math.round(percent(counts.online, counts.total))}% of registered` : 'No registered clocks', {online: true, meter: counts.total ? status : undefined}),
-      metric('Active · 7 days', counts.active_7d, 'Rolling 7-day window', {previous: weekAgo(days, 'active_7d'), trend: trend('active_7d')}),
-      metric('Active · 30 days', counts.active_30d, `${number(counts.feature_reporting)} reporting config`, {previous: weekAgo(days, 'active_30d'), trend: trend('active_30d')}),
+      metric(I18n.message('Registered'), counts.total, ceiling ? I18n.message("of {0} cap", [number(ceiling)]) : I18n.message('Stored installations'), {previous: weekAgo(days, 'total'), meter: capacity}),
+      metric(I18n.message('Online now'), counts.online, counts.total ? I18n.message("{0}% of registered", [Math.round(percent(counts.online, counts.total))]) : I18n.message('No registered clocks'), {online: true, meter: counts.total ? status : undefined}),
+      metric(I18n.message('Active · 7 days'), counts.active_7d, I18n.message('Rolling 7-day window'), {previous: weekAgo(days, 'active_7d'), trend: trend('active_7d')}),
+      metric(I18n.message('Active · 30 days'), counts.active_30d, I18n.message("{0} reporting config", [number(counts.feature_reporting)]), {previous: weekAgo(days, 'active_30d'), trend: trend('active_30d')}),
     );
   }
 
@@ -119,7 +119,7 @@
     const group = target('activity-range');
     group.replaceChildren();
     [7, 30, 90].forEach(days => {
-      const button = element('button', `${days}D`);
+      const button = element('button', I18n.message("{0}D", [days]));
       button.type = 'button';
       button.setAttribute('aria-pressed', String(days === range));
       button.addEventListener('click', () => { range = days; renderHistory(); });
@@ -136,7 +136,7 @@
     const byDay = new Map(historyDays.map(day => [day.day, day]));
     const days = calendar.filter(day => byDay.has(day)).map(day => byDay.get(day));
     if (!days.length) {
-      node.append(element('p', `No snapshots in the last ${range} days yet.`, 'empty'));
+      node.append(element('p', I18n.message("No snapshots in the last {0} days yet.", [range]), 'empty'));
       selectedDay = undefined;
       renderDay();
       return;
@@ -162,14 +162,14 @@
     [0, yMax / 2, yMax].forEach(tick => {
       svg.append(svgElement('line', {x1: chart.left, x2: chart.width - chart.right, y1: y(tick), y2: y(tick), class: 'grid-line'}));
       const label = svgElement('text', {x: chart.left - 8, y: y(tick) + 4, 'text-anchor': 'end', class: 'axis-label'});
-      label.textContent = number(tick);
+      I18n.text(label, number(tick), false);
       svg.append(label);
     });
     const every = range <= 7 ? 1 : range <= 30 ? 5 : 15;
     calendar.forEach((day, index) => {
       if ((calendar.length - 1 - index) % every) return;
       const label = svgElement('text', {x: x(index), y: chart.height - 8, 'text-anchor': 'middle', class: 'axis-label'});
-      label.textContent = dayLabel(day);
+      I18n.text(label, dayLabel(day), false);
       svg.append(label);
     });
 
@@ -203,7 +203,7 @@
       svg.append(svgElement('line', {x1: jump.point.x, x2: jump.point.x, y1: chart.top - 12, y2: jump.point.y - 6, class: 'annotation-line'}));
       svg.append(svgElement('circle', {cx: jump.point.x, cy: chart.top - 14, r: 3.5, class: 'annotation-dot'}));
       const note = svgElement('text', {x: jump.point.x - 8, y: chart.top - 10, 'text-anchor': 'end', class: 'annotation-label'});
-      note.textContent = `${signed(jump.change)} in one day`;
+      I18n.text(note, I18n.message("{0} in one day", [signed(jump.change)]));
       svg.append(note);
     }
 
@@ -221,8 +221,8 @@
       hit.addEventListener('mouseenter', () => {
         const previous = snapshot && snapshotOnOrBefore(historyDays, isoDay(Date.parse(`${day}T00:00:00Z`) - DAY));
         tooltip.replaceChildren(element('span', dayLabel(day, {weekday: 'short', month: 'short', day: 'numeric'}), 'tooltip-date'),
-          element('strong', snapshot ? number(snapshot.active_30d) : 'No snapshot'),
-          element('span', snapshot ? `active${previous ? ` · ${signed(snapshot.active_30d - previous.active_30d)}` : ''}` : 'recorded this day', 'tooltip-note'));
+          element('strong', snapshot ? number(snapshot.active_30d) : I18n.message('No snapshot')),
+          element('span', snapshot ? I18n.message("active{0}", [previous ? ` · ${signed(snapshot.active_30d - previous.active_30d)}` : '']) : I18n.message('recorded this day'), 'tooltip-note'));
         tooltip.style.left = `${Math.min(88, Math.max(12, x(index) / chart.width * 100))}%`;
         tooltip.style.top = `${(snapshot ? y(snapshot.active_30d) : y(yMax / 2)) / chart.height * 100}%`;
         tooltip.classList.add('visible');
@@ -242,23 +242,23 @@
     const wrap = element('div', null, 'activity-plot');
     wrap.append(svg, tooltip);
     const legend = element('div', null, 'activity-legend');
-    legend.append(element('span', 'Active · 30 days', 'legend-line'));
-    if (gaps) legend.append(element('span', 'No snapshot recorded', 'legend-gap'));
-    legend.append(element('span', `${number(days.length)} of ${number(range)} days recorded`, 'mono'));
+    legend.append(element('span', I18n.message('Active · 30 days'), 'legend-line'));
+    if (gaps) legend.append(element('span', I18n.message('No snapshot recorded'), 'legend-gap'));
+    legend.append(element('span', I18n.message("{0} of {1} days recorded", [number(days.length),number(range)]), 'mono'));
     node.append(wrap, legend, snapshotTable(days));
     renderDay();
   }
 
   function snapshotTable(days) {
     const detail = element('details', null, 'history-details');
-    detail.append(element('summary', `View ${days.length} recorded snapshot${days.length === 1 ? '' : 's'}`));
+    detail.append(element('summary', I18n.message(days.length === 1 ? "View {0} recorded snapshot" : "View {0} recorded snapshots", [days.length])));
     const wrap = element('div', null, 'table-wrap');
     const table = element('table');
-    table.append(element('caption', 'Recorded activity snapshots; dates are UTC.', 'sr-only'));
+    table.append(element('caption', I18n.message('Recorded activity snapshots; dates are UTC.'), 'sr-only'));
     const head = element('thead');
     const heading = element('tr');
     ['Date (UTC)', 'Active · 30 days', 'Active · 7 days', 'Online', 'Registered'].forEach((label, index) => {
-      const th = element('th', label, index ? 'numeric' : undefined);
+      const th = element('th', I18n.message(label), index ? 'numeric' : undefined);
       th.scope = 'col';
       heading.append(th);
     });
@@ -290,7 +290,7 @@
     const node = target('day-detail');
     node.replaceChildren();
     if (!selectedDay) {
-      node.append(element('p', 'Select a day in the activity chart to see its snapshot.', 'empty'));
+      node.append(element('p', I18n.message('Select a day in the activity chart to see its snapshot.'), 'empty'));
       return;
     }
     const snapshot = historyDays.find(day => day.day === selectedDay);
@@ -306,11 +306,11 @@
     next.addEventListener('click', () => stepDay(1));
     const title = element('div', null, 'day-title');
     title.append(element('strong', dayLabel(selectedDay, {weekday: 'long', month: 'long', day: 'numeric'})),
-      element('span', selectedDay === isoDay(Date.now()) ? 'Today · updates hourly' : `${selectedDay} · UTC`, 'mono'));
+      element('span', selectedDay === isoDay(Date.now()) ? I18n.message('Today · updates hourly') : I18n.message("{0} · UTC", [selectedDay]), 'mono'));
     header.append(back, title, next);
     node.append(header);
     if (!snapshot) {
-      node.append(element('p', 'No snapshot was recorded this day. Snapshots are taken while the service runs, so a quiet or offline day can be skipped.', 'day-note'));
+      node.append(element('p', I18n.message('No snapshot was recorded this day. Snapshots are taken while the service runs, so a quiet or offline day can be skipped.'), 'day-note'));
       return;
     }
     const stats = element('dl', null, 'day-stats');
@@ -320,11 +320,11 @@
       if (previous && previous.day !== snapshot.day && Number.isFinite(snapshot[key]) && Number.isFinite(previous[key]) && snapshot[key] !== previous[key]) {
         value.append(element('span', signed(snapshot[key] - previous[key]), `delta ${snapshot[key] > previous[key] ? 'up' : 'down'}`));
       }
-      item.append(element('dt', label), value);
+      item.append(element('dt', I18n.message(label)), value);
       stats.append(item);
     });
     node.append(stats);
-    node.append(element('p', previous ? `Changes compare with ${dayLabel(previous.day)}, the previous recorded snapshot.` : 'This is the earliest recorded snapshot.', 'hint day-footnote'));
+    node.append(element('p', previous ? I18n.message("Changes compare with {0}, the previous recorded snapshot.", [dayLabel(previous.day)]) : I18n.message('This is the earliest recorded snapshot.'), 'hint day-footnote'));
   }
 
   /* ---------- Distributions ---------- */
@@ -350,9 +350,9 @@
       offset += length;
     });
     const value = svgElement('text', {x: 59, y: 61, 'text-anchor': 'middle', class: 'donut-value'});
-    value.textContent = center;
+    I18n.text(value, center, false);
     const label = svgElement('text', {x: 59, y: 77, 'text-anchor': 'middle', class: 'donut-caption'});
-    label.textContent = caption;
+    I18n.text(label, caption);
     svg.append(value, label);
     return svg;
   }
@@ -374,7 +374,7 @@
     node.replaceChildren();
     const rows = sortedCounts(counts);
     if (!rows.length) {
-      node.append(element('p', 'Firmware versions appear when clocks check in.', 'empty'));
+      node.append(element('p', I18n.message('Firmware versions appear when clocks check in.'), 'empty'));
       return;
     }
     const newest = newestReportedVersion(rows);
@@ -383,12 +383,12 @@
     const legend = element('div', null, 'legend');
     rows.forEach(([name, count]) => {
       const label = element('span', name, 'version-label mono');
-      const badge = name === newest ? element('span', 'Newest reported', 'version-badge') : name === common && rows.length > 1 ? element('span', 'Most common', 'version-badge muted') : undefined;
+      const badge = name === newest ? element('span', I18n.message('Newest reported'), 'version-badge') : name === common && rows.length > 1 ? element('span', I18n.message('Most common'), 'version-badge muted') : undefined;
       legend.append(legendRow(color(name), label, `${number(count)} · ${Math.round(percent(count, total))}%`, /^\d+\.\d+\.\d+$/.test(name) ? devicesLink(name) : undefined, badge));
     });
     const layout = element('div', null, 'donut-layout');
-    layout.append(donut(rows.map(([name, count]) => ({count, color: color(name)})), `${Math.round(percent(commonCount, total))}%`, `on ${common}`), legend);
-    node.append(layout, element('p', `${rows.length} firmware version${rows.length === 1 ? '' : 's'} across ${number(total)} active installation${total === 1 ? '' : 's'}.`, 'hint panel-footnote'));
+    layout.append(donut(rows.map(([name, count]) => ({count, color: color(name)})), `${Math.round(percent(commonCount, total))}%`, common), legend);
+    node.append(layout, element('p', I18n.message("Firmware versions: {0}. Active installations: {1}.", [rows.length,number(total)]), 'hint panel-footnote'));
   }
 
   function renderSources(counts, total) {
@@ -396,14 +396,14 @@
     node.replaceChildren();
     const rows = sortedCounts(counts);
     if (!rows.length) {
-      node.append(element('p', 'Data sources appear when clocks report their configuration.', 'empty'));
+      node.append(element('p', I18n.message('Data sources appear when clocks report their configuration.'), 'empty'));
       return;
     }
     const color = name => sourceColors[name] || sourceColors.unknown;
     const legend = element('div', null, 'legend');
-    rows.forEach(([name, count]) => legend.append(legendRow(color(name), element('span', name === 'unknown' ? 'Unknown' : fleet.label(name)), `${number(count)} · ${Math.round(percent(count, total))}%`)));
+    rows.forEach(([name, count]) => legend.append(legendRow(color(name), element('span', name === 'unknown' ? I18n.message('Unknown') : I18n.message(fleet.label(name))), `${number(count)} · ${Math.round(percent(count, total))}%`)));
     const layout = element('div', null, 'donut-layout');
-    layout.append(donut(rows.map(([name, count]) => ({count, color: color(name)})), number(total), 'clocks'), legend);
+    layout.append(donut(rows.map(([name, count]) => ({count, color: color(name)})), number(total), 'Devices'), legend);
     node.append(layout);
   }
 
@@ -411,7 +411,7 @@
     const node = target('feature-counts');
     node.replaceChildren();
     if (!total) {
-      node.append(element('p', 'No active clocks yet. Features appear after a clock checks in.', 'empty'));
+      node.append(element('p', I18n.message('No active clocks yet. Features appear after a clock checks in.'), 'empty'));
       return;
     }
     const rows = Object.entries(features || {}).sort((a, b) => b[1].enabled - a[1].enabled || (featureNames[a[0]] || a[0]).localeCompare(featureNames[b[0]] || b[0]));
@@ -422,14 +422,12 @@
       const row = element('div', null, `bar-row${counts.enabled ? '' : ' is-zero'}`);
       const value = element('span', null, 'bar-value');
       value.append(element('strong', `${Math.round(percent(counts.enabled, total))}%`), document.createTextNode(` · ${number(counts.enabled)}`));
-      if (shared === undefined && counts.unknown) value.append(element('span', ` · ${number(counts.unknown)} unknown`, 'count-unknown'));
-      row.append(element('span', featureNames[key] || fleet.label(key), 'bar-label'), value, bar(counts.enabled, total));
+      if (shared === undefined && counts.unknown) value.append(element('span', I18n.message(" · {0} unknown", [number(counts.unknown)]), 'count-unknown'));
+      row.append(element('span', I18n.message(featureNames[key] || fleet.label(key)), 'bar-label'), value, bar(counts.enabled, total));
       list.append(row);
     });
     node.append(list);
-    node.append(element('p', shared
-      ? `Share of ${number(total)} active installations${shared ? `; ${number(shared)} didn’t report configuration and count as unknown` : ''}.`
-      : `Share of ${number(total)} active installations. Unknown means the clock didn’t report that setting.`, 'hint panel-footnote'));
+    node.append(element('p', shared ? I18n.message("Share of {0} active installations{1}.", [number(total),shared ? I18n.message("; {0} didn’t report configuration and count as unknown", [number(shared)]) : '']) : I18n.message("Share of {0} active installations. Unknown means the clock didn’t report that setting.", [number(total)]), 'hint panel-footnote'));
   }
 
   let openCountries = new Set(), locationsTouched = false;
@@ -446,7 +444,7 @@
     node.replaceChildren();
     const rows = sortedCounts(counts);
     if (!rows.length) {
-      node.append(element('p', 'No location reports yet.', 'empty'));
+      node.append(element('p', I18n.message('No location reports yet.'), 'empty'));
       return;
     }
     let names;
@@ -463,23 +461,21 @@
       }
       const group = groups.get(key);
       group.count += count;
-      if (match?.[1]) {
-        group.cities.push([match[1], count, label]);
-      } else if (code) {
-        group.countryOnly += count;
-      }
+      if (match?.[1]) group.cities.push([match[1], count, label]);
+      else if (code) group.countryOnly += count;
     });
     const sorted = [...groups.entries()].sort((a, b) => b[1].count - a[1].count || a[1].name.localeCompare(b[1].name));
-    if (!locationsTouched && sorted[0]) {
-      const topEntries = sorted[0][1].cities.length + (sorted[0][1].countryOnly ? 1 : 0);
-      if (topEntries > 1) openCountries.add(sorted[0][0]); // Open the largest country until the user chooses.
-    }
+    const entriesOf = group => {
+      const entries = [...group.cities];
+      if (group.countryOnly) entries.push([I18n.message('{0} (other)', [group.name]), group.countryOnly, group.code]);
+      const name = entry => typeof entry[0] === 'string' ? entry[0] : group.name;
+      return entries.sort((a, b) => b[1] - a[1] || name(a).localeCompare(name(b)));
+    };
+    if (!locationsTouched && sorted[0] && entriesOf(sorted[0][1]).length > 1) openCountries.add(sorted[0][0]); // Open the largest country until the user chooses.
     const peak = sorted[0][1].count;
     const list = element('div', null, 'bar-list');
     sorted.forEach(([key, group]) => {
-      const entries = [...group.cities];
-      if (group.countryOnly) entries.push(['Unknown city', group.countryOnly, key]);
-      entries.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+      const entries = entriesOf(group);
       const expandable = entries.length > 1;
       const row = element(expandable ? 'button' : entries.length ? 'a' : 'div', null, 'bar-row location-row');
       if (expandable) {
@@ -491,21 +487,21 @@
           renderLocations(counts, total);
         });
       } else if (entries.length) {
-        const [, , locationKey] = entries[0];
-        row.href = devicesLocationLink(locationKey);
+        row.href = devicesLocationLink(entries[0][2]);
       }
       const label = element('span', null, 'bar-label');
-      const emoji = countryEmoji(key);
+      const emoji = countryEmoji(group.code || key);
       if (emoji) {
         const flag = element('span', emoji, 'country-flag');
         flag.setAttribute('aria-hidden', 'true');
         label.append(flag);
       }
       label.append(element('span', group.name));
-      const sublabel = group.countryOnly
-        ? (group.cities.length ? `${group.cities.length} cit${group.cities.length === 1 ? 'y' : 'ies'} + unknown` : undefined)
-        : (group.cities.length === 1 ? group.cities[0][0] : group.cities.length > 1 ? `${group.cities.length} cities` : undefined);
-      if (sublabel) label.append(element('span', sublabel, 'bar-sublabel'));
+      if (group.cities.length && !group.countryOnly) {
+        label.append(element('span', group.cities.length === 1 ? group.cities[0][0] : I18n.message("{0} cities", [group.cities.length]), 'bar-sublabel'));
+      } else if (expandable) {
+        label.append(element('span', I18n.message("{0} locations", [entries.length]), 'bar-sublabel'));
+      }
       const value = element('span', null, 'bar-value');
       value.append(element('strong', number(group.count)), document.createTextNode(` · ${Math.round(percent(group.count, total))}%`));
       row.append(label, value, bar(group.count, peak, key === 'Unknown'));
@@ -532,15 +528,15 @@
     const used = ratio > 0 && ratio < .01 ? '<0.01' : ratio.toLocaleString(undefined, {maximumFractionDigits: 2});
     node.append(bar(counts.total, ceiling));
     const labels = element('div', null, 'capacity-labels mono');
-    labels.append(element('span', `${number(counts.total)} stored · ${ceiling ? `${used}% used` : 'Capacity unavailable'}`), element('span', ceiling ? number(ceiling) : '—'));
+    labels.append(element('span', I18n.message("{0} stored · {1}", [number(counts.total),ceiling ? I18n.message("{0}% used", [used]) : I18n.message('Capacity unavailable')])), element('span', ceiling ? number(ceiling) : '—'));
     const breakdown = element('div', null, 'capacity-counts');
     [['blocked', counts.blocked], ['retired', counts.retired], ['on legacy updates', counts.legacy]].forEach(([label, count]) => {
       const item = element('span');
-      item.append(element('strong', number(count)), document.createTextNode(` ${label}`));
+      item.append(element('strong', number(count)), element('span', I18n.message(' ' + label)));
       breakdown.append(item);
     });
     node.append(labels, breakdown);
-    if (capacity?.warning) node.append(element('p', 'Registration capacity is running low. Review abandoned registrations to free space.', 'warning'));
+    if (capacity?.warning) node.append(element('p', I18n.message('Registration capacity is running low. Review abandoned registrations to free space.'), 'warning'));
   }
 
   /* ---------- Refresh & cleanup ---------- */
@@ -557,34 +553,32 @@
     const status = target('overview-status');
     const content = target('overview-content');
     updateControls();
-    button.textContent = 'Refreshing…';
+    I18n.text(button, 'Refreshing…');
     content.setAttribute('aria-busy', 'true');
-    status.textContent = 'Loading fleet summary…';
+    I18n.text(status, 'Loading fleet summary…');
     status.classList.remove('is-error');
     try {
       const data = await fleet.request('/admin/api/overview', undefined, 'GET');
       const counts = data.counts;
       const days = snapshots(data.daily);
       renderMetrics(data, days);
-      target('reporting-summary').textContent = counts.active_30d
-        ? `Connections, enabled features, and firmware adoption. Feature reports come from ${number(counts.feature_reporting)} of ${number(counts.active_30d)} active installations; missing fields are unknown.`
-        : 'No clocks have checked in during the last 30 days.';
+      I18n.text(target('reporting-summary'), counts.active_30d ? I18n.message("Connections, enabled features, and firmware adoption. Feature reports come from {0} of {1} active installations; missing fields are unknown.", [number(counts.feature_reporting), number(counts.active_30d)]) : 'No clocks have checked in during the last 30 days.');
       renderFeatures(data.feature_counts, data.feature_denominator ?? counts.active_30d);
       renderVersions(data.version_counts, counts.active_30d);
       renderSources(data.source_counts, counts.active_30d);
       renderLocations(data.location_counts, counts.active_30d);
       renderHistory(data.daily);
       renderCapacity(counts, data.capacity);
-      target('updated-at').textContent = `Updated ${new Date().toLocaleTimeString()}`;
+      I18n.text(target('updated-at'), I18n.message("Updated {0}", [new Date().toLocaleTimeString()]));
       hasSummary = true;
-      status.textContent = '';
+      I18n.text(status, '', false);
     } catch (error) {
-      status.textContent = `Couldn’t refresh the summary. ${error.message} Use Refresh to try again. Any displayed counts are from the last successful refresh.`;
+      I18n.text(status, I18n.message("Couldn’t refresh the summary. {0} Use Refresh to try again. Any displayed counts are from the last successful refresh.", [error.message]));
       status.classList.add('is-error');
     } finally {
       refreshing = false;
       updateControls();
-      button.textContent = 'Refresh';
+      I18n.text(button, 'Refresh');
       content.setAttribute('aria-busy', 'false');
     }
   }
@@ -595,16 +589,16 @@
     cleaning = true;
     updateControls();
     const output = target('cleanup-result');
-    output.textContent = 'Cleaning up…';
+    I18n.text(output, 'Cleaning up…');
     try {
       const result = await fleet.request('/admin/api/cleanup', {registration_only: true});
       const removed = result.deleted ?? result.removed ?? 0;
-      output.textContent = `Removed ${number(removed)} abandoned registration${removed === 1 ? '' : 's'}.`;
+      I18n.text(output, I18n.message(removed === 1 ? "Removed {0} abandoned registration." : "Removed {0} abandoned registrations.", [number(removed)]));
       // A successful delete makes the previous totals stale until the next GET succeeds.
       hasSummary = false;
       await refreshOverview();
     } catch (error) {
-      output.textContent = error.message;
+      I18n.text(output, error.message, false);
     } finally {
       cleaning = false;
       updateControls();

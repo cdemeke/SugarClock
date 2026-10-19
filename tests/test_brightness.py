@@ -23,6 +23,7 @@ for (const tag of html.matchAll(/<[^>]+\bid="([^"]+)"[^>]*>/g)) {
         stepUp() { this.value = String(Math.min(+this.max, +this.value + +this.step)); }};
 }
 global.document = {getElementById: id => nodes[id]};
+global.I18n = {text(element, source) { element.textContent = String(source); }};
 vm.runInThisContext(html.slice(html.indexOf('let brightnessDeviceValue ='), html.indexOf('// ---- On-device WiFi setup ----')));
 const load = html.slice(html.indexOf('brightnessDeviceValue = Math.max'), html.indexOf("document.getElementById('show_delta').checked = c.show_delta"));
 const save = html.slice(html.indexOf('brightness: brightnessDeviceValue,'), html.indexOf("show_delta: document.getElementById"));

@@ -69,6 +69,7 @@ assert.equal(GlucoseFormat.value(NaN,true),'---');
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 require(process.argv[1]);
 const html=fs.readFileSync(process.argv[2],'utf8');
+global.I18n=require('./tests/i18n_harness.cjs');
 const nodes={};global.document={getElementById:id=>nodes[id]||(nodes[id]={})};
 const source=html.slice(html.indexOf('let readingUnits = null;'),html.indexOf('async function refresh()'));
 vm.runInThisContext(`const trendMap={Flat:'→'}, colorMap={green:'color-green',gray:'color-gray'};
