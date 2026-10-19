@@ -80,7 +80,16 @@ static void draw_weather_content(uint32_t now) {
     const uint16_t color = color_from_uint32(cfg.color_weather);
     if (!weather_has_data()) {
         weather_animation_reset(weather_animation);
-        display_draw_text("WX...", 4, 0, color);
+        // No key means no fetch will ever run, so say so instead of "loading".
+        if (cfg.weather_api_key[0] == '\0') {
+            if ((now / 2000) % 2 == 0) {
+                display_draw_text("NO", 10, 0, color);
+            } else {
+                display_draw_text("KEY", 7, 0, color);
+            }
+        } else {
+            display_draw_text("WX...", 4, 0, color);
+        }
         return;
     }
 
@@ -140,7 +149,10 @@ void engine_rebuild_toggle_order() {
     toggle_order[toggle_count++] = STATE_GLUCOSE_DISPLAY;
     toggle_order[toggle_count++] = STATE_TREND_DISPLAY;
     if (cfg.time_display_enabled) toggle_order[toggle_count++] = STATE_TIME_DISPLAY;
-    if (cfg.weather_enabled) toggle_order[toggle_count++] = STATE_WEATHER_DISPLAY;
+    // Without an API key there is nothing to show, unless a mock preview is active.
+    if (cfg.weather_enabled && (cfg.weather_api_key[0] != '\0' || weather_has_data())) {
+        toggle_order[toggle_count++] = STATE_WEATHER_DISPLAY;
+    }
     if (cfg.ambient_enabled) toggle_order[toggle_count++] = STATE_AMBIENT_CREATURE_DISPLAY;
     if (cfg.timer_enabled) toggle_order[toggle_count++] = STATE_TIMER_DISPLAY;
     if (cfg.stopwatch_enabled) toggle_order[toggle_count++] = STATE_STOPWATCH_DISPLAY;
