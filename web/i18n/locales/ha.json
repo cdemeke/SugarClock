@@ -935,5 +935,7 @@
   "Removed {0} abandoned registration.": "An cire {0} rajista da aka watsar.",
   "Removed {0} abandoned registrations.": "An cire {0} rajistar da aka watsar.",
   "View {0} recorded snapshot": "Duba {0} da aka yi rikodin hoto",
-  "View {0} recorded snapshots": "Duba {0} hotuna da aka yi rikodin"
+  "View {0} recorded snapshots": "Duba {0} hotuna da aka yi rikodin",
+  "An OpenWeatherMap API key is required for weather to appear on the clock.": "Ana buƙatar maɓallin API na OpenWeatherMap don yanayi ya bayyana a agogo.",
+  "API key needed": "Ana buƙatar maɓallin API"
 }

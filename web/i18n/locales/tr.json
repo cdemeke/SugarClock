@@ -935,5 +935,7 @@
   "Removed {0} abandoned registration.": "{0} adet iptal edilen kayıt kaldırıldı.",
   "Removed {0} abandoned registrations.": "Terk edilmiş {0} kayıt kaldırıldı.",
   "View {0} recorded snapshot": "{0} kayıtlı anlık görüntüyü görüntüle",
-  "View {0} recorded snapshots": "{0} kayıtlı anlık görüntüyü görüntüle"
+  "View {0} recorded snapshots": "{0} kayıtlı anlık görüntüyü görüntüle",
+  "An OpenWeatherMap API key is required for weather to appear on the clock.": "Hava durumunun saatte görünmesi için bir OpenWeatherMap API anahtarı gerekir.",
+  "API key needed": "API anahtarı gerekli"
 }

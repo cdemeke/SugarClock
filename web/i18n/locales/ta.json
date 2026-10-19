@@ -935,5 +935,7 @@
   "Removed {0} abandoned registration.": "கைவிடப்பட்ட {0} பதிவு அகற்றப்பட்டது.",
   "Removed {0} abandoned registrations.": "கைவிடப்பட்ட {0} பதிவுகள் அகற்றப்பட்டன.",
   "View {0} recorded snapshot": "பதிவுசெய்யப்பட்ட {0} ஸ்னாப்ஷாட்டைப் பார்க்கவும்",
-  "View {0} recorded snapshots": "பதிவுசெய்யப்பட்ட {0} ஸ்னாப்ஷாட்களைக் காண்க"
+  "View {0} recorded snapshots": "பதிவுசெய்யப்பட்ட {0} ஸ்னாப்ஷாட்களைக் காண்க",
+  "An OpenWeatherMap API key is required for weather to appear on the clock.": "கடிகாரத்தில் வானிலை தோன்ற OpenWeatherMap API விசை தேவை.",
+  "API key needed": "API விசை தேவை"
 }

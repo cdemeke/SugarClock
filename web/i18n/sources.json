@@ -715,7 +715,9 @@
     "{0} Configuration",
     "{0} dBm",
     "{0}° {1} (Humidity: {2}%)",
-    "← Prev"
+    "← Prev",
+    "An OpenWeatherMap API key is required for weather to appear on the clock.",
+    "API key needed"
   ],
   "fleet": [
     " blocked",

@@ -935,5 +935,7 @@
   "Removed {0} abandoned registration.": "Удалена {0} прерванная регистрация.",
   "Removed {0} abandoned registrations.": "Удалены {0} отмененных регистраций.",
   "View {0} recorded snapshot": "Просмотреть {0} записанный снимок",
-  "View {0} recorded snapshots": "Просмотреть {0} записанных снимков"
+  "View {0} recorded snapshots": "Просмотреть {0} записанных снимков",
+  "An OpenWeatherMap API key is required for weather to appear on the clock.": "Чтобы погода отображалась на часах, нужен API-ключ OpenWeatherMap.",
+  "API key needed": "Нужен API-ключ"
 }

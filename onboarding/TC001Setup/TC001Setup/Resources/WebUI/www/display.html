@@ -199,6 +199,9 @@
                     card.hidden=!enabled;
                     if(enabled)visible++;
                 });
+                if(config.weather_enabled&&config.has_weather_api_key===false){
+                    I18n.text(document.querySelector('[data-capability="weather_enabled"] small span'),'API key needed');
+                }
                 document.getElementById('capability-section').hidden=visible===0;
                 // Compatibility with older firmware whose status omitted use_mmol.
                 if(!latestReading||typeof latestReading.use_mmol!=='boolean')readingUnits=config.use_mmol===true;

@@ -935,5 +935,7 @@
   "Removed {0} abandoned registration.": "تمت إزالة {0} من التسجيل المهجور.",
   "Removed {0} abandoned registrations.": "تمت إزالة {0} من التسجيلات المهجورة.",
   "View {0} recorded snapshot": "عرض {0} لقطة مسجلة",
-  "View {0} recorded snapshots": "عرض {0} لقطات مسجلة"
+  "View {0} recorded snapshots": "عرض {0} لقطات مسجلة",
+  "An OpenWeatherMap API key is required for weather to appear on the clock.": "يلزم مفتاح OpenWeatherMap API لكي يظهر الطقس على الساعة.",
+  "API key needed": "مفتاح API مطلوب"
 }

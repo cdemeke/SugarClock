@@ -935,5 +935,7 @@
   "Removed {0} abandoned registration.": "Usajili {0} ulioachwa umeondolewa.",
   "Removed {0} abandoned registrations.": "Usajili {0} ulioachwa umeondolewa.",
   "View {0} recorded snapshot": "Tazama {0} muhtasari uliorekodiwa",
-  "View {0} recorded snapshots": "Tazama picha {0} zilizorekodiwa"
+  "View {0} recorded snapshots": "Tazama picha {0} zilizorekodiwa",
+  "An OpenWeatherMap API key is required for weather to appear on the clock.": "Ufunguo wa API wa OpenWeatherMap unahitajika ili hali ya hewa ionekane kwenye saa.",
+  "API key needed": "Ufunguo wa API unahitajika"
 }

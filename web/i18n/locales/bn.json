@@ -935,5 +935,7 @@
   "Removed {0} abandoned registration.": "সরানো হয়েছে {0} পরিত্যক্ত নিবন্ধন৷",
   "Removed {0} abandoned registrations.": "সরানো হয়েছে {0}টি পরিত্যক্ত নিবন্ধন।",
   "View {0} recorded snapshot": "{0}টি রেকর্ড করা স্ন্যাপশট দেখুন",
-  "View {0} recorded snapshots": "{0}টি রেকর্ড করা স্ন্যাপশট দেখুন"
+  "View {0} recorded snapshots": "{0}টি রেকর্ড করা স্ন্যাপশট দেখুন",
+  "An OpenWeatherMap API key is required for weather to appear on the clock.": "ঘড়িতে আবহাওয়া দেখাতে একটি OpenWeatherMap API কী প্রয়োজন।",
+  "API key needed": "API কী প্রয়োজন"
 }

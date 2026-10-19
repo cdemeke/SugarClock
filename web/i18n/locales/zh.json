@@ -935,5 +935,7 @@
   "Removed {0} abandoned registration.": "删除了{0}放弃的注册。",
   "Removed {0} abandoned registrations.": "删除了 {0} 个放弃的注册。",
   "View {0} recorded snapshot": "查看{0}记录的快照",
-  "View {0} recorded snapshots": "查看 {0} 个记录的快照"
+  "View {0} recorded snapshots": "查看 {0} 个记录的快照",
+  "An OpenWeatherMap API key is required for weather to appear on the clock.": "天气要显示在时钟上，需要 OpenWeatherMap API 密钥。",
+  "API key needed": "需要 API 密钥"
 }

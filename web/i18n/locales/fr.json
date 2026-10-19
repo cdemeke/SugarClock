@@ -935,5 +935,7 @@
   "Removed {0} abandoned registration.": "Suppression de {0} inscription abandonnée.",
   "Removed {0} abandoned registrations.": "Suppression de {0} inscriptions abandonnées.",
   "View {0} recorded snapshot": "Afficher {0} instantané enregistré",
-  "View {0} recorded snapshots": "Afficher {0} instantanés enregistrés"
+  "View {0} recorded snapshots": "Afficher {0} instantanés enregistrés",
+  "An OpenWeatherMap API key is required for weather to appear on the clock.": "Une clé API OpenWeatherMap est nécessaire pour afficher la météo sur l’horloge.",
+  "API key needed": "Clé API requise"
 }

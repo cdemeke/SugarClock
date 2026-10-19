@@ -935,5 +935,7 @@
   "Removed {0} abandoned registration.": "{0} の放棄された登録を削除しました。",
   "Removed {0} abandoned registrations.": "{0} 件の放棄された登録を削除しました。",
   "View {0} recorded snapshot": "{0} の記録されたスナップショットを表示する",
-  "View {0} recorded snapshots": "{0} 個の記録されたスナップショットを表示する"
+  "View {0} recorded snapshots": "{0} 個の記録されたスナップショットを表示する",
+  "An OpenWeatherMap API key is required for weather to appear on the clock.": "時計に天気を表示するには、OpenWeatherMap の API キーが必要です。",
+  "API key needed": "API キーが必要です"
 }

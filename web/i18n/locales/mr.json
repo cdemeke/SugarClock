@@ -935,5 +935,7 @@
   "Removed {0} abandoned registration.": "रद्द केलेली {0} नोंदणी काढली.",
   "Removed {0} abandoned registrations.": "सोडलेली {0} नोंदणी काढून टाकली.",
   "View {0} recorded snapshot": "{0} रेकॉर्ड केलेला स्नॅपशॉट पहा",
-  "View {0} recorded snapshots": "{0} रेकॉर्ड केलेले स्नॅपशॉट पहा"
+  "View {0} recorded snapshots": "{0} रेकॉर्ड केलेले स्नॅपशॉट पहा",
+  "An OpenWeatherMap API key is required for weather to appear on the clock.": "घड्याळावर हवामान दिसण्यासाठी OpenWeatherMap API की आवश्यक आहे.",
+  "API key needed": "API की आवश्यक आहे"
 }

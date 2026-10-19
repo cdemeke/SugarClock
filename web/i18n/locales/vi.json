@@ -935,5 +935,7 @@
   "Removed {0} abandoned registration.": "Đã xóa {0} đăng ký bị bỏ rơi.",
   "Removed {0} abandoned registrations.": "Đã xóa {0} đăng ký bị bỏ rơi.",
   "View {0} recorded snapshot": "Xem ảnh chụp nhanh được ghi lại {0}",
-  "View {0} recorded snapshots": "Xem {0} ảnh chụp nhanh đã ghi"
+  "View {0} recorded snapshots": "Xem {0} ảnh chụp nhanh đã ghi",
+  "An OpenWeatherMap API key is required for weather to appear on the clock.": "Cần có khóa API OpenWeatherMap để thời tiết hiển thị trên đồng hồ.",
+  "API key needed": "Cần khóa API"
 }
