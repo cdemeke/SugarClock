@@ -53,6 +53,33 @@ Try the virtual 32×8 SugarClock in [`docs/demo/`](docs/demo/README.md): glucose
 | WiFi (2.4 GHz) | The clock connects to your home WiFi |
 | Dexcom account, LibreLinkUp account, or Nightscout URL | Your glucose data source |
 
+### Multiple Dexcom accounts
+
+In **Settings → Blood Sugar**, choose **Dexcom Share**, configure Account 1,
+then select **Add Dexcom account** for up to **four accounts total**. Give each
+person a short display name (up to five characters), enter their Share credentials
+and US/international region, and save. Use each account's test button after saving.
+Blank passwords keep the saved password for that same account; changing a username
+requires entering its password again. Removing an account takes effect when saved.
+Existing single-account configurations continue to work without re-entering credentials.
+
+Enable **Auto-Cycle** in **Display** to rotate through each person's glucose and
+trend screens, followed by your other enabled screens. Previous/next buttons also
+visit every person. Their name appears briefly before their reading, trend, or
+no-data status. The web display identifies the person currently selected. Each
+account keeps its own history, delta, freshness, failures, and login session.
+
+Units, thresholds, alerts, and rotation speed are shared. Alerts check every
+account, including those off screen. With “Show Only Blood Sugar When Low,” the
+clock shows the people with fresh low readings and rotates among them if several
+are low, even with ordinary Auto-Cycle off. Names still appear before readings.
+A failed or stale account does not stop the other accounts from updating.
+
+Four is a conservative firmware limit: histories and sessions use fixed-size
+storage, and requests run sequentially so extra accounts do not require extra
+simultaneous TLS connections. This feature supports multiple **Dexcom Share**
+accounts; Libre, custom URL, and demo sources retain their single-source behavior.
+
 ### FreeStyle Libre setup
 
 Use a LibreLinkUp follower account, save its credentials in Settings, then use

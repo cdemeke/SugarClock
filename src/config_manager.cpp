@@ -36,6 +36,9 @@ static void config_set_defaults() {
     config.dexcom_username[0] = '\0';
     config.dexcom_password[0] = '\0';
     config.dexcom_us = true;
+    config.dexcom_label[0] = '\0';
+    memset(config.extra_dexcom, 0, sizeof(config.extra_dexcom));
+    for (auto& account : config.extra_dexcom) account.us = true;
 
     // FreeStyle Libre
     config.libre_email[0] = '\0';
@@ -256,6 +259,19 @@ void config_init() {
         prefs.getString("dex_user", config.dexcom_username, sizeof(config.dexcom_username));
         prefs.getString("dex_pass", config.dexcom_password, sizeof(config.dexcom_password));
         config.dexcom_us = prefs.getBool("dex_us", true);
+        prefs.getString("dex_label", config.dexcom_label, sizeof(config.dexcom_label));
+        for (int i = 0; i < CGM_MAX_ACCOUNTS - 1; ++i) {
+            char key[16];
+            auto& a = config.extra_dexcom[i];
+            snprintf(key, sizeof(key), "dex%d_label", i + 1);
+            prefs.getString(key, a.label, sizeof(a.label));
+            snprintf(key, sizeof(key), "dex%d_user", i + 1);
+            prefs.getString(key, a.username, sizeof(a.username));
+            snprintf(key, sizeof(key), "dex%d_pass", i + 1);
+            prefs.getString(key, a.password, sizeof(a.password));
+            snprintf(key, sizeof(key), "dex%d_us", i + 1);
+            a.us = prefs.getBool(key, true);
+        }
         prefs.getString("llu_email", config.libre_email, sizeof(config.libre_email));
         prefs.getString("llu_pass", config.libre_password, sizeof(config.libre_password));
         prefs.getString("llu_region", config.libre_region, sizeof(config.libre_region));
@@ -406,6 +422,19 @@ void config_save() {
     prefs.putString("dex_user", config.dexcom_username);
     prefs.putString("dex_pass", config.dexcom_password);
     prefs.putBool("dex_us", config.dexcom_us);
+    prefs.putString("dex_label", config.dexcom_label);
+    for (int i = 0; i < CGM_MAX_ACCOUNTS - 1; ++i) {
+        char key[16];
+        const auto& a = config.extra_dexcom[i];
+        snprintf(key, sizeof(key), "dex%d_label", i + 1);
+        prefs.putString(key, a.label);
+        snprintf(key, sizeof(key), "dex%d_user", i + 1);
+        prefs.putString(key, a.username);
+        snprintf(key, sizeof(key), "dex%d_pass", i + 1);
+        prefs.putString(key, a.password);
+        snprintf(key, sizeof(key), "dex%d_us", i + 1);
+        prefs.putBool(key, a.us);
+    }
     prefs.putString("llu_email", config.libre_email);
     prefs.putString("llu_pass", config.libre_password);
     prefs.putString("llu_region", config.libre_region);

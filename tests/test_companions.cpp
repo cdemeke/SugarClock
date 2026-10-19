@@ -21,7 +21,7 @@ static char text[16];
 static uint16_t screen[8][32];
 unsigned long millis() { return now_ms; }
 AppConfig& config_get() { return cfg; }
-const GlucoseReading& http_get_reading() { return reading; }
+GlucoseReading http_get_reading() { return reading; }
 bool http_has_ever_received() { return ever_received; }
 unsigned long http_time_since_last_reading() { return reading_age; }
 int http_get_failure_count() { return failures; }

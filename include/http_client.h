@@ -2,6 +2,7 @@
 #define HTTP_CLIENT_H
 
 #include <stdint.h>
+#include <stddef.h>
 #include "trend_arrows.h"
 
 // Glucose reading from server
@@ -38,7 +39,15 @@ void http_clear_readings();
 void http_loop();
 
 // Get the latest glucose reading
-const GlucoseReading& http_get_reading();
+GlucoseReading http_get_reading();
+bool http_account_enabled(int index);
+int http_account_count();
+int http_selected_account();
+void http_select_account(int index);
+void http_account_label(int index, char* out, size_t size);
+void http_reset_account(int index);
+int http_find_alert(int low, int high, int start = 0);
+bool http_test_account(int index, GlucoseReading& reading, int& code);
 
 // Get failure count since last success
 int http_get_failure_count();
