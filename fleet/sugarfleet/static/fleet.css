@@ -220,6 +220,7 @@ a.legend-row:hover { background: var(--bg); }
 .bar-row .bar-track { grid-column: 1 / -1; }
 a.bar-row:hover, button.bar-row:hover { background: var(--bg); }
 .bar-label { display: flex; align-items: baseline; gap: 8px; min-width: 0; overflow-wrap: anywhere; font-size: 14px; }
+.country-flag { font-style: normal; line-height: 1; }
 .bar-sublabel { color: var(--muted); font-size: 12.5px; }
 .bar-value { color: var(--muted); font-size: 13px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .bar-value strong { color: var(--text); font-weight: 650; }

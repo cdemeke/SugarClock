@@ -21,6 +21,7 @@
     return node;
   };
   const devicesLink = query => `/admin/devices?q=${encodeURIComponent(query)}`;
+  const devicesLocationLink = location => `/admin/devices?location=${encodeURIComponent(location)}`;
   const isoDay = time => new Date(time).toISOString().slice(0, 10);
   const dayLabel = (day, options = {month: 'short', day: 'numeric'}) => new Date(`${day}T12:00:00Z`).toLocaleDateString(undefined, {timeZone: 'UTC', ...options});
   const signed = value => `${value > 0 ? '+' : value < 0 ? '−' : '±'}${number(Math.abs(value))}`;
@@ -432,6 +433,14 @@
   }
 
   let openCountries = new Set(), locationsTouched = false;
+  const countryEmoji = code => {
+    if (!code || !/^[A-Za-z]{2}$/.test(code)) return '';
+    const upper = code.toUpperCase();
+    return String.fromCodePoint(
+      0x1F1E6 - 65 + upper.charCodeAt(0),
+      0x1F1E6 - 65 + upper.charCodeAt(1)
+    );
+  };
   function renderLocations(counts, total) {
     const node = target('location-counts');
     node.replaceChildren();
@@ -444,24 +453,35 @@
     try { names = new Intl.DisplayNames(undefined, {type: 'region'}); } catch { names = undefined; }
     const groups = new Map();
     rows.forEach(([label, count]) => {
-      const match = /^(.*), ([A-Z]{2})$/.exec(label);
-      const key = match ? match[2] : label;
+      const match = /^(?:(.*), )?([A-Z]{2})$/.exec(label);
+      const code = match ? match[2] : undefined;
+      const key = code || label;
       if (!groups.has(key)) {
         let name = key;
-        if (match) try { name = names?.of(key) || key; } catch { name = key; }
-        groups.set(key, {name, count: 0, cities: []});
+        if (code) try { name = names?.of(code) || code; } catch { name = code; }
+        groups.set(key, {name, code, count: 0, cities: [], countryOnly: 0});
       }
       const group = groups.get(key);
       group.count += count;
-      if (match) group.cities.push([match[1], count]);
+      if (match?.[1]) {
+        group.cities.push([match[1], count, label]);
+      } else if (code) {
+        group.countryOnly += count;
+      }
     });
     const sorted = [...groups.entries()].sort((a, b) => b[1].count - a[1].count || a[1].name.localeCompare(b[1].name));
-    if (!locationsTouched && sorted[0]?.[1].cities.length > 1) openCountries.add(sorted[0][0]); // Open the largest country until the user chooses.
+    if (!locationsTouched && sorted[0]) {
+      const topEntries = sorted[0][1].cities.length + (sorted[0][1].countryOnly ? 1 : 0);
+      if (topEntries > 1) openCountries.add(sorted[0][0]); // Open the largest country until the user chooses.
+    }
     const peak = sorted[0][1].count;
     const list = element('div', null, 'bar-list');
     sorted.forEach(([key, group]) => {
-      const expandable = group.cities.length > 1;
-      const row = element(expandable ? 'button' : group.cities.length ? 'a' : 'div', null, 'bar-row location-row');
+      const entries = [...group.cities];
+      if (group.countryOnly) entries.push(['Unknown city', group.countryOnly, key]);
+      entries.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+      const expandable = entries.length > 1;
+      const row = element(expandable ? 'button' : entries.length ? 'a' : 'div', null, 'bar-row location-row');
       if (expandable) {
         row.type = 'button';
         row.setAttribute('aria-expanded', String(openCountries.has(key)));
@@ -470,20 +490,32 @@
           if (openCountries.has(key)) openCountries.delete(key); else openCountries.add(key);
           renderLocations(counts, total);
         });
-      } else if (group.cities.length) row.href = devicesLink(group.cities[0][0]); // Device labels may include a region, so search by city.
+      } else if (entries.length) {
+        const [, , locationKey] = entries[0];
+        row.href = devicesLocationLink(locationKey);
+      }
       const label = element('span', null, 'bar-label');
+      const emoji = countryEmoji(key);
+      if (emoji) {
+        const flag = element('span', emoji, 'country-flag');
+        flag.setAttribute('aria-hidden', 'true');
+        label.append(flag);
+      }
       label.append(element('span', group.name));
-      if (group.cities.length) label.append(element('span', group.cities.length === 1 ? group.cities[0][0] : `${group.cities.length} cities`, 'bar-sublabel'));
+      const sublabel = group.countryOnly
+        ? (group.cities.length ? `${group.cities.length} cit${group.cities.length === 1 ? 'y' : 'ies'} + unknown` : undefined)
+        : (group.cities.length === 1 ? group.cities[0][0] : group.cities.length > 1 ? `${group.cities.length} cities` : undefined);
+      if (sublabel) label.append(element('span', sublabel, 'bar-sublabel'));
       const value = element('span', null, 'bar-value');
       value.append(element('strong', number(group.count)), document.createTextNode(` · ${Math.round(percent(group.count, total))}%`));
       row.append(label, value, bar(group.count, peak, key === 'Unknown'));
       list.append(row);
       if (expandable && openCountries.has(key)) {
         const cities = element('div', null, 'city-list');
-        group.cities.forEach(([city, count]) => {
+        entries.forEach(([name, count, locationKey]) => {
           const link = element('a', null, 'bar-row city-row');
-          link.href = devicesLink(city);
-          link.append(element('span', city, 'bar-label'), element('span', number(count), 'bar-value'), bar(count, peak, true));
+          link.href = devicesLocationLink(locationKey);
+          link.append(element('span', name, 'bar-label'), element('span', number(count), 'bar-value'), bar(count, peak, true));
           cities.append(link);
         });
         list.append(cities);
