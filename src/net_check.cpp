@@ -1,5 +1,6 @@
 #include "net_check.h"
 #include "config_manager.h"
+#include "http_client.h"
 #include "libre_client.h"
 #include "wifi_manager.h"
 
@@ -106,7 +107,9 @@ static void build_summary() {
 }
 
 static bool probe_dns() {
-    const char* host = data_host[0] ? data_host : "pool.ntp.org";
+    // With several accounts DNS health must not hinge on Account 1's hostname
+    // (an NXDOMAIN there is that account's problem), so probe a neutral host.
+    const char* host = (data_host[0] && http_account_count() <= 1) ? data_host : NTP_PROBE_HOST;
     IPAddress addr;
     bool ok = WiFi.hostByName(host, addr);
     Serial.printf("[NETCHK] DNS %s -> %s\n", host, ok ? addr.toString().c_str() : "FAILED");
