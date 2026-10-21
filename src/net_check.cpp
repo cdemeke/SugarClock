@@ -107,8 +107,8 @@ static void build_summary() {
 }
 
 static bool probe_dns() {
-    // With several accounts DNS health must not hinge on Account 1's hostname
-    // (an NXDOMAIN there is that account's problem), so probe a neutral host.
+    // With several accounts this is diagnostic only (the display follows each
+    // account's own fetches), so probe a neutral host rather than Account 1's.
     const char* host = (data_host[0] && http_account_count() <= 1) ? data_host : NTP_PROBE_HOST;
     IPAddress addr;
     bool ok = WiFi.hostByName(host, addr);

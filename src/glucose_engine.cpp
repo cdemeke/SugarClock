@@ -329,12 +329,12 @@ static DisplayState evaluate_state() {
             return STATE_NO_WIFI;
         }
 
-        // The data probe targets Account 1's host. With multiple regions,
-        // use each account's own failures/freshness instead of letting that
-        // one host suppress every other person's reading. DNS remains global.
-        if (wifi_is_connected() &&
-            (netcheck_dns() == NC_FAIL ||
-             (http_account_count() == 1 && netcheck_data() == NC_FAIL))) {
+        // The probes describe Account 1's source. With several people, each
+        // account's own fetch failures and freshness decide what it shows, so
+        // a failed probe (an unresolvable Account 1 host, or a LAN with no
+        // outside DNS) never hides another person's fresh reading.
+        if (wifi_is_connected() && http_account_count() == 1 &&
+            (netcheck_dns() == NC_FAIL || netcheck_data() == NC_FAIL)) {
             return STATE_NET_LIMITED;
         }
 

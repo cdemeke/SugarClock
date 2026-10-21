@@ -354,11 +354,13 @@ int main() {
     assert(engine_toggle_mode()); assert(engine_toggle_mode());
     assert(test_selected == 2);
     settle(); tick(1300); assert(engine_get_state() == STATE_GLUCOSE_DISPLAY);
-    // The primary account's regional host probe cannot suppress a different
-    // account whose own polling works.
+    // With several people the probes are diagnostic: neither Account 1's host
+    // nor a missing outside DNS (a LAN-only network) hides fresh readings.
     data_network = NC_FAIL;
     assert(evaluate_state() == STATE_GLUCOSE_DISPLAY);
-    data_network = NC_OK;
+    data_network = NC_OK; network = NC_FAIL;
+    assert(evaluate_state() == STATE_GLUCOSE_DISPLAY);
+    network = NC_OK;
     // An off-screen low takes priority. Two lows alternate without showing
     // normal accounts, even when ordinary auto-cycle is disabled.
     cfg.glucose_only_when_low = true;
