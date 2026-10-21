@@ -37,11 +37,15 @@ static NetCheckResult res_ntp = NC_UNKNOWN;
 static unsigned long last_run_ms = 0;
 static char summary[128] = "";
 static char data_host[96] = "";
+static uint16_t data_port = 443;
+static bool data_tls = true;
 
 // Pull the bare hostname out of the configured data source.
 static void resolve_data_host() {
     AppConfig& cfg = config_get();
     data_host[0] = '\0';
+    data_port = 443;
+    data_tls = true;
 
     if (cfg.demo_mode) {
         return; // demo mode synthesises readings; nothing to reach
@@ -58,9 +62,13 @@ static void resolve_data_host() {
         return;
     }
 
-    // Custom URL / Nightscout: strip scheme, path, port and credentials
+    // Custom URL / Nightscout: keep the scheme and port, strip path and credentials
     const char* url = account.url;
     if (url[0] == '\0') return;
+    if (strncmp(url, "http://", 7) == 0) {
+        data_tls = false;
+        data_port = 80;
+    }
     const char* p = strstr(url, "://");
     p = p ? p + 3 : url;
     const char* at = strchr(p, '@');
@@ -73,6 +81,10 @@ static void resolve_data_host() {
         i++;
     }
     data_host[i] = '\0';
+    if (p[i] == ':') {
+        long port = strtol(p + i + 1, nullptr, 10);
+        if (port > 0 && port <= 65535) data_port = (uint16_t)port;
+    }
 }
 
 static void build_summary() {
@@ -104,12 +116,20 @@ static bool probe_dns() {
 static bool probe_data() {
     if (data_host[0] == '\0') return true; // demo mode / nothing configured
 
-    WiFiClientSecure client;
-    client.setInsecure();          // reachability only, not a trust decision
-    client.setTimeout(TLS_TIMEOUT_MS / 1000);
-    bool ok = client.connect(data_host, 443, TLS_TIMEOUT_MS);
-    client.stop();
-    Serial.printf("[NETCHK] HTTPS %s:443 -> %s\n", data_host, ok ? "ok" : "FAILED");
+    bool ok;
+    if (data_tls) {
+        WiFiClientSecure client;
+        client.setInsecure();          // reachability only, not a trust decision
+        client.setTimeout(TLS_TIMEOUT_MS / 1000);
+        ok = client.connect(data_host, data_port, TLS_TIMEOUT_MS);
+        client.stop();
+    } else {
+        WiFiClient client;
+        ok = client.connect(data_host, data_port, TLS_TIMEOUT_MS);
+        client.stop();
+    }
+    Serial.printf("[NETCHK] %s %s:%u -> %s\n", data_tls ? "HTTPS" : "HTTP", data_host,
+                  (unsigned)data_port, ok ? "ok" : "FAILED");
     return ok;
 }
 

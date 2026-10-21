@@ -343,6 +343,13 @@ static bool prepare_accounts(JsonDocument& doc, const AppConfig& cfg, CgmAccount
         in.patient_id = item["patient_id"] | "";
         const CgmAccount& saved = cfg.cgm[slot];
         CgmAccount& next = proposed[slot];
+        // A fresh device's account 1 is an unconfigured Custom URL. Leaving it
+        // untouched must not block Demo Mode or unrelated settings.
+        if (slot == 0 && cgm_uses_url(in.provider) && !in.url[0] && !in.token[0] &&
+            saved.provider == in.provider && !saved.url[0]) {
+            next = saved;
+            continue;
+        }
         if (!cgm_prepare_account(next, saved, in)) {
             snprintf(error, error_size,
                      cgm_uses_url(in.provider)

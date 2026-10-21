@@ -242,9 +242,10 @@ static void config_check_littlefs_overlay() {
 // The first account keeps the pre-multi-account keys so a rollback to older
 // firmware still finds it. Unused providers' keys are cleared on save.
 static int infer_legacy_provider() {
-    char text[8] = "";
-    if (prefs.getString("dex_user", text, sizeof(text)) && text[0]) return CGM_DEXCOM;
-    if (prefs.getString("llu_email", text, sizeof(text)) && text[0]) return CGM_LIBRE;
+    // getString(key, buf, len) returns 0 when the buffer is too small, so use
+    // the String overload to detect any non-empty value.
+    if (prefs.getString("dex_user", "").length()) return CGM_DEXCOM;
+    if (prefs.getString("llu_email", "").length()) return CGM_LIBRE;
     return CGM_CUSTOM;
 }
 
