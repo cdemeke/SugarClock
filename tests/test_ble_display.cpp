@@ -14,8 +14,8 @@ bool windowOpen() {return admission;}
 bool ota_is_busy() {return updating;}
 bool buzzer_is_active() {return buzzing;}
 bool notify_is_urgent() {return urgent;}
-const Reading& http_get_reading() {return reading;}
-const Config& config_get() {return cfg;}
+static bool stale=false;
+bool engine_urgent_glucose_active() {return cfg.glucose_enabled && reading.valid && !stale && (reading.glucose<cfg.thresh_urgent_low || reading.glucose>cfg.thresh_urgent_high);}
 // The test runner supplies the actual renderer body from ble_manager.cpp.
 #include "ble_render.inc"
 static void frame(char expected) {
@@ -35,7 +35,7 @@ int main() {
  updating=true;frame('G');updating=false;
  buzzing=true;frame('G');buzzing=false;
  urgent=true;frame('G');urgent=false;
- reading.glucose=40;frame('G');reading.glucose=350;frame('G');reading.glucose=100;
+ reading.glucose=40;frame('G');stale=true;frame('P');stale=false;reading.glucose=350;frame('G');reading.glucose=100;
  enabled=false;frame('G');enabled=true;
  passkeyUntil=now+30000;
  display_begin_frame();display_clear();display_show();ble_render();display_end_frame();

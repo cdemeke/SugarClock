@@ -269,6 +269,10 @@ static bool urgent_glucose_is_active() {
            reading.glucose > cfg.thresh_urgent_high;
 }
 
+bool engine_urgent_glucose_active() {
+    return urgent_glucose_is_active();
+}
+
 // Snooze alerts (called from button handler)
 void engine_snooze_alerts() {
     AppConfig& cfg = config_get();

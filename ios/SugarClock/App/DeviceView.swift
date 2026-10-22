@@ -364,13 +364,12 @@ struct WiFiView:View {
         }
     }
     func join() {
-        var patch:[String:Any]=["wifi_ssid":ssid]
-        if security != original["wifi_security"] as? Int {patch["wifi_security"]=security}
+        // Each trial patches the clock's live config, which an earlier trial on
+        // this page may have changed, so send the selected nonsecret values.
+        var patch:[String:Any]=["wifi_ssid":ssid,"wifi_security":security]
         if security==1 {
-            if eap != original["wifi_eap_method"] as? Int {patch["wifi_eap_method"]=eap}
-            if identity != original["wifi_identity"] as? String {patch["wifi_identity"]=identity}
-            if anonymous != original["wifi_anon_identity"] as? String {patch["wifi_anon_identity"]=anonymous}
-            if validateCA != original["wifi_validate_ca"] as? Bool {patch["wifi_validate_ca"]=validateCA}
+            patch["wifi_eap_method"]=eap;patch["wifi_identity"]=identity
+            patch["wifi_anon_identity"]=anonymous;patch["wifi_validate_ca"]=validateCA
         }
         let action:SecretChange=secretAction==0 ? .unchanged:secretAction==1 ? .replace(password):.clear
         action.apply(to:&patch,key:security==1 ? "wifi_eap_password":"wifi_password")

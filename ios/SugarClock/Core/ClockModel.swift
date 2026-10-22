@@ -457,6 +457,8 @@ private struct PendingSave {
         if selected?.id != identity {settings=[:];status=[:];fields=[];schemaIdentity=nil;lastSettingsRefresh=nil;lastStatusRefresh=nil}
         let saved=clocks.first(where:{$0.id==identity}) ?? SavedClock(id:identity,peripheral:id,nickname:greeting["name"] as? String ?? "SugarClock")
         selected=SavedClock(id:identity,peripheral:id,nickname:saved.nickname)
+        // A saved clock found under a new peripheral ID keeps its workspace.
+        if draftClockID != identity,let selected {restoreLocalSettings(for:selected)}
         client=next;hello=greeting
         // Pairing may need 45 seconds; subsequent reads fail promptly on a stale link.
         next.requestTimeout=15;transport.operationTimeout=15

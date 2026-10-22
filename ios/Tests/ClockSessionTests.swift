@@ -749,6 +749,23 @@ private final class FailingLocalSettingsStore:LocalSettingsStore {
         XCTAssertEqual(model.clocks.map(\.id),["clock-a"])
         model.suspend()
     }
+    func testReplacementPeripheralRestoresPendingWorkspaceBeforePersisting() async throws {
+        let store=MemoryLocalSettingsStore()
+        let (model,radio,defaults,id)=fixture(store:store)
+        await model.connect(id);editBrightness(model,"99")
+        let submitted=model.settingsDraft
+        let cached=try LocalSettingsSnapshot(settings:radio.storedSettings,fields:model.fields,draft:submitted,submittedDraft:submitted)
+        try store.save(cached,clockID:"clock-a");model.remember();model.suspend()
+        let restored=ClockModel(enableBluetooth:false,loadSaved:false,transport:radio,preferences:defaults,retryDelay:0,localSettingsStore:store)
+        restored.clocks=model.clocks
+        await restored.connect(UUID())
+        XCTAssertTrue(restored.sessionReady)
+        XCTAssertEqual(restored.selected?.id,"clock-a")
+        XCTAssertEqual(restored.pendingChangeCount,1)
+        XCTAssertEqual(try store.load(clockID:"clock-a")?.draft,submitted)
+        XCTAssertNotNil(try store.load(clockID:"clock-a")?.submittedDraft)
+        restored.suspend()
+    }
     func testRenameDuringReplacementSchemaLoadKeepsVerifiedPeripheralAndLatestName() async throws {
         let (model,radio,defaults,oldID)=fixture()
         model.remember()
