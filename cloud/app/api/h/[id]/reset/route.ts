@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { loadHousehold, mutateHousehold, pushLog } from "@/lib/household";
+import { mutateHousehold, pushLog } from "@/lib/household";
 import { checkPin } from "@/lib/auth";
 import { clampRemaining } from "@/lib/types";
 import type { Child } from "@/lib/types";
@@ -15,11 +15,17 @@ export async function POST(
   ctx: { params: Promise<{ id: string }> },
 ) {
   const { id } = await ctx.params;
-  const h = await loadHousehold(id);
-  if (!h) {
+  const auth = await checkPin(req, id);
+  if (auth === "not_found") {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  if (!checkPin(req, h)) {
+  if (auth === "locked") {
+    return NextResponse.json(
+      { error: "Too many wrong PINs — try again later" },
+      { status: 429 },
+    );
+  }
+  if (auth === "invalid") {
     return NextResponse.json({ error: "Invalid PIN" }, { status: 401 });
   }
 

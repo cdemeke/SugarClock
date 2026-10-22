@@ -13,6 +13,42 @@ static int last_http_code = 0;
 static char last_response[256] = "";
 static BlocksPreFetchCallback pre_fetch_cb = nullptr;
 
+#define BLOCKS_BODY_TIMEOUT_MS 5000
+#define BLOCKS_BODY_MAX_LEN    2048
+
+// Reads the response body with a hard total deadline and size cap.
+// HTTPClient::getString() waits indefinitely if the server stalls mid-body,
+// which would trip the loop watchdog. Requires useHTTP10() so the body is
+// never chunked. Returns false on timeout, overflow, or a short body.
+static bool blocks_read_body(HTTPClient& http, String& out) {
+    out = "";
+    WiFiClient* stream = http.getStreamPtr();
+    if (!stream) return false;
+    int len = http.getSize();  // -1 when the server sent no Content-Length
+    if (len > BLOCKS_BODY_MAX_LEN) return false;
+    out.reserve(len > 0 ? len : 512);
+
+    unsigned long start = millis();
+    while (len < 0 || (int)out.length() < len) {
+        if (millis() - start > BLOCKS_BODY_TIMEOUT_MS) return false;
+        int avail = stream->available();
+        if (avail > 0) {
+            while (avail-- > 0) {
+                int c = stream->read();
+                if (c < 0) break;
+                out += (char)c;
+                if (out.length() > BLOCKS_BODY_MAX_LEN) return false;
+            }
+        } else if (!stream->connected()) {
+            // Without Content-Length the body ends at connection close.
+            return len < 0;
+        } else {
+            delay(10);
+        }
+    }
+    return true;
+}
+
 // Internal fetch logic (shared by loop and force_fetch)
 static bool blocks_do_fetch() {
     AppConfig& cfg = config_get();
@@ -32,7 +68,7 @@ static bool blocks_do_fetch() {
     client.setInsecure();
     client.setTimeout(10);
     // The library default is 120s, far past the 30s loop watchdog. Worst case
-    // is now ~5s TCP connect + 5s handshake + 10s read = 20s.
+    // is now ~5s TCP connect + 5s handshake + 10s headers + 5s body = 25s.
     client.setHandshakeTimeout(5);
 
     HTTPClient http;
@@ -45,6 +81,8 @@ static bool blocks_do_fetch() {
     }
 
     http.setTimeout(10000);
+    // HTTP/1.0 so the server can't send a chunked body (see blocks_read_body).
+    http.useHTTP10(true);
 
     // Notify engine before the blocking HTTP call so it can render a clean frame.
     if (pre_fetch_cb) pre_fetch_cb();
@@ -53,7 +91,14 @@ static bool blocks_do_fetch() {
     last_http_code = httpCode;
 
     if (httpCode == HTTP_CODE_OK) {
-        String payload = http.getString();
+        String payload;
+        if (!blocks_read_body(http, payload)) {
+            Serial.println("[BLOCKS] Body read timed out or too large");
+            strncpy(last_response, "Body read timed out or too large", sizeof(last_response) - 1);
+            last_response[sizeof(last_response) - 1] = '\0';
+            http.end();
+            return false;  // keep previous reading
+        }
         strncpy(last_response, payload.c_str(), sizeof(last_response) - 1);
         last_response[sizeof(last_response) - 1] = '\0';
 
@@ -109,7 +154,8 @@ static bool blocks_do_fetch() {
         http.end();
         return true;
     } else {
-        String body = http.getString();
+        String body;
+        if (httpCode > 0) blocks_read_body(http, body);  // best effort, bounded
         Serial.printf("[BLOCKS] HTTP error: %d, body: %s\n", httpCode, body.c_str());
         snprintf(last_response, sizeof(last_response), "HTTP %d: %s",
                  httpCode, body.length() > 0 ? body.c_str() : "No response");

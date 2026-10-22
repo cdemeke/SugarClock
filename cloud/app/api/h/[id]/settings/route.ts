@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import {
+  dateInTz,
   isValidTimezone,
-  loadHousehold,
   mutateHousehold,
   nextChildId,
 } from "@/lib/household";
@@ -38,11 +38,17 @@ export async function POST(
   ctx: { params: Promise<{ id: string }> },
 ) {
   const { id } = await ctx.params;
-  const h = await loadHousehold(id);
-  if (!h) {
+  const auth = await checkPin(req, id);
+  if (auth === "not_found") {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  if (!checkPin(req, h)) {
+  if (auth === "locked") {
+    return NextResponse.json(
+      { error: "Too many wrong PINs — try again later" },
+      { status: 429 },
+    );
+  }
+  if (auth === "invalid") {
     return NextResponse.json({ error: "Invalid PIN" }, { status: 401 });
   }
 
@@ -81,7 +87,12 @@ function applySettings(h: Household, body: SettingsBody): NextResponse | null {
     if (!isValidTimezone(body.timezone)) {
       return NextResponse.json({ error: "Invalid timezone" }, { status: 400 });
     }
-    h.timezone = body.timezone;
+    if (body.timezone !== h.timezone) {
+      // The lazy reset already ran in the old timezone; mark today (in the new
+      // one) as reset so the next load doesn't refill the current balances.
+      h.timezone = body.timezone;
+      h.last_reset_date = dateInTz(h.timezone);
+    }
   }
 
   if (Array.isArray(body.children)) {

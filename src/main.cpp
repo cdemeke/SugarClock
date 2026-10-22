@@ -127,7 +127,9 @@ void loop() {
     // 2b. Weather polling
     weather_loop();
 
-    // 2c. Time blocks polling
+    // 2c. Time blocks polling. Feed the watchdog first so a slow HTTP/weather
+    // poll above doesn't eat into this fetch's (bounded, ~25s) budget.
+    esp_task_wdt_reset();
     blocks_loop();
 
     // 3. Time management

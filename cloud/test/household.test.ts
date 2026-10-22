@@ -10,6 +10,12 @@ import {
 } from "../lib/household";
 import { getHousehold, saveHousehold } from "../lib/store";
 import { clampRemaining, clampAllocation } from "../lib/types";
+import {
+  checkPin,
+  MAX_PIN_FAILURES,
+  PIN_HEADER,
+  PIN_LOCKOUT_BASE_MS,
+} from "../lib/auth";
 
 test("dateInTz returns YYYY-MM-DD", () => {
   const s = dateInTz("America/New_York", new Date("2026-07-08T12:00:00Z"));
@@ -112,4 +118,29 @@ test("mutateHousehold does not lose concurrent updates", async () => {
   await Promise.all([deduct(), deduct()]);
   const after = await getHousehold(h.id);
   assert.equal(after?.children[0].remaining, 1);
+});
+
+test("checkPin locks out after repeated wrong PINs", async () => {
+  const h = buildHousehold({
+    name: "Fam",
+    timezone: "UTC",
+    pin: "1234",
+    children: [{ name: "a", daily_allocation: 3 }],
+  });
+  await saveHousehold(h);
+  const req = (pin: string) =>
+    new Request("http://x", { headers: { [PIN_HEADER]: pin } });
+  const now = new Date("2026-10-21T12:00:00Z");
+
+  for (let i = 0; i < MAX_PIN_FAILURES; i++) {
+    assert.equal(await checkPin(req("0000"), h.id, now), "invalid");
+  }
+  // Locked: even the correct PIN is refused until the lockout expires.
+  assert.equal(await checkPin(req("1234"), h.id, now), "locked");
+  const later = new Date(now.getTime() + PIN_LOCKOUT_BASE_MS + 1000);
+  assert.equal(await checkPin(req("1234"), h.id, later), "ok");
+  const after = await getHousehold(h.id);
+  assert.equal(after?.pin_failures, 0);
+  assert.equal(after?.pin_locked_until, undefined);
+  assert.equal(await checkPin(req("1234"), "hh_missing", now), "not_found");
 });

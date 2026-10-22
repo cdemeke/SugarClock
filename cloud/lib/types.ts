@@ -31,6 +31,9 @@ export interface Household {
   log: LogEntry[]; // append-only, capped to most recent 50 entries
   next_child_seq?: number; // next c{n} to assign; never reused after removal
   rev?: number; // bumped on every write; used for compare-and-set
+  pin_failures?: number; // consecutive wrong PINs since the last success/lockout
+  pin_lockouts?: number; // consecutive lockouts; each doubles the next one
+  pin_locked_until?: string; // ISO timestamp; PIN checks refused until then
 }
 
 // ---- Constraints (enforced in code, not just types) ----
