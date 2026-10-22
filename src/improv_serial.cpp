@@ -1,5 +1,6 @@
 #include "improv_serial.h"
 #include "config_manager.h"
+#include "cgm_accounts.h"
 #include "wifi_manager.h"
 #include <WiFi.h>
 #include <Arduino.h>
@@ -158,15 +159,9 @@ static void handle_wifi_settings(const uint8_t* data, uint8_t len) {
         cfg.wifi_eap_password[0] = '\0';
         cfg.wifi_anon_identity[0] = '\0';
         cfg.wifi_validate_ca = false;
-        cfg.server_url[0] = '\0';
-        cfg.dexcom_username[0] = '\0';
-        cfg.dexcom_password[0] = '\0';
-        cfg.libre_email[0] = '\0';
-        cfg.libre_password[0] = '\0';
-        cfg.libre_region[0] = '\0';
-        cfg.libre_patient_id[0] = '\0';
-        cfg.libre_patient_name[0] = '\0';
-        cfg.data_source = 0;
+        cfg.demo_mode = false;
+        cfg.cgm[0] = cgm_empty_account(CGM_CUSTOM);
+        for (int i = 1; i < CGM_MAX_ACCOUNTS; ++i) cfg.cgm[i] = cgm_empty_account();
         config_save();
 
         // Build URL for the device

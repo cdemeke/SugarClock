@@ -30,6 +30,7 @@ unsigned long millis() { return now_ms; }
 AppConfig& config_get() { return cfg; }
 bool config_has_wifi() { return true; }
 bool config_has_server() { return true; }
+int config_data_source() { return cfg.demo_mode ? CGM_DEMO_SOURCE : cfg.cgm[0].provider; }
 GlucoseReading http_get_reading() { return test_selected == 0 ? reading : extra_readings[test_selected - 1]; }
 bool http_account_enabled(int index) { return index >= 0 && index < test_accounts; }
 int http_account_count() { return test_accounts; }
@@ -41,7 +42,7 @@ bool http_account_label(int i, char* out, size_t size) {
     return test_custom_label;
 }
 int http_find_alert(int low, int high, int start) {
-    if (cfg.data_source != 2 && (failures >= 5 || age_ms >= (unsigned long)cfg.stale_timeout_min * 60000UL)) return -1;
+    if (!cfg.demo_mode && (failures >= 5 || age_ms >= (unsigned long)cfg.stale_timeout_min * 60000UL)) return -1;
     for (int n = 0; n < 4; ++n) {
         const int i = (start + n) % 4;
         if (i >= test_accounts) continue;
@@ -265,8 +266,8 @@ int main() {
     // Demo uses synthetic readings, independently of network and data age.
     age_ms = 20UL * 60000; failures = 10;
     connected = false; ap_mode = true; network = NC_FAIL;
-    cfg.data_source = 2; assert_low_frame();
-    cfg.data_source = 0;
+    cfg.demo_mode = true; assert_low_frame();
+    cfg.demo_mode = false;
 
     // Invalid/cleared readings don't lock the display or invent a low value.
     reading.valid = false;
@@ -295,13 +296,13 @@ int main() {
     engine_force_state(STATE_WEATHER_DISPLAY); settle();
     assert(engine_get_state() == STATE_WEATHER_DISPLAY);
     // Existing installations retain their alert timeout, but numeric readings
-    // and arrows turn gray strictly after seven minutes, for either provider.
+    // and arrows turn gray strictly after seven minutes, for every provider.
     cfg.color_in_range = 0x34A853; cfg.brightness = 100; cfg.thresh_high = 180;
     cfg.auto_brightness = false; reading.glucose = 112; reading.trend = TREND_FLAT;
     const uint16_t gray = color_from_uint32(cfg.color_stale);
     const uint16_t green = color_from_uint32(cfg.color_in_range);
-    for (int provider : {0, 1}) {
-        cfg.data_source = provider;
+    for (int provider : {CGM_CUSTOM, CGM_DEXCOM, CGM_LIBRE, CGM_NIGHTSCOUT}) {
+        cfg.cgm[0].provider = provider;
         for (unsigned long age : {300000UL, 360000UL, 419999UL, 420000UL, 420001UL, 600000UL}) {
             age_ms = age; delta_flash_active = false; last_seen_glucose = 112;
             render_state(STATE_GLUCOSE_DISPLAY);
@@ -319,16 +320,16 @@ int main() {
         age_ms = 0; render_state(STATE_GLUCOSE_DISPLAY);
         assert(drawn_color == green && trend_color == green);
     }
-    cfg.data_source = 2; age_ms = 600000;
+    cfg.demo_mode = true; age_ms = 600000;
     render_state(STATE_GLUCOSE_DISPLAY);
     assert(drawn_color == green);
-    age_ms = 0; cfg.data_source = 0;
+    age_ms = 0; cfg.demo_mode = false; cfg.cgm[0].provider = CGM_CUSTOM;
     // Multi-person rotation visits each glucose/trend pair in both directions.
     engine_clear_force();
     test_accounts = 4; test_selected = 0;
     reading.glucose = 110; reading.valid = true;
     for (auto& r : extra_readings) { r = reading; r.glucose = 150; }
-    cfg.data_source = 1; cfg.thresh_low = 80;
+    cfg.cgm[0].provider = CGM_DEXCOM; cfg.thresh_low = 80;
     cfg.time_display_enabled = cfg.weather_enabled = cfg.timer_enabled = false;
     cfg.stopwatch_enabled = cfg.ambient_enabled = cfg.sysmon_enabled = cfg.countdown_enabled = false;
     engine_set_default_mode(STATE_GLUCOSE_DISPLAY); engine_rebuild_toggle_order();
@@ -353,11 +354,13 @@ int main() {
     assert(engine_toggle_mode()); assert(engine_toggle_mode());
     assert(test_selected == 2);
     settle(); tick(1300); assert(engine_get_state() == STATE_GLUCOSE_DISPLAY);
-    // The primary account's regional host probe cannot suppress a different
-    // account whose own polling works.
+    // With several people the probes are diagnostic: neither Account 1's host
+    // nor a missing outside DNS (a LAN-only network) hides fresh readings.
     data_network = NC_FAIL;
     assert(evaluate_state() == STATE_GLUCOSE_DISPLAY);
-    data_network = NC_OK;
+    data_network = NC_OK; network = NC_FAIL;
+    assert(evaluate_state() == STATE_GLUCOSE_DISPLAY);
+    network = NC_OK;
     // An off-screen low takes priority. Two lows alternate without showing
     // normal accounts, even when ordinary auto-cycle is disabled.
     cfg.glucose_only_when_low = true;

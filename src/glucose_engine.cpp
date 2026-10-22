@@ -102,7 +102,7 @@ static void draw_weather_content(uint32_t now) {
 
 bool engine_low_glucose_lock_active() {
     const AppConfig& cfg = config_get();
-    if (!cfg.glucose_only_when_low || (cfg.data_source != 2 && wifi_is_ap_mode())) return false;
+    if (!cfg.glucose_only_when_low || (!cfg.demo_mode && wifi_is_ap_mode())) return false;
     return http_find_alert(std::max(cfg.thresh_low, cfg.thresh_urgent_low), INT_MAX) >= 0;
 }
 
@@ -315,7 +315,7 @@ static DisplayState evaluate_state() {
 
     // Demo mode synthesizes its own readings, so skip all the connectivity and
     // freshness guards below — always fall through to the normal display.
-    bool demo = (cfg.data_source == 2);
+    bool demo = cfg.demo_mode;
 
     if (!demo) {
         // Setup portal up — the user needs the AP name and portal address, and
@@ -329,12 +329,12 @@ static DisplayState evaluate_state() {
             return STATE_NO_WIFI;
         }
 
-        // The data probe targets Account 1's host. With multiple regions,
-        // use each account's own failures/freshness instead of letting that
-        // one host suppress every other person's reading. DNS remains global.
-        if (wifi_is_connected() &&
-            (netcheck_dns() == NC_FAIL ||
-             (http_account_count() == 1 && netcheck_data() == NC_FAIL))) {
+        // The probes describe Account 1's source. With several people, each
+        // account's own fetch failures and freshness decide what it shows, so
+        // a failed probe (an unresolvable Account 1 host, or a LAN with no
+        // outside DNS) never hides another person's fresh reading.
+        if (wifi_is_connected() && http_account_count() == 1 &&
+            (netcheck_dns() == NC_FAIL || netcheck_data() == NC_FAIL)) {
             return STATE_NET_LIMITED;
         }
 
@@ -451,7 +451,7 @@ static void render_state(DisplayState state) {
             // Visual freshness is independent of the configured alert timeout.
             unsigned long age = http_time_since_last_reading();
             int failures = http_get_failure_count();
-            bool is_stale = glucose_display_is_stale(cfg.data_source, age,
+            bool is_stale = glucose_display_is_stale(config_data_source(), age,
                                                       cfg.stale_timeout_min, failures, cfg.poll_interval_sec);
 
             uint16_t color;
@@ -695,7 +695,7 @@ static void render_state(DisplayState state) {
             } else {
                 unsigned long age = http_time_since_last_reading();
                 int failures = http_get_failure_count();
-                bool is_stale = glucose_display_is_stale(cfg.data_source, age,
+                bool is_stale = glucose_display_is_stale(config_data_source(), age,
                                                       cfg.stale_timeout_min, failures, cfg.poll_interval_sec);
 
                 uint16_t tcolor = is_stale ? color_from_uint32(cfg.color_stale) : themed_glucose_color(reading.glucose, cfg);

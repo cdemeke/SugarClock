@@ -56,7 +56,7 @@ int main(int argc, char**) {
     assert(companion_style_or_default(3) == COMPANION_TEXT);
     assert(companion_color('a') == 0xf06460);
     assert(companion_color('r') == 0xf06460);
-    cfg.data_source = 2; cfg.thresh_urgent_low = 70; cfg.thresh_low = 80;
+    cfg.demo_mode = true; cfg.thresh_urgent_low = 70; cfg.thresh_low = 80;
     cfg.thresh_high = 180; cfg.thresh_urgent_high = 250;
     cfg.ambient_seasonal = true;
     for (int style = 0; style < 3; ++style) for (int id = 0; id < COMPANION_COUNT; ++id) {
@@ -117,14 +117,14 @@ int main(int argc, char**) {
             }
         }
         // Missing/stale data must never gain an OK label or range icon.
-        cfg.data_source = 0; cfg.stale_timeout_min = 20;
+        cfg.demo_mode = false; cfg.stale_timeout_min = 20;
         reading_age = 20UL * 60 * 1000; ambient_fish_render();
         assert(pixel_count == 0 && strcmp(text, "---") == 0);
         reading_age = 0; failures = 5; ambient_fish_render();
         assert(pixel_count == 0 && strcmp(text, "---") == 0);
         failures = 0; ever_received = false; ambient_fish_render();
         assert(pixel_count == 0 && strcmp(text, "---") == 0);
-        ever_received = true; cfg.data_source = 2;
+        ever_received = true; cfg.demo_mode = true;
         cfg.ambient_seasonal = true; hour = 10;
     }
     for (int style=0; style<3; ++style) for (int id=0; id<COMPANION_COUNT; ++id) for (int range=0; range<3; ++range) {

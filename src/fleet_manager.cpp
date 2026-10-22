@@ -1,6 +1,7 @@
 #include "fleet_manager.h"
 
 #include "config_manager.h"
+#include "cgm_accounts.h"
 #include "companion.h"
 #include "fleet_policy.h"
 #include "glucose_engine.h"
@@ -622,8 +623,7 @@ static bool check_in(uint32_t& next_seconds, bool manual, bool allow_offer) {
     const AppConfig& cfg = config_get();
     JsonObject features = doc["features"].to<JsonObject>();
     features["schema_version"] = 1;
-    static const char* sources[] = {"custom", "dexcom", "demo", "libre"};
-    if (cfg.data_source >= 0 && cfg.data_source < 4) features["data_source"] = sources[cfg.data_source];
+    features["data_source"] = cfg.demo_mode ? "demo" : cgm_provider_name(cfg.cgm[0].provider);
     features["companion_enabled"] = cfg.ambient_enabled;
     features["companion_character"] = companion_or_default(cfg.ambient_character);
     features["weather_enabled"] = cfg.weather_enabled;

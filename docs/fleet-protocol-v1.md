@@ -65,7 +65,7 @@ its configuration and disclosure are separate from this wire contract.
 New firmware sends `capabilities: ["fleet_rollout_v1"]` and `features` with
 `schema_version: 1`. Allowed feature values are:
 
-- `data_source`: `custom`, `dexcom`, `demo`, or `libre`.
+- `data_source`: `custom`, `dexcom`, `demo`, `libre`, or `nightscout` (the first account's source; `demo` when demo mode is on).
 - `companion_character`: integer 0–6 (Pip, Boo, Mochi, Sprout, Pebble, Inky, Maple).
 - Booleans: `companion_enabled`, `weather_enabled`, `timer_enabled`,
   `stopwatch_enabled`, `notifications_enabled`, `sysmon_enabled`,

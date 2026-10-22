@@ -1,5 +1,6 @@
 #include "config_manager.h"
 #include "companion.h"
+#include "cgm_accounts.h"
 #include <Preferences.h>
 #include <Arduino.h>
 #include <LittleFS.h>
@@ -25,25 +26,10 @@ static void config_set_defaults() {
     config.wifi_anon_identity[0] = '\0';
     config.wifi_validate_ca = false;
 
-    // Data source
-    config.data_source = 0; // custom URL by default
-
-    // Custom server
-    config.server_url[0] = '\0';
-    config.auth_token[0] = '\0';
-
-    // Dexcom Share
-    config.dexcom_username[0] = '\0';
-    config.dexcom_password[0] = '\0';
-    config.dexcom_us = true;
-    config.dexcom_label[0] = '\0';
-    memset(config.extra_dexcom, 0, sizeof(config.extra_dexcom));
-    for (auto& account : config.extra_dexcom) account.us = true;
-
-    // FreeStyle Libre
-    config.libre_email[0] = '\0';
-    config.libre_password[0] = '\0';
-    config.libre_region[0] = '\0';
+    // Glucose accounts: the first slot defaults to a custom URL, others are off.
+    config.demo_mode = false;
+    config.cgm[0] = cgm_empty_account(CGM_CUSTOM);
+    for (int i = 1; i < CGM_MAX_ACCOUNTS; ++i) config.cgm[i] = cgm_empty_account();
 
     config.poll_interval_sec = 60;
 
@@ -151,6 +137,39 @@ static void config_set_defaults() {
     config.magic = CONFIG_MAGIC;
 }
 
+static void copy_text(char* out, size_t size, const char* text) {
+    strncpy(out, text ? text : "", size - 1);
+    out[size - 1] = '\0';
+}
+
+// The setup app writes the legacy single-source keys for the first account.
+static void apply_overlay_account(JsonDocument& doc) {
+    if (!doc["data_source"].is<int>()) return;
+    const int source = doc["data_source"];
+    config.demo_mode = source == CGM_DEMO_SOURCE;
+    if (config.demo_mode || !cgm_provider_valid(source)) return;
+    CgmAccount& a = config.cgm[0];
+    const CgmAccount saved = a;
+    a = cgm_empty_account(source);
+    strcpy(a.label, saved.label);
+    if (source == CGM_DEXCOM) {
+        copy_text(a.username, sizeof(a.username), doc["dexcom_username"] | "");
+        copy_text(a.password, sizeof(a.password), doc["dexcom_password"] | "");
+        a.us = strcmp(doc["dexcom_server"] | "US", "US") == 0;
+    } else if (source == CGM_LIBRE) {
+        copy_text(a.username, sizeof(a.username), doc["libre_email"] | "");
+        copy_text(a.password, sizeof(a.password), doc["libre_password"] | "");
+        if (saved.provider == CGM_LIBRE && strcmp(a.username, saved.username) == 0) {
+            strcpy(a.region, saved.region);
+            strcpy(a.patient_id, saved.patient_id);
+            strcpy(a.patient_name, saved.patient_name);
+        }
+    } else {
+        copy_text(a.url, sizeof(a.url), doc["server_url"] | "");
+        copy_text(a.token, sizeof(a.token), doc["auth_token"] | "");
+    }
+}
+
 static void config_check_littlefs_overlay() {
     if (!LittleFS.begin(false)) {
         Serial.println("[CONFIG] LittleFS mount failed, no overlay to apply");
@@ -204,17 +223,7 @@ static void config_check_littlefs_overlay() {
     config.wifi_identity[sizeof(config.wifi_identity) - 1] = '\0';
     config.wifi_eap_password[sizeof(config.wifi_eap_password) - 1] = '\0';
     config.wifi_anon_identity[sizeof(config.wifi_anon_identity) - 1] = '\0';
-    if (doc["data_source"].is<int>())            config.data_source = doc["data_source"];
-    if (doc["dexcom_username"].is<const char*>()) strncpy(config.dexcom_username, doc["dexcom_username"], sizeof(config.dexcom_username));
-    if (doc["dexcom_password"].is<const char*>()) strncpy(config.dexcom_password, doc["dexcom_password"], sizeof(config.dexcom_password));
-    if (doc["dexcom_server"].is<const char*>()) {
-        const char* srv = doc["dexcom_server"];
-        config.dexcom_us = (strcmp(srv, "US") == 0);
-    }
-    config_update_libre_credentials(config, doc["libre_email"] | (const char*)nullptr,
-                                   doc["libre_password"] | (const char*)nullptr);
-    if (doc["server_url"].is<const char*>())     strncpy(config.server_url, doc["server_url"], sizeof(config.server_url));
-    if (doc["auth_token"].is<const char*>())     strncpy(config.auth_token, doc["auth_token"], sizeof(config.auth_token));
+    apply_overlay_account(doc);
     if (doc["timezone"].is<const char*>())       strncpy(config.timezone, doc["timezone"], sizeof(config.timezone));
     if (doc["time_display_enabled"].is<bool>()) config.time_display_enabled = doc["time_display_enabled"];
     if (doc["glucose_only_when_low"].is<bool>()) config.glucose_only_when_low = doc["glucose_only_when_low"];
@@ -228,6 +237,114 @@ static void config_check_littlefs_overlay() {
     LittleFS.remove("/config.json");
     Serial.println("[CONFIG] Deleted /config.json after applying");
     LittleFS.end();
+}
+
+// The first account keeps the pre-multi-account keys so a rollback to older
+// firmware still finds it. Unused providers' keys are cleared on save.
+static int infer_legacy_provider() {
+    // getString(key, buf, len) returns 0 when the buffer is too small, so use
+    // the String overload to detect any non-empty value.
+    if (prefs.getString("dex_user", "").length()) return CGM_DEXCOM;
+    if (prefs.getString("llu_email", "").length()) return CGM_LIBRE;
+    return CGM_CUSTOM;
+}
+
+static void load_accounts() {
+    const int source = prefs.getInt("data_src", CGM_CUSTOM);
+    config.demo_mode = source == CGM_DEMO_SOURCE;
+    int provider = config.demo_mode
+        ? (prefs.isKey("cgm0_type") ? prefs.getInt("cgm0_type", CGM_CUSTOM) : infer_legacy_provider())
+        : source;
+    if (!cgm_provider_valid(provider)) provider = CGM_CUSTOM;
+    CgmAccount& first = config.cgm[0];
+    first = cgm_empty_account(provider);
+    prefs.getString("dex_label", first.label, sizeof(first.label));
+    if (provider == CGM_DEXCOM) {
+        prefs.getString("dex_user", first.username, sizeof(first.username));
+        prefs.getString("dex_pass", first.password, sizeof(first.password));
+        first.us = prefs.getBool("dex_us", true);
+    } else if (provider == CGM_LIBRE) {
+        prefs.getString("llu_email", first.username, sizeof(first.username));
+        prefs.getString("llu_pass", first.password, sizeof(first.password));
+        prefs.getString("llu_region", first.region, sizeof(first.region));
+        prefs.getString("llu_patient", first.patient_id, sizeof(first.patient_id));
+        prefs.getString("llu_name", first.patient_name, sizeof(first.patient_name));
+    } else {
+        prefs.getString("server_url", first.url, sizeof(first.url));
+        prefs.getString("auth_token", first.token, sizeof(first.token));
+    }
+
+    for (int i = 1; i < CGM_MAX_ACCOUNTS; ++i) {
+        char key[16];
+        CgmAccount& a = config.cgm[i];
+        snprintf(key, sizeof(key), "cgm%d_type", i);
+        if (!prefs.isKey(key)) {
+            // Preview builds stored extra Dexcom accounts under dexN_* keys.
+            a = cgm_empty_account();
+            snprintf(key, sizeof(key), "dex%d_user", i);
+            if (!prefs.isKey(key)) continue;
+            a.provider = CGM_DEXCOM;
+            prefs.getString(key, a.username, sizeof(a.username));
+            snprintf(key, sizeof(key), "dex%d_pass", i);
+            prefs.getString(key, a.password, sizeof(a.password));
+            snprintf(key, sizeof(key), "dex%d_label", i);
+            prefs.getString(key, a.label, sizeof(a.label));
+            snprintf(key, sizeof(key), "dex%d_us", i);
+            a.us = prefs.getBool(key, true);
+            if (!a.username[0]) a = cgm_empty_account();
+            continue;
+        }
+        a = cgm_empty_account(prefs.getInt(key, CGM_NONE));
+        if (!cgm_provider_valid(a.provider)) { a = cgm_empty_account(); continue; }
+        snprintf(key, sizeof(key), "cgm%d_lbl", i);  prefs.getString(key, a.label, sizeof(a.label));
+        snprintf(key, sizeof(key), "cgm%d_user", i); prefs.getString(key, a.username, sizeof(a.username));
+        snprintf(key, sizeof(key), "cgm%d_pass", i); prefs.getString(key, a.password, sizeof(a.password));
+        snprintf(key, sizeof(key), "cgm%d_us", i);   a.us = prefs.getBool(key, true);
+        snprintf(key, sizeof(key), "cgm%d_url", i);  prefs.getString(key, a.url, sizeof(a.url));
+        snprintf(key, sizeof(key), "cgm%d_tok", i);  prefs.getString(key, a.token, sizeof(a.token));
+        snprintf(key, sizeof(key), "cgm%d_reg", i);  prefs.getString(key, a.region, sizeof(a.region));
+        snprintf(key, sizeof(key), "cgm%d_pid", i);  prefs.getString(key, a.patient_id, sizeof(a.patient_id));
+        snprintf(key, sizeof(key), "cgm%d_pnm", i);  prefs.getString(key, a.patient_name, sizeof(a.patient_name));
+    }
+}
+
+static void save_accounts() {
+    const CgmAccount& first = config.cgm[0];
+    const bool dexcom = first.provider == CGM_DEXCOM;
+    const bool libre = first.provider == CGM_LIBRE;
+    const bool url = cgm_uses_url(first.provider);
+    prefs.putInt("data_src", config_data_source());
+    prefs.putInt("cgm0_type", first.provider);
+    prefs.putString("dex_label", first.label);
+    prefs.putString("dex_user", dexcom ? first.username : "");
+    prefs.putString("dex_pass", dexcom ? first.password : "");
+    prefs.putBool("dex_us", dexcom ? first.us : true);
+    prefs.putString("llu_email", libre ? first.username : "");
+    prefs.putString("llu_pass", libre ? first.password : "");
+    prefs.putString("llu_region", libre ? first.region : "");
+    prefs.putString("llu_patient", libre ? first.patient_id : "");
+    prefs.putString("llu_name", libre ? first.patient_name : "");
+    prefs.putString("server_url", url ? first.url : "");
+    prefs.putString("auth_token", url ? first.token : "");
+
+    for (int i = 1; i < CGM_MAX_ACCOUNTS; ++i) {
+        char key[16];
+        const CgmAccount& a = config.cgm[i];
+        for (const char* old : {"user", "pass", "label", "us"}) {
+            snprintf(key, sizeof(key), "dex%d_%s", i, old);
+            if (prefs.isKey(key)) prefs.remove(key);
+        }
+        snprintf(key, sizeof(key), "cgm%d_type", i); prefs.putInt(key, a.provider);
+        snprintf(key, sizeof(key), "cgm%d_lbl", i);  prefs.putString(key, a.label);
+        snprintf(key, sizeof(key), "cgm%d_user", i); prefs.putString(key, a.username);
+        snprintf(key, sizeof(key), "cgm%d_pass", i); prefs.putString(key, a.password);
+        snprintf(key, sizeof(key), "cgm%d_us", i);   prefs.putBool(key, a.us);
+        snprintf(key, sizeof(key), "cgm%d_url", i);  prefs.putString(key, a.url);
+        snprintf(key, sizeof(key), "cgm%d_tok", i);  prefs.putString(key, a.token);
+        snprintf(key, sizeof(key), "cgm%d_reg", i);  prefs.putString(key, a.region);
+        snprintf(key, sizeof(key), "cgm%d_pid", i);  prefs.putString(key, a.patient_id);
+        snprintf(key, sizeof(key), "cgm%d_pnm", i);  prefs.putString(key, a.patient_name);
+    }
 }
 
 void config_init() {
@@ -253,30 +370,7 @@ void config_init() {
         prefs.getString("wifi_epass", config.wifi_eap_password, sizeof(config.wifi_eap_password));
         prefs.getString("wifi_anon", config.wifi_anon_identity, sizeof(config.wifi_anon_identity));
         config.wifi_validate_ca = prefs.getBool("wifi_ca_val", false);
-        config.data_source = prefs.getInt("data_src", 0);
-        prefs.getString("server_url", config.server_url, sizeof(config.server_url));
-        prefs.getString("auth_token", config.auth_token, sizeof(config.auth_token));
-        prefs.getString("dex_user", config.dexcom_username, sizeof(config.dexcom_username));
-        prefs.getString("dex_pass", config.dexcom_password, sizeof(config.dexcom_password));
-        config.dexcom_us = prefs.getBool("dex_us", true);
-        prefs.getString("dex_label", config.dexcom_label, sizeof(config.dexcom_label));
-        for (int i = 0; i < CGM_MAX_ACCOUNTS - 1; ++i) {
-            char key[16];
-            auto& a = config.extra_dexcom[i];
-            snprintf(key, sizeof(key), "dex%d_label", i + 1);
-            prefs.getString(key, a.label, sizeof(a.label));
-            snprintf(key, sizeof(key), "dex%d_user", i + 1);
-            prefs.getString(key, a.username, sizeof(a.username));
-            snprintf(key, sizeof(key), "dex%d_pass", i + 1);
-            prefs.getString(key, a.password, sizeof(a.password));
-            snprintf(key, sizeof(key), "dex%d_us", i + 1);
-            a.us = prefs.getBool(key, true);
-        }
-        prefs.getString("llu_email", config.libre_email, sizeof(config.libre_email));
-        prefs.getString("llu_pass", config.libre_password, sizeof(config.libre_password));
-        prefs.getString("llu_region", config.libre_region, sizeof(config.libre_region));
-        prefs.getString("llu_patient", config.libre_patient_id, sizeof(config.libre_patient_id));
-        prefs.getString("llu_name", config.libre_patient_name, sizeof(config.libre_patient_name));
+        load_accounts();
         config.poll_interval_sec = prefs.getInt("poll_int", 60);
         config.brightness = prefs.getUChar("brightness", 40);
         config.auto_brightness = prefs.getBool("auto_brt", true);
@@ -416,30 +510,7 @@ void config_save() {
     prefs.putString("wifi_epass", config.wifi_eap_password);
     prefs.putString("wifi_anon", config.wifi_anon_identity);
     prefs.putBool("wifi_ca_val", config.wifi_validate_ca);
-    prefs.putInt("data_src", config.data_source);
-    prefs.putString("server_url", config.server_url);
-    prefs.putString("auth_token", config.auth_token);
-    prefs.putString("dex_user", config.dexcom_username);
-    prefs.putString("dex_pass", config.dexcom_password);
-    prefs.putBool("dex_us", config.dexcom_us);
-    prefs.putString("dex_label", config.dexcom_label);
-    for (int i = 0; i < CGM_MAX_ACCOUNTS - 1; ++i) {
-        char key[16];
-        const auto& a = config.extra_dexcom[i];
-        snprintf(key, sizeof(key), "dex%d_label", i + 1);
-        prefs.putString(key, a.label);
-        snprintf(key, sizeof(key), "dex%d_user", i + 1);
-        prefs.putString(key, a.username);
-        snprintf(key, sizeof(key), "dex%d_pass", i + 1);
-        prefs.putString(key, a.password);
-        snprintf(key, sizeof(key), "dex%d_us", i + 1);
-        prefs.putBool(key, a.us);
-    }
-    prefs.putString("llu_email", config.libre_email);
-    prefs.putString("llu_pass", config.libre_password);
-    prefs.putString("llu_region", config.libre_region);
-    prefs.putString("llu_patient", config.libre_patient_id);
-    prefs.putString("llu_name", config.libre_patient_name);
+    save_accounts();
     prefs.putInt("poll_int", config.poll_interval_sec);
     prefs.putUChar("brightness", config.brightness);
     prefs.putBool("auto_brt", config.auto_brightness);
@@ -554,19 +625,12 @@ bool config_has_wifi() {
 }
 
 bool config_has_server() {
-    if (config.data_source == 2) return true;  // demo mode needs no config
-    if (config.data_source == 1) return config_has_dexcom();
-    if (config.data_source == 3) return config_has_libre();
-    return strlen(config.server_url) > 0;
-}
-
-bool config_has_dexcom() {
-    return strlen(config.dexcom_username) > 0 && strlen(config.dexcom_password) > 0;
-}
-
-bool config_has_libre() {
     LibreConfigLock lock(config_libre_mutex());
-    return strlen(config.libre_email) > 0 && strlen(config.libre_password) > 0;
+    return config.demo_mode || cgm_account_configured(config.cgm[0]);
+}
+
+int config_data_source() {
+    return config.demo_mode ? CGM_DEMO_SOURCE : config.cgm[0].provider;
 }
 
 bool config_has_enterprise() {

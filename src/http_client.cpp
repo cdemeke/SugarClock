@@ -5,6 +5,8 @@
 #include "config_manager.h"
 #include "wifi_manager.h"
 #include "libre_client.h"
+#include "cgm_accounts.h"
+#include "nightscout.h"
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
@@ -116,7 +118,7 @@ static String dexcom_post(const char* url, const String& body, int& httpCode) {
 }
 
 // Dexcom Share: two-step authenticate and get session ID
-static bool dexcom_login(AccountState& s, const DexcomAccount& cfg) {
+static bool dexcom_login(AccountState& s, const CgmAccount& cfg) {
     const char* base = cfg.us ? DEXCOM_US_BASE : DEXCOM_OUS_BASE;
 
     // Step 1: AuthenticatePublisherAccount (get account ID)
@@ -190,7 +192,7 @@ static bool dexcom_login(AccountState& s, const DexcomAccount& cfg) {
 }
 
 // Dexcom Share: fetch latest glucose reading
-static bool dexcom_fetch_glucose(AccountState& s, const DexcomAccount& cfg) {
+static bool dexcom_fetch_glucose(AccountState& s, const CgmAccount& cfg) {
 
     // Check if session needs refresh
     if (strlen(s.dexcom_session_id) == 0 ||
@@ -312,10 +314,10 @@ static bool dexcom_fetch_glucose(AccountState& s, const DexcomAccount& cfg) {
 }
 
 // FreeStyle Libre: fetch latest reading via LibreLinkUp
-static bool libre_fetch_glucose(AccountState& s) {
+static bool libre_fetch_glucose(AccountState& s, int index) {
     LibreReading reading;
     bool attempted = false;
-    bool ok = libre_fetch(reading, &attempted);
+    bool ok = libre_fetch(index, reading, &attempted);
 
     s.last_response_code = libre_last_http_code();
     strncpy(s.last_response_body, libre_last_message(), sizeof(s.last_response_body) - 1);
@@ -348,18 +350,36 @@ static bool libre_fetch_glucose(AccountState& s) {
     return true;
 }
 
+// Plain HTTP for local servers, TLS (unverified, as before) for https URLs.
+static WiFiClient& client_for(const char* url, WiFiClientSecure& secure, WiFiClient& plain) {
+    if (strncmp(url, "https://", 8) != 0) return plain;
+    secure.setInsecure();
+    secure.setTimeout(10);
+    return secure;
+}
+
+// Publish a parsed reading, dating it by its sensor timestamp when known.
+static void accept_reading(AccountState& s, const char* tag) {
+    const bool synced = time_is_network_synced();
+    s.current_reading.received_at_ms = glucose_received_at(
+        s.current_reading.timestamp, s.last_recorded_timestamp, s.ever_received,
+        s.last_success_ms, millis(), synced, synced ? uint32_t(time(nullptr)) : 0);
+    record_reading(s, s.current_reading.glucose, s.current_reading.timestamp);
+    s.failure_count = 0;
+    s.ever_received = true;
+    s.last_success_ms = s.current_reading.received_at_ms;
+    Serial.printf("[%s] Glucose: %d, Trend: %s\n", tag,
+                  s.current_reading.glucose, TREND_NAMES[s.current_reading.trend]);
+}
+
 // Generic URL fetch (original behavior)
-static void generic_fetch(AccountState& s) {
-    AppConfig& cfg = config_get();
-
-    WiFiClientSecure client;
-    client.setInsecure();
-    client.setTimeout(10);
-
+static void generic_fetch(AccountState& s, const CgmAccount& a) {
+    WiFiClientSecure secure;
+    WiFiClient plain;
     HTTPClient http;
-    Serial.printf("[HTTP] Polling: %s\n", cfg.server_url);
+    Serial.printf("[HTTP] Polling: %s\n", a.url);
 
-    if (!http.begin(client, cfg.server_url)) {
+    if (!http.begin(client_for(a.url, secure, plain), a.url)) {
         Serial.println("[HTTP] Failed to begin connection");
         s.failure_count++;
         s.last_response_code = -1;
@@ -369,11 +389,7 @@ static void generic_fetch(AccountState& s) {
     http.setTimeout(10000);
     http.addHeader("Accept", "application/json");
 
-    if (strlen(cfg.auth_token) > 0) {
-        char auth_header[280];
-        snprintf(auth_header, sizeof(auth_header), "Bearer %s", cfg.auth_token);
-        http.addHeader("Authorization", auth_header);
-    }
+    if (a.token[0]) http.addHeader("Authorization", String("Bearer ") + a.token);
 
     int httpCode = http.GET();
     s.last_response_code = httpCode;
@@ -404,17 +420,7 @@ static void generic_fetch(AccountState& s) {
             s.current_reading.message[sizeof(s.current_reading.message) - 1] = '\0';
 
             if (s.current_reading.valid) {
-                const bool synced = time_is_network_synced();
-                s.current_reading.received_at_ms = glucose_received_at(
-                    s.current_reading.timestamp, s.last_recorded_timestamp, s.ever_received,
-                    s.last_success_ms, millis(), synced, synced ? uint32_t(time(nullptr)) : 0);
-                record_reading(s, s.current_reading.glucose, s.current_reading.timestamp);
-                s.failure_count = 0;
-                s.ever_received = true;
-                s.last_success_ms = s.current_reading.received_at_ms;
-                Serial.printf("[HTTP] Glucose: %d, Trend: %s\n",
-                              s.current_reading.glucose,
-                              TREND_NAMES[s.current_reading.trend]);
+                accept_reading(s, "HTTP");
             } else {
                 s.failure_count++;
                 Serial.println("[HTTP] Invalid glucose value");
@@ -427,6 +433,73 @@ static void generic_fetch(AccountState& s) {
     }
 
     http.end();
+}
+
+// Nightscout: latest sensor glucose entry from the site's own API.
+static bool nightscout_fetch(AccountState& s, const CgmAccount& a) {
+    const std::string url = nightscout_entries_url(a.url, a.token);
+    WiFiClientSecure secure;
+    WiFiClient plain;
+    HTTPClient http;
+    // The URL may carry the access token; log only the site.
+    Serial.printf("[NIGHTSCOUT] Polling: %s\n", a.url);
+    if (!http.begin(client_for(a.url, secure, plain), url.c_str())) {
+        snprintf(s.last_response_body, sizeof(s.last_response_body), "Invalid Nightscout URL");
+        s.last_response_code = -1;
+        s.failure_count++;
+        return false;
+    }
+    http.setTimeout(10000);
+    http.addHeader("Accept", "application/json");
+    const int code = http.GET();
+    s.last_response_code = code;
+    if (code != HTTP_CODE_OK) {
+        if (code == 401 || code == 403) {
+            snprintf(s.last_response_body, sizeof(s.last_response_body),
+                     "Nightscout refused access; add or check the access token");
+        } else if (code == 404) {
+            snprintf(s.last_response_body, sizeof(s.last_response_body),
+                     "Not a Nightscout site; use the site address, e.g. https://name.example.com");
+        } else {
+            snprintf(s.last_response_body, sizeof(s.last_response_body), "Nightscout HTTP %d", code);
+        }
+        Serial.printf("[NIGHTSCOUT] %s\n", s.last_response_body);
+        s.failure_count++;
+        http.end();
+        return false;
+    }
+    String payload = http.getString();
+    http.end();
+
+    JsonDocument filter;
+    filter[0]["sgv"] = true;
+    filter[0]["direction"] = true;
+    filter[0]["trend"] = true;
+    filter[0]["date"] = true;
+    JsonDocument doc;
+    NightscoutEntry entry = {};
+    if (deserializeJson(doc, payload, DeserializationOption::Filter(filter)) ||
+        !doc.is<JsonArray>()) {
+        snprintf(s.last_response_body, sizeof(s.last_response_body), "Nightscout: unexpected response");
+        s.failure_count++;
+        return false;
+    }
+    JsonObject latest = doc[0];
+    if (latest.isNull() || !nightscout_entry(latest["sgv"] | 0.0, latest["direction"] | "",
+                                             latest["trend"] | 0, latest["date"] | 0.0, entry)) {
+        snprintf(s.last_response_body, sizeof(s.last_response_body), "Nightscout has no glucose readings yet");
+        s.failure_count++;
+        return false;
+    }
+    snprintf(s.last_response_body, sizeof(s.last_response_body), "OK: %d mg/dL", entry.glucose);
+    s.current_reading.glucose = entry.glucose;
+    s.current_reading.trend = entry.trend;
+    s.current_reading.timestamp = entry.timestamp;
+    s.current_reading.force_mode = -1;
+    s.current_reading.message[0] = '\0';
+    s.current_reading.valid = true;
+    accept_reading(s, "NIGHTSCOUT");
+    return true;
 }
 
 // Demo mode: generate a synthetic in-range reading. Wanders gently via a
@@ -468,24 +541,11 @@ static void demo_generate(AccountState& s) {
 }
 
 // Callers hold config_libre_mutex() for configuration and published state.
-static DexcomAccount credentials(int index) {
-    const auto& cfg = config_get();
-    if (index > 0) return cfg.extra_dexcom[index - 1];
-    DexcomAccount a = {};
-    strcpy(a.label, cfg.dexcom_label);
-    strcpy(a.username, cfg.dexcom_username);
-    strcpy(a.password, cfg.dexcom_password);
-    a.us = cfg.dexcom_us;
-    return a;
-}
-
 bool http_account_enabled(int index) {
     LibreConfigLock lock(config_libre_mutex());
     if (index < 0 || index >= CGM_MAX_ACCOUNTS) return false;
     if (index == 0) return true;
-    if (config_get().data_source != 1) return false;
-    const auto& a = config_get().extra_dexcom[index - 1];
-    return a.username[0] && a.password[0];
+    return !config_get().demo_mode && cgm_account_configured(config_get().cgm[index]);
 }
 
 int http_account_count() {
@@ -496,8 +556,8 @@ int http_account_count() {
 
 bool http_account_label(int index, char* out, size_t size) {
     LibreConfigLock lock(config_libre_mutex());
-    const auto a = credentials(index >= 0 && index < CGM_MAX_ACCOUNTS ? index : 0);
-    const bool custom = a.label[0] && config_get().data_source == 1;
+    const auto& a = config_get().cgm[index >= 0 && index < CGM_MAX_ACCOUNTS ? index : 0];
+    const bool custom = a.label[0] && !config_get().demo_mode;
     if (custom) snprintf(out, size, "%s", a.label);
     else snprintf(out, size, "CGM%d", index + 1);
     return custom;
@@ -538,35 +598,35 @@ static bool fetch_account(int index, bool force) {
     std::unique_lock<std::mutex> transport(fetch_mutex, std::try_to_lock);
     if (!transport.owns_lock()) return false;
     static AccountState working;
-    DexcomAccount identity;
+    static CgmAccount identity;
     unsigned generation;
-    int source;
+    bool demo;
     {
         LibreConfigLock lock(config_libre_mutex());
         if (http_paused || !http_account_enabled(index)) return false;
-        source = config_get().data_source;
-        if (source != 2 && (!wifi_is_connected() ||
-            (index == 0 && !config_has_server()))) return false;
+        demo = config_get().demo_mode;
+        identity = config_get().cgm[index];
+        if (!demo && (!wifi_is_connected() || !cgm_account_configured(identity))) return false;
         auto& saved = accounts[index];
         const unsigned long interval = max(15, config_get().poll_interval_sec) * 1000UL;
-        if (!force && source != 2 && saved.last_poll_ms != 0 &&
+        if (!force && !demo && saved.last_poll_ms != 0 &&
             millis() - saved.last_poll_ms < interval) return false;
         saved.last_poll_ms = millis();
         working = saved;
-        identity = credentials(index);
         generation = generations[index];
     }
     bool ok = false;
-    if (source == 2) {
+    if (demo) {
         if (force) demo_last_update_ms = 0;
         demo_generate(working);
         ok = working.current_reading.valid;
-    } else if (source == 1) ok = dexcom_fetch_glucose(working, identity);
-    else if (source == 3) ok = libre_fetch_glucose(working);
-    else { generic_fetch(working); ok = working.failure_count == 0 && working.current_reading.valid; }
+    } else if (identity.provider == CGM_DEXCOM) ok = dexcom_fetch_glucose(working, identity);
+    else if (identity.provider == CGM_LIBRE) ok = libre_fetch_glucose(working, index);
+    else if (identity.provider == CGM_NIGHTSCOUT) ok = nightscout_fetch(working, identity);
+    else { generic_fetch(working, identity); ok = working.failure_count == 0 && working.current_reading.valid; }
     {
         LibreConfigLock lock(config_libre_mutex());
-        if (generation != generations[index] || source != config_get().data_source) return false;
+        if (generation != generations[index] || demo != config_get().demo_mode) return false;
         accounts[index] = working;
     }
     return ok;
@@ -619,12 +679,13 @@ int http_get_delta() {
 
 bool http_force_fetch() { return fetch_account(http_selected_account(), true); }
 
-bool http_test_account(int index, GlucoseReading& reading, int& code) {
+bool http_test_account(int index, GlucoseReading& reading, int& code, char* message, size_t size) {
     const bool ok = fetch_account(index, true);
     LibreConfigLock lock(config_libre_mutex());
-    if (!http_account_enabled(index)) { code = 400; return false; }
+    if (!http_account_enabled(index)) { code = 400; snprintf(message, size, "Unknown account"); return false; }
     reading = accounts[index].current_reading;
     code = accounts[index].last_response_code;
+    snprintf(message, size, "%s", accounts[index].last_response_body);
     return ok;
 }
 
@@ -637,7 +698,7 @@ int http_find_alert(int low, int high, int start) {
         if (!http_account_enabled(index)) continue;
         const auto& s = accounts[index];
         if (!s.current_reading.valid) continue;
-        if (cfg.data_source != 2 && (s.failure_count >= 5 ||
+        if (!cfg.demo_mode && (s.failure_count >= 5 ||
             millis() - s.last_success_ms >= (unsigned long)cfg.stale_timeout_min * 60000UL)) continue;
         if (s.current_reading.glucose < low || s.current_reading.glucose > high) return index;
     }

@@ -1,5 +1,6 @@
 #include "net_check.h"
 #include "config_manager.h"
+#include "http_client.h"
 #include "libre_client.h"
 #include "wifi_manager.h"
 
@@ -37,28 +38,38 @@ static NetCheckResult res_ntp = NC_UNKNOWN;
 static unsigned long last_run_ms = 0;
 static char summary[128] = "";
 static char data_host[96] = "";
+static uint16_t data_port = 443;
+static bool data_tls = true;
 
 // Pull the bare hostname out of the configured data source.
 static void resolve_data_host() {
     AppConfig& cfg = config_get();
     data_host[0] = '\0';
+    data_port = 443;
+    data_tls = true;
 
-    if (cfg.data_source == 2) {
+    if (cfg.demo_mode) {
         return; // demo mode synthesises readings; nothing to reach
     }
-    if (cfg.data_source == 1) {
-        strncpy(data_host, cfg.dexcom_us ? "share2.dexcom.com" : "shareous1.dexcom.com",
+    // The first account's host; other accounts report their own failures.
+    const CgmAccount& account = cfg.cgm[0];
+    if (account.provider == CGM_DEXCOM) {
+        strncpy(data_host, account.us ? "share2.dexcom.com" : "shareous1.dexcom.com",
                 sizeof(data_host) - 1);
         return;
     }
-    if (cfg.data_source == 3) {
-        libre_api_host(data_host, sizeof(data_host));
+    if (account.provider == CGM_LIBRE) {
+        libre_api_host(0, data_host, sizeof(data_host));
         return;
     }
 
-    // Custom URL / Nightscout: strip scheme, path, port and credentials
-    const char* url = cfg.server_url;
+    // Custom URL / Nightscout: keep the scheme and port, strip path and credentials
+    const char* url = account.url;
     if (url[0] == '\0') return;
+    if (strncmp(url, "http://", 7) == 0) {
+        data_tls = false;
+        data_port = 80;
+    }
     const char* p = strstr(url, "://");
     p = p ? p + 3 : url;
     const char* at = strchr(p, '@');
@@ -71,6 +82,10 @@ static void resolve_data_host() {
         i++;
     }
     data_host[i] = '\0';
+    if (p[i] == ':') {
+        long port = strtol(p + i + 1, nullptr, 10);
+        if (port > 0 && port <= 65535) data_port = (uint16_t)port;
+    }
 }
 
 static void build_summary() {
@@ -92,7 +107,9 @@ static void build_summary() {
 }
 
 static bool probe_dns() {
-    const char* host = data_host[0] ? data_host : "pool.ntp.org";
+    // With several accounts this is diagnostic only (the display follows each
+    // account's own fetches), so probe a neutral host rather than Account 1's.
+    const char* host = (data_host[0] && http_account_count() <= 1) ? data_host : NTP_PROBE_HOST;
     IPAddress addr;
     bool ok = WiFi.hostByName(host, addr);
     Serial.printf("[NETCHK] DNS %s -> %s\n", host, ok ? addr.toString().c_str() : "FAILED");
@@ -102,12 +119,20 @@ static bool probe_dns() {
 static bool probe_data() {
     if (data_host[0] == '\0') return true; // demo mode / nothing configured
 
-    WiFiClientSecure client;
-    client.setInsecure();          // reachability only, not a trust decision
-    client.setTimeout(TLS_TIMEOUT_MS / 1000);
-    bool ok = client.connect(data_host, 443, TLS_TIMEOUT_MS);
-    client.stop();
-    Serial.printf("[NETCHK] HTTPS %s:443 -> %s\n", data_host, ok ? "ok" : "FAILED");
+    bool ok;
+    if (data_tls) {
+        WiFiClientSecure client;
+        client.setInsecure();          // reachability only, not a trust decision
+        client.setTimeout(TLS_TIMEOUT_MS / 1000);
+        ok = client.connect(data_host, data_port, TLS_TIMEOUT_MS);
+        client.stop();
+    } else {
+        WiFiClient client;
+        ok = client.connect(data_host, data_port, TLS_TIMEOUT_MS);
+        client.stop();
+    }
+    Serial.printf("[NETCHK] %s %s:%u -> %s\n", data_tls ? "HTTPS" : "HTTP", data_host,
+                  (unsigned)data_port, ok ? "ok" : "FAILED");
     return ok;
 }
 

@@ -11,7 +11,7 @@
     night_mode_enabled: 'Night mode', stopwatch_enabled: 'Stopwatch', timer_enabled: 'Timer',
   };
   // Color follows the entity, never its rank.
-  const sourceColors = {dexcom: 'var(--series-1)', libre: 'var(--series-2)', custom: 'var(--series-3)', demo: 'var(--series-4)', unknown: 'var(--neutral)'};
+  const sourceColors = {dexcom: 'var(--series-1)', libre: 'var(--series-2)', custom: 'var(--series-3)', demo: 'var(--series-4)', nightscout: 'var(--series-5)', unknown: 'var(--neutral)'};
   const sortedCounts = counts => Object.entries(counts || {}).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   const target = id => document.getElementById(id);
   const DAY = 86400000;

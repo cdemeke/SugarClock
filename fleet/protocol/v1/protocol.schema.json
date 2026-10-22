@@ -248,7 +248,8 @@
             "custom",
             "dexcom",
             "demo",
-            "libre"
+            "libre",
+            "nightscout"
           ]
         },
         "companion_character": {

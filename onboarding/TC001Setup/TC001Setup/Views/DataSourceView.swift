@@ -158,11 +158,11 @@ struct DataSourceView: View {
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("API Token (optional)")
+                Text("Access Token (optional)")
                     .font(.subheadline.bold())
                 SecureField("token", text: $state.nightscoutToken)
                     .textFieldStyle(.roundedBorder)
-                Text("If your Nightscout site requires authentication, enter the API secret or token here.")
+                Text("If your Nightscout site requires authentication, create a token with the readable role in Admin Tools and enter it here. Do not use your API secret.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }

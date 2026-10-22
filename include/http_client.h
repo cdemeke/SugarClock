@@ -44,11 +44,12 @@ bool http_account_enabled(int index);
 int http_account_count();
 int http_selected_account();
 void http_select_account(int index);
-// Returns true when the person has a user-chosen Dexcom display name.
+// Returns true when the person has a user-chosen display name.
 bool http_account_label(int index, char* out, size_t size);
 void http_reset_account(int index);
 int http_find_alert(int low, int high, int start = 0);
-bool http_test_account(int index, GlucoseReading& reading, int& code);
+// Poll one account now; message receives its last status or error text.
+bool http_test_account(int index, GlucoseReading& reading, int& code, char* message, size_t size);
 
 // Get failure count since last success
 int http_get_failure_count();

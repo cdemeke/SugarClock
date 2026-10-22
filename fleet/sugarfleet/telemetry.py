@@ -54,7 +54,7 @@ def validate_telemetry(value):
             raise ApiError("invalid_features", key + " must be boolean")
     if "data_source" in features and (
         not isinstance(features["data_source"], str)
-        or features["data_source"] not in {"dexcom", "libre", "custom", "demo"}
+        or features["data_source"] not in {"dexcom", "libre", "nightscout", "custom", "demo"}
     ):
         raise ApiError("invalid_features", "unsupported data source")
     if "companion_character" in features and (
