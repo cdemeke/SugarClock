@@ -17,6 +17,7 @@ static AppConfig cfg = {};
 static GlucoseReading reading = {};
 static unsigned long now_ms = 0, age_ms = 0;
 static int failures = 0, drawn_glucose = 0, delta_frames = 0, button_actions = 0;
+static int hour = 12, trend_frames = 0, trend_delta_frames = 0;
 static uint16_t drawn_color = 0;
 static uint8_t frame_level = 0;
 static bool connected = true, ap_mode = false, notification = false, ever_received = true;
@@ -47,7 +48,7 @@ bool notify_has_active() { return notification; }
 bool notify_is_urgent() { return true; }
 const char* notify_get_text() { return "message"; }
 bool time_is_available() { return true; }
-int time_get_hour() { return 12; }
+int time_get_hour() { return hour; }
 int time_get_minute() { return 0; }
 int time_get_second() { return 0; }
 int time_get_day() { return 1; }
@@ -84,7 +85,7 @@ bool display_scroll_text(const char*, int, uint16_t, unsigned int) { return fals
 void display_draw_text(const char*, int, int, uint16_t) {}
 void display_draw_pixel(int, int, uint16_t) {}
 void display_draw_time(int, int, bool, bool, uint16_t) {}
-void display_draw_trend(int, int, int, uint16_t) {}
+void display_draw_trend(int, int, int, uint16_t) { ++trend_frames; }
 void display_draw_bar(int, int, uint16_t) {}
 int display_draw_glucose(int value, uint16_t color, bool) {
     drawn_glucose = value; drawn_color = color; return 24;
@@ -92,7 +93,7 @@ int display_draw_glucose(int value, uint16_t color, bool) {
 uint16_t display_color(uint8_t r, uint8_t g, uint8_t b) {
     return ((r & 0xf8) << 8) | ((g & 0xfc) << 3) | (b >> 3);
 }
-void display_draw_glucose_delta(int, int, uint16_t, bool) {}
+void display_draw_glucose_delta(int, int, uint16_t, bool) { ++trend_delta_frames; }
 void glucose_render_delta_flash(int, uint16_t, bool) { ++delta_frames; }
 void glucose_render_stale(const GlucoseReading&, const AppConfig&, uint8_t) {}
 
@@ -249,5 +250,52 @@ int main() {
     notification = false; cfg.auto_cycle_enabled = false;
     engine_force_state(STATE_WEATHER_DISPLAY); settle();
     assert(engine_get_state() == STATE_WEATHER_DISPLAY);
+
+    // Delta visibility changes trend content, while both navigation directions
+    // and auto-cycling retain the trend screen even with the default false.
+    engine_clear_force();
+    cfg.show_delta = false;
+    reading.trend = TREND_FLAT;
+    engine_set_default_mode(STATE_GLUCOSE_DISPLAY); engine_rebuild_toggle_order();
+    assert(engine_toggle_mode());
+    assert(engine_get_user_mode() == STATE_TREND_DISPLAY);
+    trend_frames = trend_delta_frames = 0;
+    settle();
+    assert(engine_get_state() == STATE_TREND_DISPLAY);
+    assert(trend_frames > 0 && trend_delta_frames == 0);
+    cfg.show_delta = true;
+    trend_frames = trend_delta_frames = 0;
+    tick();
+    assert(trend_frames == 0 && trend_delta_frames > 0);
+    cfg.show_delta = false; engine_rebuild_toggle_order();
+    assert(engine_get_user_mode() == STATE_TREND_DISPLAY);
+    assert(engine_toggle_mode()); assert(engine_toggle_mode_prev());
+    assert(engine_get_user_mode() == STATE_TREND_DISPLAY);
+    engine_set_default_mode(STATE_GLUCOSE_DISPLAY); engine_rebuild_toggle_order();
+    cfg.auto_cycle_enabled = true; engine_reset_auto_cycle();
+    tick(3000);
+    assert(engine_get_user_mode() == STATE_TREND_DISPLAY);
+
+    // An overnight pause (22:00-07:00) restarts with a full interval, whether
+    // it ends on schedule or by disabling the pause setting during the night.
+    cfg.night_mode_enabled = true; cfg.night_disable_auto_cycle = true;
+    cfg.night_start_hour = 22; cfg.night_end_hour = 7;
+    hour = 23;
+    const DisplayState night_mode = engine_get_user_mode();
+    tick(3600000); assert(engine_get_user_mode() == night_mode);
+    hour = 6;
+    tick(7UL * 3600000); assert(engine_get_user_mode() == night_mode);
+    hour = 7;
+    tick(); assert(engine_get_user_mode() == night_mode);
+    tick(2900); assert(engine_get_user_mode() == night_mode);
+    tick(50); assert(engine_get_user_mode() != night_mode);
+
+    hour = 23;
+    tick(3600000);
+    const DisplayState paused_mode = engine_get_user_mode();
+    cfg.night_disable_auto_cycle = false;
+    tick(); assert(engine_get_user_mode() == paused_mode);
+    tick(2900); assert(engine_get_user_mode() == paused_mode);
+    tick(50); assert(engine_get_user_mode() != paused_mode);
     return 0;
 }

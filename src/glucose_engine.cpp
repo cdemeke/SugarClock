@@ -138,7 +138,7 @@ void engine_rebuild_toggle_order() {
     AppConfig& cfg = config_get();
     toggle_count = 0;
     toggle_order[toggle_count++] = STATE_GLUCOSE_DISPLAY;
-    if (cfg.show_delta) toggle_order[toggle_count++] = STATE_TREND_DISPLAY;
+    toggle_order[toggle_count++] = STATE_TREND_DISPLAY;
     if (cfg.time_display_enabled) toggle_order[toggle_count++] = STATE_TIME_DISPLAY;
     if (cfg.weather_enabled) toggle_order[toggle_count++] = STATE_WEATHER_DISPLAY;
     if (cfg.ambient_enabled) toggle_order[toggle_count++] = STATE_AMBIENT_CREATURE_DISPLAY;
@@ -898,6 +898,8 @@ void engine_loop() {
     bool cycling_active = !low_glucose_active && !connection_info_visible &&
                           cfg.auto_cycle_enabled && toggle_count > 1;
     if (cycling_active && is_night_mode() && cfg.night_disable_auto_cycle) {
+        // Give the selected screen a full interval when the night pause ends.
+        last_cycle_ms = millis();
         cycling_active = false;
     }
     if (cycling_active) {
