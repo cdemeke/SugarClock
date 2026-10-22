@@ -29,8 +29,9 @@ void libre_api_host(int slot, char* out, size_t n);
 // fresh login automatically)
 void libre_reset_session();
 
-// Cached people from the most recent connections response for this login.
-LibrePatients libre_get_patients(const char* email);
+// Cached people from the most recent connections response for this exact
+// login (email and password).
+LibrePatients libre_get_patients(const char* email, const char* password);
 
 // HTTP code of the last request (-1 = connection failure)
 int libre_last_http_code();

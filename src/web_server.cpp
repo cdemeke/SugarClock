@@ -172,7 +172,7 @@ static void add_account(JsonArray list, int slot, const CgmAccount& a) {
     item["patient_id"] = String(a.patient_id);
     item["patient_name"] = String(a.patient_name);
     JsonArray people = item["patients"].to<JsonArray>();
-    LibrePatients snapshot = libre_get_patients(a.username);
+    LibrePatients snapshot = libre_get_patients(a.username, a.password);
     if (!snapshot) return;
     for (const LibrePatient& entry : snapshot->people) {
         JsonObject person = people.add<JsonObject>();
@@ -361,7 +361,7 @@ static bool prepare_accounts(JsonDocument& doc, const AppConfig& cfg, CgmAccount
         // Never accept an arbitrary person ID: it must come from this login's list.
         if (next.provider == CGM_LIBRE && next.patient_id[0] &&
             strcmp(next.patient_id, saved.patient_id) != 0) {
-            LibrePatients snapshot = libre_get_patients(next.username);
+            LibrePatients snapshot = libre_get_patients(next.username, next.password);
             int index = snapshot ? libre_patient_index(snapshot->people.data(), snapshot->people.size(), next.patient_id)
                                  : LIBRE_PATIENT_MISSING;
             if (index < 0) {
@@ -374,6 +374,19 @@ static bool prepare_accounts(JsonDocument& doc, const AppConfig& cfg, CgmAccount
     if (!seen[0]) {
         snprintf(error, error_size, "Account 1 is required");
         return false;
+    }
+    // The clock only leaves its setup screen once account 1 works, so extra
+    // people outside Demo Mode need a configured account 1.
+    bool demo = cfg.demo_mode;
+    if (doc["demo_mode"].is<bool>()) demo = doc["demo_mode"].as<bool>();
+    else if (doc["data_source"].is<int>()) demo = doc["data_source"].as<int>() == CGM_DEMO_SOURCE;
+    if (!demo && !cgm_account_configured(proposed[0])) {
+        for (int i = 1; i < CGM_MAX_ACCOUNTS; ++i) {
+            if (proposed[i].provider != CGM_NONE) {
+                snprintf(error, error_size, "Set up account 1 before adding more people");
+                return false;
+            }
+        }
     }
     return true;
 }

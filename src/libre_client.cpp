@@ -533,10 +533,13 @@ void libre_reset_session() {
     reset_pending.store(true);
 }
 
-LibrePatients libre_get_patients(const char* email) {
+LibrePatients libre_get_patients(const char* email, const char* password) {
     LibreConfigLock lock(config_libre_mutex());
     for (LibreLogin& login : logins) {
-        if (email && email[0] && strcmp(login.email, email) == 0) {
+        // Match the whole login, like login_for(): an old password's context
+        // may linger beside the current one with a frozen list.
+        if (email && email[0] && password && strcmp(login.email, email) == 0 &&
+            strcmp(login.password, password) == 0) {
             LibrePatients people = login.patients.get(email);
             if (people) return people;
         }
