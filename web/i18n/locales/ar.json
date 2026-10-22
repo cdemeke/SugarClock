@@ -937,6 +937,7 @@
   "View {0} recorded snapshot": "عرض {0} لقطة مسجلة",
   "View {0} recorded snapshots": "عرض {0} لقطات مسجلة",
   "An OpenWeatherMap API key is required for weather to appear on the clock.": "يلزم مفتاح OpenWeatherMap API لكي يظهر الطقس على الساعة.",
+  "Waiting for the first weather reading. Until it arrives, the clock leaves the weather screen blank.": "في انتظار أول قراءة للطقس. إلى أن تصل، تبقى شاشة الطقس على الساعة فارغة.",
   "API key needed": "مفتاح API مطلوب",
   "Minimum": "الحد الأدنى",
   "Fine brightness adjustment": "ضبط دقيق للسطوع",

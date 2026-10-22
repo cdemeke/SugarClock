@@ -937,6 +937,7 @@
   "View {0} recorded snapshot": "Afficher {0} instantané enregistré",
   "View {0} recorded snapshots": "Afficher {0} instantanés enregistrés",
   "An OpenWeatherMap API key is required for weather to appear on the clock.": "Une clé API OpenWeatherMap est nécessaire pour afficher la météo sur l’horloge.",
+  "Waiting for the first weather reading. Until it arrives, the clock leaves the weather screen blank.": "En attente du premier relevé météo. En attendant, l'horloge laisse l'écran météo vide.",
   "API key needed": "Clé API requise",
   "Minimum": "Minimum",
   "Fine brightness adjustment": "Réglage fin de la luminosité",

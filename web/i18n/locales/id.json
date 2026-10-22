@@ -937,6 +937,7 @@
   "View {0} recorded snapshot": "Lihat {0} rekaman cuplikan",
   "View {0} recorded snapshots": "Lihat {0} rekaman cuplikan",
   "An OpenWeatherMap API key is required for weather to appear on the clock.": "Kunci API OpenWeatherMap diperlukan agar cuaca muncul di jam.",
+  "Waiting for the first weather reading. Until it arrives, the clock leaves the weather screen blank.": "Menunggu pembacaan cuaca pertama. Sampai data tersebut tiba, layar cuaca pada jam akan kosong.",
   "API key needed": "Kunci API diperlukan",
   "Minimum": "Minimum",
   "Fine brightness adjustment": "Penyesuaian kecerahan halus",

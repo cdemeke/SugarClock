@@ -937,6 +937,7 @@
   "View {0} recorded snapshot": "Tazama {0} muhtasari uliorekodiwa",
   "View {0} recorded snapshots": "Tazama picha {0} zilizorekodiwa",
   "An OpenWeatherMap API key is required for weather to appear on the clock.": "Ufunguo wa API wa OpenWeatherMap unahitajika ili hali ya hewa ionekane kwenye saa.",
+  "Waiting for the first weather reading. Until it arrives, the clock leaves the weather screen blank.": "Inasubiri usomaji wa kwanza wa hali ya hewa. Hadi utakapofika, skrini ya hali ya hewa kwenye saa itabaki tupu.",
   "API key needed": "Ufunguo wa API unahitajika",
   "Minimum": "Kiwango cha chini",
   "Fine brightness adjustment": "Marekebisho madogo ya mwangaza",

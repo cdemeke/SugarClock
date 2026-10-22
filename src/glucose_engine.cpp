@@ -79,17 +79,8 @@ static void draw_weather_content(uint32_t now) {
     const AppConfig& cfg = config_get();
     const uint16_t color = color_from_uint32(cfg.color_weather);
     if (!weather_has_data()) {
+        // Missing key and pending fetch are reported in the web UI, not here.
         weather_animation_reset(weather_animation);
-        // No key means no fetch will ever run, so say so instead of "loading".
-        if (cfg.weather_api_key[0] == '\0') {
-            if ((now / 2000) % 2 == 0) {
-                display_draw_text("NO", 10, 0, color);
-            } else {
-                display_draw_text("KEY", 7, 0, color);
-            }
-        } else {
-            display_draw_text("WX...", 4, 0, color);
-        }
         return;
     }
 
@@ -622,9 +613,7 @@ static void render_state(DisplayState state) {
             display_set_brightness(effective_brightness());
             display_clear();
 
-            if (!sysmon_has_data()) {
-                display_draw_text("SYS..", 1, 0, display_color(100, 100, 100));
-            } else {
+            if (sysmon_has_data()) {
                 int value = sysmon_get_value();
                 int max_val = sysmon_get_max();
                 const char* label = sysmon_get_label();
@@ -755,7 +744,7 @@ static void render_state(DisplayState state) {
             display_clear();
             const char* text = connection_info_buf[0]
                 ? connection_info_buf
-                : "SugarClock connection information unavailable";
+                : "Connection unavailable";
             bool complete = display_scroll_text(
                 text, 0, display_color(255, 255, 255), 55);
             display_show();
@@ -803,19 +792,19 @@ static void render_state(DisplayState state) {
                         snprintf(trial_line, sizeof(trial_line), "Joining %s", wifi_trial_ssid());
                         break;
                     case WIFI_TRIAL_AUTHENTICATING:
-                        snprintf(trial_line, sizeof(trial_line), "Authenticating %s", wifi_trial_ssid());
+                        snprintf(trial_line, sizeof(trial_line), "Connecting %s", wifi_trial_ssid());
                         break;
                     case WIFI_TRIAL_CONNECTED:
-                        snprintf(trial_line, sizeof(trial_line), "Connected! IP %s", wifi_get_ip());
+                        snprintf(trial_line, sizeof(trial_line), "Successfully connected %s", wifi_get_ip());
                         break;
                     case WIFI_TRIAL_FAILED_AUTH:
-                        snprintf(trial_line, sizeof(trial_line), "Credentials rejected. Check username and password");
+                        snprintf(trial_line, sizeof(trial_line), "Password rejected");
                         break;
                     case WIFI_TRIAL_FAILED_NO_AP:
                         snprintf(trial_line, sizeof(trial_line), "Network not found. Check SSID and 2.4 GHz");
                         break;
                     case WIFI_TRIAL_FAILED_TIMEOUT:
-                        snprintf(trial_line, sizeof(trial_line), "Connection timed out. Try again");
+                        snprintf(trial_line, sizeof(trial_line), "Connection timed out");
                         break;
                     default:
                         trial_line[0] = '\0';
@@ -831,9 +820,9 @@ static void render_state(DisplayState state) {
             static int setup_page = 0;
             char line[64];
             if (setup_page == 0) {
-                snprintf(line, sizeof(line), "WiFi setup: join %s", wifi_get_ap_ssid());
+                snprintf(line, sizeof(line), "join %s", wifi_get_ap_ssid());
             } else {
-                snprintf(line, sizeof(line), "Then open http://%s", wifi_get_ap_ip());
+                snprintf(line, sizeof(line), "open %s", wifi_get_ap_ip());
             }
             if (display_scroll_text(line, 0, display_color(0, 200, 200), 70)) {
                 setup_page ^= 1;
@@ -857,11 +846,11 @@ static void render_state(DisplayState state) {
             if (wifi_is_connected()) {
                 // WiFi connected but no glucose source — show device IP
                 IPAddress ip = WiFi.localIP();
-                snprintf(setup_msg, sizeof(setup_msg), "Visit %d.%d.%d.%d to setup",
+                snprintf(setup_msg, sizeof(setup_msg), "Visit %d.%d.%d.%d",
                          ip[0], ip[1], ip[2], ip[3]);
             } else {
                 // No WiFi — AP mode, show AP address
-                snprintf(setup_msg, sizeof(setup_msg), "Setup: visit 192.168.4.1");
+                snprintf(setup_msg, sizeof(setup_msg), "Visit 192.168.4.1");
             }
             int msg_len = strlen(setup_msg);
             int total_w = msg_len * 6;
@@ -1070,13 +1059,13 @@ void engine_show_connection_info() {
     if (engine_low_glucose_lock_active()) return;
     if (wifi_is_connected() && strcmp(wifi_get_ip(), "0.0.0.0") != 0) {
         snprintf(connection_info_buf, sizeof(connection_info_buf),
-                 "To connect, visit %s", wifi_get_ip());
+                 "visit %s", wifi_get_ip());
     } else if (wifi_is_ap_mode()) {
         snprintf(connection_info_buf, sizeof(connection_info_buf),
-                 "To set up SugarClock, visit %s", wifi_get_ap_ip());
+                 "visit %s", wifi_get_ap_ip());
     } else {
         snprintf(connection_info_buf, sizeof(connection_info_buf),
-                 "SugarClock is not connected to WiFi");
+                 "No Wifi");
     }
 
     connection_info_visible = true;

@@ -937,6 +937,7 @@
   "View {0} recorded snapshot": "Duba {0} da aka yi rikodin hoto",
   "View {0} recorded snapshots": "Duba {0} hotuna da aka yi rikodin",
   "An OpenWeatherMap API key is required for weather to appear on the clock.": "Ana buƙatar maɓallin API na OpenWeatherMap don yanayi ya bayyana a agogo.",
+  "Waiting for the first weather reading. Until it arrives, the clock leaves the weather screen blank.": "Ana jiran karatun yanayi na farko. Har sai ya iso, allon yanayi a agogo zai kasance babu komai.",
   "API key needed": "Ana buƙatar maɓallin API",
   "Minimum": "Mafi ƙanƙanta",
   "Fine brightness adjustment": "Daidaita haske kaɗan-kaɗan",

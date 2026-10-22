@@ -937,6 +937,7 @@
   "View {0} recorded snapshot": "{0} रेकॉर्ड केलेला स्नॅपशॉट पहा",
   "View {0} recorded snapshots": "{0} रेकॉर्ड केलेले स्नॅपशॉट पहा",
   "An OpenWeatherMap API key is required for weather to appear on the clock.": "घड्याळावर हवामान दिसण्यासाठी OpenWeatherMap API की आवश्यक आहे.",
+  "Waiting for the first weather reading. Until it arrives, the clock leaves the weather screen blank.": "पहिल्या हवामान वाचनाची प्रतीक्षा आहे. ते येईपर्यंत घड्याळावरील हवामान स्क्रीन रिकामी राहील.",
   "API key needed": "API की आवश्यक आहे",
   "Minimum": "किमान",
   "Fine brightness adjustment": "ब्राइटनेसचे बारीक समायोजन",

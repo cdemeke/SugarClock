@@ -730,6 +730,9 @@
                         <div class="weather-key-warning" id="weather_key_warning" role="status" hidden>
                             &#9888;&#65039; <span data-i18n="An OpenWeatherMap API key is required for weather to appear on the clock.">An OpenWeatherMap API key is required for weather to appear on the clock.</span> <span data-i18n="Get a free key at">Get a free key at</span> <a href="https://openweathermap.org/appid" target="_blank"><span data-i18n="openweathermap.org">openweathermap.org</span></a>
                         </div>
+                        <div class="weather-key-warning" id="weather_waiting_note" role="status" hidden>
+                            <span data-i18n="Waiting for the first weather reading. Until it arrives, the clock leaves the weather screen blank.">Waiting for the first weather reading. Until it arrives, the clock leaves the weather screen blank.</span>
+                        </div>
                         <div class="form-group">
                             <label><span data-i18n="API Key">API Key</span></label>
                             <div class="pw-wrap">
@@ -1608,6 +1611,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
         // Weather needs an API key; GET /api/config only reports whether one is saved.
         let weatherKeySaved = false;
+        let weatherHasData = true; // until /api/status says otherwise
         function updateWeatherKeyState() {
             const key = document.getElementById('weather_api_key');
             if (weatherKeySaved) key.setAttribute('data-i18n-placeholder', 'Saved \u2014 leave blank to keep');
@@ -1615,6 +1619,9 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             key.placeholder = weatherKeySaved ? I18n.t('Saved \u2014 leave blank to keep') : '';
             document.getElementById('weather_key_warning').hidden =
                 !document.getElementById('weather_enabled').checked || weatherKeySaved || key.value.trim() !== '';
+            // The clock no longer shows a loading message, so report a pending first fetch here.
+            document.getElementById('weather_waiting_note').hidden =
+                !document.getElementById('weather_enabled').checked || !weatherKeySaved || weatherHasData;
         }
         document.getElementById('weather_enabled').addEventListener('change', updateWeatherKeyState);
         document.getElementById('weather_api_key').addEventListener('input', updateWeatherKeyState);
@@ -1700,6 +1707,8 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 const r = await fetch('/api/status');
                 const d = await r.json();
                 updateDisplayControls(d.state, d.glucose_display_locked);
+                weatherHasData = d.weather_temp !== undefined;
+                updateWeatherKeyState();
             } catch (e) {}
         }
         setInterval(updateCurrentMode, 3000);

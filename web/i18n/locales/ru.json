@@ -937,6 +937,7 @@
   "View {0} recorded snapshot": "Просмотреть {0} записанный снимок",
   "View {0} recorded snapshots": "Просмотреть {0} записанных снимков",
   "An OpenWeatherMap API key is required for weather to appear on the clock.": "Чтобы погода отображалась на часах, нужен API-ключ OpenWeatherMap.",
+  "Waiting for the first weather reading. Until it arrives, the clock leaves the weather screen blank.": "Ожидание первых данных о погоде. Пока они не поступят, экран погоды на часах остаётся пустым.",
   "API key needed": "Нужен API-ключ",
   "Minimum": "Минимум",
   "Fine brightness adjustment": "Точная настройка яркости",
