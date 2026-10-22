@@ -133,6 +133,9 @@ static unsigned long last_cycle_ms = 0;
 
 void engine_rebuild_toggle_order() {
     AppConfig& cfg = config_get();
+    // Match the user's account, not one temporarily shown for a low reading.
+    const int previous_account = (toggle_index < toggle_count && toggle_accounts[toggle_index] >= 0)
+        ? toggle_accounts[toggle_index] : http_selected_account();
     toggle_count = 0;
     for (int& account : toggle_accounts) account = -1;
     for (int i = 0; i < CGM_MAX_ACCOUNTS; ++i) {
@@ -156,7 +159,7 @@ void engine_rebuild_toggle_order() {
     // Reset toggle_index to match current user_mode
     for (int i = 0; i < toggle_count; i++) {
         if (toggle_order[i] == user_mode &&
-            (toggle_accounts[i] < 0 || toggle_accounts[i] == http_selected_account())) {
+            (toggle_accounts[i] < 0 || toggle_accounts[i] == previous_account)) {
             toggle_index = i;
             return;
         }
@@ -329,12 +332,11 @@ static DisplayState evaluate_state() {
             return STATE_NO_WIFI;
         }
 
-        // The data probe targets Account 1's host. With multiple regions,
-        // use each account's own failures/freshness instead of letting that
-        // one host suppress every other person's reading. DNS remains global.
-        if (wifi_is_connected() &&
-            (netcheck_dns() == NC_FAIL ||
-             (http_account_count() == 1 && netcheck_data() == NC_FAIL))) {
+        // The DNS and data probes target Account 1's host. With multiple
+        // regions, use each account's own failures/freshness instead of
+        // letting that one host suppress every other person's reading.
+        if (wifi_is_connected() && http_account_count() == 1 &&
+            (netcheck_dns() == NC_FAIL || netcheck_data() == NC_FAIL)) {
             return STATE_NET_LIMITED;
         }
 
