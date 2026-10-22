@@ -937,6 +937,7 @@
   "View {0} recorded snapshot": "{0} aufgezeichneten Schnappschuss ansehen",
   "View {0} recorded snapshots": "Sehen Sie sich {0} aufgezeichnete Schnappschüsse an",
   "An OpenWeatherMap API key is required for weather to appear on the clock.": "Ein OpenWeatherMap-API-Schlüssel ist erforderlich, damit das Wetter auf der Uhr angezeigt wird.",
+  "Waiting for the first weather reading. Until it arrives, the clock leaves the weather screen blank.": "Warte auf den ersten Wetterwert. Bis er eintrifft, bleibt der Wetterbildschirm der Uhr leer.",
   "API key needed": "API-Schlüssel erforderlich",
   "Minimum": "Minimum",
   "Fine brightness adjustment": "Feineinstellung der Helligkeit",

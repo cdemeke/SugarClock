@@ -937,6 +937,7 @@
   "View {0} recorded snapshot": "{0} ریکارڈ شدہ سنیپ شاٹ دیکھیں",
   "View {0} recorded snapshots": "{0} ریکارڈ شدہ سنیپ شاٹس دیکھیں",
   "An OpenWeatherMap API key is required for weather to appear on the clock.": "گھڑی پر موسم دکھانے کے لیے OpenWeatherMap API کلید درکار ہے۔",
+  "Waiting for the first weather reading. Until it arrives, the clock leaves the weather screen blank.": "موسم کی پہلی ریڈنگ کا انتظار ہے۔ جب تک یہ نہیں آتی، گھڑی پر موسم کی اسکرین خالی رہے گی۔",
   "API key needed": "API کلید درکار ہے",
   "Minimum": "کم از کم",
   "Fine brightness adjustment": "چمک کی باریک ایڈجسٹمنٹ",

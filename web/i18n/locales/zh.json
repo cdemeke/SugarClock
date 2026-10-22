@@ -937,6 +937,7 @@
   "View {0} recorded snapshot": "查看{0}记录的快照",
   "View {0} recorded snapshots": "查看 {0} 个记录的快照",
   "An OpenWeatherMap API key is required for weather to appear on the clock.": "天气要显示在时钟上，需要 OpenWeatherMap API 密钥。",
+  "Waiting for the first weather reading. Until it arrives, the clock leaves the weather screen blank.": "正在等待第一次天气读数。在此之前，时钟的天气画面将保持空白。",
   "API key needed": "需要 API 密钥",
   "Minimum": "最低",
   "Fine brightness adjustment": "亮度微调",

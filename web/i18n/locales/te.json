@@ -937,6 +937,7 @@
   "View {0} recorded snapshot": "రికార్డ్ చేసిన {0} స్నాప్‌షాట్‌ని వీక్షించండి",
   "View {0} recorded snapshots": "రికార్డ్ చేయబడిన {0} స్నాప్‌షాట్‌లను వీక్షించండి",
   "An OpenWeatherMap API key is required for weather to appear on the clock.": "గడియారంలో వాతావరణం కనిపించాలంటే OpenWeatherMap API కీ అవసరం.",
+  "Waiting for the first weather reading. Until it arrives, the clock leaves the weather screen blank.": "మొదటి వాతావరణ రీడింగ్ కోసం వేచి ఉంది. అది వచ్చే వరకు, గడియారంలోని వాతావరణ స్క్రీన్ ఖాళీగా ఉంటుంది.",
   "API key needed": "API కీ అవసరం",
   "Minimum": "కనిష్ఠం",
   "Fine brightness adjustment": "ప్రకాశం సూక్ష్మ సర్దుబాటు",

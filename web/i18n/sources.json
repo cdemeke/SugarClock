@@ -714,6 +714,7 @@
     "{0}° {1} (Humidity: {2}%)",
     "← Prev",
     "An OpenWeatherMap API key is required for weather to appear on the clock.",
+    "Waiting for the first weather reading. Until it arrives, the clock leaves the weather screen blank.",
     "API key needed",
     "Minimum",
     "Fine brightness adjustment",

@@ -937,6 +937,7 @@
   "View {0} recorded snapshot": "{0} kayıtlı anlık görüntüyü görüntüle",
   "View {0} recorded snapshots": "{0} kayıtlı anlık görüntüyü görüntüle",
   "An OpenWeatherMap API key is required for weather to appear on the clock.": "Hava durumunun saatte görünmesi için bir OpenWeatherMap API anahtarı gerekir.",
+  "Waiting for the first weather reading. Until it arrives, the clock leaves the weather screen blank.": "İlk hava durumu verisi bekleniyor. Gelene kadar saatteki hava durumu ekranı boş kalır.",
   "API key needed": "API anahtarı gerekli",
   "Minimum": "En düşük",
   "Fine brightness adjustment": "Hassas parlaklık ayarı",

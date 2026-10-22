@@ -937,6 +937,7 @@
   "View {0} recorded snapshot": "{0} の記録されたスナップショットを表示する",
   "View {0} recorded snapshots": "{0} 個の記録されたスナップショットを表示する",
   "An OpenWeatherMap API key is required for weather to appear on the clock.": "時計に天気を表示するには、OpenWeatherMap の API キーが必要です。",
+  "Waiting for the first weather reading. Until it arrives, the clock leaves the weather screen blank.": "最初の天気データを待っています。届くまで、時計の天気画面は空白のままです。",
   "API key needed": "API キーが必要です",
   "Minimum": "最小",
   "Fine brightness adjustment": "明るさの微調整",

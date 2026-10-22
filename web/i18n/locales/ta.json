@@ -937,6 +937,7 @@
   "View {0} recorded snapshot": "பதிவுசெய்யப்பட்ட {0} ஸ்னாப்ஷாட்டைப் பார்க்கவும்",
   "View {0} recorded snapshots": "பதிவுசெய்யப்பட்ட {0} ஸ்னாப்ஷாட்களைக் காண்க",
   "An OpenWeatherMap API key is required for weather to appear on the clock.": "கடிகாரத்தில் வானிலை தோன்ற OpenWeatherMap API விசை தேவை.",
+  "Waiting for the first weather reading. Until it arrives, the clock leaves the weather screen blank.": "முதல் வானிலை அளவீட்டிற்காகக் காத்திருக்கிறது. அது வரும் வரை, கடிகாரத்தின் வானிலைத் திரை காலியாக இருக்கும்.",
   "API key needed": "API விசை தேவை",
   "Minimum": "குறைந்தபட்சம்",
   "Fine brightness adjustment": "ஒளிர்வை நுணுக்கமாக சரிசெய்தல்",
