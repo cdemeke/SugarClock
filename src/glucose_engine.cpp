@@ -900,9 +900,20 @@ void engine_loop() {
         http_select_account(toggle_accounts[toggle_index]);
     }
     was_low = low_glucose_active;
-    if (!low_glucose_active && connection_info_visible) {
-        const int urgent = http_find_alert(cfg.thresh_urgent_low, cfg.thresh_urgent_high);
-        if (urgent >= 0) http_select_account(urgent);
+    // An urgent reading shown over connection info is a temporary override:
+    // restore the user's account once urgency ends or the overlay closes.
+    static int urgent_restore_account = -1;
+    const int urgent = (!low_glucose_active && connection_info_visible)
+        ? http_find_alert(cfg.thresh_urgent_low, cfg.thresh_urgent_high) : -1;
+    if (urgent >= 0) {
+        if (urgent_restore_account < 0) urgent_restore_account = http_selected_account();
+        http_select_account(urgent);
+    } else if (urgent_restore_account >= 0) {
+        if (!low_glucose_active) {
+            http_select_account(toggle_accounts[toggle_index] >= 0
+                ? toggle_accounts[toggle_index] : urgent_restore_account);
+        }
+        urgent_restore_account = -1;
     }
     if (low_glucose_active) {
         // Preserve the selected screen, and give it a full cycle after recovery.
