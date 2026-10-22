@@ -22,8 +22,12 @@ const WeatherReading& weather_get_reading();
 // Check if weather data has been received
 bool weather_has_data();
 
-// Force an immediate weather fetch (for testing), returns true on success
+// Queue a weather fetch (for testing) on the main loop; returns false while paused.
+// Completion is signalled by weather_force_generation() advancing.
 bool weather_force_fetch();
+bool weather_force_pending();
+bool weather_last_force_ok();
+unsigned long weather_force_generation();
 
 // Get the last HTTP status code from weather fetch
 int weather_get_last_http_code();

@@ -14,6 +14,9 @@ static bool ever_received = false;
 static int last_http_code = 0;
 static char last_response[256] = "";
 static WeatherPreFetchCallback pre_fetch_cb = nullptr;
+static volatile bool force_requested = false;
+static volatile bool force_ok = false;
+static volatile unsigned long force_generation = 0;
 
 // Detect whether the location string looks like a zip/postal code.
 // Returns true for patterns like "90210", "90210,US", "SW1A 1AA,GB"
@@ -180,6 +183,18 @@ void weather_loop() {
     if (weather_paused) return;
     AppConfig& cfg = config_get();
 
+    // Forced test fetches run here so they share the pause state and network lease.
+    if (force_requested) {
+        bool needs_network = strlen(cfg.weather_api_key) && strlen(cfg.weather_city) && wifi_is_connected();
+        if (needs_network && !ble_acquire_network()) return;
+        force_requested = false;
+        last_poll_ms = millis();
+        force_ok = weather_do_fetch();
+        if (needs_network) ble_release_network();
+        ++force_generation;
+        return;
+    }
+
     if (!cfg.weather_enabled) return;
     if (strlen(cfg.weather_api_key) == 0) return;
     if (!wifi_is_connected()) return;
@@ -205,8 +220,21 @@ bool weather_is_paused() {
 }
 
 bool weather_force_fetch() {
-    last_poll_ms = millis();
-    return weather_do_fetch();
+    if (weather_paused) return false;
+    force_requested = true;
+    return true;
+}
+
+bool weather_force_pending() {
+    return force_requested;
+}
+
+bool weather_last_force_ok() {
+    return force_ok;
+}
+
+unsigned long weather_force_generation() {
+    return force_generation;
 }
 
 int weather_get_last_http_code() {

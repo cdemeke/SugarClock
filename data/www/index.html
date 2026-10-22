@@ -1594,7 +1594,19 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             res.textContent = '';
             try {
                 const r = await fetch('/api/test/weather', { method: 'POST' });
-                const d = await r.json();
+                let d = await r.json();
+                if (r.status === 202 && d.queued) {
+                    const generation = d.after_generation;
+                    const deadline = Date.now() + 60000;
+                    do {
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        const result = await fetch('/api/test/weather/result');
+                        if (!result.ok) throw new Error('Could not read weather result');
+                        d = await result.json();
+                        if (!d.pending && d.generation > generation) break;
+                    } while (Date.now() < deadline);
+                    if (d.pending || !(d.generation > generation)) throw new Error('Weather test timed out');
+                }
                 if (d.ok) {
                     res.textContent = Math.round(d.temp) + '\u00B0 ' + d.description + ' (Humidity: ' + d.humidity + '%)';
                     res.className = 'test-result test-success';

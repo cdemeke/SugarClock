@@ -37,3 +37,20 @@ class ReviewRegressionTests(unittest.TestCase):
             wifi=source[source.index('// POST /api/wifi/connect'):source.index('// DELETE /api/wifi/ca')]
             (pathlib.Path(tmp)/'web_bodies.inc').write_text(config+'\n'+wifi)
             self.compile_run(tmp,'test_web_bodies',['src/config_patch.cpp','-fsanitize=address,undefined','-fno-omit-frame-pointer'])
+
+    def test_web_ui_polling_endpoints_are_registered_with_matching_methods(self):
+        routes=(ROOT/'src/web_server.cpp').read_text()
+        for page in ['data/www/index.html','onboarding/TC001Setup/TC001Setup/Resources/WebUI/www/index.html']:
+            ui=(ROOT/page).read_text()
+            for path in ['/api/test/glucose/result','/api/test/weather/result']:
+                self.assertIn("fetch('"+path+"')",ui)
+                self.assertIn('server.on("'+path+'", HTTP_GET',routes)
+
+    def test_forced_weather_fetch_is_queued_through_the_network_lease(self):
+        source=(ROOT/'src/weather_client.cpp').read_text()
+        force=source[source.index('bool weather_force_fetch()'):source.index('bool weather_force_pending()')]
+        self.assertNotIn('weather_do_fetch',force)
+        self.assertIn('weather_paused',force)
+        loop=source[source.index('void weather_loop()'):source.index('void weather_set_paused(')]
+        self.assertLess(loop.index('if (weather_paused) return;'),loop.index('force_requested = false;'))
+        self.assertLess(loop.index('ble_acquire_network()'),loop.index('force_ok = weather_do_fetch();'))

@@ -564,8 +564,25 @@ static void handle_post_sysmon(AsyncWebServerRequest* request, uint8_t* data, si
 
 // POST /api/test/weather
 static void handle_test_weather(AsyncWebServerRequest* request) {
-    bool ok = weather_force_fetch();
+    unsigned long generation = weather_force_generation();
+    if (!weather_force_fetch()) {
+        request->send(409, "application/json", "{\"ok\":false,\"error\":\"Network busy\"}");
+        return;
+    }
     JsonDocument doc;
+    doc["queued"] = true;
+    doc["after_generation"] = generation;
+    String output;
+    serializeJson(doc, output);
+    request->send(202, "application/json", output);
+}
+
+// GET /api/test/weather/result
+static void handle_test_weather_result(AsyncWebServerRequest* request) {
+    bool ok = weather_last_force_ok();
+    JsonDocument doc;
+    doc["generation"] = weather_force_generation();
+    doc["pending"] = weather_force_pending();
     doc["ok"] = ok;
     doc["http_code"] = weather_get_last_http_code();
 
@@ -580,7 +597,7 @@ static void handle_test_weather(AsyncWebServerRequest* request) {
 
     String output;
     serializeJson(doc, output);
-    request->send(ok ? 200 : 502, "application/json", output);
+    request->send(200, "application/json", output);
 }
 
 // POST /api/test/weather-mock
@@ -897,8 +914,9 @@ void webserver_init() {
         [](AsyncWebServerRequest* request) {}, NULL, handle_ota_settings);
     server.on("/api/restart", HTTP_POST, [](AsyncWebServerRequest* r) { handle_restart(r); });
     server.on("/api/factory-reset", HTTP_POST, [](AsyncWebServerRequest* r) { handle_factory_reset(r); });
+    server.on("/api/test/weather/result", HTTP_GET, [](AsyncWebServerRequest* r) { handle_test_weather_result(r); });
     server.on("/api/test/weather", HTTP_POST, [](AsyncWebServerRequest* r) { handle_test_weather(r); });
-    server.on("/api/test/glucose", HTTP_GET, [](AsyncWebServerRequest* r) { handle_test_glucose_result(r); });
+    server.on("/api/test/glucose/result", HTTP_GET, [](AsyncWebServerRequest* r) { handle_test_glucose_result(r); });
     server.on("/api/test/glucose", HTTP_POST, [](AsyncWebServerRequest* r) { handle_test_glucose(r); });
 
     // POST /api/test/weather-mock with body
