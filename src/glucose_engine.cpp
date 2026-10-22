@@ -730,8 +730,9 @@ static void render_state(DisplayState state) {
                                          : (out ? display_color(220, 0, 0)
                                                 : display_color(0, 200, 0));
 
-            if (kid.allocation > 4) {
-                // Too many blocks for pips — fall back to "R/A" text.
+            if (kid.allocation > 4 || kid.remaining > kid.allocation) {
+                // Too many blocks for pips (or bonus credits above the
+                // allocation) — fall back to "R/A" text.
                 // Name shrinks to 2 chars so both fit on the 32px matrix.
                 char nbuf[3];
                 strncpy(nbuf, kid.name, 2);
@@ -916,8 +917,14 @@ void engine_loop() {
                       engine_state_name(current_state),
                       engine_state_name(new_state));
         // Entering the blocks page: restart the 3s per-kid timer so the current
-        // kid gets a full interval (the render case re-inits it from 0).
+        // kid gets a full interval (the render case re-inits it from 0). On
+        // re-entry, move to the next kid first so every kid gets shown even if
+        // the page is left before the 3s timer fires (auto_cycle_sec = 3).
         if (new_state == STATE_BLOCKS_DISPLAY) {
+            if (blocks_last_advance_ms != 0) {
+                int count = blocks_get_reading().kid_count;
+                if (count > 0) blocks_kid_index = (blocks_kid_index + 1) % count;
+            }
             blocks_last_advance_ms = 0;
         }
         current_state = new_state;

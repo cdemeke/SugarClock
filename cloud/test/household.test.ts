@@ -4,9 +4,11 @@ import {
   applyLazyReset,
   buildHousehold,
   dateInTz,
+  mutateHousehold,
   nextChildId,
   ValidationError,
 } from "../lib/household";
+import { getHousehold, saveHousehold } from "../lib/store";
 import { clampRemaining, clampAllocation } from "../lib/types";
 
 test("dateInTz returns YYYY-MM-DD", () => {
@@ -87,4 +89,27 @@ test("applyLazyReset is a no-op when the date matches", () => {
 test("nextChildId avoids collisions after removals", () => {
   assert.equal(nextChildId([{ id: "c1" }, { id: "c3" }]), "c4");
   assert.equal(nextChildId([]), "c1");
+});
+
+test("nextChildId respects the persisted counter", () => {
+  // c2 was removed; the counter says c3 is next, so c2 is never reused.
+  assert.equal(nextChildId([{ id: "c1" }], 3), "c3");
+});
+
+test("mutateHousehold does not lose concurrent updates", async () => {
+  const h = buildHousehold({
+    name: "Fam",
+    timezone: "UTC",
+    pin: "1234",
+    children: [{ name: "a", daily_allocation: 3 }],
+  });
+  await saveHousehold(h);
+  const deduct = () =>
+    mutateHousehold(h.id, (fresh) => {
+      fresh.children[0].remaining -= 1;
+      return { value: null, save: true };
+    });
+  await Promise.all([deduct(), deduct()]);
+  const after = await getHousehold(h.id);
+  assert.equal(after?.children[0].remaining, 1);
 });

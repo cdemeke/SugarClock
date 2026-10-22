@@ -67,3 +67,36 @@ export async function saveHousehold(h: Household): Promise<void> {
   }
   await r.set(householdKey(h.id), h);
 }
+
+// Compare-and-set: write h only if the stored household's rev still equals
+// expectedRev. Returns false on conflict (the caller should reload and retry).
+// Done in a Lua script so the check and the write are one atomic operation.
+const CAS_SCRIPT = `
+local cur = redis.call('GET', KEYS[1])
+if not cur then return 0 end
+local rev = cjson.decode(cur).rev or 0
+if rev ~= tonumber(ARGV[1]) then return 0 end
+redis.call('SET', KEYS[1], ARGV[2])
+return 1
+`;
+
+export async function saveHouseholdIfRev(
+  h: Household,
+  expectedRev: number,
+): Promise<boolean> {
+  const r = redis();
+  if (!r) {
+    warnMemory();
+    // Synchronous check-and-set: atomic within the single-threaded process.
+    const cur = memory.get(householdKey(h.id));
+    if (!cur || (cur.rev ?? 0) !== expectedRev) return false;
+    memory.set(householdKey(h.id), structuredClone(h));
+    return true;
+  }
+  const ok = await r.eval<[string, string], number>(
+    CAS_SCRIPT,
+    [householdKey(h.id)],
+    [String(expectedRev), JSON.stringify(h)],
+  );
+  return ok === 1;
+}

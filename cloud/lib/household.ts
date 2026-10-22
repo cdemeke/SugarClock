@@ -4,7 +4,7 @@
 
 import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
-import { getHousehold, saveHousehold } from "./store";
+import { getHousehold, saveHouseholdIfRev } from "./store";
 import {
   ALLOCATION_MAX,
   ALLOCATION_MIN,
@@ -24,15 +24,19 @@ export function newHouseholdId(): string {
   return "hh_" + randomBytes(16).toString("base64url");
 }
 
-export function nextChildId(children: { id: string }[]): string {
-  // Assign the next c{n} id that is not already in use so removals never cause
-  // a collision with a previously-used id preserved in the log.
+export function nextChildId(
+  children: { id: string }[],
+  minSeq: number = 1,
+): string {
+  // Assign the next c{n} id that is not already in use and is at least minSeq
+  // (the household's persisted counter), so a removed child's id — still
+  // referenced by its log entries — is never handed to a new child.
   let max = 0;
   for (const c of children) {
     const m = /^c(\d+)$/.exec(c.id);
     if (m) max = Math.max(max, parseInt(m[1], 10));
   }
-  return `c${max + 1}`;
+  return `c${Math.max(max + 1, minSeq)}`;
 }
 
 // ---- timezone-aware date ----
@@ -80,13 +84,43 @@ export function applyLazyReset(h: Household, now: Date = new Date()): boolean {
   return true;
 }
 
+const MAX_WRITE_ATTEMPTS = 5;
+
 // Load a household, applying (and persisting) the lazy reset before returning.
-// This is the entry point every route handler should use for reads/writes.
+// The reset is written with compare-and-set; on conflict another request wrote
+// first, so reload and use its version instead of overwriting it.
 export async function loadHousehold(id: string): Promise<Household | null> {
-  const h = await getHousehold(id);
-  if (!h) return null;
-  if (applyLazyReset(h)) await saveHousehold(h);
-  return h;
+  for (let attempt = 0; attempt < MAX_WRITE_ATTEMPTS; attempt++) {
+    const h = await getHousehold(id);
+    if (!h) return null;
+    const rev = h.rev ?? 0;
+    if (!applyLazyReset(h)) return h;
+    h.rev = rev + 1;
+    if (await saveHouseholdIfRev(h, rev)) return h;
+  }
+  throw new Error("Household write conflict, please retry");
+}
+
+// Atomic read-modify-write. `fn` mutates a freshly loaded household (lazy
+// reset already applied) and returns { value, save }. The write is a
+// compare-and-set on `rev`; on conflict the household is reloaded and `fn`
+// re-run, so concurrent requests never overwrite each other's changes.
+// When save is false nothing is written (fn may have partially mutated h).
+export async function mutateHousehold<T>(
+  id: string,
+  fn: (h: Household) => { value: T; save: boolean },
+): Promise<{ household: Household; value: T } | null> {
+  for (let attempt = 0; attempt < MAX_WRITE_ATTEMPTS; attempt++) {
+    const h = await getHousehold(id);
+    if (!h) return null;
+    const rev = h.rev ?? 0;
+    applyLazyReset(h);
+    const { value, save } = fn(h);
+    if (!save) return { household: h, value };
+    h.rev = rev + 1;
+    if (await saveHouseholdIfRev(h, rev)) return { household: h, value };
+  }
+  throw new Error("Household write conflict, please retry");
 }
 
 // ---- log ----
@@ -186,6 +220,8 @@ export function buildHousehold(input: CreateHouseholdInput): Household {
     created_at: ts,
     children,
     log: [],
+    next_child_seq: children.length + 1,
+    rev: 0,
   };
 }
 

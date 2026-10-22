@@ -13,14 +13,15 @@ enum DisplayState {
     STATE_STOPWATCH_DISPLAY,
     STATE_SYSMON_DISPLAY,
     STATE_COUNTDOWN_DISPLAY,
-    STATE_BLOCKS_DISPLAY,
     STATE_TREND_DISPLAY,
     STATE_MESSAGE_DISPLAY,
     STATE_NOTIFY_DISPLAY,
     STATE_STALE_WARNING,
     STATE_NO_DATA,
     STATE_NO_WIFI,
-    STATE_NO_CFG
+    STATE_NO_CFG,
+    // Appended so existing numeric values (server force_mode) stay stable.
+    STATE_BLOCKS_DISPLAY
 };
 
 // Glucose thresholds for color coding

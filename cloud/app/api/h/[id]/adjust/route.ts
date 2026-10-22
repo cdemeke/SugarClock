@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { loadHousehold, pushLog } from "@/lib/household";
-import { saveHousehold } from "@/lib/store";
+import { loadHousehold, mutateHousehold, pushLog } from "@/lib/household";
 import { checkPin } from "@/lib/auth";
 import { clampRemaining } from "@/lib/types";
 
@@ -38,29 +37,36 @@ export async function POST(
     );
   }
 
-  const child = h.children.find((c) => c.id === body.child_id);
-  if (!child) {
+  // Apply the change as an atomic read-modify-write so concurrent adjustments
+  // from two parents both land.
+  const result = await mutateHousehold(id, (fresh) => {
+    const child = fresh.children.find((c) => c.id === body.child_id);
+    if (!child) return { value: null, save: false };
+
+    const before = child.remaining;
+    const after = clampRemaining(before + delta);
+    const applied = after - before;
+
+    const ts = new Date().toISOString();
+    child.remaining = after;
+    child.updated_at = ts;
+
+    // Append a log entry unconditionally (§4.3). When clamping makes the change
+    // a no-op, applied is 0 and is recorded as such.
+    pushLog(fresh, {
+      ts,
+      child_id: child.id,
+      action: delta < 0 ? "deduct" : "add",
+      delta: applied,
+      note: "",
+    });
+    return { value: child, save: true };
+  });
+  if (!result) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  if (!result.value) {
     return NextResponse.json({ error: "Unknown child" }, { status: 404 });
   }
-
-  const before = child.remaining;
-  const after = clampRemaining(before + delta);
-  const applied = after - before;
-
-  const ts = new Date().toISOString();
-  child.remaining = after;
-  child.updated_at = ts;
-
-  // Append a log entry unconditionally (§4.3). When clamping makes the change a
-  // no-op, applied is 0 and is recorded as such.
-  pushLog(h, {
-    ts,
-    child_id: child.id,
-    action: delta < 0 ? "deduct" : "add",
-    delta: applied,
-    note: "",
-  });
-
-  await saveHousehold(h);
-  return NextResponse.json({ child });
+  return NextResponse.json({ child: result.value });
 }

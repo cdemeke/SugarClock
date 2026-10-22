@@ -31,6 +31,9 @@ static bool blocks_do_fetch() {
     WiFiClientSecure client;
     client.setInsecure();
     client.setTimeout(10);
+    // The library default is 120s, far past the 30s loop watchdog. Worst case
+    // is now ~5s TCP connect + 5s handshake + 10s read = 20s.
+    client.setHandshakeTimeout(5);
 
     HTTPClient http;
     if (!http.begin(client, cfg.blocks_url)) {

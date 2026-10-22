@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import {
   isValidTimezone,
   loadHousehold,
+  mutateHousehold,
   nextChildId,
 } from "@/lib/household";
-import { saveHousehold } from "@/lib/store";
 import { checkPin } from "@/lib/auth";
 import {
   clampAllocation,
@@ -12,7 +12,7 @@ import {
   MAX_CHILDREN,
   normalizeName,
 } from "@/lib/types";
-import type { Child } from "@/lib/types";
+import type { Child, Household } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,6 +53,22 @@ export async function POST(
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
+  // Atomic read-modify-write so a concurrent change isn't overwritten.
+  const result = await mutateHousehold(id, (fresh) => {
+    const error = applySettings(fresh, body);
+    return { value: error, save: error === null };
+  });
+  if (!result) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  if (result.value) return result.value;
+  const { pin_hash: _pin_hash, ...safe } = result.household;
+  return NextResponse.json(safe);
+}
+
+// Applies validated settings to h in place. Returns an error response, or null
+// on success.
+function applySettings(h: Household, body: SettingsBody): NextResponse | null {
   if (typeof body.name === "string") {
     const name = body.name.trim();
     if (!name || name.length > 40) {
@@ -97,16 +113,25 @@ export async function POST(
       const current = ci.id ? existing.get(ci.id) : undefined;
       if (current) {
         current.name = name;
+        // Only clamp remaining when the allocation is reduced, so bonus
+        // credits above an unchanged allocation survive unrelated edits.
+        if (allocation < current.daily_allocation) {
+          current.remaining = Math.min(current.remaining, allocation);
+        }
+        current.remaining = clampRemaining(current.remaining);
         current.daily_allocation = allocation;
-        // Keep remaining within the (possibly reduced) allocation and range.
-        current.remaining = clampRemaining(
-          Math.min(current.remaining, allocation),
-        );
         current.updated_at = ts;
         newList.push(current);
       } else {
+        // Log ids are included so households created before next_child_seq
+        // existed also avoid reusing a removed child's id.
+        const cid = nextChildId(
+          [...h.children, ...newList, ...h.log.map((e) => ({ id: e.child_id }))],
+          h.next_child_seq,
+        );
+        h.next_child_seq = parseInt(cid.slice(1), 10) + 1;
         newList.push({
-          id: nextChildId([...h.children, ...newList]),
+          id: cid,
           name,
           daily_allocation: allocation,
           remaining: allocation,
@@ -118,7 +143,5 @@ export async function POST(
     h.children = newList;
   }
 
-  await saveHousehold(h);
-  const { pin_hash: _pin_hash, ...safe } = h;
-  return NextResponse.json(safe);
+  return null;
 }

@@ -29,6 +29,8 @@ export interface Household {
   created_at: string; // ISO timestamp
   children: Child[];
   log: LogEntry[]; // append-only, capped to most recent 50 entries
+  next_child_seq?: number; // next c{n} to assign; never reused after removal
+  rev?: number; // bumped on every write; used for compare-and-set
 }
 
 // ---- Constraints (enforced in code, not just types) ----
