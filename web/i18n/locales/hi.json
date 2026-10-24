@@ -955,9 +955,18 @@
   "SugarClock video": "SugarClock वीडियो",
   "See how SugarClock works, how to set it up, and what it can show.": "देखें कि SugarClock कैसे काम करता है, इसे कैसे सेट करें और यह क्या दिखा सकता है।",
   "Watch on YouTube": "YouTube पर देखें",
-  "The SugarClock walkthrough video": "SugarClock का परिचय वीडियो",
-  "Visit {0}": "{0} पर जाएँ",
-  "Setup guide, FAQ, and updates": "सेटअप गाइड, FAQ और अपडेट",
-  "Send feedback or get help": "प्रतिक्रिया भेजें या सहायता पाएँ",
-  "SugarClock feedback": "SugarClock प्रतिक्रिया"
+  "SugarClock feedback": "SugarClock प्रतिक्रिया",
+  "More videos": "और वीडियो",
+  "Feedback & help": "प्रतिक्रिया और सहायता",
+  "Found a bug or have an idea? Send us an email.": "कोई गड़बड़ी मिली या कोई सुझाव है? हमें ईमेल भेजें।",
+  "Feedback email address": "प्रतिक्रिया ईमेल पता",
+  "Copy": "कॉपी करें",
+  "Open email app": "ईमेल ऐप खोलें",
+  "Setup guide, FAQ, and updates at {0}": "सेटअप गाइड, FAQ और अपडेट: {0}",
+  "Copied to clipboard.": "क्लिपबोर्ड पर कॉपी हो गया।",
+  "Couldn't copy. The address is selected so you can copy it yourself.": "कॉपी नहीं हो सका। पता चुना गया है, आप इसे खुद कॉपी कर सकते हैं।",
+  "New here?": "नए हैं?",
+  "Watch the setup video or send us feedback anytime from here.": "सेटअप वीडियो देखें या कभी भी यहाँ से हमें प्रतिक्रिया भेजें।",
+  "Show me": "दिखाएँ",
+  "Got it": "ठीक है"
 }

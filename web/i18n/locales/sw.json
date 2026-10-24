@@ -955,9 +955,18 @@
   "SugarClock video": "Video ya SugarClock",
   "See how SugarClock works, how to set it up, and what it can show.": "Angalia jinsi SugarClock inavyofanya kazi, jinsi ya kuiweka, na inachoweza kuonyesha.",
   "Watch on YouTube": "Tazama kwenye YouTube",
-  "The SugarClock walkthrough video": "Video ya maelezo ya SugarClock",
-  "Visit {0}": "Tembelea {0}",
-  "Setup guide, FAQ, and updates": "Mwongozo wa usanidi, maswali yanayoulizwa mara kwa mara na masasisho",
-  "Send feedback or get help": "Tuma maoni au pata msaada",
-  "SugarClock feedback": "Maoni kuhusu SugarClock"
+  "SugarClock feedback": "Maoni kuhusu SugarClock",
+  "More videos": "Video zaidi",
+  "Feedback & help": "Maoni na msaada",
+  "Found a bug or have an idea? Send us an email.": "Umepata hitilafu au una wazo? Tutumie barua pepe.",
+  "Feedback email address": "Anwani ya barua pepe ya maoni",
+  "Copy": "Nakili",
+  "Open email app": "Fungua programu ya barua pepe",
+  "Setup guide, FAQ, and updates at {0}": "Mwongozo wa usanidi, maswali ya kawaida na masasisho kwenye {0}",
+  "Copied to clipboard.": "Imenakiliwa kwenye ubao wa kunakili.",
+  "Couldn't copy. The address is selected so you can copy it yourself.": "Imeshindwa kunakili. Anwani imechaguliwa ili uinakili mwenyewe.",
+  "New here?": "Mgeni hapa?",
+  "Watch the setup video or send us feedback anytime from here.": "Tazama video ya usanidi au tutumie maoni wakati wowote ukiwa hapa.",
+  "Show me": "Nionyeshe",
+  "Got it": "Nimeelewa"
 }

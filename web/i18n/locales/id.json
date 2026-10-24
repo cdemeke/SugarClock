@@ -955,9 +955,18 @@
   "SugarClock video": "Video SugarClock",
   "See how SugarClock works, how to set it up, and what it can show.": "Lihat cara kerja SugarClock, cara menyiapkannya, dan apa saja yang dapat ditampilkannya.",
   "Watch on YouTube": "Tonton di YouTube",
-  "The SugarClock walkthrough video": "Video panduan SugarClock",
-  "Visit {0}": "Kunjungi {0}",
-  "Setup guide, FAQ, and updates": "Panduan penyiapan, FAQ, dan pembaruan",
-  "Send feedback or get help": "Kirim masukan atau dapatkan bantuan",
-  "SugarClock feedback": "Masukan SugarClock"
+  "SugarClock feedback": "Masukan SugarClock",
+  "More videos": "Video lainnya",
+  "Feedback & help": "Masukan & bantuan",
+  "Found a bug or have an idea? Send us an email.": "Menemukan bug atau punya ide? Kirimi kami email.",
+  "Feedback email address": "Alamat email masukan",
+  "Copy": "Salin",
+  "Open email app": "Buka aplikasi email",
+  "Setup guide, FAQ, and updates at {0}": "Panduan penyiapan, FAQ, dan pembaruan di {0}",
+  "Copied to clipboard.": "Disalin ke papan klip.",
+  "Couldn't copy. The address is selected so you can copy it yourself.": "Tidak dapat menyalin. Alamat sudah dipilih agar Anda bisa menyalinnya sendiri.",
+  "New here?": "Baru di sini?",
+  "Watch the setup video or send us feedback anytime from here.": "Tonton video penyiapan atau kirimi kami masukan kapan saja dari sini.",
+  "Show me": "Tunjukkan",
+  "Got it": "Mengerti"
 }

@@ -183,7 +183,9 @@ test('learn more & feedback dialog is translated, RTL-aware, and keyboard access
    assert.ok(await dialog.evaluate(el=>el.open));
    assert.equal(await dialog.getAttribute('aria-labelledby'),'help-dialog-title');
    assert.equal(await page.locator('#help-dialog-title').innerText(),'Learn more & feedback');
-   assert.equal(await page.locator('.help-feedback-link').getAttribute('href'),'mailto:feedback@sugarclock.com?subject=SugarClock%20feedback');
+   assert.equal(await page.locator('.help-email-open').getAttribute('href'),'mailto:feedback@sugarclock.com?subject=SugarClock%20feedback');
+   assert.equal(await page.locator('.help-email-address').inputValue(),'feedback@sugarclock.com');
+   assert.match(await page.locator('.help-action').nth(1).getAttribute('href'),/^https:\/\/www\.youtube\.com\/@ChrisDemeke/);
    await page.locator('.help-video-facade').click();
    assert.match(await page.locator('.help-video-embed').getAttribute('src'),/^https:\/\/www\.youtube-nocookie\.com\/embed\/vfTbYTnHQdA/);
    await page.keyboard.press('Escape');
@@ -209,20 +211,92 @@ test('learn more & feedback dialog is translated, RTL-aware, and keyboard access
   await button(page).click();
   assert.equal(await page.locator('#help-dialog-title').innerText(),'اعرف المزيد وأرسل ملاحظاتك');
   assert.equal(await page.locator('.help-dialog-close').getAttribute('aria-label'),'إغلاق');
-  assert.equal(await page.locator('.help-site-label').innerText(),await page.evaluate(()=>I18n.t(I18n.message('Visit {0}',['sugarclock.com']))));
-  assert.equal(decodeURIComponent(await page.locator('.help-feedback-link').getAttribute('href')),'mailto:feedback@sugarclock.com?subject=ملاحظات حول SugarClock');
+  assert.equal(await page.locator('.help-site a').innerText(),await page.evaluate(()=>I18n.t(I18n.message('Setup guide, FAQ, and updates at {0}',['sugarclock.com']))));
+  assert.equal(decodeURIComponent(await page.locator('.help-email-open').getAttribute('href')),'mailto:feedback@sugarclock.com?subject=ملاحظات حول SugarClock');
   const layout=await page.evaluate(()=>{const d=document.querySelector('dialog.help-dialog').getBoundingClientRect();
    const close=document.querySelector('.help-dialog-close').getBoundingClientRect(),title=document.querySelector('#help-dialog-title').getBoundingClientRect();
-   const icon=document.querySelector('.help-link .nav-icon').getBoundingClientRect(),label=document.querySelector('.help-link strong').getBoundingClientRect();
-   return {inside:d.left>=0&&d.right<=innerWidth,closeLeftOfTitle:close.right<=title.left,iconRightOfLabel:icon.left>=label.right,dir:getComputedStyle(document.querySelector('.help-dialog')).direction};});
-  assert.deepEqual(layout,{inside:true,closeLeftOfTitle:true,iconRightOfLabel:true,dir:'rtl'});
+   const icon=document.querySelector('.help-action .nav-icon').getBoundingClientRect(),label=document.querySelector('.help-action span').getBoundingClientRect();
+   const field=document.querySelector('.help-email-address').getBoundingClientRect(),copy=document.querySelector('.help-email-copy').getBoundingClientRect();
+   return {inside:d.left>=0&&d.right<=innerWidth,closeLeftOfTitle:close.right<=title.left,iconRightOfLabel:icon.left>=label.right,copyLeftOfField:copy.right<=field.left+1,
+    emailLtr:getComputedStyle(document.querySelector('.help-email-address')).direction,dir:getComputedStyle(document.querySelector('.help-dialog')).direction};});
+  assert.deepEqual(layout,{inside:true,closeLeftOfTitle:true,iconRightOfLabel:true,copyLeftOfField:true,emailLtr:'ltr',dir:'rtl'});
   await captureHelp(page,'help-arabic-'+suffix);await page.keyboard.press('Escape');
   await choose(page,'en');
   assert.deepEqual(errors,[]);await context.close();
  }
 });
 function button(page){return page.locator('.help-toggle');}
+test('help dialog copies the feedback address with and without the async clipboard API',async()=>{
+ const {page,context,errors}=await pageFor('en-US');
+ await context.grantPermissions(['clipboard-read','clipboard-write'],{origin:deviceURL});
+ await page.route('https://img.youtube.com/**',route=>route.abort());
+ await page.goto(deviceURL+'/device.html');await ready(page,'en');
+ for(const insecure of [false,true]){
+  // The real device is plain http, where navigator.clipboard does not exist.
+  if(insecure) await page.evaluate(()=>{Object.defineProperty(navigator,'clipboard',{value:undefined});navigator.clipboard===undefined||(()=>{throw Error('clipboard still present')})();});
+  await page.evaluate(()=>{document.querySelector('.help-email-address')?.blur();});
+  await button(page).click();
+  await page.evaluate(()=>navigator.clipboard?navigator.clipboard.writeText('stale'):null);
+  await page.locator('.help-email-copy').click();
+  await page.waitForFunction(()=>document.querySelector('.help-email-status').textContent==='Copied to clipboard.');
+  if(!insecure) assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),'feedback@sugarclock.com');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(()=>!document.querySelector('dialog.help-dialog').open&&document.querySelector('.help-email-status').textContent==='');
+ }
+ assert.deepEqual(errors,[]);await context.close();
+});
 async function captureHelp(page,name){
  if(process.env.CAPTURE_SCREENSHOTS) await page.waitForFunction(()=>{const img=document.querySelector('.help-video-facade img');return img.complete&&img.naturalWidth>0;});
  await capture(page,name);
 }
+test('first-visit help hint points at the footer button and stays dismissed',async()=>{
+ const geometry=page=>page.evaluate(()=>{
+  const hint=document.querySelector('.help-hint').getBoundingClientRect(),button=document.querySelector('.help-toggle').getBoundingClientRect();
+  const sidebar=document.querySelector('.sidebar').getBoundingClientRect(),picker=document.querySelector('[data-language-trigger]').getBoundingClientRect();
+  return {hint:{left:hint.left,right:hint.right,top:hint.top,bottom:hint.bottom},button:{top:button.top,bottom:button.bottom},sidebar:{left:sidebar.left,right:sidebar.right},
+   pickerClear:picker.bottom<=hint.top||picker.top>=hint.bottom,onScreen:hint.left>=0&&hint.right<=innerWidth};});
+ // Desktop, light: callout beside the sidebar, vertically overlapping the button.
+ let {page,context,errors}=await pageFor('en-US');
+ await page.route('https://img.youtube.com/**',route=>route.abort());
+ await page.goto(deviceURL+'/device.html');await ready(page,'en');
+ await page.waitForSelector('.help-hint.is-visible');
+ assert.equal(await page.locator('.help-toggle').getAttribute('aria-describedby'),'help-hint');
+ let g=await geometry(page);
+ assert.ok(g.hint.left>=g.sidebar.right&&g.onScreen,JSON.stringify(g));
+ assert.ok(g.hint.bottom>=g.button.top&&g.hint.top<=g.button.bottom,JSON.stringify(g));
+ await page.waitForTimeout(400);await capture(page,'help-hint-desktop');
+ // "Show me" opens the dialog and retires the hint.
+ await page.locator('.help-hint-open').click();
+ assert.ok(await page.locator('dialog.help-dialog').evaluate(el=>el.open));
+ assert.equal(await page.locator('.help-hint').count(),0);
+ await page.keyboard.press('Escape');
+ await page.reload();await ready(page,'en');await page.waitForTimeout(1200);
+ assert.equal(await page.locator('.help-hint').count(),0,'hint stays dismissed');
+ assert.equal(await page.locator('.help-toggle').getAttribute('aria-describedby'),null);
+ // Arabic: callout mirrors to the other side of the sidebar.
+ await page.evaluate(()=>localStorage.removeItem('sugarclock.helpHintDismissed'));
+ await page.reload();await ready(page,'en');await choose(page,'ar');
+ await page.waitForSelector('.help-hint.is-visible');g=await geometry(page);
+ assert.ok(g.hint.right<=g.sidebar.left&&g.onScreen,JSON.stringify(g));
+ await page.waitForTimeout(400);await capture(page,'help-hint-arabic-desktop');
+ // "Got it" (and Esc) dismiss without opening anything.
+ await page.locator('.help-hint-dismiss').click();
+ assert.equal(await page.locator('.help-hint').count(),0);
+ assert.ok(await page.locator('.help-toggle').evaluate(el=>document.activeElement===el));
+ assert.equal(await page.locator('dialog.help-dialog').count(),0);
+ await choose(page,'en');
+ assert.deepEqual(errors,[]);await context.close();
+ // Mobile: a dot on the Menu button, and the callout sits inline in the drawer.
+ ({page,context,errors}=await pageFor('en-US',true));
+ await page.goto(deviceURL+'/');await ready(page,'en');
+ await page.waitForSelector('.help-hint.is-visible');
+ assert.ok(await page.locator('.mobile-nav-toggle').evaluate(el=>el.classList.contains('has-hint')&&getComputedStyle(el,'::after').content!=='none'));
+ await page.locator('.mobile-nav-toggle').click();await page.waitForTimeout(400);
+ g=await geometry(page);
+ assert.ok(g.onScreen&&g.hint.bottom<=g.button.top+1&&g.pickerClear,JSON.stringify(g));
+ await noOverflow(page);await capture(page,'help-hint-mobile');
+ await page.locator('.help-hint-dismiss').focus();await page.keyboard.press('Escape');
+ assert.equal(await page.locator('.help-hint').count(),0);
+ assert.equal(await page.locator('.mobile-nav-toggle.has-hint').count(),0);
+ assert.deepEqual(errors,[]);await context.close();
+});

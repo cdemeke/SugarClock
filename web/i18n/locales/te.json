@@ -955,9 +955,18 @@
   "SugarClock video": "SugarClock వీడియో",
   "See how SugarClock works, how to set it up, and what it can show.": "SugarClock ఎలా పనిచేస్తుందో, దాన్ని ఎలా సెటప్ చేయాలో, అది ఏమి చూపగలదో చూడండి.",
   "Watch on YouTube": "YouTubeలో చూడండి",
-  "The SugarClock walkthrough video": "SugarClock పరిచయ వీడియో",
-  "Visit {0}": "{0}ని సందర్శించండి",
-  "Setup guide, FAQ, and updates": "సెటప్ గైడ్, FAQ మరియు అప్‌డేట్‌లు",
-  "Send feedback or get help": "అభిప్రాయం పంపండి లేదా సహాయం పొందండి",
-  "SugarClock feedback": "SugarClock అభిప్రాయం"
+  "SugarClock feedback": "SugarClock అభిప్రాయం",
+  "More videos": "మరిన్ని వీడియోలు",
+  "Feedback & help": "అభిప్రాయం & సహాయం",
+  "Found a bug or have an idea? Send us an email.": "ఏదైనా లోపం కనిపించిందా లేదా ఆలోచన ఉందా? మాకు ఇమెయిల్ పంపండి.",
+  "Feedback email address": "అభిప్రాయ ఇమెయిల్ చిరునామా",
+  "Copy": "కాపీ చేయండి",
+  "Open email app": "ఇమెయిల్ యాప్‌ను తెరవండి",
+  "Setup guide, FAQ, and updates at {0}": "సెటప్ గైడ్, FAQ మరియు అప్‌డేట్‌లు: {0}",
+  "Copied to clipboard.": "క్లిప్‌బోర్డ్‌కు కాపీ అయింది.",
+  "Couldn't copy. The address is selected so you can copy it yourself.": "కాపీ చేయలేకపోయాం. చిరునామా ఎంచుకోబడింది, మీరే కాపీ చేయవచ్చు.",
+  "New here?": "కొత్తగా వచ్చారా?",
+  "Watch the setup video or send us feedback anytime from here.": "ఇక్కడి నుండి ఎప్పుడైనా సెటప్ వీడియో చూడండి లేదా మాకు అభిప్రాయం పంపండి.",
+  "Show me": "చూపించు",
+  "Got it": "సరే"
 }

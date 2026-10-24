@@ -955,9 +955,18 @@
   "SugarClock video": "SugarClock の動画",
   "See how SugarClock works, how to set it up, and what it can show.": "SugarClock の仕組み、設定方法、表示できる内容をご覧ください。",
   "Watch on YouTube": "YouTube で見る",
-  "The SugarClock walkthrough video": "SugarClock の紹介動画",
-  "Visit {0}": "{0} にアクセス",
-  "Setup guide, FAQ, and updates": "セットアップガイド、よくある質問、最新情報",
-  "Send feedback or get help": "フィードバックを送る・サポートを受ける",
-  "SugarClock feedback": "SugarClock へのフィードバック"
+  "SugarClock feedback": "SugarClock へのフィードバック",
+  "More videos": "その他の動画",
+  "Feedback & help": "フィードバックとヘルプ",
+  "Found a bug or have an idea? Send us an email.": "不具合を見つけた、またはアイデアがありますか？メールでお知らせください。",
+  "Feedback email address": "フィードバック用メールアドレス",
+  "Copy": "コピー",
+  "Open email app": "メールアプリを開く",
+  "Setup guide, FAQ, and updates at {0}": "セットアップガイド、よくある質問、最新情報：{0}",
+  "Copied to clipboard.": "クリップボードにコピーしました。",
+  "Couldn't copy. The address is selected so you can copy it yourself.": "コピーできませんでした。アドレスを選択したので、手動でコピーしてください。",
+  "New here?": "はじめてですか？",
+  "Watch the setup video or send us feedback anytime from here.": "ここからいつでもセットアップ動画を見たり、フィードバックを送ったりできます。",
+  "Show me": "見てみる",
+  "Got it": "OK"
 }

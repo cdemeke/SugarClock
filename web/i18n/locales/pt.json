@@ -955,9 +955,18 @@
   "SugarClock video": "Vídeo do SugarClock",
   "See how SugarClock works, how to set it up, and what it can show.": "Veja como o SugarClock funciona, como configurá-lo e o que ele pode mostrar.",
   "Watch on YouTube": "Assistir no YouTube",
-  "The SugarClock walkthrough video": "O vídeo de apresentação do SugarClock",
-  "Visit {0}": "Visitar {0}",
-  "Setup guide, FAQ, and updates": "Guia de configuração, perguntas frequentes e novidades",
-  "Send feedback or get help": "Enviar feedback ou obter ajuda",
-  "SugarClock feedback": "Feedback sobre o SugarClock"
+  "SugarClock feedback": "Feedback sobre o SugarClock",
+  "More videos": "Mais vídeos",
+  "Feedback & help": "Feedback e ajuda",
+  "Found a bug or have an idea? Send us an email.": "Encontrou um erro ou tem uma ideia? Envie-nos um e-mail.",
+  "Feedback email address": "E-mail para feedback",
+  "Copy": "Copiar",
+  "Open email app": "Abrir app de e-mail",
+  "Setup guide, FAQ, and updates at {0}": "Guia de configuração, perguntas frequentes e novidades em {0}",
+  "Copied to clipboard.": "Copiado para a área de transferência.",
+  "Couldn't copy. The address is selected so you can copy it yourself.": "Não foi possível copiar. O endereço está selecionado para você copiar.",
+  "New here?": "É novo por aqui?",
+  "Watch the setup video or send us feedback anytime from here.": "Assista ao vídeo de configuração ou envie seu feedback a qualquer momento por aqui.",
+  "Show me": "Mostrar",
+  "Got it": "Entendi"
 }

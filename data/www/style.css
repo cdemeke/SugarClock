@@ -405,7 +405,8 @@ body {
 .help-toggle:focus-visible,
 .help-dialog-close:focus-visible,
 .help-video-facade:focus-visible,
-.help-link:focus-visible {
+.help-action:focus-visible,
+.help-site a:focus-visible {
     outline: 3px solid var(--accent);
     outline-offset: 2px;
 }
@@ -519,47 +520,269 @@ body {
     font-size: 14px;
 }
 
-.help-links {
+.help-actions {
     display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 8px;
 }
 
-.help-link {
+.help-action,
+.help-email-open {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 12px;
+    justify-content: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 9px 14px;
     border: 1px solid var(--border);
     border-radius: 10px;
     color: var(--text);
+    font-size: 14px;
+    font-weight: 650;
+    text-align: center;
     text-decoration: none;
     transition: background 0.15s, border-color 0.15s;
 }
 
-.help-link .nav-icon {
-    flex-shrink: 0;
+.help-action .nav-icon {
     color: var(--accent);
 }
 
-.help-link:hover {
+.help-action:hover {
     border-color: var(--accent);
     background: var(--accent-dim);
 }
 
-.help-link span {
-    display: grid;
+.help-feedback {
+    margin-top: 18px;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--accent-dim);
+}
+
+.help-feedback h3 {
+    font-size: 15px;
+}
+
+.help-feedback > p:not(.help-email-status) {
+    margin: 4px 0 12px;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+/* The address is data: keep it left-to-right even on RTL pages. */
+.help-email {
+    display: flex;
+    align-items: stretch;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--card);
+    overflow: hidden;
+}
+
+.help-email:focus-within {
+    border-color: var(--accent);
+}
+
+.help-email .help-email-address {
+    flex: 1 1 auto;
     min-width: 0;
-}
-
-.help-link strong {
+    height: auto;
+    padding: 10px 12px;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    color: var(--text);
+    font: inherit;
     font-size: 14px;
-    font-weight: 650;
+    font-weight: 600;
+    box-shadow: none;
+    outline: none;
 }
 
-.help-link small {
+.help-email-copy {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 6px;
+    padding: 0 14px;
+    border: 0;
+    border-inline-start: 1px solid var(--border);
+    background: none;
+    color: var(--accent);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 650;
+    cursor: pointer;
+}
+
+.help-email-copy .nav-icon {
+    width: 16px;
+    height: 16px;
+}
+
+.help-email-copy:hover {
+    background: var(--hover-overlay);
+}
+
+.help-email-copy:focus-visible,
+.help-email-open:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: -3px;
+}
+
+.help-email-status {
+    min-height: 16px;
+    margin: 4px 2px 6px;
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.help-email-status.is-error {
+    color: var(--text-secondary);
+}
+
+.help-email-open {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #fff;
+}
+
+.help-email-open:hover {
+    filter: brightness(1.08);
+}
+
+[data-theme="dark"] .help-email-open {
+    color: #0b1a12;
+}
+
+.help-site {
+    margin-top: 14px;
     color: var(--text-secondary);
     font-size: 12px;
-    overflow-wrap: anywhere;
+    text-align: center;
+}
+
+.help-site a {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.help-site a:hover {
+    color: var(--accent);
+}
+
+/* First-visit hint pointing at the footer help button. */
+.sidebar-footer {
+    position: relative;
+}
+
+.help-hint {
+    position: absolute;
+    bottom: var(--hint-bottom, 40px);
+    inset-inline-start: calc(100% + 30px);
+    z-index: 210;
+    width: 260px;
+    padding: 14px 16px;
+    border: 1px solid var(--accent);
+    border-radius: 12px;
+    background: var(--card);
+    color: var(--text);
+    box-shadow: 0 14px 36px var(--shadow);
+    font-size: 13px;
+    line-height: 1.45;
+    opacity: 0;
+    transform: translateX(-6px);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+html[dir="rtl"] .help-hint:not(.is-visible) {
+    transform: translateX(6px);
+}
+
+.help-hint.is-visible {
+    opacity: 1;
+    transform: none;
+}
+
+/* Arrow on the panel's inline-start edge, centered on the button. */
+.help-hint::before {
+    content: "";
+    position: absolute;
+    bottom: calc(var(--hint-button-height, 40px) / 2 - 7px);
+    inset-inline-start: -7px;
+    width: 12px;
+    height: 12px;
+    border: solid var(--accent);
+    border-width: 0 0 1px 1px;
+    background: var(--card);
+    transform: rotate(45deg);
+}
+
+html[dir="rtl"] .help-hint::before {
+    transform: rotate(-135deg);
+}
+
+.help-hint p {
+    margin: 0 0 10px;
+}
+
+.help-hint-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.help-hint-actions button {
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: none;
+    color: var(--text);
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 650;
+    cursor: pointer;
+}
+
+.help-hint-actions .help-hint-open {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #fff;
+}
+
+[data-theme="dark"] .help-hint-actions .help-hint-open {
+    color: #0b1a12;
+}
+
+.help-hint-actions button:hover {
+    filter: brightness(1.06);
+    background: var(--hover-overlay);
+}
+
+.help-hint-actions .help-hint-open:hover {
+    background: var(--accent);
+}
+
+.help-hint-actions button:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.help-toggle.has-hint {
+    animation: help-hint-pulse 1.8s ease-out 0.8s 3;
+}
+
+@keyframes help-hint-pulse {
+    0% { box-shadow: 0 0 0 0 var(--accent); }
+    70%, 100% { box-shadow: 0 0 0 10px transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .help-toggle.has-hint { animation: none; }
+    .help-hint { transition: none; transform: none; }
 }
 
 .mobile-nav-toggle,
@@ -1189,6 +1412,54 @@ select {
     .mobile-nav-toggle .nav-icon {
         width: 18px;
         height: 18px;
+    }
+
+    .mobile-nav-toggle.has-hint::after {
+        content: "";
+        position: absolute;
+        top: -4px;
+        inset-inline-end: -4px;
+        width: 12px;
+        height: 12px;
+        border: 2px solid var(--surface);
+        border-radius: 50%;
+        background: var(--accent);
+    }
+
+    /* In the drawer the hint sits in the footer flow, above the button. */
+    .help-hint {
+        position: relative;
+        bottom: auto;
+        inset-inline-start: auto;
+        width: auto;
+        margin-bottom: 4px;
+        transform: translateY(4px);
+    }
+
+    html[dir="rtl"] .help-hint:not(.is-visible) {
+        transform: translateY(4px);
+    }
+
+    .help-hint::before {
+        bottom: -7px;
+        inset-inline-start: 20px;
+        border-width: 0 1px 1px 0;
+    }
+
+    html[dir="rtl"] .help-hint::before {
+        transform: rotate(45deg);
+    }
+
+    .help-dialog {
+        padding: 16px;
+    }
+
+    .help-feedback {
+        padding: 12px;
+    }
+
+    .help-email-copy {
+        padding: 0 10px;
     }
 
     .app-main {

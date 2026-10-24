@@ -955,9 +955,18 @@
   "SugarClock video": "SugarClock வீடியோ",
   "See how SugarClock works, how to set it up, and what it can show.": "SugarClock எவ்வாறு செயல்படுகிறது, அதை எவ்வாறு அமைப்பது, அது எதைக் காட்ட முடியும் என்பதைப் பாருங்கள்.",
   "Watch on YouTube": "YouTube-இல் பார்க்கவும்",
-  "The SugarClock walkthrough video": "SugarClock அறிமுக வீடியோ",
-  "Visit {0}": "{0} தளத்தைப் பார்வையிடவும்",
-  "Setup guide, FAQ, and updates": "அமைவு வழிகாட்டி, FAQ மற்றும் புதுப்பிப்புகள்",
-  "Send feedback or get help": "கருத்தை அனுப்பவும் அல்லது உதவி பெறவும்",
-  "SugarClock feedback": "SugarClock கருத்து"
+  "SugarClock feedback": "SugarClock கருத்து",
+  "More videos": "மேலும் வீடியோக்கள்",
+  "Feedback & help": "கருத்து & உதவி",
+  "Found a bug or have an idea? Send us an email.": "பிழையைக் கண்டீர்களா அல்லது யோசனை உள்ளதா? எங்களுக்கு மின்னஞ்சல் அனுப்புங்கள்.",
+  "Feedback email address": "கருத்து மின்னஞ்சல் முகவரி",
+  "Copy": "நகலெடு",
+  "Open email app": "மின்னஞ்சல் பயன்பாட்டைத் திற",
+  "Setup guide, FAQ, and updates at {0}": "அமைவு வழிகாட்டி, FAQ மற்றும் புதுப்பிப்புகள்: {0}",
+  "Copied to clipboard.": "கிளிப்போர்டுக்கு நகலெடுக்கப்பட்டது.",
+  "Couldn't copy. The address is selected so you can copy it yourself.": "நகலெடுக்க முடியவில்லை. முகவரி தேர்ந்தெடுக்கப்பட்டுள்ளது, நீங்களே நகலெடுக்கலாம்.",
+  "New here?": "புதியவரா?",
+  "Watch the setup video or send us feedback anytime from here.": "இங்கிருந்து எப்போது வேண்டுமானாலும் அமைவு வீடியோவைப் பாருங்கள் அல்லது எங்களுக்குக் கருத்தை அனுப்புங்கள்.",
+  "Show me": "காட்டு",
+  "Got it": "சரி"
 }

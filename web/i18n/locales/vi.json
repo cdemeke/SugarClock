@@ -955,9 +955,18 @@
   "SugarClock video": "Video SugarClock",
   "See how SugarClock works, how to set it up, and what it can show.": "Xem cách SugarClock hoạt động, cách thiết lập và những gì nó có thể hiển thị.",
   "Watch on YouTube": "Xem trên YouTube",
-  "The SugarClock walkthrough video": "Video giới thiệu SugarClock",
-  "Visit {0}": "Truy cập {0}",
-  "Setup guide, FAQ, and updates": "Hướng dẫn thiết lập, câu hỏi thường gặp và cập nhật",
-  "Send feedback or get help": "Gửi góp ý hoặc nhận trợ giúp",
-  "SugarClock feedback": "Góp ý về SugarClock"
+  "SugarClock feedback": "Góp ý về SugarClock",
+  "More videos": "Video khác",
+  "Feedback & help": "Góp ý & trợ giúp",
+  "Found a bug or have an idea? Send us an email.": "Phát hiện lỗi hoặc có ý tưởng? Hãy gửi email cho chúng tôi.",
+  "Feedback email address": "Địa chỉ email góp ý",
+  "Copy": "Sao chép",
+  "Open email app": "Mở ứng dụng email",
+  "Setup guide, FAQ, and updates at {0}": "Hướng dẫn thiết lập, câu hỏi thường gặp và cập nhật tại {0}",
+  "Copied to clipboard.": "Đã sao chép vào bộ nhớ tạm.",
+  "Couldn't copy. The address is selected so you can copy it yourself.": "Không thể sao chép. Địa chỉ đã được chọn để bạn tự sao chép.",
+  "New here?": "Mới dùng lần đầu?",
+  "Watch the setup video or send us feedback anytime from here.": "Xem video thiết lập hoặc gửi góp ý cho chúng tôi bất cứ lúc nào tại đây.",
+  "Show me": "Cho tôi xem",
+  "Got it": "Đã hiểu"
 }

@@ -955,9 +955,18 @@
   "SugarClock video": "Bidiyon SugarClock",
   "See how SugarClock works, how to set it up, and what it can show.": "Duba yadda SugarClock ke aiki, yadda ake saita shi, da abin da zai iya nunawa.",
   "Watch on YouTube": "Kalla a YouTube",
-  "The SugarClock walkthrough video": "Bidiyon bayani na SugarClock",
-  "Visit {0}": "Ziyarci {0}",
-  "Setup guide, FAQ, and updates": "Jagorar saitawa, tambayoyin da ake yawan yi, da sabuntawa",
-  "Send feedback or get help": "Aika ra'ayi ko nemi taimako",
-  "SugarClock feedback": "Ra'ayi game da SugarClock"
+  "SugarClock feedback": "Ra'ayi game da SugarClock",
+  "More videos": "Ƙarin bidiyo",
+  "Feedback & help": "Ra'ayi da taimako",
+  "Found a bug or have an idea? Send us an email.": "Ka sami matsala ko kana da ra'ayi? Aiko mana da imel.",
+  "Feedback email address": "Adireshin imel na ra'ayi",
+  "Copy": "Kwafi",
+  "Open email app": "Buɗe manhajar imel",
+  "Setup guide, FAQ, and updates at {0}": "Jagorar saitawa, tambayoyi da sabuntawa a {0}",
+  "Copied to clipboard.": "An kwafa zuwa allon kwafi.",
+  "Couldn't copy. The address is selected so you can copy it yourself.": "Ba a iya kwafa ba. An zaɓi adireshin don ka kwafa da kanka.",
+  "New here?": "Sabon zuwa ne?",
+  "Watch the setup video or send us feedback anytime from here.": "Kalli bidiyon saitawa ko aiko mana da ra'ayi a kowane lokaci daga nan.",
+  "Show me": "Nuna min",
+  "Got it": "Na gane"
 }
