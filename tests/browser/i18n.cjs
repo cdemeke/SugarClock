@@ -168,3 +168,61 @@ test('other device pages and mobile layouts retain usable controls',async()=>{
  for(const code of await page.evaluate(()=>I18n.languages.map(([code])=>code))){await choose(page,code);await noOverflow(page);}
  assert.deepEqual(errors,[]);await context.close();
 });
+
+test('learn more & feedback dialog is translated, RTL-aware, and keyboard accessible',async()=>{
+ for(const mobile of [false,true]){
+  const {page,context,errors}=await pageFor('en-US',mobile);
+  // The video thumbnail is external media; keep the test hermetic unless capturing screenshots.
+  if(!process.env.CAPTURE_SCREENSHOTS) await page.route('https://img.youtube.com/**',route=>route.abort());
+  const suffix=mobile?'mobile':'desktop';
+  for(const route of ['/','/display.html','/device.html','/debug.html']){
+   await page.goto(deviceURL+route);await ready(page,'en');
+   if(mobile) await page.locator('.mobile-nav-toggle').click();
+   const toggle=button(page);await toggle.click();
+   const dialog=page.locator('dialog.help-dialog');
+   assert.ok(await dialog.evaluate(el=>el.open));
+   assert.equal(await dialog.getAttribute('aria-labelledby'),'help-dialog-title');
+   assert.equal(await page.locator('#help-dialog-title').innerText(),'Learn more & feedback');
+   assert.equal(await page.locator('.help-feedback-link').getAttribute('href'),'mailto:feedback@sugarclock.com?subject=SugarClock%20feedback');
+   await page.locator('.help-video-facade').click();
+   assert.match(await page.locator('.help-video-embed').getAttribute('src'),/^https:\/\/www\.youtube-nocookie\.com\/embed\/vfTbYTnHQdA/);
+   await page.keyboard.press('Escape');
+   assert.equal(await dialog.evaluate(el=>el.open),false);
+   // The dialog's close event is queued as a task after Esc.
+   await page.waitForFunction(()=>!document.querySelector('.help-video-embed')&&document.querySelector('.help-video-facade'));
+   assert.ok(await toggle.evaluate(el=>document.activeElement===el),'focus returns to the help button');
+  }
+  await button(page).click();
+  if(!mobile){await captureHelp(page,'help-english-'+suffix);await page.locator('.help-dialog-close').click();}
+  else await page.keyboard.press('Escape');
+  // Clicking the panel's own padding keeps it open; clicking the backdrop closes it.
+  await button(page).click();
+  const box=await page.locator('dialog.help-dialog').boundingBox();
+  await page.mouse.click(box.x+4,box.y+box.height/2);
+  assert.ok(await page.locator('dialog.help-dialog').evaluate(el=>el.open));
+  await page.mouse.click(2,2);
+  assert.equal(await page.locator('dialog.help-dialog').evaluate(el=>el.open),false);
+  await page.evaluate(()=>toggleTheme());
+  await button(page).click();await captureHelp(page,'help-dark-'+suffix);await page.keyboard.press('Escape');
+  await page.evaluate(()=>toggleTheme());
+  await choose(page,'ar');
+  await button(page).click();
+  assert.equal(await page.locator('#help-dialog-title').innerText(),'اعرف المزيد وأرسل ملاحظاتك');
+  assert.equal(await page.locator('.help-dialog-close').getAttribute('aria-label'),'إغلاق');
+  assert.equal(await page.locator('.help-site-label').innerText(),await page.evaluate(()=>I18n.t(I18n.message('Visit {0}',['sugarclock.com']))));
+  assert.equal(decodeURIComponent(await page.locator('.help-feedback-link').getAttribute('href')),'mailto:feedback@sugarclock.com?subject=ملاحظات حول SugarClock');
+  const layout=await page.evaluate(()=>{const d=document.querySelector('dialog.help-dialog').getBoundingClientRect();
+   const close=document.querySelector('.help-dialog-close').getBoundingClientRect(),title=document.querySelector('#help-dialog-title').getBoundingClientRect();
+   const icon=document.querySelector('.help-link .nav-icon').getBoundingClientRect(),label=document.querySelector('.help-link strong').getBoundingClientRect();
+   return {inside:d.left>=0&&d.right<=innerWidth,closeLeftOfTitle:close.right<=title.left,iconRightOfLabel:icon.left>=label.right,dir:getComputedStyle(document.querySelector('.help-dialog')).direction};});
+  assert.deepEqual(layout,{inside:true,closeLeftOfTitle:true,iconRightOfLabel:true,dir:'rtl'});
+  await captureHelp(page,'help-arabic-'+suffix);await page.keyboard.press('Escape');
+  await choose(page,'en');
+  assert.deepEqual(errors,[]);await context.close();
+ }
+});
+function button(page){return page.locator('.help-toggle');}
+async function captureHelp(page,name){
+ if(process.env.CAPTURE_SCREENSHOTS) await page.waitForFunction(()=>{const img=document.querySelector('.help-video-facade img');return img.complete&&img.naturalWidth>0;});
+ await capture(page,name);
+}
