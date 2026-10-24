@@ -340,18 +340,28 @@ static bool libre_fetch_glucose() {
     return true;
 }
 
+// Plain HTTP for local servers (TLS on port 80 never connects), TLS (unverified,
+// like the other sources) for https URLs. The handshake bound keeps a stalled
+// server inside the loop watchdog.
+static WiFiClient& client_for(const char* url, WiFiClientSecure& secure, WiFiClient& plain) {
+    if (strncmp(url, "https://", 8) != 0) return plain;
+    secure.setInsecure();
+    secure.setTimeout(10);
+    secure.setHandshakeTimeout(10);
+    return secure;
+}
+
 // Generic URL fetch (original behavior)
 static void generic_fetch() {
     AppConfig& cfg = config_get();
 
-    WiFiClientSecure client;
-    client.setInsecure();
-    client.setTimeout(10);
+    WiFiClientSecure secure;
+    WiFiClient plain;
 
     HTTPClient http;
     Serial.printf("[HTTP] Polling: %s\n", cfg.server_url);
 
-    if (!http.begin(client, cfg.server_url)) {
+    if (!http.begin(client_for(cfg.server_url, secure, plain), cfg.server_url)) {
         Serial.println("[HTTP] Failed to begin connection");
         failure_count++;
         last_response_code = -1;
