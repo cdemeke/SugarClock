@@ -300,3 +300,30 @@ test('first-visit help hint points at the footer button and stays dismissed',asy
  assert.equal(await page.locator('.mobile-nav-toggle.has-hint').count(),0);
  assert.deepEqual(errors,[]);await context.close();
 });
+test('help hint: opening help early retires it, and short phone drawers keep every control reachable',async()=>{
+ // Opening help before the 800 ms hint delay must stop the hint from appearing later.
+ let {page,context,errors}=await pageFor('en-US');
+ await page.route('https://img.youtube.com/**',route=>route.abort());
+ await page.goto(deviceURL+'/debug.html');
+ await page.evaluate(()=>openHelp(document.querySelector('.help-toggle')));
+ await page.waitForTimeout(1200);
+ assert.equal(await page.locator('.help-hint').count(),0);
+ await page.keyboard.press('Escape');
+ await page.reload();await ready(page,'en');await page.waitForTimeout(1200);
+ assert.equal(await page.locator('.help-hint').count(),0,'early open is remembered');
+ assert.deepEqual(errors,[]);await context.close();
+ // Landscape phone: the drawer scrolls as a whole instead of squashing the nav.
+ ({page,context,errors}=await pageFor('en-US'));
+ await page.setViewportSize({width:667,height:375});
+ await page.goto(deviceURL+'/');await ready(page,'en');await page.waitForSelector('.help-hint.is-visible');
+ await page.locator('.mobile-nav-toggle').click();await page.waitForTimeout(400);
+ const nav=await page.locator('.sidebar-nav').evaluate(el=>({client:el.clientHeight,scroll:el.scrollHeight}));
+ assert.ok(nav.client>=nav.scroll-1,'navigation keeps its full height: '+JSON.stringify(nav));
+ for(const selector of ['.sidebar-link >> nth=0','[data-language-trigger]','.theme-toggle','.help-hint-dismiss','.help-toggle']){
+  const target=page.locator('.sidebar '+selector).first();await target.scrollIntoViewIfNeeded();
+  assert.ok(await target.evaluate(el=>{const r=el.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight&&r.height>0;}),selector+' reachable');
+ }
+ await page.locator('.help-toggle').click();
+ assert.ok(await page.locator('dialog.help-dialog').evaluate(el=>el.open));
+ assert.deepEqual(errors,[]);await context.close();
+});
