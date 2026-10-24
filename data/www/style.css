@@ -379,6 +379,412 @@ body {
     text-decoration: underline;
 }
 
+/* ---- Learn more & feedback ---- */
+.help-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 11px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--accent-dim);
+    color: var(--accent);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 650;
+    text-align: start;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.help-toggle:hover {
+    border-color: var(--accent);
+}
+
+.help-toggle:focus-visible,
+.help-dialog-close:focus-visible,
+.help-video-facade:focus-visible,
+.help-action:focus-visible,
+.help-site a:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.help-dialog {
+    width: min(440px, calc(100vw - 32px));
+    max-height: calc(100vh - 32px);
+    margin: auto;
+    padding: 20px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--card);
+    color: var(--text);
+    box-shadow: 0 24px 60px var(--shadow);
+    text-align: start;
+}
+
+.help-dialog::backdrop {
+    background: rgba(0,0,0,0.45);
+}
+
+.help-dialog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.help-dialog-header h2 {
+    font-size: 18px;
+}
+
+.help-dialog-close {
+    flex-shrink: 0;
+    border: none;
+    background: none;
+    color: var(--text-secondary);
+    font-size: 24px;
+    line-height: 1;
+    padding: 2px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.help-dialog-close:hover {
+    color: var(--text);
+    background: var(--hover-overlay);
+}
+
+/* Video controls keep their left-to-right media conventions in RTL pages. */
+.help-video {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #000;
+    direction: ltr;
+}
+
+.help-video-facade,
+.help-video-embed {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    padding: 0;
+    background: #000;
+    cursor: pointer;
+}
+
+.help-video-facade img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    color: #fff;
+}
+
+.help-video-play {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 60px;
+    height: 42px;
+    transform: translate(-50%, -50%);
+    border-radius: 12px;
+    background: rgba(0,0,0,0.7);
+    transition: background 0.15s;
+}
+
+.help-video-play::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-35%, -50%);
+    border-style: solid;
+    border-width: 9px 0 9px 15px;
+    border-color: transparent transparent transparent #fff;
+}
+
+.help-video-facade:hover .help-video-play,
+.help-video-facade:focus-visible .help-video-play {
+    background: #e62117;
+}
+
+.help-dialog-copy {
+    margin: 12px 0 14px;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.help-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px;
+}
+
+.help-action,
+.help-email-open {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 9px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 650;
+    text-align: center;
+    text-decoration: none;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.help-action .nav-icon {
+    color: var(--accent);
+}
+
+.help-action:hover {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+}
+
+.help-feedback {
+    margin-top: 18px;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--accent-dim);
+}
+
+.help-feedback h3 {
+    font-size: 15px;
+}
+
+.help-feedback > p:not(.help-email-status) {
+    margin: 4px 0 12px;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+/* The address is data: keep it left-to-right even on RTL pages. */
+.help-email {
+    display: flex;
+    align-items: stretch;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--card);
+    overflow: hidden;
+}
+
+.help-email:focus-within {
+    border-color: var(--accent);
+}
+
+.help-email .help-email-address {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: auto;
+    padding: 10px 12px;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    color: var(--text);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    box-shadow: none;
+    outline: none;
+}
+
+.help-email-copy {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 6px;
+    padding: 0 14px;
+    border: 0;
+    border-inline-start: 1px solid var(--border);
+    background: none;
+    color: var(--accent);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 650;
+    cursor: pointer;
+}
+
+.help-email-copy .nav-icon {
+    width: 16px;
+    height: 16px;
+}
+
+.help-email-copy:hover {
+    background: var(--hover-overlay);
+}
+
+.help-email-copy:focus-visible,
+.help-email-open:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: -3px;
+}
+
+.help-email-status {
+    min-height: 16px;
+    margin: 4px 2px 6px;
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.help-email-status.is-error {
+    color: var(--text-secondary);
+}
+
+.help-email-open {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #fff;
+}
+
+.help-email-open:hover {
+    filter: brightness(1.08);
+}
+
+[data-theme="dark"] .help-email-open {
+    color: #0b1a12;
+}
+
+.help-site {
+    margin-top: 14px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    text-align: center;
+}
+
+.help-site a {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.help-site a:hover {
+    color: var(--accent);
+}
+
+/* First-visit hint pointing at the footer help button. */
+.sidebar-footer {
+    position: relative;
+}
+
+.help-hint {
+    position: absolute;
+    bottom: var(--hint-bottom, 40px);
+    inset-inline-start: calc(100% + 30px);
+    z-index: 210;
+    width: 260px;
+    padding: 14px 16px;
+    border: 1px solid var(--accent);
+    border-radius: 12px;
+    background: var(--card);
+    color: var(--text);
+    box-shadow: 0 14px 36px var(--shadow);
+    font-size: 13px;
+    line-height: 1.45;
+    opacity: 0;
+    transform: translateX(-6px);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+html[dir="rtl"] .help-hint:not(.is-visible) {
+    transform: translateX(6px);
+}
+
+.help-hint.is-visible {
+    opacity: 1;
+    transform: none;
+}
+
+/* Arrow on the panel's inline-start edge, centered on the button. */
+.help-hint::before {
+    content: "";
+    position: absolute;
+    bottom: calc(var(--hint-button-height, 40px) / 2 - 7px);
+    inset-inline-start: -7px;
+    width: 12px;
+    height: 12px;
+    border: solid var(--accent);
+    border-width: 0 0 1px 1px;
+    background: var(--card);
+    transform: rotate(45deg);
+}
+
+html[dir="rtl"] .help-hint::before {
+    transform: rotate(-135deg);
+}
+
+.help-hint p {
+    margin: 0 0 10px;
+}
+
+.help-hint-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.help-hint-actions button {
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: none;
+    color: var(--text);
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 650;
+    cursor: pointer;
+}
+
+.help-hint-actions .help-hint-open {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #fff;
+}
+
+[data-theme="dark"] .help-hint-actions .help-hint-open {
+    color: #0b1a12;
+}
+
+.help-hint-actions button:hover {
+    filter: brightness(1.06);
+    background: var(--hover-overlay);
+}
+
+.help-hint-actions .help-hint-open:hover {
+    background: var(--accent);
+}
+
+.help-hint-actions button:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.help-toggle.has-hint {
+    animation: help-hint-pulse 1.8s ease-out 0.8s 3;
+}
+
+@keyframes help-hint-pulse {
+    0% { box-shadow: 0 0 0 0 var(--accent); }
+    70%, 100% { box-shadow: 0 0 0 10px transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .help-toggle.has-hint { animation: none; }
+    .help-hint { transition: none; transform: none; }
+}
+
 .mobile-nav-toggle,
 .sidebar-scrim {
     display: none;
@@ -1006,6 +1412,66 @@ select {
     .mobile-nav-toggle .nav-icon {
         width: 18px;
         height: 18px;
+    }
+
+    /* Scroll the whole drawer on short screens so the footer (and the hint) never
+       squeeze the navigation or push controls off-screen. */
+    .sidebar {
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+
+    .sidebar .sidebar-nav {
+        flex-shrink: 0;
+        overflow: visible;
+    }
+
+    .mobile-nav-toggle.has-hint::after {
+        content: "";
+        position: absolute;
+        top: -4px;
+        inset-inline-end: -4px;
+        width: 12px;
+        height: 12px;
+        border: 2px solid var(--surface);
+        border-radius: 50%;
+        background: var(--accent);
+    }
+
+    /* In the drawer the hint sits in the footer flow, above the button. */
+    .help-hint {
+        position: relative;
+        bottom: auto;
+        inset-inline-start: auto;
+        width: auto;
+        margin-bottom: 4px;
+        transform: translateY(4px);
+    }
+
+    html[dir="rtl"] .help-hint:not(.is-visible) {
+        transform: translateY(4px);
+    }
+
+    .help-hint::before {
+        bottom: -7px;
+        inset-inline-start: 20px;
+        border-width: 0 1px 1px 0;
+    }
+
+    html[dir="rtl"] .help-hint::before {
+        transform: rotate(45deg);
+    }
+
+    .help-dialog {
+        padding: 16px;
+    }
+
+    .help-feedback {
+        padding: 12px;
+    }
+
+    .help-email-copy {
+        padding: 0 10px;
     }
 
     .app-main {

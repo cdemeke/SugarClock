@@ -57,6 +57,7 @@
         <div class="sidebar-footer">
             <div data-language-picker="sidebar"></div>
             <button class="theme-toggle" type="button" onclick="toggleTheme()" title="Toggle color mode" data-i18n-title="Toggle color mode"><span class="theme-icon" aria-hidden="true">&#9790;</span><span class="theme-label"><span data-i18n="Switch to dark mode">Switch to dark mode</span></span></button>
+            <button class="help-toggle" type="button" onclick="openHelp(this)" aria-haspopup="dialog"><svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8"/><path d="M7.8 7.6a2.3 2.3 0 0 1 4.4.9c0 1.6-2.2 2-2.2 3.3"/><path d="M10 14.6h.01"/></svg><span data-i18n="Learn more &amp; feedback">Learn more &amp; feedback</span></button>
             <div class="sidebar-footer-note"><span data-i18n="Connected to">Connected to</span> <a href="https://sugarclock.com" target="_blank" rel="noopener">SugarClock</a></div>
         </div>
     </aside>
@@ -1849,5 +1850,6 @@ curl -X POST http://DEVICE_IP/api/sysmon \
         }
         syncThemeButton();
     </script>
+    <script src="help.js"></script>
 </body>
 </html>
