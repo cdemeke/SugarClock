@@ -1414,6 +1414,18 @@ select {
         height: 18px;
     }
 
+    /* Scroll the whole drawer on short screens so the footer (and the hint) never
+       squeeze the navigation or push controls off-screen. */
+    .sidebar {
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+
+    .sidebar .sidebar-nav {
+        flex-shrink: 0;
+        overflow: visible;
+    }
+
     .mobile-nav-toggle.has-hint::after {
         content: "";
         position: absolute;
