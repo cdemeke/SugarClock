@@ -140,14 +140,19 @@
     // dismissed or help is opened. On phones the menu button gets a dot instead.
     const HINT_KEY = 'sugarclock.helpHintDismissed';
     let hint = null;
+    let hintTimer = 0;
+    let hintRetired = false;
 
     function hintDismissed() {
         try { return localStorage.getItem(HINT_KEY) === '1'; } catch (_) { return false; }
     }
 
     function dismissHint() {
-        if (!hint) return;
+        // Opening help before the hint appears also counts, so cancel the pending show too.
+        clearTimeout(hintTimer);
+        hintRetired = true;
         try { localStorage.setItem(HINT_KEY, '1'); } catch (_) {}
+        if (!hint) return;
         const toggle = document.querySelector('.help-toggle');
         toggle.removeAttribute('aria-describedby');
         toggle.classList.remove('has-hint');
@@ -167,7 +172,7 @@
 
     function showHint() {
         const toggle = document.querySelector('.help-toggle');
-        if (!toggle || hintDismissed()) return;
+        if (!toggle || hintRetired || hintDismissed()) return;
         hint = document.createElement('div');
         hint.className = 'help-hint';
         hint.id = 'help-hint';
@@ -200,5 +205,5 @@
         dialog.showModal();
     };
 
-    setTimeout(showHint, 800);
+    hintTimer = setTimeout(showHint, 800);
 })();
