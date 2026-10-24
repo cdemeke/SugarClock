@@ -948,5 +948,16 @@
   "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "చిన్న మార్పుల కోసం “మసకగా” మరియు “ప్రకాశవంతంగా” ఉపయోగించండి. కనిష్ఠం అంటే ఆఫ్ కాదు; అంకెలు కనిపించడం కష్టంగా ఉంటే ప్రకాశాన్ని పెంచండి.",
   "Uses the clock's light sensor. Changing brightness switches back to manual control.": "గడియారం యొక్క కాంతి సెన్సార్‌ను ఉపయోగిస్తుంది. ప్రకాశాన్ని మార్చితే మళ్లీ మాన్యువల్ నియంత్రణకు మారుతుంది.",
   "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "రాత్రి సమయంలో మాన్యువల్ మరియు ఆటోమేటిక్ ప్రకాశానికి బదులుగా ఇది వర్తిస్తుంది. 1 కనిష్ఠ సెట్టింగ్ (0.4%), ఆఫ్ కాదు. అంకెలు కనిపించడం కష్టంగా ఉంటే దీన్ని పెంచండి.",
-  "Automatic brightness is on. Adjust brightness to choose a manual level.": "ఆటోమేటిక్ ప్రకాశం ఆన్‌లో ఉంది. మాన్యువల్ స్థాయిని ఎంచుకోవడానికి ప్రకాశాన్ని సర్దుబాటు చేయండి."
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "ఆటోమేటిక్ ప్రకాశం ఆన్‌లో ఉంది. మాన్యువల్ స్థాయిని ఎంచుకోవడానికి ప్రకాశాన్ని సర్దుబాటు చేయండి.",
+  "Learn more & feedback": "మరింత తెలుసుకోండి & అభిప్రాయం",
+  "Close": "మూసివేయండి",
+  "Play the SugarClock video": "SugarClock వీడియోను ప్లే చేయండి",
+  "SugarClock video": "SugarClock వీడియో",
+  "See how SugarClock works, how to set it up, and what it can show.": "SugarClock ఎలా పనిచేస్తుందో, దాన్ని ఎలా సెటప్ చేయాలో, అది ఏమి చూపగలదో చూడండి.",
+  "Watch on YouTube": "YouTubeలో చూడండి",
+  "The SugarClock walkthrough video": "SugarClock పరిచయ వీడియో",
+  "Visit {0}": "{0}ని సందర్శించండి",
+  "Setup guide, FAQ, and updates": "సెటప్ గైడ్, FAQ మరియు అప్‌డేట్‌లు",
+  "Send feedback or get help": "అభిప్రాయం పంపండి లేదా సహాయం పొందండి",
+  "SugarClock feedback": "SugarClock అభిప్రాయం"
 }

@@ -948,5 +948,16 @@
   "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "Küçük ayarlar için “Daha koyu” ve “Daha parlak” düğmelerini kullanın. En düşük ayar kapalı demek değildir; rakamlar zor görünüyorsa parlaklığı artırın.",
   "Uses the clock's light sensor. Changing brightness switches back to manual control.": "Saatin ışık sensörünü kullanır. Parlaklığı değiştirmek manuel kontrole geri döner.",
   "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "Gece saatlerinde manuel ve otomatik parlaklığın yerine geçer. 1 en düşük ayardır (%0,4), kapalı değildir. Rakamlar zor görünüyorsa artırın.",
-  "Automatic brightness is on. Adjust brightness to choose a manual level.": "Otomatik parlaklık açık. Manuel bir seviye seçmek için parlaklığı ayarlayın."
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "Otomatik parlaklık açık. Manuel bir seviye seçmek için parlaklığı ayarlayın.",
+  "Learn more & feedback": "Daha fazla bilgi ve geri bildirim",
+  "Close": "Kapat",
+  "Play the SugarClock video": "SugarClock videosunu oynat",
+  "SugarClock video": "SugarClock videosu",
+  "See how SugarClock works, how to set it up, and what it can show.": "SugarClock'un nasıl çalıştığını, nasıl kurulacağını ve neler gösterebileceğini görün.",
+  "Watch on YouTube": "YouTube'da izle",
+  "The SugarClock walkthrough video": "SugarClock tanıtım videosu",
+  "Visit {0}": "{0} sitesini ziyaret et",
+  "Setup guide, FAQ, and updates": "Kurulum kılavuzu, SSS ve güncellemeler",
+  "Send feedback or get help": "Geri bildirim gönder veya yardım al",
+  "SugarClock feedback": "SugarClock geri bildirimi"
 }

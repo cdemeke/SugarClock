@@ -948,5 +948,16 @@
   "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "சிறிய மாற்றங்களுக்கு “மங்கலாக்கு” மற்றும் “பிரகாசமாக்கு” ஐப் பயன்படுத்தவும். குறைந்தபட்சம் என்பது அணைப்பு அல்ல; எண்கள் தெரிவது கடினமாக இருந்தால் ஒளிர்வை அதிகரிக்கவும்.",
   "Uses the clock's light sensor. Changing brightness switches back to manual control.": "கடிகாரத்தின் ஒளி சென்சாரைப் பயன்படுத்துகிறது. ஒளிர்வை மாற்றினால் மீண்டும் கைமுறை கட்டுப்பாட்டுக்குத் திரும்பும்.",
   "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "இரவு நேரங்களில் கைமுறை மற்றும் தானியங்கி ஒளிர்வுக்குப் பதிலாக இது பயன்படும். 1 என்பது குறைந்தபட்ச அமைப்பு (0.4%), அணைப்பு அல்ல. எண்கள் தெரிவது கடினமாக இருந்தால் இதை அதிகரிக்கவும்.",
-  "Automatic brightness is on. Adjust brightness to choose a manual level.": "தானியங்கி ஒளிர்வு இயக்கத்தில் உள்ளது. கைமுறை நிலையைத் தேர்வுசெய்ய ஒளிர்வைச் சரிசெய்யவும்."
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "தானியங்கி ஒளிர்வு இயக்கத்தில் உள்ளது. கைமுறை நிலையைத் தேர்வுசெய்ய ஒளிர்வைச் சரிசெய்யவும்.",
+  "Learn more & feedback": "மேலும் அறிக & கருத்து",
+  "Close": "மூடு",
+  "Play the SugarClock video": "SugarClock வீடியோவை இயக்கு",
+  "SugarClock video": "SugarClock வீடியோ",
+  "See how SugarClock works, how to set it up, and what it can show.": "SugarClock எவ்வாறு செயல்படுகிறது, அதை எவ்வாறு அமைப்பது, அது எதைக் காட்ட முடியும் என்பதைப் பாருங்கள்.",
+  "Watch on YouTube": "YouTube-இல் பார்க்கவும்",
+  "The SugarClock walkthrough video": "SugarClock அறிமுக வீடியோ",
+  "Visit {0}": "{0} தளத்தைப் பார்வையிடவும்",
+  "Setup guide, FAQ, and updates": "அமைவு வழிகாட்டி, FAQ மற்றும் புதுப்பிப்புகள்",
+  "Send feedback or get help": "கருத்தை அனுப்பவும் அல்லது உதவி பெறவும்",
+  "SugarClock feedback": "SugarClock கருத்து"
 }

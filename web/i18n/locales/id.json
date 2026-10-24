@@ -948,5 +948,16 @@
   "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "Gunakan “Lebih redup” dan “Lebih terang” untuk penyesuaian kecil. Minimum bukan berarti mati; jika angka sulit dilihat, tambah kecerahan.",
   "Uses the clock's light sensor. Changing brightness switches back to manual control.": "Menggunakan sensor cahaya jam. Mengubah kecerahan akan kembali ke kontrol manual.",
   "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "Menggantikan kecerahan manual dan otomatis selama jam malam. 1 adalah pengaturan minimum (0,4%), bukan mati. Naikkan jika angka sulit dilihat.",
-  "Automatic brightness is on. Adjust brightness to choose a manual level.": "Kecerahan otomatis aktif. Sesuaikan kecerahan untuk memilih tingkat manual."
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "Kecerahan otomatis aktif. Sesuaikan kecerahan untuk memilih tingkat manual.",
+  "Learn more & feedback": "Pelajari lebih lanjut & masukan",
+  "Close": "Tutup",
+  "Play the SugarClock video": "Putar video SugarClock",
+  "SugarClock video": "Video SugarClock",
+  "See how SugarClock works, how to set it up, and what it can show.": "Lihat cara kerja SugarClock, cara menyiapkannya, dan apa saja yang dapat ditampilkannya.",
+  "Watch on YouTube": "Tonton di YouTube",
+  "The SugarClock walkthrough video": "Video panduan SugarClock",
+  "Visit {0}": "Kunjungi {0}",
+  "Setup guide, FAQ, and updates": "Panduan penyiapan, FAQ, dan pembaruan",
+  "Send feedback or get help": "Kirim masukan atau dapatkan bantuan",
+  "SugarClock feedback": "Masukan SugarClock"
 }

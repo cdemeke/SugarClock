@@ -948,5 +948,16 @@
   "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "使用“调暗”和“调亮”进行小幅调整。最低亮度并不是关闭；如果数字难以看清，请提高亮度。",
   "Uses the clock's light sensor. Changing brightness switches back to manual control.": "使用时钟的光线传感器。更改亮度会切换回手动控制。",
   "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "在夜间时段覆盖手动和自动亮度。1 是最低设置（0.4%），不是关闭。如果数字难以看清，请调高该值。",
-  "Automatic brightness is on. Adjust brightness to choose a manual level.": "自动亮度已开启。调整亮度即可选择手动级别。"
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "自动亮度已开启。调整亮度即可选择手动级别。",
+  "Learn more & feedback": "了解更多与反馈",
+  "Close": "关闭",
+  "Play the SugarClock video": "播放 SugarClock 视频",
+  "SugarClock video": "SugarClock 视频",
+  "See how SugarClock works, how to set it up, and what it can show.": "了解 SugarClock 的工作原理、设置方法以及可显示的内容。",
+  "Watch on YouTube": "在 YouTube 上观看",
+  "The SugarClock walkthrough video": "SugarClock 演示视频",
+  "Visit {0}": "访问 {0}",
+  "Setup guide, FAQ, and updates": "设置指南、常见问题和更新",
+  "Send feedback or get help": "发送反馈或获取帮助",
+  "SugarClock feedback": "SugarClock 反馈"
 }

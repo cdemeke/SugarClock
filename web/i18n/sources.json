@@ -725,7 +725,18 @@
     "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.",
     "Uses the clock's light sensor. Changing brightness switches back to manual control.",
     "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.",
-    "Automatic brightness is on. Adjust brightness to choose a manual level."
+    "Automatic brightness is on. Adjust brightness to choose a manual level.",
+    "Learn more & feedback",
+    "Close",
+    "Play the SugarClock video",
+    "SugarClock video",
+    "See how SugarClock works, how to set it up, and what it can show.",
+    "Watch on YouTube",
+    "The SugarClock walkthrough video",
+    "Visit {0}",
+    "Setup guide, FAQ, and updates",
+    "Send feedback or get help",
+    "SugarClock feedback"
   ],
   "fleet": [
     " blocked",

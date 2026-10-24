@@ -948,5 +948,16 @@
   "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "Tumia “Fifisha” na “Ng'arisha” kwa marekebisho madogo. Kiwango cha chini si kuzima; ikiwa namba ni ngumu kuona, ongeza mwangaza.",
   "Uses the clock's light sensor. Changing brightness switches back to manual control.": "Hutumia kihisi mwanga cha saa. Kubadilisha mwangaza kunarudisha udhibiti wa mkono.",
   "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "Hubadilisha mwangaza wa mkono na wa kiotomatiki wakati wa saa za usiku. 1 ni kiwango cha chini (0.4%), si kuzima. Kiongeze ikiwa namba ni ngumu kuona.",
-  "Automatic brightness is on. Adjust brightness to choose a manual level.": "Mwangaza wa kiotomatiki umewashwa. Rekebisha mwangaza ili kuchagua kiwango cha mkono."
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "Mwangaza wa kiotomatiki umewashwa. Rekebisha mwangaza ili kuchagua kiwango cha mkono.",
+  "Learn more & feedback": "Pata maelezo zaidi na maoni",
+  "Close": "Funga",
+  "Play the SugarClock video": "Cheza video ya SugarClock",
+  "SugarClock video": "Video ya SugarClock",
+  "See how SugarClock works, how to set it up, and what it can show.": "Angalia jinsi SugarClock inavyofanya kazi, jinsi ya kuiweka, na inachoweza kuonyesha.",
+  "Watch on YouTube": "Tazama kwenye YouTube",
+  "The SugarClock walkthrough video": "Video ya maelezo ya SugarClock",
+  "Visit {0}": "Tembelea {0}",
+  "Setup guide, FAQ, and updates": "Mwongozo wa usanidi, maswali yanayoulizwa mara kwa mara na masasisho",
+  "Send feedback or get help": "Tuma maoni au pata msaada",
+  "SugarClock feedback": "Maoni kuhusu SugarClock"
 }

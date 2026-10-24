@@ -948,5 +948,16 @@
   "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "چھوٹی تبدیلیوں کے لیے “مدھم” اور “زیادہ روشن” استعمال کریں۔ کم از کم کا مطلب بند نہیں ہے؛ اگر نمبر دیکھنا مشکل ہو تو چمک بڑھائیں۔",
   "Uses the clock's light sensor. Changing brightness switches back to manual control.": "گھڑی کا روشنی سینسر استعمال کرتا ہے۔ چمک تبدیل کرنے سے دستی کنٹرول پر واپس آ جاتا ہے۔",
   "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "رات کے اوقات میں دستی اور خودکار چمک کی جگہ لیتا ہے۔ 1 کم از کم سیٹنگ ہے (0.4%)، بند نہیں۔ اگر نمبر دیکھنا مشکل ہو تو اسے بڑھائیں۔",
-  "Automatic brightness is on. Adjust brightness to choose a manual level.": "خودکار چمک آن ہے۔ دستی سطح منتخب کرنے کے لیے چمک ایڈجسٹ کریں۔"
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "خودکار چمک آن ہے۔ دستی سطح منتخب کرنے کے لیے چمک ایڈجسٹ کریں۔",
+  "Learn more & feedback": "مزید جانیں اور رائے دیں",
+  "Close": "بند کریں",
+  "Play the SugarClock video": "SugarClock ویڈیو چلائیں",
+  "SugarClock video": "SugarClock ویڈیو",
+  "See how SugarClock works, how to set it up, and what it can show.": "دیکھیں کہ SugarClock کیسے کام کرتا ہے، اسے کیسے سیٹ اپ کریں اور یہ کیا دکھا سکتا ہے۔",
+  "Watch on YouTube": "YouTube پر دیکھیں",
+  "The SugarClock walkthrough video": "SugarClock کی تعارفی ویڈیو",
+  "Visit {0}": "{0} پر جائیں",
+  "Setup guide, FAQ, and updates": "سیٹ اپ گائیڈ، عمومی سوالات اور اپڈیٹس",
+  "Send feedback or get help": "رائے بھیجیں یا مدد حاصل کریں",
+  "SugarClock feedback": "SugarClock کے بارے میں رائے"
 }

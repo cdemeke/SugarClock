@@ -948,5 +948,16 @@
   "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "Usa «Más tenue» y «Más brillante» para ajustes pequeños. El mínimo no apaga la pantalla; si cuesta ver los números, aumenta el brillo.",
   "Uses the clock's light sensor. Changing brightness switches back to manual control.": "Usa el sensor de luz del reloj. Cambiar el brillo vuelve al control manual.",
   "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "Sustituye el brillo manual y automático durante las horas nocturnas. 1 es el ajuste mínimo (0,4 %), no apagado. Auméntalo si cuesta ver los números.",
-  "Automatic brightness is on. Adjust brightness to choose a manual level.": "El brillo automático está activado. Ajusta el brillo para elegir un nivel manual."
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "El brillo automático está activado. Ajusta el brillo para elegir un nivel manual.",
+  "Learn more & feedback": "Más información y comentarios",
+  "Close": "Cerrar",
+  "Play the SugarClock video": "Reproducir el video de SugarClock",
+  "SugarClock video": "Video de SugarClock",
+  "See how SugarClock works, how to set it up, and what it can show.": "Descubre cómo funciona SugarClock, cómo configurarlo y qué puede mostrar.",
+  "Watch on YouTube": "Ver en YouTube",
+  "The SugarClock walkthrough video": "El video explicativo de SugarClock",
+  "Visit {0}": "Visitar {0}",
+  "Setup guide, FAQ, and updates": "Guía de configuración, preguntas frecuentes y novedades",
+  "Send feedback or get help": "Enviar comentarios u obtener ayuda",
+  "SugarClock feedback": "Comentarios sobre SugarClock"
 }

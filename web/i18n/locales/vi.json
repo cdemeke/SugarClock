@@ -948,5 +948,16 @@
   "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "Dùng “Tối hơn” và “Sáng hơn” để điều chỉnh nhỏ. Mức tối thiểu không phải là tắt; nếu khó nhìn thấy số, hãy tăng độ sáng.",
   "Uses the clock's light sensor. Changing brightness switches back to manual control.": "Dùng cảm biến ánh sáng của đồng hồ. Thay đổi độ sáng sẽ chuyển lại về điều khiển thủ công.",
   "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "Thay thế độ sáng thủ công và tự động trong giờ ban đêm. 1 là mức tối thiểu (0,4%), không phải tắt. Hãy tăng lên nếu khó nhìn thấy số.",
-  "Automatic brightness is on. Adjust brightness to choose a manual level.": "Độ sáng tự động đang bật. Điều chỉnh độ sáng để chọn mức thủ công."
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "Độ sáng tự động đang bật. Điều chỉnh độ sáng để chọn mức thủ công.",
+  "Learn more & feedback": "Tìm hiểu thêm & góp ý",
+  "Close": "Đóng",
+  "Play the SugarClock video": "Phát video SugarClock",
+  "SugarClock video": "Video SugarClock",
+  "See how SugarClock works, how to set it up, and what it can show.": "Xem cách SugarClock hoạt động, cách thiết lập và những gì nó có thể hiển thị.",
+  "Watch on YouTube": "Xem trên YouTube",
+  "The SugarClock walkthrough video": "Video giới thiệu SugarClock",
+  "Visit {0}": "Truy cập {0}",
+  "Setup guide, FAQ, and updates": "Hướng dẫn thiết lập, câu hỏi thường gặp và cập nhật",
+  "Send feedback or get help": "Gửi góp ý hoặc nhận trợ giúp",
+  "SugarClock feedback": "Góp ý về SugarClock"
 }

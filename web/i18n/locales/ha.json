@@ -948,5 +948,16 @@
   "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "Yi amfani da “Rage haske” da “Ƙara haske” don ƙananan gyare-gyare. Mafi ƙanƙanta ba yana nufin a kashe ba; idan lambobi suna da wuyar gani, ƙara haske.",
   "Uses the clock's light sensor. Changing brightness switches back to manual control.": "Yana amfani da na'urar gano haske ta agogon. Canza haske yana komawa sarrafa da hannu.",
   "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "Yana maye gurbin haske na hannu da na atomatik a lokacin dare. 1 shi ne mafi ƙanƙanta (0.4%), ba kashewa ba. Ƙara shi idan lambobi suna da wuyar gani.",
-  "Automatic brightness is on. Adjust brightness to choose a manual level.": "Haske na atomatik yana kunne. Daidaita haske don zaɓar mataki na hannu."
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "Haske na atomatik yana kunne. Daidaita haske don zaɓar mataki na hannu.",
+  "Learn more & feedback": "Ƙara koyo da ra'ayi",
+  "Close": "Rufe",
+  "Play the SugarClock video": "Kunna bidiyon SugarClock",
+  "SugarClock video": "Bidiyon SugarClock",
+  "See how SugarClock works, how to set it up, and what it can show.": "Duba yadda SugarClock ke aiki, yadda ake saita shi, da abin da zai iya nunawa.",
+  "Watch on YouTube": "Kalla a YouTube",
+  "The SugarClock walkthrough video": "Bidiyon bayani na SugarClock",
+  "Visit {0}": "Ziyarci {0}",
+  "Setup guide, FAQ, and updates": "Jagorar saitawa, tambayoyin da ake yawan yi, da sabuntawa",
+  "Send feedback or get help": "Aika ra'ayi ko nemi taimako",
+  "SugarClock feedback": "Ra'ayi game da SugarClock"
 }

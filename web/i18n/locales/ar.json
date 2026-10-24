@@ -948,5 +948,16 @@
   "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "استخدم «أخفت» و«أسطع» للتعديلات الصغيرة. الحد الأدنى لا يعني الإيقاف؛ إذا كان من الصعب رؤية الأرقام، فارفع السطوع.",
   "Uses the clock's light sensor. Changing brightness switches back to manual control.": "يستخدم مستشعر الضوء في الساعة. يؤدي تغيير السطوع إلى العودة إلى التحكم اليدوي.",
   "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "يتجاوز السطوع اليدوي والتلقائي خلال ساعات الليل. القيمة 1 هي الحد الأدنى (0.4%) وليست إيقافًا. ارفعها إذا كان من الصعب رؤية الأرقام.",
-  "Automatic brightness is on. Adjust brightness to choose a manual level.": "السطوع التلقائي مفعّل. اضبط السطوع لاختيار مستوى يدوي."
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "السطوع التلقائي مفعّل. اضبط السطوع لاختيار مستوى يدوي.",
+  "Learn more & feedback": "اعرف المزيد وأرسل ملاحظاتك",
+  "Close": "إغلاق",
+  "Play the SugarClock video": "تشغيل فيديو SugarClock",
+  "SugarClock video": "فيديو SugarClock",
+  "See how SugarClock works, how to set it up, and what it can show.": "شاهد كيف يعمل SugarClock وكيفية إعداده وما يمكنه عرضه.",
+  "Watch on YouTube": "المشاهدة على YouTube",
+  "The SugarClock walkthrough video": "فيديو الشرح التفصيلي لـ SugarClock",
+  "Visit {0}": "زيارة {0}",
+  "Setup guide, FAQ, and updates": "دليل الإعداد والأسئلة الشائعة والتحديثات",
+  "Send feedback or get help": "أرسل ملاحظاتك أو احصل على المساعدة",
+  "SugarClock feedback": "ملاحظات حول SugarClock"
 }

@@ -948,5 +948,16 @@
   "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "ছোট পরিবর্তনের জন্য “আরও ম্লান” ও “আরও উজ্জ্বল” ব্যবহার করুন। সর্বনিম্ন মানে বন্ধ নয়; সংখ্যা দেখতে অসুবিধা হলে উজ্জ্বলতা বাড়ান।",
   "Uses the clock's light sensor. Changing brightness switches back to manual control.": "ঘড়ির আলো সেন্সর ব্যবহার করে। উজ্জ্বলতা পরিবর্তন করলে আবার ম্যানুয়াল নিয়ন্ত্রণে ফিরে যায়।",
   "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "রাতের সময় ম্যানুয়াল ও স্বয়ংক্রিয় উজ্জ্বলতার পরিবর্তে এটি প্রযোজ্য হয়। 1 হলো সর্বনিম্ন সেটিং (0.4%), বন্ধ নয়। সংখ্যা দেখতে অসুবিধা হলে এটি বাড়ান।",
-  "Automatic brightness is on. Adjust brightness to choose a manual level.": "স্বয়ংক্রিয় উজ্জ্বলতা চালু আছে। ম্যানুয়াল স্তর বেছে নিতে উজ্জ্বলতা সমন্বয় করুন।"
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "স্বয়ংক্রিয় উজ্জ্বলতা চালু আছে। ম্যানুয়াল স্তর বেছে নিতে উজ্জ্বলতা সমন্বয় করুন।",
+  "Learn more & feedback": "আরও জানুন ও মতামত দিন",
+  "Close": "বন্ধ করুন",
+  "Play the SugarClock video": "SugarClock ভিডিও চালান",
+  "SugarClock video": "SugarClock ভিডিও",
+  "See how SugarClock works, how to set it up, and what it can show.": "দেখুন SugarClock কীভাবে কাজ করে, কীভাবে সেট আপ করবেন এবং এটি কী দেখাতে পারে।",
+  "Watch on YouTube": "YouTube-এ দেখুন",
+  "The SugarClock walkthrough video": "SugarClock পরিচিতি ভিডিও",
+  "Visit {0}": "{0} দেখুন",
+  "Setup guide, FAQ, and updates": "সেটআপ গাইড, FAQ এবং আপডেট",
+  "Send feedback or get help": "মতামত পাঠান বা সাহায্য নিন",
+  "SugarClock feedback": "SugarClock মতামত"
 }

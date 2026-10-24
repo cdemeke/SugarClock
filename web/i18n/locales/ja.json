@@ -948,5 +948,16 @@
   "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "細かい調整には「暗く」と「明るく」を使います。最小はオフではありません。数字が見えにくい場合は明るさを上げてください。",
   "Uses the clock's light sensor. Changing brightness switches back to manual control.": "時計の光センサーを使用します。明るさを変更すると手動制御に戻ります。",
   "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "夜間の時間帯は手動・自動の明るさより優先されます。1 は最小設定（0.4%）で、オフではありません。数字が見えにくい場合は値を上げてください。",
-  "Automatic brightness is on. Adjust brightness to choose a manual level.": "自動調整がオンです。明るさを調整すると手動レベルを選べます。"
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "自動調整がオンです。明るさを調整すると手動レベルを選べます。",
+  "Learn more & feedback": "詳細とフィードバック",
+  "Close": "閉じる",
+  "Play the SugarClock video": "SugarClock の動画を再生",
+  "SugarClock video": "SugarClock の動画",
+  "See how SugarClock works, how to set it up, and what it can show.": "SugarClock の仕組み、設定方法、表示できる内容をご覧ください。",
+  "Watch on YouTube": "YouTube で見る",
+  "The SugarClock walkthrough video": "SugarClock の紹介動画",
+  "Visit {0}": "{0} にアクセス",
+  "Setup guide, FAQ, and updates": "セットアップガイド、よくある質問、最新情報",
+  "Send feedback or get help": "フィードバックを送る・サポートを受ける",
+  "SugarClock feedback": "SugarClock へのフィードバック"
 }

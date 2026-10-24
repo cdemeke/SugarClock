@@ -948,5 +948,16 @@
   "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "Utilisez « Plus sombre » et « Plus lumineux » pour de petits réglages. Le minimum n’éteint pas l’écran ; si les chiffres sont difficiles à voir, augmentez la luminosité.",
   "Uses the clock's light sensor. Changing brightness switches back to manual control.": "Utilise le capteur de lumière de l’horloge. Modifier la luminosité repasse en contrôle manuel.",
   "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "Remplace la luminosité manuelle et automatique pendant les heures de nuit. 1 est le réglage minimum (0,4 %), pas l’extinction. Augmentez-le si les chiffres sont difficiles à voir.",
-  "Automatic brightness is on. Adjust brightness to choose a manual level.": "La luminosité automatique est activée. Ajustez la luminosité pour choisir un niveau manuel."
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "La luminosité automatique est activée. Ajustez la luminosité pour choisir un niveau manuel.",
+  "Learn more & feedback": "En savoir plus et commentaires",
+  "Close": "Fermer",
+  "Play the SugarClock video": "Lire la vidéo SugarClock",
+  "SugarClock video": "Vidéo SugarClock",
+  "See how SugarClock works, how to set it up, and what it can show.": "Découvrez comment fonctionne SugarClock, comment le configurer et ce qu’il peut afficher.",
+  "Watch on YouTube": "Regarder sur YouTube",
+  "The SugarClock walkthrough video": "La vidéo de présentation de SugarClock",
+  "Visit {0}": "Visiter {0}",
+  "Setup guide, FAQ, and updates": "Guide d’installation, FAQ et nouveautés",
+  "Send feedback or get help": "Envoyer un commentaire ou obtenir de l’aide",
+  "SugarClock feedback": "Commentaires sur SugarClock"
 }

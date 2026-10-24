@@ -948,5 +948,16 @@
   "Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.": "लहान बदलांसाठी “मंद करा” आणि “उजळ करा” वापरा. किमान म्हणजे बंद नाही; अंक दिसण्यास अवघड असल्यास ब्राइटनेस वाढवा.",
   "Uses the clock's light sensor. Changing brightness switches back to manual control.": "घड्याळाचा प्रकाश सेन्सर वापरतो. ब्राइटनेस बदलल्यास पुन्हा मॅन्युअल नियंत्रणावर जाते.",
   "Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.": "रात्रीच्या वेळेत मॅन्युअल आणि स्वयंचलित ब्राइटनेसऐवजी हे वापरले जाते. 1 ही किमान सेटिंग (0.4%) आहे, बंद नाही. अंक दिसण्यास अवघड असल्यास ती वाढवा.",
-  "Automatic brightness is on. Adjust brightness to choose a manual level.": "स्वयंचलित ब्राइटनेस चालू आहे. मॅन्युअल पातळी निवडण्यासाठी ब्राइटनेस समायोजित करा."
+  "Automatic brightness is on. Adjust brightness to choose a manual level.": "स्वयंचलित ब्राइटनेस चालू आहे. मॅन्युअल पातळी निवडण्यासाठी ब्राइटनेस समायोजित करा.",
+  "Learn more & feedback": "अधिक जाणून घ्या आणि अभिप्राय",
+  "Close": "बंद करा",
+  "Play the SugarClock video": "SugarClock व्हिडिओ प्ले करा",
+  "SugarClock video": "SugarClock व्हिडिओ",
+  "See how SugarClock works, how to set it up, and what it can show.": "SugarClock कसे काम करते, ते कसे सेट करायचे आणि ते काय दाखवू शकते ते पाहा.",
+  "Watch on YouTube": "YouTube वर पाहा",
+  "The SugarClock walkthrough video": "SugarClock परिचय व्हिडिओ",
+  "Visit {0}": "{0} ला भेट द्या",
+  "Setup guide, FAQ, and updates": "सेटअप मार्गदर्शक, FAQ आणि अपडेट्स",
+  "Send feedback or get help": "अभिप्राय पाठवा किंवा मदत मिळवा",
+  "SugarClock feedback": "SugarClock अभिप्राय"
 }
