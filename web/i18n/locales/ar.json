@@ -303,6 +303,8 @@
   "Free heap": "كومة مجانية",
   "FreeStyle Libre": "FreeStyle Libre",
   "FreeStyle Libre (LibreLinkUp)": "FreeStyle Libre (LibreLinkUp)",
+  "Nightscout": "Nightscout",
+  "Enter your Nightscout site address. For a private site, create a token with the readable role in Nightscout Admin Tools and paste it as the Auth Token.": "أدخل عنوان موقع Nightscout الخاص بك. للموقع الخاص، أنشئ رمزًا بالدور readable في Admin Tools في Nightscout والصقه في حقل رمز المصادقة.",
   "From clock to CGM display": "من الساعة إلى عرض CGM",
   "General": "عام",
   "Get a free key at": "احصل على مفتاح مجاني في",

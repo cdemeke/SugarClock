@@ -5,6 +5,7 @@
 #include "config_manager.h"
 #include "wifi_manager.h"
 #include "libre_client.h"
+#include "nightscout.h"
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
@@ -431,6 +432,108 @@ static void generic_fetch() {
     http.end();
 }
 
+// Nightscout: the newest valid sensor glucose entry from the site's own API.
+static bool nightscout_fetch() {
+    AppConfig& cfg = config_get();
+    const std::string url = nightscout_entries_url(cfg.server_url, cfg.auth_token);
+    last_response_code = -1;
+    if (url.empty()) {
+        snprintf(last_response_body, sizeof(last_response_body),
+                 "Enter the Nightscout site address, e.g. https://name.example.com");
+        failure_count++;
+        return false;
+    }
+
+    WiFiClientSecure secure;
+    WiFiClient plain;
+    HTTPClient http;
+    // The request URL carries the token; log only the site.
+    Serial.printf("[NIGHTSCOUT] Polling: %s\n", cfg.server_url);
+    if (!http.begin(client_for(url.c_str(), secure, plain), url.c_str())) {
+        snprintf(last_response_body, sizeof(last_response_body), "Invalid Nightscout address");
+        failure_count++;
+        return false;
+    }
+    http.setTimeout(10000);
+    http.addHeader("Accept", "application/json");
+
+    const int code = http.GET();
+    last_response_code = code;
+    if (code != HTTP_CODE_OK) {
+        if (code == 401 || code == 403) {
+            snprintf(last_response_body, sizeof(last_response_body),
+                     "Nightscout refused access; check the read-only access token");
+        } else if (code == 404) {
+            snprintf(last_response_body, sizeof(last_response_body),
+                     "Not a Nightscout site; use the site address, e.g. https://name.example.com");
+        } else if (code >= 300 && code < 400) {
+            snprintf(last_response_body, sizeof(last_response_body),
+                     "Nightscout redirected; use the site's https:// address");
+        } else if (code < 0) {
+            snprintf(last_response_body, sizeof(last_response_body), "Could not reach Nightscout: %s",
+                     HTTPClient::errorToString(code).c_str());
+        } else {
+            snprintf(last_response_body, sizeof(last_response_body), "Nightscout server error");
+        }
+        Serial.printf("[NIGHTSCOUT] HTTP %d: %s\n", code, last_response_body);
+        failure_count++;
+        http.end();
+        return false;
+    }
+
+    // Three entries are about 1 KB; anything far larger is not this API.
+    String payload = http.getSize() <= 16384 ? http.getString() : String();
+    http.end();
+    strncpy(last_response_body, payload.c_str(), sizeof(last_response_body) - 1);
+    last_response_body[sizeof(last_response_body) - 1] = '\0';
+
+    JsonDocument filter;
+    filter[0]["sgv"] = true;
+    filter[0]["direction"] = true;
+    filter[0]["trend"] = true;
+    filter[0]["date"] = true;
+    JsonDocument doc;
+    if (deserializeJson(doc, payload, DeserializationOption::Filter(filter)) || !doc.is<JsonArray>()) {
+        snprintf(last_response_body, sizeof(last_response_body), "Nightscout sent an unexpected response");
+        Serial.printf("[NIGHTSCOUT] %s\n", last_response_body);
+        failure_count++;
+        return false;
+    }
+    NightscoutEntry newest = {};
+    for (JsonObject entry : doc.as<JsonArray>()) {
+        nightscout_consider(newest, entry["sgv"] | 0.0, entry["direction"] | "",
+                            entry["trend"] | 0, entry["date"] | 0.0);
+    }
+    if (newest.timestamp == 0) {
+        snprintf(last_response_body, sizeof(last_response_body), "Nightscout has no valid glucose readings");
+        Serial.printf("[NIGHTSCOUT] %s\n", last_response_body);
+        failure_count++;
+        return false;
+    }
+
+    current_reading.glucose = newest.glucose;
+    current_reading.trend = newest.trend;
+    current_reading.timestamp = newest.timestamp;
+    current_reading.force_mode = -1;
+    current_reading.message[0] = '\0';
+    current_reading.valid = true;
+
+    // Date the reading by its sensor timestamp, so a frozen uploader goes stale
+    // even while every poll succeeds.
+    const bool synced = time_is_network_synced();
+    current_reading.received_at_ms = glucose_received_at(
+        current_reading.timestamp, last_recorded_timestamp, ever_received,
+        last_success_ms, millis(), synced, synced ? uint32_t(time(nullptr)) : 0);
+    record_reading(current_reading.glucose, current_reading.timestamp);
+    failure_count = 0;
+    ever_received = true;
+    last_success_ms = current_reading.received_at_ms;
+    Serial.printf("[NIGHTSCOUT] Glucose: %d, Trend: %s\n",
+                  current_reading.glucose,
+                  TREND_NAMES[current_reading.trend]);
+    return true;
+}
+
 // Demo mode: generate a synthetic in-range reading. Wanders gently via a
 // small random walk clamped to 80-100 so the display looks "alive" on camera.
 static void demo_generate() {
@@ -522,6 +625,8 @@ void http_loop() {
         dexcom_fetch_glucose();
     } else if (cfg.data_source == 3) {
         libre_fetch_glucose();
+    } else if (cfg.data_source == NIGHTSCOUT_SOURCE) {
+        nightscout_fetch();
     } else {
         generic_fetch();
     }
@@ -577,6 +682,8 @@ bool http_force_fetch() {
         return dexcom_fetch_glucose();
     } else if (cfg.data_source == 3) {
         return libre_fetch_glucose();
+    } else if (cfg.data_source == NIGHTSCOUT_SOURCE) {
+        return nightscout_fetch();
     } else {
         generic_fetch();
         return current_reading.valid;

@@ -303,6 +303,8 @@
   "Free heap": "tumpukan gratis",
   "FreeStyle Libre": "FreeStyle Libre",
   "FreeStyle Libre (LibreLinkUp)": "FreeStyle Libre (LibreLinkUp)",
+  "Nightscout": "Nightscout",
+  "Enter your Nightscout site address. For a private site, create a token with the readable role in Nightscout Admin Tools and paste it as the Auth Token.": "Masukkan alamat situs Nightscout Anda. Untuk situs pribadi, buat token dengan peran readable di Nightscout Admin Tools lalu tempelkan sebagai Token Otentikasi.",
   "From clock to CGM display": "Dari jam hingga tampilan CGM",
   "General": "Umum",
   "Get a free key at": "Dapatkan kunci gratis di",

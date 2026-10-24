@@ -303,6 +303,8 @@
   "Free heap": "இலவச குவியல்",
   "FreeStyle Libre": "FreeStyle Libre",
   "FreeStyle Libre (LibreLinkUp)": "FreeStyle Libre (LibreLinkUp)",
+  "Nightscout": "Nightscout",
+  "Enter your Nightscout site address. For a private site, create a token with the readable role in Nightscout Admin Tools and paste it as the Auth Token.": "உங்கள் Nightscout தளத்தின் முகவரியை உள்ளிடவும். தனிப்பட்ட தளத்திற்கு, Nightscout Admin Tools இல் readable பங்குடன் ஒரு டோக்கனை உருவாக்கி, அதை அங்கீகார டோக்கனாக ஒட்டவும்.",
   "From clock to CGM display": "கடிகாரம் முதல் CGM காட்சி வரை",
   "General": "பொது",
   "Get a free key at": "இலவச விசையைப் பெறுங்கள்",
