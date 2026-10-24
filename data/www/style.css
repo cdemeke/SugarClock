@@ -379,6 +379,189 @@ body {
     text-decoration: underline;
 }
 
+/* ---- Learn more & feedback ---- */
+.help-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 11px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--accent-dim);
+    color: var(--accent);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 650;
+    text-align: start;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.help-toggle:hover {
+    border-color: var(--accent);
+}
+
+.help-toggle:focus-visible,
+.help-dialog-close:focus-visible,
+.help-video-facade:focus-visible,
+.help-link:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.help-dialog {
+    width: min(440px, calc(100vw - 32px));
+    max-height: calc(100vh - 32px);
+    margin: auto;
+    padding: 20px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--card);
+    color: var(--text);
+    box-shadow: 0 24px 60px var(--shadow);
+    text-align: start;
+}
+
+.help-dialog::backdrop {
+    background: rgba(0,0,0,0.45);
+}
+
+.help-dialog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.help-dialog-header h2 {
+    font-size: 18px;
+}
+
+.help-dialog-close {
+    flex-shrink: 0;
+    border: none;
+    background: none;
+    color: var(--text-secondary);
+    font-size: 24px;
+    line-height: 1;
+    padding: 2px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.help-dialog-close:hover {
+    color: var(--text);
+    background: var(--hover-overlay);
+}
+
+/* Video controls keep their left-to-right media conventions in RTL pages. */
+.help-video {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #000;
+    direction: ltr;
+}
+
+.help-video-facade,
+.help-video-embed {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    padding: 0;
+    background: #000;
+    cursor: pointer;
+}
+
+.help-video-facade img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    color: #fff;
+}
+
+.help-video-play {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 60px;
+    height: 42px;
+    transform: translate(-50%, -50%);
+    border-radius: 12px;
+    background: rgba(0,0,0,0.7);
+    transition: background 0.15s;
+}
+
+.help-video-play::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-35%, -50%);
+    border-style: solid;
+    border-width: 9px 0 9px 15px;
+    border-color: transparent transparent transparent #fff;
+}
+
+.help-video-facade:hover .help-video-play,
+.help-video-facade:focus-visible .help-video-play {
+    background: #e62117;
+}
+
+.help-dialog-copy {
+    margin: 12px 0 14px;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.help-links {
+    display: grid;
+    gap: 8px;
+}
+
+.help-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    text-decoration: none;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.help-link .nav-icon {
+    flex-shrink: 0;
+    color: var(--accent);
+}
+
+.help-link:hover {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+}
+
+.help-link span {
+    display: grid;
+    min-width: 0;
+}
+
+.help-link strong {
+    font-size: 14px;
+    font-weight: 650;
+}
+
+.help-link small {
+    color: var(--text-secondary);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
 .mobile-nav-toggle,
 .sidebar-scrim {
     display: none;
