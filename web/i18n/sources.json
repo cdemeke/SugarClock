@@ -72,6 +72,7 @@
     "No subscription",
     "No.",
     "No. The browser installer flashes the firmware, and the clock's local settings page handles the rest. You only need the clock, a USB-C data cable, Wi-Fi details, and your CGM source information.",
+    "Not a medical device.",
     "Often requires vendor accounts or hidden settings.",
     "Open source",
     "Pick up a compatible clock",
@@ -97,6 +98,7 @@
     "SugarClock demo video thumbnail",
     "SugarClock display showing a glucose trend",
     "SugarClock home",
+    "SugarClock is an unofficial DIY project and is not affiliated with or endorsed by Dexcom, Abbott, Nightscout, or Ulanzi. Readings can be delayed or missing, and the clock may not sound alerts when its data is stale. Do not use SugarClock for treatment decisions or as a replacement for your CGM's own alarms; always confirm with your CGM receiver, app, or blood glucose meter.",
     "SugarClock is different: it is affordable, open, and made for everyday visibility.",
     "SugarClock is free, open-source software that turns an inexpensive Ulanzi TC001 pixel clock into a dedicated glucose monitor display. It connects to Dexcom Share, FreeStyle Libre, or Nightscout over Wi-Fi and shows the current reading on the clock's LED display.",
     "SugarClock is not a medical device and should not be used to make treatment decisions. Always rely on your CGM receiver, CGM app, or blood glucose meter for dosing insulin or making medical decisions.",
@@ -145,7 +147,7 @@
     "to install SugarClock and connect Wi-Fi.",
     "with a USB-C data cable.",
     "~$40 hardware",
-    "© 2026 SugarClock Contributors. All rights reserved."
+    "© 2026 SugarClock Contributors."
   ],
   "device": [
     " (Humidity: ",
