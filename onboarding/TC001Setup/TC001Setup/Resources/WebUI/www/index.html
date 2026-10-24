@@ -3,58 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SugarClock - Configuration</title>
+    <title data-i18n="SugarClock - Configuration">SugarClock - Configuration</title>
     <link rel="stylesheet" href="style.css">
     <script>if(localStorage.getItem('theme')==='dark')document.documentElement.setAttribute('data-theme','dark');</script>
+    <link rel="stylesheet" href="i18n.css">
+    <script src="i18n.js"></script>
 </head>
 <body class="app-shell-page">
-    <button class="mobile-nav-toggle" type="button" onclick="setNavOpen(true)" aria-label="Open navigation">
+    <button class="mobile-nav-toggle" type="button" onclick="setNavOpen(true)" aria-label="Open navigation" data-i18n-aria-label="Open navigation">
         <svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14"/></svg>
-        Menu
+        <span data-i18n="Menu">Menu</span>
     </button>
-    <button class="sidebar-scrim" type="button" onclick="setNavOpen(false)" aria-label="Close navigation"></button>
-    <aside class="sidebar" aria-label="Main navigation">
+    <button class="sidebar-scrim" type="button" onclick="setNavOpen(false)" aria-label="Close navigation" data-i18n-aria-label="Close navigation"></button>
+    <aside class="sidebar" aria-label="Main navigation" data-i18n-aria-label="Main navigation">
         <div class="sidebar-header">
             <a href="/" class="brand">
-                <img class="brand-logo" src="/logo.png" alt="SugarClock logo">
-                <span class="brand-copy"><span class="brand-name">SugarClock</span><span class="brand-device">Device control</span></span>
+                <img class="brand-logo" src="/logo.png" alt="SugarClock logo" data-i18n-alt="SugarClock logo">
+                <span class="brand-copy"><span class="brand-name">SugarClock</span><span class="brand-device"><span data-i18n="Device control">Device control</span></span></span>
             </a>
-            <button class="sidebar-close" type="button" onclick="setNavOpen(false)" aria-label="Close navigation">&times;</button>
+            <button class="sidebar-close" type="button" onclick="setNavOpen(false)" aria-label="Close navigation" data-i18n-aria-label="Close navigation">&times;</button>
         </div>
         <nav class="sidebar-nav">
             <a class="sidebar-link" href="/display.html">
                 <img class="nav-image-icon" src="/dashboard-icon.png" alt="">
-                Dashboard
+                <span data-i18n="Dashboard">Dashboard</span>
             </a>
             <details class="sidebar-config current" open>
                 <summary>
                     <img class="nav-image-icon" src="/configuration-icon.png" alt="">
-                    Configuration
+                    <span data-i18n="Configuration">Configuration</span>
                     <svg class="nav-icon chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg>
                 </summary>
-                <div class="side-subnav" aria-label="Configuration sections">
-                    <button type="button" class="tab-btn active" data-tab="glucose" onclick="switchTab('glucose')">Blood Sugar</button>
-                    <button type="button" class="tab-btn" data-tab="display" onclick="switchTab('display')">Display</button>
-                    <button type="button" class="tab-btn" data-tab="ambient" onclick="switchTab('ambient')">Display Pet</button>
-                    <button type="button" class="tab-btn" data-tab="time" onclick="switchTab('time')">Time &amp; timers</button>
-                    <button type="button" class="tab-btn" data-tab="weather" onclick="switchTab('weather')">Weather</button>
+                <div class="side-subnav" aria-label="Configuration sections" data-i18n-aria-label="Configuration sections">
+                    <button type="button" class="tab-btn active" data-tab="glucose" onclick="switchTab('glucose')"><span data-i18n="Blood Sugar">Blood Sugar</span></button>
+                    <button type="button" class="tab-btn" data-tab="display" onclick="switchTab('display')"><span data-i18n="Display">Display</span></button>
+                    <button type="button" class="tab-btn" data-tab="ambient" onclick="switchTab('ambient')"><span data-i18n="Display Pet">Display Pet</span></button>
+                    <button type="button" class="tab-btn" data-tab="time" onclick="switchTab('time')"><span data-i18n="Time &amp; timers">Time &amp; timers</span></button>
+                    <button type="button" class="tab-btn" data-tab="weather" onclick="switchTab('weather')"><span data-i18n="Weather">Weather</span></button>
                     <button type="button" class="tab-btn" data-tab="connection" onclick="switchTab('connection')">Wi-Fi</button>
-                    <button type="button" class="tab-btn" data-tab="integrations" onclick="switchTab('integrations')">Integrations</button>
-                    <button type="button" class="tab-btn" data-tab="danger" onclick="switchTab('danger')">Reset device</button>
+                    <button type="button" class="tab-btn" data-tab="integrations" onclick="switchTab('integrations')"><span data-i18n="Integrations">Integrations</span></button>
+                    <button type="button" class="tab-btn" data-tab="danger" onclick="switchTab('danger')"><span data-i18n="Reset device">Reset device</span></button>
                 </div>
             </details>
             <a class="sidebar-link" href="/debug.html">
                 <img class="nav-image-icon" src="/diagnostics-icon.png" alt="">
-                Diagnostics
+                <span data-i18n="Diagnostics">Diagnostics</span>
             </a>
             <a class="sidebar-link" href="/device.html">
                 <svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><rect x="5" y="5" width="10" height="10" rx="2"/><path d="M8 2v3M12 2v3M8 15v3M12 15v3M2 8h3M15 8h3M2 12h3M15 12h3"/></svg>
-                Device
+                <span data-i18n="Device">Device</span>
             </a>
         </nav>
         <div class="sidebar-footer">
-            <button class="theme-toggle" type="button" onclick="toggleTheme()" title="Toggle color mode"><span class="theme-icon" aria-hidden="true">&#9790;</span><span class="theme-label">Switch to dark mode</span></button>
-            <div class="sidebar-footer-note">Connected to <a href="https://sugarclock.com" target="_blank" rel="noopener">SugarClock</a></div>
+            <div data-language-picker="sidebar"></div>
+            <button class="theme-toggle" type="button" onclick="toggleTheme()" title="Toggle color mode" data-i18n-title="Toggle color mode"><span class="theme-icon" aria-hidden="true">&#9790;</span><span class="theme-label"><span data-i18n="Switch to dark mode">Switch to dark mode</span></span></button>
+            <div class="sidebar-footer-note"><span data-i18n="Connected to">Connected to</span> <a href="https://sugarclock.com" target="_blank" rel="noopener">SugarClock</a></div>
         </div>
     </aside>
 
@@ -64,8 +67,8 @@
             <div class="page-title-with-icon">
                 <img class="page-header-icon" src="/configuration-icon.png" alt="">
                 <div>
-                    <h1 id="config-page-title">Blood Sugar Configuration</h1>
-                    <p>Tune what your SugarClock shows, sounds, and connects to.</p>
+                    <h1 id="config-page-title"><span data-i18n="Blood Sugar Configuration">Blood Sugar Configuration</span></h1>
+                    <p><span data-i18n="Tune what your SugarClock shows, sounds, and connects to.">Tune what your SugarClock shows, sounds, and connects to.</span></p>
                 </div>
             </div>
         </div>
@@ -75,58 +78,58 @@
             <!-- CONNECTION TAB -->
             <div class="tab-panel" id="tab-connection">
                 <div class="card">
-                    <h2>WiFi Network</h2>
+                    <h2><span data-i18n="WiFi Network">WiFi Network</span></h2>
 
                     <div class="wifi-listbar">
-                        <span class="wifi-listbar-title">Networks the clock can see</span>
-                        <button type="button" class="btn btn-outline btn-sm" id="wifi-refresh-btn" onclick="refreshScan()">Refresh</button>
+                        <span class="wifi-listbar-title"><span data-i18n="Networks the clock can see">Networks the clock can see</span></span>
+                        <button type="button" class="btn btn-outline btn-sm" id="wifi-refresh-btn" onclick="refreshScan()"><span data-i18n="Refresh">Refresh</span></button>
                     </div>
-                    <div class="hint">Scanning borrows the radio for a few seconds, so this page may stall or briefly drop while it runs. If that happens, wait &mdash; it comes back on its own.</div>
+                    <div class="hint"><span data-i18n="Scanning borrows the radio for a few seconds, so this page may stall or briefly drop while it runs. If that happens, wait — it comes back on its own.">Scanning borrows the radio for a few seconds, so this page may stall or briefly drop while it runs. If that happens, wait &mdash; it comes back on its own.</span></div>
                     <div id="wifi-list" class="wifi-list">
                         <select id="wifi_network_picker" class="wifi-picker" onchange="selectDiscoveredNetwork()">
-                            <option value="">Loading discovered networks…</option>
+                            <option value="" data-i18n="Loading discovered networks…">Loading discovered networks…</option>
                         </select>
                     </div>
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Network name (SSID)</label>
+                            <label><span data-i18n="Network name (SSID)">Network name (SSID)</span></label>
                             <input type="text" id="wifi_ssid" maxlength="32" placeholder="Network name"
-                                   autocapitalize="off" autocorrect="off" spellcheck="false">
-                            <div class="hint">Pick one above, or type it here for a hidden network.</div>
+                                   autocapitalize="off" autocorrect="off" spellcheck="false" data-i18n-placeholder="Network name">
+                            <div class="hint"><span data-i18n="Pick one above, or type it here for a hidden network.">Pick one above, or type it here for a hidden network.</span></div>
                         </div>
                         <div class="form-group">
-                            <label>Security</label>
+                            <label><span data-i18n="Security">Security</span></label>
                             <select id="wifi_security" onchange="onSecurityChange()">
-                                <option value="0">Password only (home / WPA2)</option>
-                                <option value="1">Username + password (WPA2-Enterprise)</option>
+                                <option value="0" data-i18n="Password only (home / WPA2)">Password only (home / WPA2)</option>
+                                <option value="1" data-i18n="Username + password (WPA2-Enterprise)">Username + password (WPA2-Enterprise)</option>
                             </select>
-                            <div class="hint">School and workplace networks are usually the second one.</div>
+                            <div class="hint"><span data-i18n="School and workplace networks are usually the second one.">School and workplace networks are usually the second one.</span></div>
                         </div>
                     </div>
 
                     <div id="wifi-personal-fields">
                         <div class="form-group">
-                            <label>Password</label>
+                            <label><span data-i18n="Password">Password</span></label>
                             <div class="pw-wrap">
                                 <input type="password" id="wifi_password" maxlength="63"
                                        autocapitalize="off" autocorrect="off" spellcheck="false">
                                 <button type="button" class="pw-toggle" onclick="togglePw('wifi_password')">&#128065;</button>
                             </div>
-                            <div class="hint" id="wifi_password_hint">Leave blank for an open network.</div>
+                            <div class="hint" id="wifi_password_hint"><span data-i18n="Leave blank for an open network.">Leave blank for an open network.</span></div>
                         </div>
                     </div>
 
                     <div id="wifi-enterprise-fields" hidden>
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Username / identity</label>
+                                <label><span data-i18n="Username / identity">Username / identity</span></label>
                                 <input type="text" id="wifi_identity" maxlength="127" placeholder="student@district.org"
-                                       autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off">
-                                <div class="hint">Exactly as IT gave it to you. Some networks want <code>user@district.org</code>, some want <code>DISTRICT\user</code>, some want just <code>user</code>.</div>
+                                       autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" data-i18n-placeholder="student@district.org">
+                                <div class="hint"><span data-i18n="Exactly as IT gave it to you. Some networks want">Exactly as IT gave it to you. Some networks want</span> <code>user@district.org</code><span data-i18n=", some want">, some want</span> <code>DISTRICT\user</code><span data-i18n=", some want just">, some want just</span> <code>user</code>.</div>
                             </div>
                             <div class="form-group">
-                                <label>Password</label>
+                                <label><span data-i18n="Password">Password</span></label>
                                 <div class="pw-wrap">
                                     <input type="password" id="wifi_eap_password" maxlength="127"
                                            autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off">
@@ -137,49 +140,49 @@
                         </div>
 
                         <div class="form-group">
-                            <label>EAP method</label>
+                            <label><span data-i18n="EAP method">EAP method</span></label>
                             <select id="wifi_eap_method">
-                                <option value="0">PEAP (almost always this)</option>
-                                <option value="1">EAP-TTLS</option>
+                                <option value="0" data-i18n="PEAP (almost always this)">PEAP (almost always this)</option>
+                                <option value="1" data-i18n="EAP-TTLS">EAP-TTLS</option>
                             </select>
                         </div>
 
                         <details class="wifi-advanced">
-                            <summary>Advanced</summary>
+                            <summary><span data-i18n="Advanced">Advanced</span></summary>
                             <div class="form-group">
-                                <label>Anonymous (outer) identity</label>
+                                <label><span data-i18n="Anonymous (outer) identity">Anonymous (outer) identity</span></label>
                                 <input type="text" id="wifi_anon_identity" maxlength="127" placeholder="Optional"
-                                       autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off">
-                                <div class="hint">Leave blank unless IT told you to set one.</div>
+                                       autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" data-i18n-placeholder="Optional">
+                                <div class="hint"><span data-i18n="Leave blank unless IT told you to set one.">Leave blank unless IT told you to set one.</span></div>
                             </div>
                             <div class="form-group">
-                                <label>Server certificate</label>
-                                <div id="wifi-ca-state" class="wifi-ca-state">No certificate uploaded &mdash; the clock will trust whatever the network presents, the same thing your phone does when you tap &ldquo;Trust&rdquo;.</div>
-                                <textarea id="wifi_ca_pem" rows="4" placeholder="-----BEGIN CERTIFICATE-----" spellcheck="false"></textarea>
+                                <label><span data-i18n="Server certificate">Server certificate</span></label>
+                                <div id="wifi-ca-state" class="wifi-ca-state"><span data-i18n="No certificate uploaded — the clock will trust whatever the network presents, the same thing your phone does when you tap “Trust”.">No certificate uploaded &mdash; the clock will trust whatever the network presents, the same thing your phone does when you tap &ldquo;Trust&rdquo;.</span></div>
+                                <textarea id="wifi_ca_pem" rows="4" placeholder="-----BEGIN CERTIFICATE-----" spellcheck="false" data-i18n-placeholder="-----BEGIN CERTIFICATE-----"></textarea>
                                 <div class="btn-group" style="margin-top:8px">
-                                    <button type="button" class="btn btn-outline btn-sm" onclick="uploadCa()">Upload certificate</button>
-                                    <button type="button" class="btn btn-outline btn-sm" onclick="deleteCa()">Remove</button>
+                                    <button type="button" class="btn btn-outline btn-sm" onclick="uploadCa()"><span data-i18n="Upload certificate">Upload certificate</span></button>
+                                    <button type="button" class="btn btn-outline btn-sm" onclick="deleteCa()"><span data-i18n="Remove">Remove</span></button>
                                 </div>
-                                <div class="hint">Optional. With a certificate loaded, the clock checks the network's identity before sending your password.</div>
+                                <div class="hint"><span data-i18n="Optional. With a certificate loaded, the clock checks the network&#x27;s identity before sending your password.">Optional. With a certificate loaded, the clock checks the network's identity before sending your password.</span></div>
                             </div>
                         </details>
                     </div>
 
                     <div class="btn-group" style="margin-top:18px">
-                        <button type="button" class="btn btn-primary" id="wifi-join-btn" onclick="joinNetwork()">Join this network</button>
+                        <button type="button" class="btn btn-primary" id="wifi-join-btn" onclick="joinNetwork()"><span data-i18n="Join this network">Join this network</span></button>
                     </div>
-                    <div class="hint">The clock tries the network first and only saves the details once the join succeeds.</div>
+                    <div class="hint"><span data-i18n="The clock tries the network first and only saves the details once the join succeeds.">The clock tries the network first and only saves the details once the join succeeds.</span></div>
 
                     <div id="wifi-progress" class="wifi-progress" hidden></div>
                 </div>
 
                 <div class="card">
-                    <h2>Connection health</h2>
-                    <div class="hint">A school network can let the clock on and still block what it needs. These are checked separately after every connection.</div>
-                    <div class="status-row"><span class="status-label">Network</span><span class="status-value" id="chk-network">&mdash;</span></div>
-                    <div class="status-row"><span class="status-label">DNS lookups</span><span class="status-value" id="chk-dns">&mdash;</span></div>
-                    <div class="status-row"><span class="status-label">Data source (HTTPS)</span><span class="status-value" id="chk-data">&mdash;</span></div>
-                    <div class="status-row"><span class="status-label">Time sync (NTP, UDP 123)</span><span class="status-value" id="chk-ntp">&mdash;</span></div>
+                    <h2><span data-i18n="Connection health">Connection health</span></h2>
+                    <div class="hint"><span data-i18n="A school network can let the clock on and still block what it needs. These are checked separately after every connection.">A school network can let the clock on and still block what it needs. These are checked separately after every connection.</span></div>
+                    <div class="status-row"><span class="status-label"><span data-i18n="Network">Network</span></span><span class="status-value" id="chk-network">&mdash;</span></div>
+                    <div class="status-row"><span class="status-label"><span data-i18n="DNS lookups">DNS lookups</span></span><span class="status-value" id="chk-dns">&mdash;</span></div>
+                    <div class="status-row"><span class="status-label"><span data-i18n="Data source (HTTPS)">Data source (HTTPS)</span></span><span class="status-value" id="chk-data">&mdash;</span></div>
+                    <div class="status-row"><span class="status-label"><span data-i18n="Time sync (NTP, UDP 123)">Time sync (NTP, UDP 123)</span></span><span class="status-value" id="chk-ntp">&mdash;</span></div>
                     <div id="chk-summary" class="wifi-summary"></div>
                 </div>
             </div>
@@ -187,82 +190,87 @@
             <!-- DISPLAY TAB -->
             <div class="tab-panel" id="tab-display">
                 <div class="card">
-                    <h2>Brightness</h2>
+                    <h2><span data-i18n="Brightness">Brightness</span></h2>
                     <div class="brightness-label-row">
-                        <label for="brightness">Display brightness</label>
-                        <output id="brightness-value" for="brightness">16%</output>
+                        <label for="brightness"><span data-i18n="Display brightness">Display brightness</span></label>
+                        <output id="brightness-value" for="brightness">15.7%</output>
                     </div>
-                    <input class="brightness-slider" type="range" id="brightness" min="1" max="100" value="16" aria-valuetext="16 percent">
-                    <div class="brightness-scale" aria-hidden="true"><span>1%</span><span>100%</span></div>
-                    <div class="hint" id="brightness-mode-hint">Manual brightness.</div>
+                    <input class="brightness-slider" type="range" id="brightness" min="1" max="255" step="1" value="40" aria-valuetext="15.7 percent" aria-describedby="brightness-help brightness-mode-hint">
+                    <div class="brightness-scale" aria-hidden="true"><span>0.4% · <span data-i18n="Minimum">Minimum</span></span><span>100%</span></div>
+                    <div class="brightness-fine-controls" role="group" aria-label="Fine brightness adjustment" data-i18n-aria-label="Fine brightness adjustment">
+                        <button type="button" class="btn btn-outline" id="brightness-decrease" aria-label="Decrease brightness one step" data-i18n-aria-label="Decrease brightness one step">− <span data-i18n="Dimmer">Dimmer</span></button>
+                        <button type="button" class="btn btn-outline" id="brightness-increase" aria-label="Increase brightness one step" data-i18n-aria-label="Increase brightness one step">+ <span data-i18n="Brighter">Brighter</span></button>
+                    </div>
+                    <div class="hint" id="brightness-help"><span data-i18n="Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.">Use Dimmer and Brighter for small adjustments. Minimum is not an off setting; if numbers are hard to see, increase brightness.</span></div>
+                    <div class="hint" id="brightness-mode-hint"><span data-i18n="Manual brightness.">Manual brightness.</span></div>
                     <details class="wifi-advanced">
-                        <summary>Advanced brightness</summary>
+                        <summary><span data-i18n="Advanced brightness">Advanced brightness</span></summary>
                         <div class="toggle-row">
-                            <label for="auto_brightness">Adjust brightness automatically</label>
+                            <label for="auto_brightness"><span data-i18n="Adjust brightness automatically">Adjust brightness automatically</span></label>
                             <input type="checkbox" id="auto_brightness">
                         </div>
-                        <div class="hint">Uses the clock's light sensor. Moving the slider switches back to manual brightness.</div>
+                        <div class="hint"><span data-i18n="Uses the clock&#x27;s light sensor. Changing brightness switches back to manual control.">Uses the clock's light sensor. Changing brightness switches back to manual control.</span></div>
                     </details>
                 </div>
 
                 <div class="card">
                     <div class="card-header-toggle">
-                        <h2>Night Mode</h2>
+                        <h2><span data-i18n="Night Mode">Night Mode</span></h2>
                         <input type="checkbox" id="night_mode_enabled">
                     </div>
                     <div class="card-details" id="night-details">
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Start Hour (0-23)</label>
+                                <label><span data-i18n="Start Hour (0-23)">Start Hour (0-23)</span></label>
                                 <input type="number" id="night_start" min="0" max="23" value="22">
                             </div>
                             <div class="form-group">
-                                <label>End Hour (0-23)</label>
+                                <label><span data-i18n="End Hour (0-23)">End Hour (0-23)</span></label>
                                 <input type="number" id="night_end" min="0" max="23" value="7">
                             </div>
                         </div>
                         <div class="form-group">
-                            <label>Night Brightness (1-255)</label>
+                            <label for="night_brightness"><span data-i18n="Night Brightness (1-255)">Night Brightness (1-255)</span></label>
                             <input type="number" id="night_brightness" min="1" max="255" value="10">
-                            <div class="hint">Automatically dims during night hours</div>
+                            <div class="hint"><span data-i18n="Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.">Overrides manual and automatic brightness during night hours. 1 is the minimum setting (0.4%), not off. Increase it if numbers are hard to see.</span></div>
                         </div>
                     </div>
                 </div>
 
                 <div class="card">
                     <div class="card-header-toggle">
-                        <h2>Auto-Cycle</h2>
+                        <h2><span data-i18n="Auto-Cycle">Auto-Cycle</span></h2>
                         <input type="checkbox" id="auto_cycle_enabled">
                     </div>
                     <div class="card-details" id="autocycle-details">
                         <p class="card-intro" style="margin-bottom:16px;">
-                            Automatically rotate through enabled display screens.
+                            <span data-i18n="Automatically rotate through enabled display screens.">Automatically rotate through enabled display screens.</span>
                         </p>
                         <div class="form-group">
-                            <label>Cycle Interval (seconds)</label>
+                            <label><span data-i18n="Cycle Interval (seconds)">Cycle Interval (seconds)</span></label>
                             <input type="number" id="auto_cycle_sec" min="3" max="300" value="10">
-                            <div class="hint">Time on each screen before advancing (3-300s)</div>
+                            <div class="hint"><span data-i18n="Time on each screen before advancing (3-300s)">Time on each screen before advancing (3-300s)</span></div>
                         </div>
                     </div>
                 </div>
 
                 <div class="card">
                     <div class="card-header-toggle">
-                        <h2><label for="glucose_only_when_low">Show Only Blood Sugar When Low</label></h2>
+                        <h2><label for="glucose_only_when_low"><span data-i18n="Show Only Blood Sugar When Low">Show Only Blood Sugar When Low</span></label></h2>
                         <input type="checkbox" id="glucose_only_when_low" aria-describedby="low-only-hint">
                     </div>
-                    <p class="hint" id="low-only-hint">Keep the blood sugar value visible while fresh readings are below your configured Low threshold, including urgent lows. Other screens and navigation are blocked. Notifications, including urgent ones, are hidden and may expire unseen. Stale readings, repeated glucose fetch failures, or Wi-Fi setup mode release the lock. Brief Wi-Fi drops and failed network checks do not hide a fresh low reading. Off by default.</p>
+                    <p class="hint" id="low-only-hint"><span data-i18n="Keep the blood sugar value visible while fresh readings are below your configured Low threshold, including urgent lows. Other screens and navigation are blocked. Notifications, including urgent ones, are hidden and may expire unseen. Stale readings, repeated glucose fetch failures, or Wi-Fi setup mode release the lock. Brief Wi-Fi drops and failed network checks do not hide a fresh low reading. Off by default.">Keep the blood sugar value visible while fresh readings are below your configured Low threshold, including urgent lows. Other screens and navigation are blocked. Notifications, including urgent ones, are hidden and may expire unseen. Stale readings, repeated glucose fetch failures, or Wi-Fi setup mode release the lock. Brief Wi-Fi drops and failed network checks do not hide a fresh low reading. Off by default.</span></p>
                 </div>
 
                 <div class="card">
-                    <h2>Remote Control</h2>
+                    <h2><span data-i18n="Remote Control">Remote Control</span></h2>
                     <p class="card-intro" style="margin:-8px 0 16px;">
-                        Switch the device display from here.
+                        <span data-i18n="Switch the device display from here.">Switch the device display from here.</span>
                     </p>
                     <div style="display:flex;gap:12px;align-items:center;justify-content:center;padding:8px 0;">
-                        <button type="button" class="btn btn-outline" id="display-prev-btn" style="min-width:80px;">&larr; Prev</button>
+                        <button type="button" class="btn btn-outline" id="display-prev-btn" style="min-width:80px;"><span data-i18n="← Prev">&larr; Prev</span></button>
                         <span id="current-mode" style="font-size:15px;font-weight:600;color:var(--text);min-width:100px;text-align:center;">--</span>
-                        <button type="button" class="btn btn-outline" id="display-next-btn" style="min-width:80px;">Next &rarr;</button>
+                        <button type="button" class="btn btn-outline" id="display-next-btn" style="min-width:80px;"><span data-i18n="Next →">Next &rarr;</span></button>
                     </div>
                 </div>
             </div>
@@ -272,81 +280,81 @@
                 <div class="card ambient-card">
                     <div class="card-header-toggle ambient-card-header">
                         <div>
-                            <h2>Display Pet</h2>
-                            <p class="ambient-kicker">A little friend with a big personality</p>
+                            <h2><span data-i18n="Display Pet">Display Pet</span></h2>
+                            <p class="ambient-kicker"><span data-i18n="A little friend with a big personality">A little friend with a big personality</span></p>
                         </div>
-                        <input type="checkbox" id="ambient_enabled" aria-label="Enable Display Pet">
+                        <input type="checkbox" id="ambient_enabled" aria-label="Enable Display Pet" data-i18n-aria-label="Enable Display Pet">
                     </div>
                     <div class="card-details collapsed" id="ambient-details">
                         <p class="ambient-description">
-                            Choose a friend that wiggles, naps, and reacts to the time of day. When glucose is in range, press the clock's right button for a little hello. Every companion stays silent.
+                            <span data-i18n="Choose a friend that wiggles, naps, and reacts to the time of day. When glucose is in range, press the clock&#x27;s right button for a little hello. Every companion stays silent.">Choose a friend that wiggles, naps, and reacts to the time of day. When glucose is in range, press the clock's right button for a little hello. Every companion stays silent.</span>
                         </p>
                         <div class="form-group">
-                            <label for="ambient_character">Choose your companion</label>
+                            <label for="ambient_character"><span data-i18n="Choose your companion">Choose your companion</span></label>
                             <select id="ambient_character">
-                                <option value="0">Pip &mdash; Goldfish</option>
-                                <option value="1">Boo &mdash; Ghost</option>
-                                <option value="2">Mochi &mdash; Axolotl</option>
-                                <option value="3">Sprout &mdash; Dinosaur</option>
-                                <option value="4">Pebble &mdash; Turtle</option>
-                                <option value="5">Inky &mdash; Octopus</option>
-                                <option value="6">Maple &mdash; Red panda</option>
+                                <option value="0" data-i18n="Pip — Goldfish">Pip &mdash; Goldfish</option>
+                                <option value="1" data-i18n="Boo — Ghost">Boo &mdash; Ghost</option>
+                                <option value="2" data-i18n="Mochi — Axolotl">Mochi &mdash; Axolotl</option>
+                                <option value="3" data-i18n="Sprout — Dinosaur">Sprout &mdash; Dinosaur</option>
+                                <option value="4" data-i18n="Pebble — Turtle">Pebble &mdash; Turtle</option>
+                                <option value="5" data-i18n="Inky — Octopus">Inky &mdash; Octopus</option>
+                                <option value="6" data-i18n="Maple — Red panda">Maple &mdash; Red panda</option>
                             </select>
-                            <div class="hint">Your choice is remembered when the clock restarts.</div>
+                            <div class="hint"><span data-i18n="Your choice is remembered when the clock restarts.">Your choice is remembered when the clock restarts.</span></div>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="ambient_style">Companion display style</label>
+                                <label for="ambient_style"><span data-i18n="Companion display style">Companion display style</span></label>
                                 <select id="ambient_style">
-                                    <option value="0">Companion + text (LOW / OK / HIGH)</option>
-                                    <option value="1">Companion + range icon</option>
-                                    <option value="2">Companion only (centered)</option>
+                                    <option value="0" data-i18n="Companion + text (LOW / OK / HIGH)">Companion + text (LOW / OK / HIGH)</option>
+                                    <option value="1" data-i18n="Companion + range icon">Companion + range icon</option>
+                                    <option value="2" data-i18n="Companion only (centered)">Companion only (centered)</option>
                                 </select>
-                                <div class="hint" id="ambient-style-hint">Red LOW, green OK, red HIGH.</div>
+                                <div class="hint" id="ambient-style-hint"><span data-i18n="Red LOW, green OK, red HIGH.">Red LOW, green OK, red HIGH.</span></div>
                             </div>
                             <div class="form-group">
-                                <label for="companion-preview-range">Preview glucose range</label>
+                                <label for="companion-preview-range"><span data-i18n="Preview glucose range">Preview glucose range</span></label>
                                 <select id="companion-preview-range">
-                                    <option value="1">Low</option>
-                                    <option value="0" selected>In range</option>
-                                    <option value="2">High</option>
+                                    <option value="1" data-i18n="Low">Low</option>
+                                    <option value="0" selected data-i18n="In range">In range</option>
+                                    <option value="2" data-i18n="High">High</option>
                                 </select>
-                                <div class="hint">Preview only; uses your saved glucose thresholds on the clock.</div>
+                                <div class="hint"><span data-i18n="Preview only; uses your saved glucose thresholds on the clock.">Preview only; uses your saved glucose thresholds on the clock.</span></div>
                             </div>
                         </div>
                         <div class="toggle-row">
                             <div>
-                                <label for="ambient_use_glucose_colors">Use my glucose colors</label>
-                                <div class="hint">Use the colors chosen under Blood Sugar for the range text and icon. Off keeps red LOW/HIGH and green OK.</div>
+                                <label for="ambient_use_glucose_colors"><span data-i18n="Use my glucose colors">Use my glucose colors</span></label>
+                                <div class="hint"><span data-i18n="Use the colors chosen under Blood Sugar for the range text and icon. Off keeps red LOW/HIGH and green OK.">Use the colors chosen under Blood Sugar for the range text and icon. Off keeps red LOW/HIGH and green OK.</span></div>
                             </div>
                             <input type="checkbox" id="ambient_use_glucose_colors">
                         </div>
                         <div class="ambient-preview-shell">
                             <div class="ambient-preview-meta">
-                                <span id="ambient-preview-name">Pip the goldfish</span>
-                                <span>32 &times; 8 pixels</span>
+                                <span id="ambient-preview-name"><span data-i18n="Pip the goldfish">Pip the goldfish</span></span>
+                                <span><span data-i18n="32 × 8 pixels">32 &times; 8 pixels</span></span>
                             </div>
-                            <div class="ambient-matrix" aria-label="Selected pixel companion preview">
+                            <div class="ambient-matrix" aria-label="Selected pixel companion preview" data-i18n-aria-label="Selected pixel companion preview">
                                 <span class="matrix-sensor" aria-hidden="true"></span>
-                                <canvas id="ambient-companion-preview" width="1280" height="320" role="img" aria-label="Pip the goldfish preview"></canvas>
+                                <canvas id="ambient-companion-preview" width="1280" height="320" role="img" aria-label="Pip the goldfish preview" data-i18n-aria-label="Pip the goldfish preview"></canvas>
                             </div>
                         </div>
-                        <div class="ambient-preview-controls" role="group" aria-label="Preview companion poses">
-                            <button type="button" class="btn btn-outline" data-companion-mood="awake" aria-pressed="true">Awake</button>
-                            <button type="button" class="btn btn-outline" data-companion-mood="sleepy" aria-pressed="false">Sleepy</button>
-                            <button type="button" class="btn btn-outline" data-companion-mood="happy" aria-pressed="false">Say hello</button>
-                            <button type="button" class="btn btn-outline" id="ambient-preview-pause" aria-pressed="false">Pause preview</button>
+                        <div class="ambient-preview-controls" role="group" aria-label="Preview companion poses" data-i18n-aria-label="Preview companion poses">
+                            <button type="button" class="btn btn-outline" data-companion-mood="awake" aria-pressed="true"><span data-i18n="Awake">Awake</span></button>
+                            <button type="button" class="btn btn-outline" data-companion-mood="sleepy" aria-pressed="false"><span data-i18n="Sleepy">Sleepy</span></button>
+                            <button type="button" class="btn btn-outline" data-companion-mood="happy" aria-pressed="false"><span data-i18n="Say hello">Say hello</span></button>
+                            <button type="button" class="btn btn-outline" id="ambient-preview-pause" aria-pressed="false"><span data-i18n="Pause preview">Pause preview</span></button>
                         </div>
-                        <div class="hint ambient-preview-caption">Preview only. Sleepy and Say hello apply only in range. Save settings to apply your companion to the clock.</div>
+                        <div class="hint ambient-preview-caption"><span data-i18n="Preview only. Sleepy and Say hello apply only in range. Save settings to apply your companion to the clock.">Preview only. Sleepy and Say hello apply only in range. Save settings to apply your companion to the clock.</span></div>
                         <div class="toggle-row ambient-seasonal-row">
                             <div>
-                                <label for="ambient_seasonal">Seasonal surprises</label>
-                                <div class="hint">Occasional small celebrations for Halloween and New Year&rsquo;s in Companion only style.</div>
+                                <label for="ambient_seasonal"><span data-i18n="Seasonal surprises">Seasonal surprises</span></label>
+                                <div class="hint"><span data-i18n="Occasional small celebrations for Halloween and New Year’s in Companion only style.">Occasional small celebrations for Halloween and New Year&rsquo;s in Companion only style.</span></div>
                             </div>
                             <input type="checkbox" id="ambient_seasonal" checked>
                         </div>
                         <div class="ambient-note">
-                            Your companion uses your glucose thresholds to choose its pose and range label or icon: red for low/high and green for in range by default, or your glucose colors when enabled. Low and high poses stay awake during rest hours. Urgent-low and urgent-high readings replace the entire companion screen with the glucose number, in every display style. Stale or missing data keeps the warning screen.
+                            <span data-i18n="Your companion uses your glucose thresholds to choose its pose and range label or icon: red for low/high and green for in range by default, or your glucose colors when enabled. Low and high poses stay awake during rest hours. Urgent-low and urgent-high readings replace the entire companion screen with the glucose number, in every display style. Stale or missing data keeps the warning screen.">Your companion uses your glucose thresholds to choose its pose and range label or icon: red for low/high and green for in range by default, or your glucose colors when enabled. Low and high poses stay awake during rest hours. Urgent-low and urgent-high readings replace the entire companion screen with the glucose number, in every display style. Stale or missing data keeps the warning screen.</span>
                         </div>
                     </div>
                 </div>
@@ -356,28 +364,28 @@
             <!-- BLOOD SUGAR TAB -->
             <div class="tab-panel active" id="tab-glucose">
                 <div class="card">
-                    <h2>Data Source</h2>
+                    <h2><span data-i18n="Data Source">Data Source</span></h2>
                     <div class="form-group">
-                        <label>Source Type</label>
+                        <label><span data-i18n="Source Type">Source Type</span></label>
                         <select id="data_source" onchange="toggleSource()">
-                            <option value="0">Custom URL</option>
-                            <option value="1">Dexcom Share</option>
-                            <option value="3">FreeStyle Libre (LibreLinkUp)</option>
-                            <option value="2">Demo Mode (no real data)</option>
+                            <option value="0" data-i18n="Custom URL">Custom URL</option>
+                            <option value="1" data-i18n="Dexcom Share">Dexcom Share</option>
+                            <option value="3" data-i18n="FreeStyle Libre (LibreLinkUp)">FreeStyle Libre (LibreLinkUp)</option>
+                            <option value="2" data-i18n="Demo Mode (no real data)">Demo Mode (no real data)</option>
                         </select>
                     </div>
 
                     <div id="demo-fields" style="display:none;">
-                        <div class="form-group"><div class="hint">Demo mode shows a fake glucose value that gently fluctuates in the 80&ndash;100 range. No WiFi or CGM connection is needed &mdash; great for recording videos or giving demos.</div></div>
+                        <div class="form-group"><div class="hint"><span data-i18n="Demo mode shows a fake glucose value that gently fluctuates in the 80–100 range. No WiFi or CGM connection is needed — great for recording videos or giving demos.">Demo mode shows a fake glucose value that gently fluctuates in the 80&ndash;100 range. No WiFi or CGM connection is needed &mdash; great for recording videos or giving demos.</span></div></div>
                     </div>
 
                     <div id="custom-fields">
                         <div class="form-group">
-                            <label>Server URL</label>
+                            <label><span data-i18n="Server URL">Server URL</span></label>
                             <input type="url" id="server_url" placeholder="https://example.com/api/glucose" maxlength="255">
                         </div>
                         <div class="form-group">
-                            <label>Auth Token</label>
+                            <label><span data-i18n="Auth Token">Auth Token</span></label>
                             <div class="pw-wrap">
                                 <input type="password" id="auth_token" maxlength="255">
                                 <button type="button" class="pw-toggle" onclick="togglePw('auth_token')">&#128065;</button>
@@ -388,11 +396,11 @@
                     <div id="dexcom-fields" style="display:none;">
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Username</label>
+                                <label><span data-i18n="Username">Username</span></label>
                                 <input type="text" id="dexcom_username" maxlength="63">
                             </div>
                             <div class="form-group">
-                                <label>Password</label>
+                                <label><span data-i18n="Password">Password</span></label>
                                 <div class="pw-wrap">
                                     <input type="password" id="dexcom_password" maxlength="63">
                                     <button type="button" class="pw-toggle" onclick="togglePw('dexcom_password')">&#128065;</button>
@@ -400,10 +408,10 @@
                             </div>
                         </div>
                         <div class="form-group">
-                            <label>Region</label>
+                            <label><span data-i18n="Region">Region</span></label>
                             <select id="dexcom_us">
-                                <option value="1">US (share2.dexcom.com)</option>
-                                <option value="0">International (shareous1.dexcom.com)</option>
+                                <option value="1" data-i18n="US (share2.dexcom.com)">US (share2.dexcom.com)</option>
+                                <option value="0" data-i18n="International (shareous1.dexcom.com)">International (shareous1.dexcom.com)</option>
                             </select>
                         </div>
                     </div>
@@ -411,11 +419,11 @@
                     <div id="libre-fields" style="display:none;">
                         <div class="form-row">
                             <div class="form-group">
-                                <label>LibreLinkUp Email</label>
+                                <label><span data-i18n="LibreLinkUp Email">LibreLinkUp Email</span></label>
                                 <input type="text" id="libre_email" maxlength="63" inputmode="email" autocomplete="off" autocapitalize="off" spellcheck="false">
                             </div>
                             <div class="form-group">
-                                <label>LibreLinkUp Password</label>
+                                <label><span data-i18n="LibreLinkUp Password">LibreLinkUp Password</span></label>
                                 <div class="pw-wrap">
                                     <input type="password" id="libre_password" maxlength="63" autocomplete="off">
                                     <button type="button" class="pw-toggle" onclick="togglePw('libre_password')">&#128065;</button>
@@ -423,12 +431,12 @@
                             </div>
                         </div>
                         <div class="form-group">
-                            <label for="libre_patient_id">Person to display</label>
-                            <select id="libre_patient_id"><option value="">Save and test to load people</option></select>
-                            <div class="hint">With multiple people sharing, choose one here and save. The clock remembers that person and will never switch automatically.</div>
+                            <label for="libre_patient_id"><span data-i18n="Person to display">Person to display</span></label>
+                            <select id="libre_patient_id"><option value="" data-i18n="Save and test to load people">Save and test to load people</option></select>
+                            <div class="hint"><span data-i18n="With multiple people sharing, choose one here and save. The clock remembers that person and will never switch automatically.">With multiple people sharing, choose one here and save. The clock remembers that person and will never switch automatically.</span></div>
                         </div>
                         <div class="form-group">
-                            <div class="hint">Use your LibreLinkUp login, not LibreLink or LibreView. In the Libre app, go to Connected Apps &rarr; LibreLinkUp and invite this email, then sign in to LibreLinkUp once to accept the terms. Region is detected automatically.</div>
+                            <div class="hint"><span data-i18n="Use your LibreLinkUp login, not LibreLink or LibreView. In the Libre app, go to Connected Apps → LibreLinkUp and invite this email, then sign in to LibreLinkUp once to accept the terms. Region is detected automatically.">Use your LibreLinkUp login, not LibreLink or LibreView. In the Libre app, go to Connected Apps &rarr; LibreLinkUp and invite this email, then sign in to LibreLinkUp once to accept the terms. Region is detected automatically.</span></div>
                         </div>
                     </div>
 
@@ -436,43 +444,43 @@
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Poll Interval (seconds)</label>
+                            <label><span data-i18n="Poll Interval (seconds)">Poll Interval (seconds)</span></label>
                             <input type="number" id="poll_interval" min="15" max="600" value="60">
-                            <div class="hint">Minimum 15s. Default: 60</div>
+                            <div class="hint"><span data-i18n="Minimum 15s. Default: 60">Minimum 15s. Default: 60</span></div>
                         </div>
                         <div class="form-group">
-                            <label>Stale Timeout (minutes)</label>
+                            <label><span data-i18n="Stale Timeout (minutes)">Stale Timeout (minutes)</span></label>
                             <input type="number" id="stale_timeout" min="5" max="60" value="20">
-                            <div class="hint">Show stale color after this long</div>
+                            <div class="hint"><span data-i18n="Show stale color after this long">Show stale color after this long</span></div>
                         </div>
                     </div>
 
                     <div class="divider"></div>
                     <div style="display:flex;align-items:center;gap:12px;">
-                        <button type="button" class="btn btn-test" id="test-glucose-btn">Test Connection</button>
+                        <button type="button" class="btn btn-test" id="test-glucose-btn"><span data-i18n="Test Connection">Test Connection</span></button>
                         <span class="test-result" id="test-glucose-result"></span>
                     </div>
                 </div>
 
                 <div class="card">
-                    <h2>Reading Display</h2>
+                    <h2><span data-i18n="Reading Display">Reading Display</span></h2>
                     <div class="toggle-row">
-                        <label>Show Delta on LED Display</label>
+                        <label><span data-i18n="Show Delta on LED Display">Show Delta on LED Display</span></label>
                         <input type="checkbox" id="show_delta">
                     </div>
                     <div class="divider"></div>
                     <div class="form-group">
-                        <label>Glucose Unit</label>
+                        <label><span data-i18n="Glucose Unit">Glucose Unit</span></label>
                         <select id="use_mmol">
                             <option value="0">mg/dL</option>
                             <option value="1">mmol/L</option>
                         </select>
-                        <div class="hint">mmol/L values are converted from mg/dL (divided by 18)</div>
+                        <div class="hint"><span data-i18n="mmol/L values are converted from mg/dL (divided by 18)">mmol/L values are converted from mg/dL (divided by 18)</span></div>
                     </div>
                 </div>
 
                 <div class="card">
-                    <h2>Glucose Thresholds</h2>
+                    <h2><span data-i18n="Glucose Thresholds">Glucose Thresholds</span></h2>
                     <div class="threshold-bar">
                         <div class="seg-urgent-low" style="flex:1"></div>
                         <div class="seg-low" style="flex:1"></div>
@@ -482,65 +490,65 @@
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Urgent Low (red below)</label>
+                            <label><span data-i18n="Urgent Low (red below)">Urgent Low (red below)</span></label>
                             <input type="number" id="thresh_urgent_low" min="40" max="100" value="70">
                         </div>
                         <div class="form-group">
-                            <label>Low (orange below)</label>
+                            <label><span data-i18n="Low (orange below)">Low (orange below)</span></label>
                             <input type="number" id="thresh_low" min="50" max="120" value="80">
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>High (orange above)</label>
+                            <label><span data-i18n="High (orange above)">High (orange above)</span></label>
                             <input type="number" id="thresh_high" min="120" max="300" value="180">
                         </div>
                         <div class="form-group">
-                            <label>Urgent High (red above)</label>
+                            <label><span data-i18n="Urgent High (red above)">Urgent High (red above)</span></label>
                             <input type="number" id="thresh_urgent_high" min="150" max="400" value="250">
                         </div>
                     </div>
                 </div>
 
                 <div class="card">
-                    <h2>Range Colors</h2>
+                    <h2><span data-i18n="Range Colors">Range Colors</span></h2>
                     <div class="toggle-row">
                         <div>
-                            <label for="customize_range_colors">Customize range colors</label>
-                            <p class="range-color-hint" id="range-color-hint">Turn on to change the default colors.</p>
+                            <label for="customize_range_colors"><span data-i18n="Customize range colors">Customize range colors</span></label>
+                            <p class="range-color-hint" id="range-color-hint"><span data-i18n="Turn on to change the default colors.">Turn on to change the default colors.</span></p>
                         </div>
                         <input type="checkbox" id="customize_range_colors" aria-controls="range-color-controls" aria-describedby="range-color-hint" aria-expanded="false">
                     </div>
                     <div id="range-color-controls" hidden>
                     <div class="color-row">
                         <input type="color" id="color_urgent_low" value="#ea4335">
-                        <span class="color-label">Urgent Low</span>
-                        <span class="color-hex" id="hex_urgent_low">#ea4335</span>
+                        <span class="color-label"><span data-i18n="Urgent Low">Urgent Low</span></span>
+                        <span class="color-hex" id="hex_urgent_low"><span data-i18n="#ea4335">#ea4335</span></span>
                     </div>
                     <div class="color-row">
                         <input type="color" id="color_low" value="#fbbc04">
-                        <span class="color-label">Low</span>
-                        <span class="color-hex" id="hex_low">#fbbc04</span>
+                        <span class="color-label"><span data-i18n="Low">Low</span></span>
+                        <span class="color-hex" id="hex_low"><span data-i18n="#fbbc04">#fbbc04</span></span>
                     </div>
                     <div class="color-row">
                         <input type="color" id="color_in_range" value="#34a853">
-                        <span class="color-label">In Range</span>
+                        <span class="color-label"><span data-i18n="In Range">In Range</span></span>
                         <span class="color-hex" id="hex_in_range">#34a853</span>
                     </div>
                     <div class="color-row">
                         <input type="color" id="color_high" value="#fbbc04">
-                        <span class="color-label">High</span>
-                        <span class="color-hex" id="hex_high">#fbbc04</span>
+                        <span class="color-label"><span data-i18n="High">High</span></span>
+                        <span class="color-hex" id="hex_high"><span data-i18n="#fbbc04">#fbbc04</span></span>
                     </div>
                     <div class="color-row">
                         <input type="color" id="color_urgent_high" value="#ea4335">
-                        <span class="color-label">Urgent High</span>
-                        <span class="color-hex" id="hex_urgent_high">#ea4335</span>
+                        <span class="color-label"><span data-i18n="Urgent High">Urgent High</span></span>
+                        <span class="color-hex" id="hex_urgent_high"><span data-i18n="#ea4335">#ea4335</span></span>
                     </div>
                     <div class="color-row">
-                        <input type="color" id="color_stale" value="#808080">
-                        <span class="color-label">Stale Data</span>
-                        <span class="color-hex" id="hex_stale">#808080</span>
+                        <input type="color" id="color_stale" value="#390e3b">
+                        <span class="color-label"><span data-i18n="Stale Data">Stale Data</span></span>
+                        <span class="color-hex" id="hex_stale">#390e3b</span>
                     </div>
                     </div>
                 </div>
@@ -551,122 +559,122 @@
             <div class="tab-panel" id="tab-time">
                 <div class="card">
                     <div class="card-header-toggle">
-                        <h2 id="clock-heading">Clock</h2>
+                        <h2 id="clock-heading"><span data-i18n="Clock">Clock</span></h2>
                         <input type="checkbox" id="time_display_enabled" aria-labelledby="clock-heading" checked>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Timezone</label>
+                            <label><span data-i18n="Timezone">Timezone</span></label>
                             <select id="timezone">
-                                <option value="EST5EDT,M3.2.0,M11.1.0">Eastern (ET)</option>
-                                <option value="CST6CDT,M3.2.0,M11.1.0">Central (CT)</option>
-                                <option value="MST7MDT,M3.2.0,M11.1.0">Mountain (MT)</option>
-                                <option value="PST8PDT,M3.2.0,M11.1.0">Pacific (PT)</option>
-                                <option value="AST9ADT,M3.2.0,M11.1.0">Alaska (AKT)</option>
-                                <option value="HST10">Hawaii (HST)</option>
-                                <option value="GMT0BST,M3.5.0/1,M10.5.0">UK (GMT/BST)</option>
-                                <option value="CET-1CEST,M3.5.0,M10.5.0/3">Central Europe</option>
-                                <option value="EET-2EEST,M3.5.0/3,M10.5.0/4">Eastern Europe</option>
-                                <option value="IST-5:30">India (IST)</option>
-                                <option value="JST-9">Japan (JST)</option>
-                                <option value="CST-8">China (CST)</option>
-                                <option value="AEST-10AEDT,M10.1.0,M4.1.0/3">Australia East</option>
-                                <option value="NZST-12NZDT,M9.5.0,M4.1.0/3">New Zealand</option>
+                                <option value="EST5EDT,M3.2.0,M11.1.0" data-i18n="Eastern (ET)">Eastern (ET)</option>
+                                <option value="CST6CDT,M3.2.0,M11.1.0" data-i18n="Central (CT)">Central (CT)</option>
+                                <option value="MST7MDT,M3.2.0,M11.1.0" data-i18n="Mountain (MT)">Mountain (MT)</option>
+                                <option value="PST8PDT,M3.2.0,M11.1.0" data-i18n="Pacific (PT)">Pacific (PT)</option>
+                                <option value="AST9ADT,M3.2.0,M11.1.0" data-i18n="Alaska (AKT)">Alaska (AKT)</option>
+                                <option value="HST10" data-i18n="Hawaii (HST)">Hawaii (HST)</option>
+                                <option value="GMT0BST,M3.5.0/1,M10.5.0" data-i18n="UK (GMT/BST)">UK (GMT/BST)</option>
+                                <option value="CET-1CEST,M3.5.0,M10.5.0/3" data-i18n="Central Europe">Central Europe</option>
+                                <option value="EET-2EEST,M3.5.0/3,M10.5.0/4" data-i18n="Eastern Europe">Eastern Europe</option>
+                                <option value="IST-5:30" data-i18n="India (IST)">India (IST)</option>
+                                <option value="JST-9" data-i18n="Japan (JST)">Japan (JST)</option>
+                                <option value="CST-8" data-i18n="China (CST)">China (CST)</option>
+                                <option value="AEST-10AEDT,M10.1.0,M4.1.0/3" data-i18n="Australia East">Australia East</option>
+                                <option value="NZST-12NZDT,M9.5.0,M4.1.0/3" data-i18n="New Zealand">New Zealand</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Custom POSIX</label>
+                            <label><span data-i18n="Custom POSIX">Custom POSIX</span></label>
                             <select id="tz_presets" onchange="applyTzPreset()" style="margin-bottom:8px;">
-                                <option value="">-- Select a preset --</option>
-                                <option value="EST5EDT,M3.2.0,M11.1.0">US Eastern (ET)</option>
-                                <option value="CST6CDT,M3.2.0,M11.1.0">US Central (CT)</option>
-                                <option value="MST7MDT,M3.2.0,M11.1.0">US Mountain (MT)</option>
-                                <option value="PST8PDT,M3.2.0,M11.1.0">US Pacific (PT)</option>
-                                <option value="AST9ADT,M3.2.0,M11.1.0">US Alaska (AKT)</option>
-                                <option value="HST10">US Hawaii (HST)</option>
-                                <option value="NST3:30NDT,M3.2.0,M11.1.0">Canada Newfoundland</option>
-                                <option value="AST4ADT,M3.2.0,M11.1.0">Canada Atlantic</option>
-                                <option value="GMT0BST,M3.5.0/1,M10.5.0">UK (GMT/BST)</option>
-                                <option value="CET-1CEST,M3.5.0,M10.5.0/3">Central Europe (CET)</option>
-                                <option value="EET-2EEST,M3.5.0/3,M10.5.0/4">Eastern Europe (EET)</option>
-                                <option value="MSK-3">Moscow (MSK)</option>
-                                <option value="IST-5:30">India (IST)</option>
-                                <option value="WIB-7">Indonesia West (WIB)</option>
-                                <option value="CST-8">China / Singapore (CST)</option>
-                                <option value="JST-9">Japan (JST)</option>
-                                <option value="KST-9">Korea (KST)</option>
-                                <option value="AEST-10AEDT,M10.1.0,M4.1.0/3">Australia East (AEST)</option>
-                                <option value="ACST-9:30ACDT,M10.1.0,M4.1.0/3">Australia Central</option>
-                                <option value="AWST-8">Australia West (AWST)</option>
-                                <option value="NZST-12NZDT,M9.5.0,M4.1.0/3">New Zealand (NZST)</option>
-                                <option value="BRT3BRST,M10.3.0/0,M2.3.0/0">Brazil (BRT)</option>
-                                <option value="GST-4">UAE / Gulf (GST)</option>
-                                <option value="SAST-2">South Africa (SAST)</option>
+                                <option value="" data-i18n="-- Select a preset --">-- Select a preset --</option>
+                                <option value="EST5EDT,M3.2.0,M11.1.0" data-i18n="US Eastern (ET)">US Eastern (ET)</option>
+                                <option value="CST6CDT,M3.2.0,M11.1.0" data-i18n="US Central (CT)">US Central (CT)</option>
+                                <option value="MST7MDT,M3.2.0,M11.1.0" data-i18n="US Mountain (MT)">US Mountain (MT)</option>
+                                <option value="PST8PDT,M3.2.0,M11.1.0" data-i18n="US Pacific (PT)">US Pacific (PT)</option>
+                                <option value="AST9ADT,M3.2.0,M11.1.0" data-i18n="US Alaska (AKT)">US Alaska (AKT)</option>
+                                <option value="HST10" data-i18n="US Hawaii (HST)">US Hawaii (HST)</option>
+                                <option value="NST3:30NDT,M3.2.0,M11.1.0" data-i18n="Canada Newfoundland">Canada Newfoundland</option>
+                                <option value="AST4ADT,M3.2.0,M11.1.0" data-i18n="Canada Atlantic">Canada Atlantic</option>
+                                <option value="GMT0BST,M3.5.0/1,M10.5.0" data-i18n="UK (GMT/BST)">UK (GMT/BST)</option>
+                                <option value="CET-1CEST,M3.5.0,M10.5.0/3" data-i18n="Central Europe (CET)">Central Europe (CET)</option>
+                                <option value="EET-2EEST,M3.5.0/3,M10.5.0/4" data-i18n="Eastern Europe (EET)">Eastern Europe (EET)</option>
+                                <option value="MSK-3" data-i18n="Moscow (MSK)">Moscow (MSK)</option>
+                                <option value="IST-5:30" data-i18n="India (IST)">India (IST)</option>
+                                <option value="WIB-7" data-i18n="Indonesia West (WIB)">Indonesia West (WIB)</option>
+                                <option value="CST-8" data-i18n="China / Singapore (CST)">China / Singapore (CST)</option>
+                                <option value="JST-9" data-i18n="Japan (JST)">Japan (JST)</option>
+                                <option value="KST-9" data-i18n="Korea (KST)">Korea (KST)</option>
+                                <option value="AEST-10AEDT,M10.1.0,M4.1.0/3" data-i18n="Australia East (AEST)">Australia East (AEST)</option>
+                                <option value="ACST-9:30ACDT,M10.1.0,M4.1.0/3" data-i18n="Australia Central">Australia Central</option>
+                                <option value="AWST-8" data-i18n="Australia West (AWST)">Australia West (AWST)</option>
+                                <option value="NZST-12NZDT,M9.5.0,M4.1.0/3" data-i18n="New Zealand (NZST)">New Zealand (NZST)</option>
+                                <option value="BRT3BRST,M10.3.0/0,M2.3.0/0" data-i18n="Brazil (BRT)">Brazil (BRT)</option>
+                                <option value="GST-4" data-i18n="UAE / Gulf (GST)">UAE / Gulf (GST)</option>
+                                <option value="SAST-2" data-i18n="South Africa (SAST)">South Africa (SAST)</option>
                             </select>
-                            <input type="text" id="timezone_custom" placeholder="Or type a custom POSIX TZ string">
-                            <div class="hint">Select a preset or type your own. Overrides the main timezone dropdown.</div>
+                            <input type="text" id="timezone_custom" placeholder="Or type a custom POSIX TZ string" data-i18n-placeholder="Or type a custom POSIX TZ string">
+                            <div class="hint"><span data-i18n="Select a preset or type your own. Overrides the main timezone dropdown.">Select a preset or type your own. Overrides the main timezone dropdown.</span></div>
                         </div>
                     </div>
                     <div class="toggle-row">
-                        <label>24-Hour Format</label>
+                        <label><span data-i18n="24-Hour Format">24-Hour Format</span></label>
                         <input type="checkbox" id="use_24h">
                     </div>
                     <div class="divider"></div>
                     <div class="color-row">
                         <input type="color" id="color_clock_time" value="#ffffff">
-                        <span class="color-label">Clock Color</span>
-                        <span class="color-hex" id="hex_clock_time">#ffffff</span>
+                        <span class="color-label"><span data-i18n="Clock Color">Clock Color</span></span>
+                        <span class="color-hex" id="hex_clock_time"><span data-i18n="#ffffff">#ffffff</span></span>
                     </div>
                 </div>
 
                 <div class="card">
-                    <h2>Date Display</h2>
+                    <h2><span data-i18n="Date Display">Date Display</span></h2>
                     <div class="toggle-row">
-                        <label>Show Date on Time Screen</label>
+                        <label><span data-i18n="Show Date on Time Screen">Show Date on Time Screen</span></label>
                         <input type="checkbox" id="date_on_time_screen">
                     </div>
                     <div class="divider"></div>
                     <div class="form-group">
-                        <label>Date Format</label>
+                        <label><span data-i18n="Date Format">Date Format</span></label>
                         <select id="date_format">
-                            <option value="0">M/DD (2/20)</option>
-                            <option value="1">MMMDD (FEB20)</option>
-                            <option value="2">DD/MM (20/2)</option>
+                            <option value="0" data-i18n="M/DD (2/20)">M/DD (2/20)</option>
+                            <option value="1" data-i18n="MMMDD (FEB20)">MMMDD (FEB20)</option>
+                            <option value="2" data-i18n="DD/MM (20/2)">DD/MM (20/2)</option>
                         </select>
                     </div>
                 </div>
 
                 <div class="card">
                     <div class="card-header-toggle">
-                        <h2>Pomodoro Timer</h2>
+                        <h2><span data-i18n="Pomodoro Timer">Pomodoro Timer</span></h2>
                         <input type="checkbox" id="timer_enabled">
                     </div>
                     <div class="card-details" id="timer-details">
                         <p class="card-intro" style="margin-bottom:16px;">
-                            Focus timer with work/break cycles. Right button starts/pauses when viewing timer.
+                            <span data-i18n="Focus timer with work/break cycles. Right button starts/pauses when viewing timer.">Focus timer with work/break cycles. Right button starts/pauses when viewing timer.</span>
                         </p>
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Work Duration (min)</label>
+                                <label><span data-i18n="Work Duration (min)">Work Duration (min)</span></label>
                                 <input type="number" id="timer_work_min" min="1" max="120" value="25">
                             </div>
                             <div class="form-group">
-                                <label>Short Break (min)</label>
+                                <label><span data-i18n="Short Break (min)">Short Break (min)</span></label>
                                 <input type="number" id="timer_break_min" min="1" max="60" value="5">
                             </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Long Break (min)</label>
+                                <label><span data-i18n="Long Break (min)">Long Break (min)</span></label>
                                 <input type="number" id="timer_long_break_min" min="1" max="60" value="15">
                             </div>
                             <div class="form-group">
-                                <label>Sessions Before Long Break</label>
+                                <label><span data-i18n="Sessions Before Long Break">Sessions Before Long Break</span></label>
                                 <input type="number" id="timer_sessions" min="1" max="12" value="4">
                             </div>
                         </div>
                         <div class="toggle-row">
-                            <label>Buzzer on Completion</label>
+                            <label><span data-i18n="Buzzer on Completion">Buzzer on Completion</span></label>
                             <input type="checkbox" id="timer_buzzer">
                         </div>
                     </div>
@@ -674,34 +682,34 @@
 
                 <div class="card">
                     <div class="card-header-toggle">
-                        <h2>Stopwatch</h2>
+                        <h2><span data-i18n="Stopwatch">Stopwatch</span></h2>
                         <input type="checkbox" id="stopwatch_enabled">
                     </div>
                     <div class="card-details" id="stopwatch-details">
                         <p class="card-intro" style="margin:0;">
-                            Count-up timer. Right button starts/pauses. Right long-press resets.
+                            <span data-i18n="Count-up timer. Right button starts/pauses. Right long-press resets.">Count-up timer. Right button starts/pauses. Right long-press resets.</span>
                         </p>
                     </div>
                 </div>
 
                 <div class="card">
                     <div class="card-header-toggle">
-                        <h2>Countdown to Event</h2>
+                        <h2><span data-i18n="Countdown to Event">Countdown to Event</span></h2>
                         <input type="checkbox" id="countdown_enabled">
                     </div>
                     <div class="card-details" id="countdown-details">
                         <p class="card-intro" style="margin-bottom:16px;">
-                            Shows days/hours until a target date. Displays "NOW!" when reached.
+                            <span data-i18n="Shows days/hours until a target date. Displays &quot;NOW!&quot; when reached.">Shows days/hours until a target date. Displays "NOW!" when reached.</span>
                         </p>
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Event Name</label>
-                                <input type="text" id="countdown_name" maxlength="15" placeholder="e.g. Vacation">
+                                <label><span data-i18n="Event Name">Event Name</span></label>
+                                <input type="text" id="countdown_name" maxlength="15" placeholder="e.g. Vacation" data-i18n-placeholder="e.g. Vacation">
                             </div>
                             <div class="form-group">
-                                <label>Target Date & Time</label>
+                                <label><span data-i18n="Target Date &amp; Time">Target Date & Time</span></label>
                                 <input type="datetime-local" id="countdown_date">
-                                <div class="hint">Set the date/time you're counting down to</div>
+                                <div class="hint"><span data-i18n="Set the date/time you&#x27;re counting down to">Set the date/time you're counting down to</span></div>
                             </div>
                         </div>
                     </div>
@@ -712,71 +720,77 @@
             <div class="tab-panel" id="tab-weather">
                 <div class="card">
                     <div class="card-header-toggle">
-                        <h2>Weather Display</h2>
+                        <h2><span data-i18n="Weather Display">Weather Display</span></h2>
                         <input type="checkbox" id="weather_enabled">
                     </div>
                     <div class="card-details" id="weather-details">
                         <p class="card-intro" style="margin-bottom:16px;">
-                            Show current temperature in the display cycle. Uses OpenWeatherMap.
+                            <span data-i18n="Show current temperature in the display cycle. Uses OpenWeatherMap.">Show current temperature in the display cycle. Uses OpenWeatherMap.</span>
                         </p>
+                        <div class="weather-key-warning" id="weather_key_warning" role="status" hidden>
+                            &#9888;&#65039; <span data-i18n="An OpenWeatherMap API key is required for weather to appear on the clock.">An OpenWeatherMap API key is required for weather to appear on the clock.</span> <span data-i18n="Get a free key at">Get a free key at</span> <a href="https://openweathermap.org/appid" target="_blank"><span data-i18n="openweathermap.org">openweathermap.org</span></a>
+                        </div>
+                        <div class="weather-key-warning" id="weather_waiting_note" role="status" hidden>
+                            <span data-i18n="Waiting for the first weather reading. Until it arrives, the clock leaves the weather screen blank.">Waiting for the first weather reading. Until it arrives, the clock leaves the weather screen blank.</span>
+                        </div>
                         <div class="form-group">
-                            <label>API Key</label>
+                            <label><span data-i18n="API Key">API Key</span></label>
                             <div class="pw-wrap">
                                 <input type="password" id="weather_api_key" maxlength="47">
                                 <button type="button" class="pw-toggle" onclick="togglePw('weather_api_key')">&#128065;</button>
                             </div>
-                            <div class="hint">Get a free key at <a href="https://openweathermap.org/appid" target="_blank" style="color:var(--accent);">openweathermap.org</a></div>
+                            <div class="hint"><span data-i18n="Get a free key at">Get a free key at</span> <a href="https://openweathermap.org/appid" target="_blank" style="color:var(--accent);"><span data-i18n="openweathermap.org">openweathermap.org</span></a></div>
                         </div>
                         <div class="form-group">
-                            <label>Location</label>
-                            <input type="text" id="weather_city" maxlength="63" placeholder="London,GB or 90210">
-                            <div class="hint">City,Country (London,GB) or zip code (90210 or 90210,US). Zip codes without a country default to US.</div>
+                            <label><span data-i18n="Location">Location</span></label>
+                            <input type="text" id="weather_city" maxlength="63" placeholder="London,GB or 90210" data-i18n-placeholder="London,GB or 90210">
+                            <div class="hint"><span data-i18n="City,Country (London,GB) or zip code (90210 or 90210,US). Zip codes without a country default to US.">City,Country (London,GB) or zip code (90210 or 90210,US). Zip codes without a country default to US.</span></div>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Temperature Unit</label>
+                                <label><span data-i18n="Temperature Unit">Temperature Unit</span></label>
                                 <select id="weather_use_f">
-                                    <option value="1">Fahrenheit (&deg;F)</option>
-                                    <option value="0">Celsius (&deg;C)</option>
+                                    <option value="1" data-i18n="Fahrenheit (°F)">Fahrenheit (&deg;F)</option>
+                                    <option value="0" data-i18n="Celsius (°C)">Celsius (&deg;C)</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label>Update Interval (minutes)</label>
+                                <label><span data-i18n="Update Interval (minutes)">Update Interval (minutes)</span></label>
                                 <input type="number" id="weather_poll_min" min="5" max="60" value="15">
-                                <div class="hint">Minimum 5 min</div>
+                                <div class="hint"><span data-i18n="Minimum 5 min">Minimum 5 min</span></div>
                             </div>
                         </div>
 
                         <div class="divider"></div>
                         <div class="color-row">
                             <input type="color" id="color_weather_wx" value="#ffffff">
-                            <span class="color-label">Weather Color</span>
-                            <span class="color-hex" id="hex_weather_wx">#ffffff</span>
+                            <span class="color-label"><span data-i18n="Weather Color">Weather Color</span></span>
+                            <span class="color-hex" id="hex_weather_wx"><span data-i18n="#ffffff">#ffffff</span></span>
                         </div>
 
                         <div class="divider"></div>
                         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-                            <button type="button" class="btn btn-test" id="test-weather-btn">Test Weather API</button>
+                            <button type="button" class="btn btn-test" id="test-weather-btn"><span data-i18n="Test Weather API">Test Weather API</span></button>
                             <span class="test-result" id="test-weather-result"></span>
                         </div>
-                        <div class="hint" style="margin-top:8px;">Save config first, then test. New API keys can take up to 2 hours to activate.</div>
+                        <div class="hint" style="margin-top:8px;"><span data-i18n="Save config first, then test. New API keys can take up to 2 hours to activate.">Save config first, then test. New API keys can take up to 2 hours to activate.</span></div>
 
                         <div class="divider"></div>
-                        <h3 style="font-size:14px;margin-bottom:12px;">Preview Weather</h3>
+                        <h3 style="font-size:14px;margin-bottom:12px;"><span data-i18n="Preview Weather">Preview Weather</span></h3>
                         <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px;">
-                            Preview weather icons and animations on the display. Clears on next real weather fetch.
+                            <span data-i18n="Preview weather icons and animations on the display. Clears on next real weather fetch.">Preview weather icons and animations on the display. Clears on next real weather fetch.</span>
                         </p>
                         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                            <button type="button" class="btn btn-test" onclick="mockWeather(800,'Clear')">Clear</button>
-                            <button type="button" class="btn btn-test" onclick="mockWeather(801,'Partly cloudy')">Partly cloudy</button>
-                            <button type="button" class="btn btn-test" onclick="mockWeather(803,'Cloudy')">Cloudy</button>
-                            <button type="button" class="btn btn-test" onclick="mockWeather(500,'Rain / mist')">Rain / mist</button>
-                            <button type="button" class="btn btn-test" onclick="mockWeather(300,'Drizzle')">Drizzle</button>
-                            <button type="button" class="btn btn-test" onclick="mockWeather(611,'Sleet')">Sleet</button>
-                            <button type="button" class="btn btn-test" onclick="mockWeather(601,'Snow')">Snow</button>
-                            <button type="button" class="btn btn-test" onclick="mockWeather(200,'Thunderstorm')">Thunderstorm</button>
-                            <button type="button" class="btn btn-test" onclick="mockWeather(781,'Tornado')">Tornado</button>
-                            <button type="button" class="btn btn-test" onclick="mockWeather(711,'Other weather')">Other weather</button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(800,'Clear')"><span data-i18n="Clear">Clear</span></button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(801,'Partly cloudy')"><span data-i18n="Partly cloudy">Partly cloudy</span></button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(803,'Cloudy')"><span data-i18n="Cloudy">Cloudy</span></button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(500,'Rain / mist')"><span data-i18n="Rain / mist">Rain / mist</span></button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(300,'Drizzle')"><span data-i18n="Drizzle">Drizzle</span></button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(611,'Sleet')"><span data-i18n="Sleet">Sleet</span></button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(601,'Snow')"><span data-i18n="Snow">Snow</span></button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(200,'Thunderstorm')"><span data-i18n="Thunderstorm">Thunderstorm</span></button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(781,'Tornado')"><span data-i18n="Tornado">Tornado</span></button>
+                            <button type="button" class="btn btn-test" onclick="mockWeather(711,'Other weather')"><span data-i18n="Other weather">Other weather</span></button>
                         </div>
                         <span class="test-result" id="mock-weather-result" style="display:block;margin-top:8px;"></span>
                     </div>
@@ -787,92 +801,92 @@
             <div class="tab-panel" id="tab-integrations">
                 <div class="card">
                     <div class="card-header-toggle">
-                        <h2>Push Notifications</h2>
+                        <h2><span data-i18n="Push Notifications">Push Notifications</span></h2>
                         <input type="checkbox" id="notify_enabled">
                     </div>
                     <div class="card-details" id="notify-details">
                         <p class="card-intro" style="margin-bottom:16px;">
-                            Send messages to the display from any device on your network.
-                            Open <a href="/notify.html" target="_blank" style="color:var(--accent);font-weight:500;">/notify.html</a>
-                            on your phone and add it to your home screen for quick access.
+                            <span data-i18n="Send messages to the display from any device on your network. Open">Send messages to the display from any device on your network.
+                            Open</span> <a href="/notify.html" target="_blank" style="color:var(--accent);font-weight:500;"><span data-i18n="/notify.html">/notify.html</span></a>
+                            <span data-i18n="on your phone and add it to your home screen for quick access.">on your phone and add it to your home screen for quick access.</span>
                         </p>
                         <details style="margin-bottom:16px;">
-                            <summary style="font-size:13px;color:var(--text-secondary);cursor:pointer;">iOS Shortcut / Automation tips</summary>
+                            <summary style="font-size:13px;color:var(--text-secondary);cursor:pointer;"><span data-i18n="iOS Shortcut / Automation tips">iOS Shortcut / Automation tips</span></summary>
                             <div style="font-size:12px;color:var(--text-dim);margin-top:8px;line-height:1.5;">
-                                Create an iOS Shortcut with a "Get Contents of URL" action:<br>
-                                URL: <code>http://DEVICE_IP/api/notify</code><br>
-                                Method: POST, Body: JSON <code>{"text":"Your message"}</code><br>
-                                Add it to your home screen or trigger it from Shortcuts automations.
+                                <span data-i18n="Create an iOS Shortcut with a &quot;Get Contents of URL&quot; action:">Create an iOS Shortcut with a "Get Contents of URL" action:</span><br>
+                                <span data-i18n="URL:">URL:</span> <code>http://DEVICE_IP/api/notify</code><br>
+                                <span data-i18n="Method: POST, Body: JSON">Method: POST, Body: JSON</span> <code>{"text":"Your message"}</code><br>
+                                <span data-i18n="Add it to your home screen or trigger it from Shortcuts automations.">Add it to your home screen or trigger it from Shortcuts automations.</span>
                             </div>
                         </details>
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Default Duration (seconds)</label>
+                                <label><span data-i18n="Default Duration (seconds)">Default Duration (seconds)</span></label>
                                 <input type="number" id="notify_default_duration" min="5" max="600" value="60">
                             </div>
                             <div class="form-group">
                                 <div class="toggle-row" style="padding-top:24px;">
-                                    <label>Allow Buzzer for Urgent</label>
+                                    <label><span data-i18n="Allow Buzzer for Urgent">Allow Buzzer for Urgent</span></label>
                                     <input type="checkbox" id="notify_allow_buzzer">
                                 </div>
                             </div>
                         </div>
                         <div class="divider"></div>
-                        <h3 style="font-size:14px;margin-bottom:12px;">Test Notification</h3>
+                        <h3 style="font-size:14px;margin-bottom:12px;"><span data-i18n="Test Notification">Test Notification</span></h3>
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Message</label>
-                                <input type="text" id="test_notify_text" placeholder="Hello!" maxlength="63">
+                                <label><span data-i18n="Message">Message</span></label>
+                                <input type="text" id="test_notify_text" placeholder="Hello!" maxlength="63" data-i18n-placeholder="Hello!">
                             </div>
                             <div class="form-group">
-                                <label>Duration (sec)</label>
+                                <label><span data-i18n="Duration (sec)">Duration (sec)</span></label>
                                 <input type="number" id="test_notify_dur" value="10" min="1" max="300">
                             </div>
                         </div>
                         <div class="form-row" style="align-items:end;">
                             <div class="toggle-row">
-                                <label>Urgent</label>
+                                <label><span data-i18n="Urgent">Urgent</span></label>
                                 <input type="checkbox" id="test_notify_urgent">
                             </div>
-                            <button type="button" class="btn btn-test" id="test-notify-btn">Send Test</button>
+                            <button type="button" class="btn btn-test" id="test-notify-btn"><span data-i18n="Send Test">Send Test</span></button>
                         </div>
                     </div>
                 </div>
 
                 <div class="card">
                     <div class="card-header-toggle">
-                        <h2>System Monitor</h2>
+                        <h2><span data-i18n="System Monitor">System Monitor</span></h2>
                         <input type="checkbox" id="sysmon_enabled">
                     </div>
                     <div class="card-details" id="sysmon-details">
                         <p class="card-intro" style="margin-bottom:16px;">
-                            Push CPU/RAM data from your computer via <code>POST /api/sysmon</code>. Auto-hides after 30s of no data.
+                            <span data-i18n="Push CPU/RAM data from your computer via">Push CPU/RAM data from your computer via</span> <code>POST /api/sysmon</code><span data-i18n=". Auto-hides after 30s of no data.">. Auto-hides after 30s of no data.</span>
                         </p>
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Display Mode</label>
+                                <label><span data-i18n="Display Mode">Display Mode</span></label>
                                 <select id="sysmon_display_mode">
-                                    <option value="0">Text (CPU42)</option>
-                                    <option value="1">Bar Graph</option>
+                                    <option value="0" data-i18n="Text (CPU42)">Text (CPU42)</option>
+                                    <option value="1" data-i18n="Bar Graph">Bar Graph</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label>Default Label</label>
+                                <label><span data-i18n="Default Label">Default Label</span></label>
                                 <input type="text" id="sysmon_label" maxlength="7" value="CPU">
                             </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Warning Threshold (%)</label>
+                                <label><span data-i18n="Warning Threshold (%)">Warning Threshold (%)</span></label>
                                 <input type="number" id="sysmon_warn_pct" min="0" max="100" value="50">
                             </div>
                             <div class="form-group">
-                                <label>Critical Threshold (%)</label>
+                                <label><span data-i18n="Critical Threshold (%)">Critical Threshold (%)</span></label>
                                 <input type="number" id="sysmon_crit_pct" min="0" max="100" value="80">
                             </div>
                         </div>
                         <div class="divider"></div>
-                        <h3 style="font-size:14px;margin-bottom:8px;">Example Push Scripts</h3>
+                        <h3 style="font-size:14px;margin-bottom:8px;"><span data-i18n="Example Push Scripts">Example Push Scripts</span></h3>
                         <pre>
 # macOS CPU usage
 curl -X POST http://DEVICE_IP/api/sysmon \
@@ -890,24 +904,24 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             <!-- DANGER TAB -->
             <div class="tab-panel" id="tab-danger">
                 <div class="card reset-card">
-                    <h2>Restart Device</h2>
+                    <h2><span data-i18n="Restart Device">Restart Device</span></h2>
                     <p class="card-intro" style="margin:-8px 0 16px; ">
-                        Reboot the device. Settings are preserved.
+                        <span data-i18n="Reboot the device. Settings are preserved.">Reboot the device. Settings are preserved.</span>
                     </p>
-                    <button type="button" class="btn btn-outline" id="restart-config-btn">Restart</button>
+                    <button type="button" class="btn btn-outline" id="restart-config-btn"><span data-i18n="Restart">Restart</span></button>
                 </div>
 
                 <div class="card reset-card">
-                    <h2>Factory Reset</h2>
+                    <h2><span data-i18n="Factory Reset">Factory Reset</span></h2>
                     <p class="card-intro" style="margin:-8px 0 16px; ">
-                        Erase all settings and restore factory defaults. The device will restart and show SETUP.
+                        <span data-i18n="Erase all settings and restore factory defaults. The device will restart and show SETUP.">Erase all settings and restore factory defaults. The device will restart and show SETUP.</span>
                     </p>
-                    <button type="button" class="btn btn-danger" id="factory-reset-btn">Factory Reset</button>
+                    <button type="button" class="btn btn-danger" id="factory-reset-btn"><span data-i18n="Factory Reset">Factory Reset</span></button>
                 </div>
             </div>
 
             <button type="submit" class="btn btn-primary btn-block" style="margin-top:8px;" id="save-btn">
-                Save Configuration
+                <span data-i18n="Save Configuration">Save Configuration</span>
             </button>
         </form>
     </div>
@@ -931,7 +945,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 ambient: 'Display Pet', danger: 'Reset Device'
             };
             const sectionName = labels[id];
-            document.getElementById('config-page-title').textContent = sectionName ? sectionName + ' Configuration' : 'Configuration';
+            I18n.text(document.getElementById('config-page-title'), sectionName ? sectionName + ' Configuration' : 'Configuration');
             history.replaceState(null, '', id === 'glucose' ? location.pathname : '#' + id);
             setNavOpen(false);
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -972,7 +986,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
         function showToast(msg, type) {
             const t = document.getElementById('toast');
-            t.textContent = msg;
+            I18n.text(t, msg);
             t.className = 'toast show ' + (type === 'error' ? 'toast-error' : 'toast-success');
             setTimeout(() => t.className = 'toast', 3000);
         }
@@ -1001,12 +1015,12 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             const customColors = document.getElementById('ambient_use_glucose_colors').checked;
             const colors = {ambient_use_glucose_colors: customColors};
             ['low','in_range','high'].forEach(key => colors['color_'+key] = document.getElementById('color_'+key).value);
-            document.getElementById('ambient-style-hint').textContent = [
+            I18n.text(document.getElementById('ambient-style-hint'), [
                 customColors ? 'LOW / OK / HIGH use your Blood Sugar colors.' : 'Red LOW, green OK, red HIGH.',
                 customColors ? 'Bottom = low, middle = in range, top = high, using your Blood Sugar colors.' : 'Lit marker: bottom = low (red), middle = in range (green), top = high (red).',
                 'Your pet stays centered, with no range text or icon.'
-            ][style];
-            document.getElementById('ambient-preview-name').textContent = name;
+            ][style]);
+            I18n.text(document.getElementById('ambient-preview-name'), name);
             const displayedMood = range === 0 ? companionPreviewMood : 'awake';
             PixelCompanions.draw(canvas, id, companionPreviewMs, displayedMood, style, range, colors);
             document.querySelectorAll('[data-companion-mood]').forEach(button => {
@@ -1014,7 +1028,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 button.setAttribute('aria-pressed', String(button.dataset.companionMood === displayedMood));
             });
             const pause = document.getElementById('ambient-preview-pause');
-            pause.textContent = companionPreviewPlaying ? 'Pause preview' : 'Play preview';
+            I18n.text(pause, companionPreviewPlaying ? 'Pause preview' : 'Play preview');
             pause.setAttribute('aria-pressed', String(!companionPreviewPlaying));
         }
 
@@ -1043,12 +1057,12 @@ curl -X POST http://DEVICE_IP/api/sysmon \
         ['urgent_low','low','in_range','high','urgent_high'].forEach(k => {
             const inp = document.getElementById('color_' + k);
             const hex = document.getElementById('hex_' + k);
-            if (inp && hex) inp.addEventListener('input', () => hex.textContent = inp.value);
+            if (inp && hex) inp.addEventListener('input', () => I18n.text(hex, inp.value, false));
         });
 
         ['clock_time', 'weather_wx'].forEach(key => {
             const input = document.getElementById('color_' + key);
-            input.addEventListener('input', () => document.getElementById('hex_' + key).textContent = input.value);
+            input.addEventListener('input', () => I18n.text(document.getElementById('hex_' + key), input.value, false));
         });
 
         let brightnessDeviceValue = 40;
@@ -1056,17 +1070,31 @@ curl -X POST http://DEVICE_IP/api/sysmon \
         let brightnessModeChanged = false;
         function updateBrightnessLabel() {
             const slider = document.getElementById('brightness');
-            document.getElementById('brightness-value').textContent = slider.value + '%';
-            slider.setAttribute('aria-valuetext', slider.value + ' percent');
-            document.getElementById('brightness-mode-hint').textContent = document.getElementById('auto_brightness').checked
-                ? 'Automatic brightness is on. Move the slider to choose a manual level.'
-                : 'Manual brightness. Automatic adjustment is available under Advanced brightness.';
+            const percent = Number((Number(slider.value) * 100 / 255).toFixed(1));
+            I18n.text(document.getElementById('brightness-value'), percent + '%', false);
+            slider.setAttribute('aria-valuetext', percent + ' percent' + (Number(slider.value) === 1 ? ', minimum' : ''));
+            document.getElementById('brightness-decrease').disabled = Number(slider.value) <= 1;
+            document.getElementById('brightness-increase').disabled = Number(slider.value) >= 255;
+            I18n.text(document.getElementById('brightness-mode-hint'), document.getElementById('auto_brightness').checked
+                ? 'Automatic brightness is on. Adjust brightness to choose a manual level.'
+                : 'Manual brightness. Automatic adjustment is available under Advanced brightness.');
         }
-        document.getElementById('brightness').addEventListener('input', () => {
-            brightnessDeviceValue = Math.round(Number(document.getElementById('brightness').value) * 255 / 100);
+        function selectManualBrightness() {
+            // Keep the slider in device units so the lowest levels are reachable
+            // and existing values never make a lossy round trip through percent.
+            brightnessDeviceValue = Number(document.getElementById('brightness').value);
             brightnessChanged = true;
             document.getElementById('auto_brightness').checked = false;
             updateBrightnessLabel();
+        }
+        document.getElementById('brightness').addEventListener('input', selectManualBrightness);
+        document.getElementById('brightness-decrease').addEventListener('click', () => {
+            document.getElementById('brightness').stepDown();
+            selectManualBrightness();
+        });
+        document.getElementById('brightness-increase').addEventListener('click', () => {
+            document.getElementById('brightness').stepUp();
+            selectManualBrightness();
         });
         document.getElementById('auto_brightness').addEventListener('change', () => {
             brightnessModeChanged = true;
@@ -1095,9 +1123,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
             const prompt = document.createElement('option');
             prompt.value = '';
-            prompt.textContent = networks && networks.length
-                ? 'Select a discovered network…'
-                : 'No networks found — enter one manually below';
+            I18n.text(prompt, networks && networks.length ? 'Select a discovered network…' : 'No networks found — enter one manually below');
             picker.appendChild(prompt);
 
             if (!networks || networks.length === 0) {
@@ -1110,7 +1136,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 const option = document.createElement('option');
                 option.value = network.ssid;
                 option.dataset.enterprise = network.enterprise ? '1' : '0';
-                option.textContent = `${network.ssid} — ${network.enterprise ? 'Enterprise — ' : ''}${signalLabel(network.rssi)}`;
+                I18n.text(option, `${network.ssid} — ${network.enterprise ? 'Enterprise — ' : ''}${signalLabel(network.rssi)}`);
                 picker.appendChild(option);
             });
         }
@@ -1131,7 +1157,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 renderNetworks(data.networks || []);
                 const button = document.getElementById('wifi-refresh-btn');
                 button.disabled = !!data.scanning;
-                button.textContent = data.scanning ? 'Scanning…' : 'Refresh';
+                I18n.text(button, data.scanning ? 'Scanning…' : 'Refresh');
                 if (data.scanning) {
                     clearTimeout(wifiScanPoll);
                     wifiScanPoll = setTimeout(loadWifiScan, 1000);
@@ -1147,7 +1173,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
         async function refreshScan() {
             const button = document.getElementById('wifi-refresh-btn');
             button.disabled = true;
-            button.textContent = 'Scanning…';
+            I18n.text(button, 'Scanning…');
             try {
                 await fetch('/api/wifi/scan/refresh', {method: 'POST'});
             } catch (error) {
@@ -1163,10 +1189,10 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             const state = document.getElementById('wifi-ca-state');
             if (wifiCaPresent) {
                 state.className = 'wifi-ca-state present';
-                state.textContent = 'Certificate loaded — the clock will validate the network before sending your password.';
+                I18n.text(state, 'Certificate loaded — the clock will validate the network before sending your password.');
             } else {
                 state.className = 'wifi-ca-state';
-                state.textContent = 'No certificate uploaded — the clock will trust whatever the network presents, the same thing your phone does when you tap “Trust”.';
+                I18n.text(state, 'No certificate uploaded — the clock will trust whatever the network presents, the same thing your phone does when you tap “Trust”.');
             }
         }
 
@@ -1226,20 +1252,18 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 progress.hidden = false;
                 progress.className = 'wifi-progress ' +
                     (trial === 'connected' ? 'success' : trial.startsWith('failed_') ? 'error' : 'active');
-                progress.textContent = data.detail || trialMessages[trial] || trial;
+                I18n.text(progress, data.detail || trialMessages[trial] || trial, !data.detail && !!trialMessages[trial]);
             }
 
             const terminal = trial === 'connected' || trial.startsWith('failed_');
             document.getElementById('wifi-join-btn').disabled = !terminal && trial !== 'idle';
-            document.getElementById('chk-network').textContent = data.connected
-                ? `Connected${data.ip ? ' — ' + data.ip : ''}`
-                : (data.ap_active ? `Setup AP — ${data.ap_ip}` : 'Disconnected');
+            I18n.text(document.getElementById('chk-network'), data.connected ? `Connected${data.ip ? ' — ' + data.ip : ''}` : data.ap_active ? I18n.message("Setup AP — {0}", [data.ap_ip]) : 'Disconnected');
 
             const checks = data.checks || {};
-            document.getElementById('chk-dns').textContent = checkLabel(checks.dns, checks.running && checks.dns === 'unknown');
-            document.getElementById('chk-data').textContent = checkLabel(checks.data, checks.running && checks.data === 'unknown');
-            document.getElementById('chk-ntp').textContent = checkLabel(checks.ntp, checks.running && checks.ntp === 'unknown');
-            document.getElementById('chk-summary').textContent = checks.summary || '';
+            I18n.text(document.getElementById('chk-dns'), checkLabel(checks.dns, checks.running && checks.dns === 'unknown'));
+            I18n.text(document.getElementById('chk-data'), checkLabel(checks.data, checks.running && checks.data === 'unknown'));
+            I18n.text(document.getElementById('chk-ntp'), checkLabel(checks.ntp, checks.running && checks.ntp === 'unknown'));
+            I18n.text(document.getElementById('chk-summary'), checks.summary || '', false);
         }
 
         async function pollWifiStatus() {
@@ -1251,7 +1275,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 const progress = document.getElementById('wifi-progress');
                 if (!progress.hidden) {
                     progress.className = 'wifi-progress active';
-                    progress.textContent = 'The clock changed WiFi channels. Reconnecting and checking the attempt again…';
+                    I18n.text(progress, 'The clock changed WiFi channels. Reconnecting and checking the attempt again…');
                 }
             }
         }
@@ -1276,7 +1300,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             const progress = document.getElementById('wifi-progress');
             progress.hidden = false;
             progress.className = 'wifi-progress active';
-            progress.textContent = 'Starting connection attempt…';
+            I18n.text(progress, 'Starting connection attempt…');
             document.getElementById('wifi-join-btn').disabled = true;
 
             const body = {
@@ -1297,11 +1321,11 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 });
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || 'Could not start connection');
-                progress.textContent = trialMessages.associating;
+                I18n.text(progress, trialMessages.associating);
             } catch (error) {
                 // A channel change can drop the response after the firmware has
                 // accepted it. Status polling is authoritative and will recover.
-                progress.textContent = `${error.message || 'Connection interrupted'} Checking the clock for progress…`;
+                I18n.text(progress, I18n.message("{0} Checking the clock for progress…", [error.message || 'Connection interrupted']));
             }
             pollWifiStatus();
         }
@@ -1309,16 +1333,14 @@ curl -X POST http://DEVICE_IP/api/sysmon \
         // Keep these aligned with the theme defaults in config_set_defaults().
         const RANGE_COLOR_DEFAULTS = {
             urgent_low: '#ea4335', low: '#fbbc04', in_range: '#34a853',
-            high: '#fbbc04', urgent_high: '#ea4335', stale: '#808080'
+            high: '#fbbc04', urgent_high: '#ea4335', stale: '#390e3b'
         };
 
         function updateRangeColorControls() {
             const toggle = document.getElementById('customize_range_colors');
             document.getElementById('range-color-controls').hidden = !toggle.checked;
             toggle.setAttribute('aria-expanded', String(toggle.checked));
-            document.getElementById('range-color-hint').textContent = toggle.checked
-                ? 'Turn off and save to restore the default colors.'
-                : 'Turn on to change the default colors.';
+            I18n.text(document.getElementById('range-color-hint'), toggle.checked ? 'Turn off and save to restore the default colors.' : 'Turn on to change the default colors.');
         }
 
         function rangeColorsForSave() {
@@ -1343,12 +1365,8 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 document.getElementById('wifi_identity').value = c.wifi_identity || '';
                 document.getElementById('wifi_eap_password').value = '';
                 document.getElementById('wifi_anon_identity').value = c.wifi_anon_identity || '';
-                document.getElementById('wifi_password_hint').textContent = c.has_wifi_password
-                    ? 'A password is saved. Enter it again only when joining a network.'
-                    : 'Leave blank for an open network.';
-                document.getElementById('wifi_eap_password_hint').textContent = c.has_wifi_eap_password
-                    ? 'A password is saved. Enter it again to test a new connection.'
-                    : '';
+                I18n.text(document.getElementById('wifi_password_hint'), c.has_wifi_password ? 'A password is saved. Enter it again only when joining a network.' : 'Leave blank for an open network.');
+                I18n.text(document.getElementById('wifi_eap_password_hint'), c.has_wifi_eap_password ? 'A password is saved. Enter it again to test a new connection.' : '');
                 setCaState(c.has_wifi_ca);
                 onSecurityChange();
                 document.getElementById('data_source').value = c.data_source || 0;
@@ -1368,7 +1386,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
                 // Display
                 brightnessDeviceValue = Math.max(1, Math.min(255, Number(c.brightness) || 40));
-                document.getElementById('brightness').value = Math.max(1, Math.round(brightnessDeviceValue * 100 / 255));
+                document.getElementById('brightness').value = brightnessDeviceValue;
                 brightnessChanged = false;
                 brightnessModeChanged = false;
                 document.getElementById('auto_brightness').checked = c.auto_brightness === true;
@@ -1406,7 +1424,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 ['urgent_low','low','in_range','high','urgent_high','stale'].forEach(k => {
                     const inp = document.getElementById('color_' + k);
                     const hex = document.getElementById('hex_' + k);
-                    if (inp && hex) hex.textContent = inp.value;
+                    if (inp && hex) I18n.text(hex, inp.value, false);
                 });
                 // Existing custom palettes remain selected and are never silently reset.
                 document.getElementById('customize_range_colors').checked = Object.entries(RANGE_COLOR_DEFAULTS)
@@ -1416,11 +1434,11 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 // Clock & weather colors (sync across tabs)
                 if (c.color_clock) {
                     document.getElementById('color_clock_time').value = c.color_clock;
-                    document.getElementById('hex_clock_time').textContent = c.color_clock;
+                    I18n.text(document.getElementById('hex_clock_time'), c.color_clock, false);
                 }
                 if (c.color_weather) {
                     document.getElementById('color_weather_wx').value = c.color_weather;
-                    document.getElementById('hex_weather_wx').textContent = c.color_weather;
+                    I18n.text(document.getElementById('hex_weather_wx'), c.color_weather, false);
                 }
 
                 // Time
@@ -1451,7 +1469,9 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
                 // Weather
                 document.getElementById('weather_enabled').checked = c.weather_enabled || false;
-                document.getElementById('weather_api_key').value = c.weather_api_key || '';
+                weatherKeySaved = c.has_weather_api_key === true;
+                document.getElementById('weather_api_key').value = '';
+                updateWeatherKeyState();
                 document.getElementById('weather_city').value = c.weather_city || '';
                 document.getElementById('weather_use_f').value = c.weather_use_f ? '1' : '0';
                 document.getElementById('weather_poll_min').value = c.weather_poll_min || 15;
@@ -1554,6 +1574,11 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             try {
                 const r = await fetch('/api/config', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
                 showToast(r.ok ? 'Configuration saved!' : 'Save failed', r.ok ? 'success' : 'error');
+                if (r.ok && data.weather_api_key.trim()) {
+                    weatherKeySaved = true;
+                    document.getElementById('weather_api_key').value = '';
+                    updateWeatherKeyState();
+                }
             } catch (e) { showToast('Network error', 'error'); }
         });
 
@@ -1573,41 +1598,58 @@ curl -X POST http://DEVICE_IP/api/sysmon \
         });
 
         document.getElementById('factory-reset-btn').addEventListener('click', async function() {
-            if (!confirm('Factory reset? All settings will be erased.')) return;
+            if (!confirm(I18n.t('Factory reset? All settings will be erased.'))) return;
             try { await fetch('/api/factory-reset', { method: 'POST' }); showToast('Resetting...'); }
             catch (e) { showToast('Failed', 'error'); }
         });
 
         document.getElementById('restart-config-btn').addEventListener('click', async function() {
-            if (!confirm('Restart the device?')) return;
+            if (!confirm(I18n.t('Restart the device?'))) return;
             try { await fetch('/api/restart', { method: 'POST' }); showToast('Restarting...'); }
             catch (e) { showToast('Failed', 'error'); }
         });
+
+        // Weather needs an API key; GET /api/config only reports whether one is saved.
+        let weatherKeySaved = false;
+        let weatherHasData = true; // until /api/status says otherwise
+        function updateWeatherKeyState() {
+            const key = document.getElementById('weather_api_key');
+            if (weatherKeySaved) key.setAttribute('data-i18n-placeholder', 'Saved \u2014 leave blank to keep');
+            else key.removeAttribute('data-i18n-placeholder');
+            key.placeholder = weatherKeySaved ? I18n.t('Saved \u2014 leave blank to keep') : '';
+            document.getElementById('weather_key_warning').hidden =
+                !document.getElementById('weather_enabled').checked || weatherKeySaved || key.value.trim() !== '';
+            // The clock no longer shows a loading message, so report a pending first fetch here.
+            document.getElementById('weather_waiting_note').hidden =
+                !document.getElementById('weather_enabled').checked || !weatherKeySaved || weatherHasData;
+        }
+        document.getElementById('weather_enabled').addEventListener('change', updateWeatherKeyState);
+        document.getElementById('weather_api_key').addEventListener('input', updateWeatherKeyState);
 
         // Test Weather API
         document.getElementById('test-weather-btn').addEventListener('click', async function() {
             const btn = this;
             const res = document.getElementById('test-weather-result');
             btn.disabled = true;
-            btn.textContent = 'Testing...';
+            I18n.text(btn, 'Testing...');
             res.className = 'test-result';
-            res.textContent = '';
+            I18n.text(res, '', false);
             try {
                 const r = await fetch('/api/test/weather', { method: 'POST' });
                 const d = await r.json();
                 if (d.ok) {
-                    res.textContent = Math.round(d.temp) + '\u00B0 ' + d.description + ' (Humidity: ' + d.humidity + '%)';
+                    I18n.text(res, I18n.message("{0}° {1} (Humidity: {2}%)", [Math.round(d.temp), d.description, d.humidity]));
                     res.className = 'test-result test-success';
                 } else {
-                    res.textContent = d.error || ('HTTP ' + d.http_code);
+                    I18n.text(res, d.error || I18n.message("HTTP {0}", [d.http_code]));
                     res.className = 'test-result test-error';
                 }
             } catch (e) {
-                res.textContent = 'Network error';
+                I18n.text(res, 'Network error');
                 res.className = 'test-result test-error';
             }
             btn.disabled = false;
-            btn.textContent = 'Test Weather API';
+            I18n.text(btn, 'Test Weather API');
         });
 
         // Test Glucose Data Source
@@ -1615,9 +1657,9 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             const btn = this;
             const res = document.getElementById('test-glucose-result');
             btn.disabled = true;
-            btn.textContent = 'Testing...';
+            I18n.text(btn, 'Testing...');
             res.className = 'test-result';
-            res.textContent = '';
+            I18n.text(res, '', false);
             try {
                 const r = await fetch('/api/test/glucose', { method: 'POST' });
                 const d = await r.json();
@@ -1628,23 +1670,23 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                     if (document.getElementById('libre_email').value.trim() === librePeopleEmail) updateLibrePeople(saved);
                 }
                 if (d.ok) {
-                    res.textContent = 'Glucose: ' + d.glucose + ' mg/dL, Trend: ' + d.trend;
+                    I18n.text(res, I18n.message("Glucose: {0} mg/dL, Trend: {1}", [d.glucose, d.trend]));
                     res.className = 'test-result test-success';
                 } else {
-                    res.textContent = d.error || ('HTTP ' + d.http_code);
+                    I18n.text(res, d.error || I18n.message("HTTP {0}", [d.http_code]));
                     res.className = 'test-result test-error';
                 }
             } catch (e) {
-                res.textContent = 'Network error';
+                I18n.text(res, 'Network error');
                 res.className = 'test-result test-error';
             }
             btn.disabled = false;
-            btn.textContent = 'Test Connection';
+            I18n.text(btn, 'Test Connection');
         });
 
         // Display prev/next controls
         function updateDisplayControls(mode, locked) {
-            document.getElementById('current-mode').textContent = locked === true ? 'Blood sugar (locked)' : (['AMBIENT_FISH', 'AMBIENT_CREATURE'].includes(mode) ? 'Pixel Companion' : (mode || '--'));
+            I18n.text(document.getElementById('current-mode'), locked === true ? 'Blood sugar (locked)' : ['AMBIENT_FISH', 'AMBIENT_CREATURE'].includes(mode) ? 'Pixel Companion' : mode || '--');
             document.getElementById('display-prev-btn').disabled = locked === true;
             document.getElementById('display-next-btn').disabled = locked === true;
         }
@@ -1665,6 +1707,8 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 const r = await fetch('/api/status');
                 const d = await r.json();
                 updateDisplayControls(d.state, d.glucose_display_locked);
+                weatherHasData = d.weather_temp !== undefined;
+                updateWeatherKeyState();
             } catch (e) {}
         }
         setInterval(updateCurrentMode, 3000);
@@ -1673,7 +1717,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
         // Mock weather animation trigger
         async function mockWeather(conditionId, desc) {
             const res = document.getElementById('mock-weather-result');
-            res.textContent = 'Sending...';
+            I18n.text(res, 'Sending...');
             res.className = 'test-result';
             try {
                 const r = await fetch('/api/test/weather-mock', {
@@ -1683,17 +1727,17 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 });
                 const d = await r.json();
                 if (r.ok) {
-                    res.textContent = 'Showing: ' + desc + ' (' + conditionId + ')';
+                    I18n.text(res, I18n.message("Showing: {0} ({1})", [desc, conditionId]));
                     res.className = 'test-result test-success';
                 } else {
-                    res.textContent = d.error || 'Failed';
+                    I18n.text(res, d.error || 'Failed');
                     res.className = 'test-result test-error';
                 }
             } catch (e) {
-                res.textContent = 'Network error';
+                I18n.text(res, 'Network error');
                 res.className = 'test-result test-error';
             }
-            setTimeout(() => { res.textContent = ''; }, 5000);
+            setTimeout(() => { I18n.text(res, '', false); }, 5000);
         }
 
         // Material color preset swatches
@@ -1727,14 +1771,15 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 sw.type = 'button';
                 sw.className = 'color-swatch';
                 sw.style.background = p.hex;
-                sw.title = p.label;
+                sw.title = I18n.t(p.label);
+                sw.setAttribute('data-i18n-title', p.label);
                 sw.addEventListener('click', () => {
                     inp.value = p.hex;
                     inp.dispatchEvent(new Event('input', {bubbles:true}));
                 });
                 const lbl = document.createElement('span');
                 lbl.className = 'swatch-label';
-                lbl.textContent = p.label;
+                I18n.text(lbl, p.label);
                 cell.appendChild(sw);
                 cell.appendChild(lbl);
                 row.appendChild(cell);
@@ -1800,7 +1845,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
         function syncThemeButton(){
             const dark=document.documentElement.getAttribute('data-theme')==='dark';
             document.querySelector('.theme-icon').innerHTML=dark?'&#9728;':'&#9790;';
-            document.querySelector('.theme-label').textContent=dark?'Switch to light mode':'Switch to dark mode';
+            I18n.text(document.querySelector('.theme-label'), dark ? 'Switch to light mode' : 'Switch to dark mode');
         }
         syncThemeButton();
     </script>

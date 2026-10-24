@@ -1,4 +1,7 @@
 #include "http_client.h"
+#include "time_engine.h"
+#include "glucose_freshness.h"
+#include "trend_mapping.h"
 #include "config_manager.h"
 #include "wifi_manager.h"
 #include "libre_client.h"
@@ -6,6 +9,7 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <Arduino.h>
+#include <time.h>
 
 // Dexcom Share constants
 #define DEXCOM_APP_ID "d89443d2-327c-4a6f-89e5-496bbb0317db"
@@ -77,33 +81,6 @@ static void record_reading(int glucose, unsigned long reading_timestamp) {
     }
 
     Serial.printf("[HTTP] Delta: %+d (prev: %d, now: %d)\n", current_delta, prev_glucose - current_delta, glucose);
-}
-
-// Parse trend string to enum
-static TrendType parse_trend(const char* trend_str) {
-    if (!trend_str) return TREND_UNKNOWN;
-    if (strcasecmp(trend_str, "RisingFast") == 0 || strcasecmp(trend_str, "DoubleUp") == 0) return TREND_RISING_FAST;
-    if (strcasecmp(trend_str, "Rising") == 0 || strcasecmp(trend_str, "SingleUp") == 0) return TREND_RISING;
-    if (strcasecmp(trend_str, "Flat") == 0) return TREND_FLAT;
-    if (strcasecmp(trend_str, "FortyFiveUp") == 0) return TREND_RISING;
-    if (strcasecmp(trend_str, "FortyFiveDown") == 0) return TREND_FALLING;
-    if (strcasecmp(trend_str, "Falling") == 0 || strcasecmp(trend_str, "SingleDown") == 0) return TREND_FALLING;
-    if (strcasecmp(trend_str, "FallingFast") == 0 || strcasecmp(trend_str, "DoubleDown") == 0) return TREND_FALLING_FAST;
-    return TREND_UNKNOWN;
-}
-
-// Parse Dexcom trend number to enum
-static TrendType parse_trend_number(int trend) {
-    switch (trend) {
-        case 1: return TREND_RISING_FAST;   // DoubleUp
-        case 2: return TREND_RISING;         // SingleUp
-        case 3: return TREND_RISING;         // FortyFiveUp
-        case 4: return TREND_FLAT;           // Flat
-        case 5: return TREND_FALLING;        // FortyFiveDown
-        case 6: return TREND_FALLING;        // SingleDown
-        case 7: return TREND_FALLING_FAST;   // DoubleDown
-        default: return TREND_UNKNOWN;
-    }
 }
 
 // Helper: POST JSON to Dexcom endpoint, return response string
@@ -280,6 +257,7 @@ static bool dexcom_fetch_glucose() {
         }
 
         // Parse timestamp from "Date(1234567890000)" or "WT" field
+        current_reading.timestamp = 0;
         const char* wt = reading["WT"] | reading["ST"] | "";
         if (strlen(wt) > 0) {
             // Extract epoch ms from "Date(1234567890000)" or "/Date(1234567890000)/"
@@ -292,10 +270,14 @@ static bool dexcom_fetch_glucose() {
         current_reading.valid = (current_reading.glucose > 0);
 
         if (current_reading.valid) {
+            const bool synced = time_is_network_synced();
+            current_reading.received_at_ms = glucose_received_at(
+                current_reading.timestamp, last_recorded_timestamp, ever_received,
+                last_success_ms, millis(), synced, synced ? uint32_t(time(nullptr)) : 0);
             record_reading(current_reading.glucose, current_reading.timestamp);
             failure_count = 0;
             ever_received = true;
-            last_success_ms = millis();
+            last_success_ms = current_reading.received_at_ms;
             Serial.printf("[DEXCOM] Glucose: %d, Trend: %s\n",
                           current_reading.glucose,
                           TREND_NAMES[current_reading.trend]);
@@ -414,10 +396,14 @@ static void generic_fetch() {
             current_reading.message[sizeof(current_reading.message) - 1] = '\0';
 
             if (current_reading.valid) {
+                const bool synced = time_is_network_synced();
+                current_reading.received_at_ms = glucose_received_at(
+                    current_reading.timestamp, last_recorded_timestamp, ever_received,
+                    last_success_ms, millis(), synced, synced ? uint32_t(time(nullptr)) : 0);
                 record_reading(current_reading.glucose, current_reading.timestamp);
                 failure_count = 0;
                 ever_received = true;
-                last_success_ms = millis();
+                last_success_ms = current_reading.received_at_ms;
                 Serial.printf("[HTTP] Glucose: %d, Trend: %s\n",
                               current_reading.glucose,
                               TREND_NAMES[current_reading.trend]);

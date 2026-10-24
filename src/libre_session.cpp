@@ -51,16 +51,14 @@ uint32_t libre_parse_timestamp(const char* s) {
 }
 
 // LibreLinkUp TrendArrow: 1=SingleDown 2=FortyFiveDown 3=Flat 4=FortyFiveUp 5=SingleUp.
-// Libre has no double arrows, so its steepest arrows map to our "fast" arrows.
-// These source-specific numeric IDs intentionally differ from Dexcom's named
-// SingleUp/SingleDown handling in http_client.cpp; do not share that name parser.
+// Preserve the source symbol; Libre does not report double arrows.
 TrendType libre_map_trend(int arrow) {
     switch (arrow) {
-        case 1: return TREND_FALLING_FAST;
-        case 2: return TREND_FALLING;
+        case 1: return TREND_FALLING;
+        case 2: return TREND_FORTY_FIVE_DOWN;
         case 3: return TREND_FLAT;
-        case 4: return TREND_RISING;
-        case 5: return TREND_RISING_FAST;
+        case 4: return TREND_FORTY_FIVE_UP;
+        case 5: return TREND_RISING;
         default: return TREND_UNKNOWN;
     }
 }

@@ -2,44 +2,63 @@
 {% block title %}Overview · SugarClock Fleet{% endblock %}
 {% block content %}
 <div class="overview-heading">
-  <div class="overview-title-row">
-    <h1>Your clocks, at a glance</h1>
-    <div class="refresh-control"><span id="updated-at" class="mono" role="status">Waiting for reports</span><button id="refresh">Refresh</button></div>
+  <div>
+    <h1><span data-i18n="Your clocks, at a glance">Your clocks, at a glance</span></h1>
+    <p class="overview-intro" id="reporting-summary"><span data-i18n="Connections, enabled features, and firmware adoption.">Connections, enabled features, and firmware adoption.</span></p>
   </div>
-  <p class="overview-intro">Connections, enabled features, and firmware adoption. <span id="reporting-summary"></span></p>
+  <div class="refresh-control"><span id="updated-at" class="mono" role="status"><span data-i18n="Waiting for reports">Waiting for reports</span></span><button id="refresh"><span data-i18n="Refresh">Refresh</span></button></div>
 </div>
-<p id="overview-status" role="status">Loading fleet summary…</p>
+<p id="overview-status" role="status"><span data-i18n="Loading fleet summary…">Loading fleet summary…</span></p>
 <div id="overview-content" aria-busy="true">
   <div id="metrics" class="metrics">
     {% for label in ['Registered', 'Online now', 'Active · 7 days', 'Active · 30 days'] %}
-    <section class="card metric"><h2>{{ label }}</h2><strong>—</strong><p class="mono hint">Waiting for reports</p></section>
+    <section class="card metric"><h2>{{ label }}</h2><strong>—</strong><p class="hint"><span data-i18n="Waiting for reports">Waiting for reports</span></p></section>
     {% endfor %}
   </div>
-  <section class="card capacity-card" aria-labelledby="capacity-title">
-    <div class="panel-heading"><h2 id="capacity-title">Registration capacity</h2><button id="cleanup" class="secondary" disabled>Clean up abandoned registrations</button></div>
-    <div id="capacity-summary"><p class="hint">Loading capacity…</p></div>
-    <details class="cleanup-help"><summary>What does cleanup remove?</summary><p class="hint">New registrations older than 24 hours that never completed a check-in. Migrated identities, active clocks, and blocked installations are preserved.</p></details>
-    <p id="cleanup-result" role="status" class="form-result"></p>
-  </section>
-  <div class="overview-grid">
-    <section class="card feature-card" aria-labelledby="features-title">
-      <div class="panel-intro"><h2 id="features-title">Enabled features</h2><p class="hint">Latest reported config from installations active in the last 30 days. “Enabled” is configuration, not usage.</p></div>
-      <div id="feature-counts" class="feature-table-wrap" role="region" aria-label="Enabled feature counts" tabindex="0"><p class="empty">Loading features…</p></div>
+
+  <div class="activity-row">
+    <section class="card activity-card" aria-labelledby="activity-title">
+      <div class="panel-heading">
+        <div><h2 id="activity-title"><span data-i18n="Activity history">Activity history</span></h2><p class="hint"><span data-i18n="Installations active in the preceding 30 days, one snapshot per UTC day. Select a day for details.">Installations active in the preceding 30 days, one snapshot per UTC day. Select a day for details.</span></p></div>
+        <div class="segmented" id="activity-range" role="group" aria-label="History range" data-i18n-aria-label="History range">
+          <button type="button" data-days="7" aria-pressed="false">7D</button><button type="button" data-days="30" aria-pressed="true">30D</button><button type="button" data-days="90" aria-pressed="false">90D</button>
+        </div>
+      </div>
+      <div id="daily-counts"><p class="empty"><span data-i18n="Loading activity…">Loading activity…</span></p></div>
     </section>
-    <div class="overview-stack">
-      <section class="card" aria-labelledby="activity-title">
-        <div class="panel-heading"><h2 id="activity-title">Activity history</h2><span class="mono hint">Last 30 days</span></div>
-        <div id="daily-counts"><p class="empty">Loading activity…</p></div>
-        <p class="hint panel-footnote">Daily snapshots of installations active in the preceding 30 days. Recorded as clocks report in.</p>
-      </section>
-      <section class="card" aria-labelledby="versions-title"><h2 id="versions-title">Firmware versions</h2><p class="hint panel-description">Installed on clocks active in the last 30 days.</p><div id="version-counts"><p class="empty">Loading versions…</p></div></section>
-    </div>
+    <section class="card day-card" id="day-detail" aria-live="polite" aria-label="Selected day" data-i18n-aria-label="Selected day"><p class="empty"><span data-i18n="Loading activity…">Loading activity…</span></p></section>
   </div>
-  <div class="grid overview-bottom">
-    <section class="card" aria-labelledby="sources-title"><h2 id="sources-title">Data sources</h2><p class="hint panel-description">Reported by clocks active in the last 30 days.</p><div id="source-counts"><p class="empty">Loading sources…</p></div></section>
-    <section class="card" aria-labelledby="locations-title"><div class="panel-heading"><h2 id="locations-title">Approximate city / country</h2><span class="mono hint">IP estimate</span></div><div id="location-counts"><p class="empty">Loading locations…</p></div><p class="hint panel-footnote">Active in the last 30 days. IP estimates may be inaccurate or unavailable.</p></section>
+
+  <div class="overview-trio">
+    <section class="card" aria-labelledby="versions-title">
+      <h2 id="versions-title"><span data-i18n="Firmware versions">Firmware versions</span></h2><p class="hint panel-description"><span data-i18n="Installed on clocks active in the last 30 days. Select a version to list its clocks.">Installed on clocks active in the last 30 days. Select a version to list its clocks.</span></p>
+      <div id="version-counts"><p class="empty"><span data-i18n="Loading versions…">Loading versions…</span></p></div>
+    </section>
+    <section class="card" aria-labelledby="sources-title">
+      <h2 id="sources-title"><span data-i18n="Data sources">Data sources</span></h2><p class="hint panel-description"><span data-i18n="Reported by clocks active in the last 30 days.">Reported by clocks active in the last 30 days.</span></p>
+      <div id="source-counts"><p class="empty"><span data-i18n="Loading sources…">Loading sources…</span></p></div>
+    </section>
+    <section class="card capacity-card" aria-labelledby="capacity-title">
+      <h2 id="capacity-title"><span data-i18n="Registration capacity">Registration capacity</span></h2><p class="hint panel-description"><span data-i18n="Stored installation records against the service ceiling.">Stored installation records against the service ceiling.</span></p>
+      <div id="capacity-summary"><p class="hint"><span data-i18n="Loading capacity…">Loading capacity…</span></p></div>
+      <button id="cleanup" class="secondary" disabled><span data-i18n="Clean up abandoned registrations">Clean up abandoned registrations</span></button>
+      <details class="cleanup-help"><summary><span data-i18n="What does cleanup remove?">What does cleanup remove?</span></summary><p class="hint"><span data-i18n="New registrations older than 24 hours that never completed a check-in. Migrated identities, active clocks, and blocked installations are preserved.">New registrations older than 24 hours that never completed a check-in. Migrated identities, active clocks, and blocked installations are preserved.</span></p></details>
+      <p id="cleanup-result" role="status" class="form-result"></p>
+    </section>
+  </div>
+
+  <div class="overview-pair">
+    <section class="card" aria-labelledby="features-title">
+      <h2 id="features-title"><span data-i18n="Enabled features">Enabled features</span></h2><p class="hint panel-description"><span data-i18n="Latest reported config from installations active in the last 30 days. “Enabled” is configuration, not usage.">Latest reported config from installations active in the last 30 days. “Enabled” is configuration, not usage.</span></p>
+      <div id="feature-counts"><p class="empty"><span data-i18n="Loading features…">Loading features…</span></p></div>
+    </section>
+    <section class="card" aria-labelledby="locations-title">
+      <div class="panel-heading"><h2 id="locations-title"><span data-i18n="Where clocks are">Where clocks are</span></h2><span class="mono hint"><span data-i18n="IP estimate">IP estimate</span></span></div>
+      <p class="hint panel-description"><span data-i18n="Active in the last 30 days, grouped by country. IP estimates may be inaccurate or unavailable.">Active in the last 30 days, grouped by country. IP estimates may be inaccurate or unavailable.</span></p>
+      <div id="location-counts"><p class="empty"><span data-i18n="Loading locations…">Loading locations…</span></p></div>
+    </section>
   </div>
 </div>
-<noscript><p class="warning">Enable JavaScript to load the fleet summary and use dashboard actions.</p></noscript>
+<noscript><p class="warning"><span data-i18n="Enable JavaScript to load the fleet summary and use dashboard actions.">Enable JavaScript to load the fleet summary and use dashboard actions.</span></p></noscript>
 {% endblock %}
 {% block scripts %}<script src="{{ url_for('static', filename='overview.js') }}"></script>{% endblock %}

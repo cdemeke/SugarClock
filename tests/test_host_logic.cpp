@@ -58,9 +58,9 @@ static void test_libre_timestamps_and_trends() {
     assert(libre_parse_timestamp("9/10/2026 6:40:00 PM +0500") == 0);
     assert(libre_parse_timestamp("9/10/1999 6:40:00 PM") == 0);
 
-    assert(libre_map_trend(1) == TREND_FALLING_FAST);
+    assert(libre_map_trend(1) == TREND_FALLING);
     assert(libre_map_trend(3) == TREND_FLAT);
-    assert(libre_map_trend(5) == TREND_RISING_FAST);
+    assert(libre_map_trend(5) == TREND_RISING);
     assert(libre_map_trend(0) == TREND_UNKNOWN);
 
     uint32_t age = 0;

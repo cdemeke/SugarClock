@@ -76,10 +76,10 @@ static void resolve_data_host() {
 static void build_summary() {
     if (res_dns == NC_FAIL) {
         snprintf(summary, sizeof(summary),
-                 "Connected, but DNS is not answering. The network may need a sign-in page.");
+                 "Error - Network may require sign-in page.");
     } else if (res_data == NC_FAIL) {
         snprintf(summary, sizeof(summary),
-                 "Connected, but %s is blocked. Ask IT to allow it.",
+                 "Connected, but %s is blocked.",
                  data_host[0] ? data_host : "the data source");
     } else if (res_ntp == NC_FAIL) {
         snprintf(summary, sizeof(summary),

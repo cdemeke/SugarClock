@@ -23,6 +23,7 @@ class Element {
   all(tag) { return this.children.flatMap(child => [...(child.tag === tag ? [child] : []), ...child.all(tag)]); }
 }
 const settle = () => new Promise(resolve => setImmediate(resolve));
+const I18n = require('./i18n_harness.cjs');
 const source = fs.readFileSync('fleet/sugarfleet/static/overview.js', 'utf8');
 function payload(overrides = {}) {
   return {
@@ -39,25 +40,36 @@ async function boot(initial) {
   let response = initial;
   const calls = [];
   const fleet = {
-    element(tag, text, className) {const el = new Element(tag, text); el.className = className; return el;},
+    element(tag, text, className) {const el = new Element(tag, I18n.t(text)); el.className = className; return el;},
     label(value) {return value;},
     async request(...args) {calls.push(args); if (response instanceof Error) throw response; return typeof response === 'function' ? response(...args) : response;},
     async action(button, output, callback) {button.disabled = true; try {await callback();} finally {button.disabled = false;}},
   };
-  vm.runInNewContext(source, {fleet, document: {getElementById: node, createElementNS: (_, tag) => new Element(tag), createTextNode: text => new Element('#text', text)}, Date, Number, Math});
+  vm.runInNewContext(source, {fleet, I18n, document: {getElementById: node, createElementNS: (_, tag) => new Element(tag), createTextNode: text => new Element('#text', text)}, Date, Number, Math});
   await settle();
   return {node, calls, respond(value) {response = value;}, async refresh() {await node('refresh').listeners.click();}, async cleanup() {await node('cleanup').listeners.click();}};
 }
 
+const day = offset => new Date(Date.now() - offset * 86400000).toISOString().slice(0, 10);
+const byClass = (root, tag, name) => root.all(tag).filter(el => (el.attributes.class || el.className || '').split(' ').includes(name));
+
 test('features keep unknown reports distinct and use all active clocks as the denominator', async () => {
   const app = await boot(payload());
-  const rows = app.node('feature-counts').all('tbody')[0].all('tr');
-  assert.deepEqual(rows[0].children.map(cell => cell.textContent), ['Auto cycle', '2', '5', '29%']);
-  assert.deepEqual(rows[1].children.map(cell => cell.textContent), ['Weather', '1', '5', '14%']);
+  const rows = app.node('feature-counts').children[0].children;
+  assert.deepEqual(rows.slice(0, 2).map(row => [row.children[0].textContent, row.children[1].textContent]),
+    [['Auto cycle', '29% · 2'], ['Weather', '14% · 1']]);
+  assert.match(app.node('feature-counts').textContent, /Share of 7 active installations; 5 didn’t report configuration/);
   const fill = rows[0].all('span').find(el => el.className?.includes('bar-fill'));
   assert.ok(Math.abs(parseFloat(fill.style.width) - 200 / 7) < .001);
   assert.match(app.node('metrics').textContent, /78% of registered/);
   assert.match(app.node('capacity-summary').textContent, /0.09% used/);
+});
+
+test('features show per-row unknowns when clocks disagree on which settings they report', async () => {
+  const app = await boot(payload({feature_counts: {weather_enabled: {enabled: 1, known: 2, unknown: 5}, auto_cycle_enabled: {enabled: 2, known: 7, unknown: 0}}}));
+  const rows = app.node('feature-counts').children[0].children;
+  assert.equal(rows[0].children[1].textContent, '29% · 2');
+  assert.equal(rows[1].children[1].textContent, '14% · 1 · 5 unknown');
 });
 
 test('empty fleet renders useful states without NaN, invented activity, or an online dot', async () => {
@@ -65,32 +77,140 @@ test('empty fleet renders useful states without NaN, invented activity, or an on
   assert.match(app.node('feature-counts').textContent, /No active clocks/);
   assert.match(app.node('daily-counts').textContent, /No snapshots/);
   assert.equal(app.node('daily-counts').all('svg').length, 0);
-  assert.equal(app.node('metrics').all('span').length, 0);
-  assert.doesNotMatch(app.node('capacity-summary').textContent, /NaN|Infinity/);
+  assert.equal(byClass(app.node('metrics'), 'span', 'online-dot').length, 0);
+  assert.equal(byClass(app.node('metrics'), 'span', 'delta').length, 0);
+  assert.match(app.node('day-detail').textContent, /Select a day/);
+  for (const id of ['metrics', 'capacity-summary', 'version-counts', 'source-counts', 'location-counts']) {
+    assert.doesNotMatch(app.node(id).textContent, /NaN|Infinity|undefined/);
+  }
 });
 
 test('history uses calendar days, sorts chronologically and preserves missing days', async () => {
-  const day = offset => new Date(Date.now() - offset * 86400000).toISOString().slice(0, 10);
   const app = await boot(payload({daily: [
     {day: day(0), active_30d: 7}, {day: day(31), active_30d: 999},
     {day: day(29), active_30d: 2}, {day: day(10), active_30d: 5},
   ]}));
   const history = app.node('daily-counts');
   assert.match(history.textContent, /View 3 recorded snapshots/);
+  assert.match(history.textContent, /3 of 30 days recorded/);
   assert.doesNotMatch(history.textContent, /999/);
-  const points = history.all('polyline')[0].attributes.points.split(' ').map(point => point.split(',').map(Number));
-  assert.equal(points.length, 3);
-  assert.equal(points[0][0], 5);
-  assert.equal(points[2][0], 355);
-  assert.ok(points[1][0] > 180); // The missing dates retain their space on the time axis.
+  const dots = byClass(history, 'circle', 'activity-dot').map(dot => Number(dot.attributes.cx));
+  assert.equal(dots.length, 3);
+  assert.equal(dots[0], 40);
+  assert.equal(dots[2], 706);
+  assert.ok(dots[1] > 373); // The missing dates retain their space on the time axis.
+  assert.equal(byClass(history, 'path', 'activity-gap').length, 1); // Gaps are drawn as gaps, not as data.
   assert.deepEqual(history.all('tbody')[0].all('tr').map(row => row.children[0].textContent), [day(0), day(10), day(29)]);
 });
 
 test('a single zero snapshot is a real point, not an invented trend', async () => {
-  const app = await boot(payload({daily: [{day: new Date().toISOString().slice(0, 10), active_30d: 0}]}));
-  assert.equal(app.node('daily-counts').all('polyline').length, 0);
-  assert.equal(app.node('daily-counts').all('circle').length, 1);
-  assert.match(app.node('daily-counts').textContent, /View 1 recorded snapshot/);
+  const app = await boot(payload({daily: [{day: day(0), active_30d: 0}]}));
+  const history = app.node('daily-counts');
+  assert.equal(byClass(history, 'path', 'activity-line').length, 0);
+  assert.equal(byClass(history, 'circle', 'activity-dot').length, 1);
+  assert.match(history.textContent, /View 1 recorded snapshot/);
+  assert.match(app.node('day-detail').textContent, /Active · 30 days0/);
+});
+
+test('selecting a day shows that snapshot and compares it with the previous recorded snapshot', async () => {
+  const app = await boot(payload({daily: [
+    {day: day(0), active_30d: 41, active_7d: 39, online: 16, total: 43},
+    {day: day(4), active_30d: 36, active_7d: 30, online: 9, total: 40},
+    {day: day(6), active_30d: 23, active_7d: 21, online: 9, total: 27},
+  ]}));
+  assert.match(app.node('day-detail').textContent, /Today · updates hourly/); // Latest is selected by default.
+  const hits = byClass(app.node('daily-counts'), 'rect', 'activity-hit');
+  assert.equal(hits.length, 30);
+  hits[29 - 4].listeners.click();
+  const panel = app.node('day-detail');
+  const stats = panel.all('dd').map(dd => dd.textContent);
+  assert.deepEqual(stats, ['36+13', '30+9', '9', '40+13']);
+  assert.match(panel.textContent, /previous recorded snapshot/);
+  hits[29 - 5].listeners.click();
+  assert.match(app.node('day-detail').textContent, /No snapshot was recorded this day/);
+  assert.equal(app.node('day-detail').all('dd').length, 0);
+});
+
+test('hovering shows a tooltip and day navigation stays within the range', async () => {
+  const app = await boot(payload({daily: [{day: day(1), active_30d: 5}, {day: day(0), active_30d: 7}]}));
+  const hits = byClass(app.node('daily-counts'), 'rect', 'activity-hit');
+  hits[28].listeners.mouseenter();
+  const tooltip = byClass(app.node('daily-counts'), 'div', 'chart-tooltip')[0];
+  assert.match(tooltip.textContent, /5active/);
+  hits[29].listeners.mouseenter();
+  assert.match(tooltip.textContent, /7active · \+2/);
+  const next = app.node('day-detail').all('button')[1];
+  next.listeners.click(); // Already on the latest day.
+  assert.match(app.node('day-detail').textContent, /Today/);
+  app.node('day-detail').all('button')[0].listeners.click();
+  assert.match(app.node('day-detail').textContent, new RegExp(day(1)));
+});
+
+test('range buttons rescale the window without dropping the stored history', async () => {
+  const app = await boot(payload({daily: [{day: day(0), active_30d: 7}, {day: day(20), active_30d: 3}, {day: day(60), active_30d: 1}]}));
+  assert.match(app.node('daily-counts').textContent, /2 of 30 days recorded/);
+  app.node('activity-range').children[0].listeners.click();
+  assert.match(app.node('daily-counts').textContent, /1 of 7 days recorded/);
+  assert.equal(app.node('activity-range').children[0].attributes['aria-pressed'], 'true');
+  app.node('activity-range').children[2].listeners.click();
+  assert.match(app.node('daily-counts').textContent, /3 of 90 days recorded/);
+});
+
+test('metrics compare with the snapshot from a week ago only when one exists', async () => {
+  const app = await boot(payload({daily: [{day: day(8), active_30d: 3, active_7d: 2, total: 6}, {day: day(0), active_30d: 7, active_7d: 7, total: 9}]}));
+  const deltas = byClass(app.node('metrics'), 'span', 'delta').map(el => el.textContent);
+  assert.deepEqual(deltas, ['+3 vs. 7 days ago', '+5 vs. 7 days ago', '+4 vs. 7 days ago']);
+  const fresh = await boot(payload({daily: [{day: day(2), active_30d: 3, active_7d: 2, total: 6}]}));
+  assert.equal(byClass(fresh.node('metrics'), 'span', 'delta').length, 0);
+});
+
+test('snapshots missing newer fields render as unknown rather than zero', async () => {
+  const app = await boot(payload({daily: [{day: day(0), active_30d: 7}]}));
+  assert.deepEqual(app.node('day-detail').all('dd').map(dd => dd.textContent), ['7', '—', '—', '—']);
+  assert.match(app.node('daily-counts').all('tbody')[0].textContent, /7———/);
+});
+
+test('locations group by country, expand to cities, and link to exact device locations', async () => {
+  const app = await boot(payload({counts: {...payload().counts, active_30d: 20}, location_counts: {'Valdepenas, ES': 12, 'Madrid, ES': 1, 'Washington, US': 5, Unknown: 2}}));
+  const list = app.node('location-counts').children[0];
+  const [spain, cities, usa, unknown] = list.children;
+  assert.equal(spain.tag, 'button');
+  assert.equal(spain.attributes['aria-expanded'], 'true'); // The largest multi-city country starts open.
+  assert.match(spain.textContent, /2 cities13 · 65%/);
+  assert.equal(byClass(spain, 'span', 'country-flag')[0].textContent, '🇪🇸');
+  assert.equal(byClass(spain, 'span', 'country-flag')[0].attributes['aria-hidden'], 'true');
+  assert.equal(byClass(usa, 'span', 'country-flag')[0].textContent, '🇺🇸');
+  assert.equal(byClass(unknown, 'span', 'country-flag').length, 0);
+  assert.deepEqual(cities.children.map(row => row.href), ['/admin/devices?location=Valdepenas%2C%20ES', '/admin/devices?location=Madrid%2C%20ES']);
+  assert.equal(usa.href, '/admin/devices?location=Washington%2C%20US');
+  assert.equal(unknown.tag, 'div');
+  spain.listeners.click();
+  assert.equal(app.node('location-counts').children[0].children.length, 3);
+});
+
+test('country-only location codes render country flag emoji, link to country location filter, and omit city sublabel', async () => {
+  const app = await boot(payload({counts: {...payload().counts, active_30d: 5}, location_counts: {'FR': 5}}));
+  const list = app.node('location-counts').children[0];
+  const [france] = list.children;
+  assert.equal(france.tag, 'a');
+  assert.equal(france.href, '/admin/devices?location=FR');
+  assert.equal(byClass(france, 'span', 'country-flag')[0].textContent, '🇫🇷');
+  assert.equal(byClass(france, 'span', 'bar-sublabel').length, 0);
+});
+
+test('mixed country-only and city reports expand, include country-only rows, and preserve all clocks in exact location links', async () => {
+  const app = await boot(payload({counts: {...payload().counts, active_30d: 8}, location_counts: {'FR': 5, 'Paris, FR': 3}}));
+  const list = app.node('location-counts').children[0];
+  const [france, cities] = list.children;
+  assert.equal(france.tag, 'button');
+  assert.equal(france.attributes['aria-expanded'], 'true');
+  assert.match(france.textContent, /2 locations8 · 100%/);
+  assert.equal(cities.children.length, 2);
+  const [other, paris] = cities.children;
+  assert.equal(other.href, '/admin/devices?location=FR');
+  assert.match(other.textContent, /France \(other\)5/);
+  assert.equal(paris.href, '/admin/devices?location=Paris%2C%20FR');
+  assert.match(paris.textContent, /Paris3/);
 });
 
 test('failed refresh retains previous counts and allows recovery', async () => {
@@ -190,24 +310,28 @@ test('cleanup errors release the controls; failed post-cleanup refresh requires 
   assert.equal(app.node('metrics').children[0].all('strong')[0].textContent, '7');
 });
 
+const versionRows = app => app.node('version-counts').children[0].children[1].children;
+const badgeOf = row => row.children.find(el => el.className?.startsWith('version-badge'));
+
 test('newest reported firmware stays highlighted whether it is rare or the majority', async () => {
   for (const counts of [{'0.2.9': 5, '0.2.11': 2}, {'0.2.9': 2, '0.2.11': 5}, {'0.2.11': 7}]) {
     const app = await boot(payload({version_counts: counts}));
-    const rows = app.node('version-counts').children[0].children;
-    for (const row of rows) {
-      const label = row.children[0].children[0];
-      const fill = row.all('span').find(el => el.className?.includes('bar-fill'));
-      const newest = label.text === '0.2.11';
-      assert.equal(label.textContent.includes('Newest reported'), newest);
-      assert.equal(fill.className.includes('neutral'), !newest);
+    for (const row of versionRows(app)) {
+      const newest = row.children[1].text === '0.2.11';
+      assert.equal(badgeOf(row)?.textContent === 'Newest reported', newest);
+      assert.equal(row.children[0].style.backgroundColor === 'var(--series-1)', newest);
+      assert.equal(row.href, `/admin/devices?q=${row.children[1].text}`);
     }
   }
 });
 
 test('firmware emphasis compares major and minor versions, and ignores unknown labels', async () => {
   const app = await boot(payload({version_counts: {'0.99.99': 1, '1.9.99': 1, '1.10.0': 1, Unknown: 4}}));
-  const badges = app.node('version-counts').all('span').filter(el => el.className === 'version-badge');
-  assert.equal(badges.length, 1);
-  const labels = app.node('version-counts').all('span').filter(el => el.className === 'version-label mono');
-  assert.equal(labels.find(el => el.textContent.includes('Newest reported')).text, '1.10.0');
+  const rows = versionRows(app);
+  const newest = rows.filter(row => badgeOf(row)?.textContent === 'Newest reported');
+  assert.equal(newest.length, 1);
+  assert.equal(newest[0].children[1].text, '1.10.0');
+  const unknown = rows.find(row => row.children[1].text === 'Unknown');
+  assert.equal(badgeOf(unknown)?.textContent, 'Most common');
+  assert.equal(unknown.href, undefined); // Only real versions link to the device search.
 });

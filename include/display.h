@@ -53,7 +53,7 @@ void display_draw_text(const char* text, int x, int y, uint16_t color);
 void display_draw_centered_text(const char* text, int y, uint16_t color);
 
 // Draw a trend arrow at the specified position
-// trend: 0=rising_fast, 1=rising, 2=flat, 3=falling, 4=falling_fast
+// trend: a TrendType from trend_arrows.h; unknown/invalid values draw nothing.
 void display_draw_trend(int trend, int x, int y, uint16_t color);
 
 // Draw time display centered on matrix

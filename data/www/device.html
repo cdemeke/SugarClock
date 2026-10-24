@@ -3,121 +3,123 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SugarClock - Device</title>
+    <title data-i18n="SugarClock - Device">SugarClock - Device</title>
     <link rel="stylesheet" href="style.css">
     <script>if(localStorage.getItem('theme')==='dark')document.documentElement.setAttribute('data-theme','dark');</script>
+    <link rel="stylesheet" href="i18n.css">
+    <script src="i18n.js"></script>
 </head>
 <body class="app-shell-page">
-    <button class="mobile-nav-toggle" type="button" onclick="setNavOpen(true)" aria-label="Open navigation"><svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14"/></svg> Menu</button>
-    <button class="sidebar-scrim" type="button" onclick="setNavOpen(false)" aria-label="Close navigation"></button>
-    <aside class="sidebar" aria-label="Main navigation">
-        <div class="sidebar-header"><a href="/" class="brand"><img class="brand-logo" src="/logo.png" alt="SugarClock logo"><span class="brand-copy"><span class="brand-name">SugarClock</span><span class="brand-device">Device control</span></span></a><button class="sidebar-close" type="button" onclick="setNavOpen(false)" aria-label="Close navigation">&times;</button></div>
+    <button class="mobile-nav-toggle" type="button" onclick="setNavOpen(true)" aria-label="Open navigation" data-i18n-aria-label="Open navigation"><svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14"/></svg> <span data-i18n="Menu">Menu</span></button>
+    <button class="sidebar-scrim" type="button" onclick="setNavOpen(false)" aria-label="Close navigation" data-i18n-aria-label="Close navigation"></button>
+    <aside class="sidebar" aria-label="Main navigation" data-i18n-aria-label="Main navigation">
+        <div class="sidebar-header"><a href="/" class="brand"><img class="brand-logo" src="/logo.png" alt="SugarClock logo" data-i18n-alt="SugarClock logo"><span class="brand-copy"><span class="brand-name">SugarClock</span><span class="brand-device"><span data-i18n="Device control">Device control</span></span></span></a><button class="sidebar-close" type="button" onclick="setNavOpen(false)" aria-label="Close navigation" data-i18n-aria-label="Close navigation">&times;</button></div>
         <nav class="sidebar-nav">
-            <a class="sidebar-link" href="/display.html"><img class="nav-image-icon" src="/dashboard-icon.png" alt="">Dashboard</a>
-            <details class="sidebar-config"><summary><img class="nav-image-icon" src="/configuration-icon.png" alt="">Configuration<svg class="nav-icon chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg></summary><div class="side-subnav"><a class="subnav-link" href="/#glucose">Blood Sugar</a><a class="subnav-link" href="/#display">Display</a><a class="subnav-link" href="/#ambient">Display Pet</a><a class="subnav-link" href="/#time">Time &amp; timers</a><a class="subnav-link" href="/#weather">Weather</a><a class="subnav-link" href="/#connection">Wi-Fi</a><a class="subnav-link" href="/#integrations">Integrations</a><a class="subnav-link" href="/#danger">Reset device</a></div></details>
-            <a class="sidebar-link" href="/debug.html"><img class="nav-image-icon" src="/diagnostics-icon.png" alt="">Diagnostics</a>
-            <a class="sidebar-link active" href="/device.html"><svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><rect x="5" y="5" width="10" height="10" rx="2"/><path d="M8 2v3M12 2v3M8 15v3M12 15v3M2 8h3M15 8h3M2 12h3M15 12h3"/></svg>Device</a>
+            <a class="sidebar-link" href="/display.html"><img class="nav-image-icon" src="/dashboard-icon.png" alt=""><span data-i18n="Dashboard">Dashboard</span></a>
+            <details class="sidebar-config"><summary><img class="nav-image-icon" src="/configuration-icon.png" alt=""><span data-i18n="Configuration">Configuration</span><svg class="nav-icon chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg></summary><div class="side-subnav"><a class="subnav-link" href="/#glucose"><span data-i18n="Blood Sugar">Blood Sugar</span></a><a class="subnav-link" href="/#display"><span data-i18n="Display">Display</span></a><a class="subnav-link" href="/#ambient"><span data-i18n="Display Pet">Display Pet</span></a><a class="subnav-link" href="/#time"><span data-i18n="Time &amp; timers">Time &amp; timers</span></a><a class="subnav-link" href="/#weather"><span data-i18n="Weather">Weather</span></a><a class="subnav-link" href="/#connection">Wi-Fi</a><a class="subnav-link" href="/#integrations"><span data-i18n="Integrations">Integrations</span></a><a class="subnav-link" href="/#danger"><span data-i18n="Reset device">Reset device</span></a></div></details>
+            <a class="sidebar-link" href="/debug.html"><img class="nav-image-icon" src="/diagnostics-icon.png" alt=""><span data-i18n="Diagnostics">Diagnostics</span></a>
+            <a class="sidebar-link active" href="/device.html"><svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><rect x="5" y="5" width="10" height="10" rx="2"/><path d="M8 2v3M12 2v3M8 15v3M12 15v3M2 8h3M15 8h3M2 12h3M15 12h3"/></svg><span data-i18n="Device">Device</span></a>
         </nav>
-        <div class="sidebar-footer"><button class="theme-toggle" type="button" onclick="toggleTheme()" title="Toggle color mode"><span class="theme-icon" aria-hidden="true">&#9790;</span><span class="theme-label">Switch to dark mode</span></button><div class="sidebar-footer-note">Connected to <a href="https://sugarclock.com" target="_blank" rel="noopener">SugarClock</a></div></div>
+        <div class="sidebar-footer"><div data-language-picker="sidebar"></div><button class="theme-toggle" type="button" onclick="toggleTheme()" title="Toggle color mode" data-i18n-title="Toggle color mode"><span class="theme-icon" aria-hidden="true">&#9790;</span><span class="theme-label"><span data-i18n="Switch to dark mode">Switch to dark mode</span></span></button><div class="sidebar-footer-note"><span data-i18n="Connected to">Connected to</span> <a href="https://sugarclock.com" target="_blank" rel="noopener">SugarClock</a></div></div>
     </aside>
 
     <main class="app-main">
     <div class="page">
         <div class="page-header">
-            <h1>Device Info</h1>
-            <p>Hardware details and management</p>
+            <h1><span data-i18n="Device Info">Device Info</span></h1>
+            <p><span data-i18n="Hardware details and management">Hardware details and management</span></p>
         </div>
 
-        <div class="card"><h2>Installation ID</h2><p id="installation-id" style="overflow-wrap:anywhere;">Loading…</p><p class="card-intro">Match this ID in the fleet dashboard to assign a nickname such as “My desk.”</p></div>
+        <div class="card"><h2><span data-i18n="Installation ID">Installation ID</span></h2><p id="installation-id" style="overflow-wrap:anywhere;"><span data-i18n="Loading…">Loading…</span></p><p class="card-intro"><span data-i18n="Match this ID in the fleet dashboard to assign a nickname such as “My desk.”">Match this ID in the fleet dashboard to assign a nickname such as “My desk.”</span></p></div>
         <div class="stat-grid">
             <div class="stat-card">
-                <div class="stat-label">Firmware</div>
+                <div class="stat-label"><span data-i18n="Firmware">Firmware</span></div>
                 <div class="stat-value" style="font-size:18px;" id="fw-version">--</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">Chip</div>
-                <div class="stat-value" style="font-size:13px;" id="chip-model">ESP32-WROOM</div>
+                <div class="stat-label"><span data-i18n="Chip">Chip</span></div>
+                <div class="stat-value" style="font-size:13px;" id="chip-model"><span data-i18n="ESP32-WROOM">ESP32-WROOM</span></div>
             </div>
             <div class="stat-card">
                 <div class="stat-label">CPU</div>
-                <div class="stat-value" style="font-size:16px;">240 MHz</div>
+                <div class="stat-value" style="font-size:16px;"><span data-i18n="240 MHz">240 MHz</span></div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">Flash</div>
-                <div class="stat-value" style="font-size:16px;">4 MB</div>
+                <div class="stat-label"><span data-i18n="Flash">Flash</span></div>
+                <div class="stat-value" style="font-size:16px;"><span data-i18n="4 MB">4 MB</span></div>
             </div>
         </div>
 
         <div class="card-grid">
             <div class="card card-compact">
-                <h2>Network</h2>
-                <div class="status-row"><span class="status-label">MAC Address</span><span class="status-value debug-value" id="mac">--</span></div>
-                <div class="status-row"><span class="status-label">IP Address</span><span class="status-value" id="ip">--</span></div>
-                <div class="status-row"><span class="status-label">RSSI</span><span class="status-value" id="rssi">--</span></div>
+                <h2><span data-i18n="Network">Network</span></h2>
+                <div class="status-row"><span class="status-label"><span data-i18n="MAC Address">MAC Address</span></span><span class="status-value debug-value" id="mac">--</span></div>
+                <div class="status-row"><span class="status-label"><span data-i18n="IP Address">IP Address</span></span><span class="status-value" id="ip">--</span></div>
+                <div class="status-row"><span class="status-label"><span data-i18n="RSSI">RSSI</span></span><span class="status-value" id="rssi">--</span></div>
             </div>
             <div class="card card-compact">
-                <h2>Memory</h2>
-                <div class="status-row"><span class="status-label">Free Heap</span><span class="status-value debug-value" id="free-heap">--</span></div>
-                <div class="status-row"><span class="status-label">FS Used</span><span class="status-value" id="fs-used">--</span></div>
-                <div class="status-row"><span class="status-label">FS Total</span><span class="status-value" id="fs-total">--</span></div>
+                <h2><span data-i18n="Memory">Memory</span></h2>
+                <div class="status-row"><span class="status-label"><span data-i18n="Free Heap">Free Heap</span></span><span class="status-value debug-value" id="free-heap">--</span></div>
+                <div class="status-row"><span class="status-label"><span data-i18n="FS Used">FS Used</span></span><span class="status-value" id="fs-used">--</span></div>
+                <div class="status-row"><span class="status-label"><span data-i18n="FS Total">FS Total</span></span><span class="status-value" id="fs-total">--</span></div>
             </div>
         </div>
 
         <div class="card">
-            <h2>Firmware Updates</h2>
+            <h2><span data-i18n="Firmware Updates">Firmware Updates</span></h2>
             <p class="card-intro" style="margin:-8px 0 16px;">
-                Updates are signed, downloaded over secure HTTPS, and installed into a backup slot. Only releases assigned by the fleet administrator are eligible. Automatic updates respect the nightly window; explicit manual installs can run outside it, subject to safety checks; the clock may restart briefly after verification.
+                <span data-i18n="Updates are signed, downloaded over secure HTTPS, and installed into a backup slot. Only releases assigned by the fleet administrator are eligible. Automatic updates respect the nightly window; explicit manual installs can run outside it, subject to safety checks; the clock may restart briefly after verification.">Updates are signed, downloaded over secure HTTPS, and installed into a backup slot. Only releases assigned by the fleet administrator are eligible. Automatic updates respect the nightly window; explicit manual installs can run outside it, subject to safety checks; the clock may restart briefly after verification.</span>
             </p>
-            <div class="status-row"><span class="status-label">Installed</span><span class="status-value" id="ota-current">--</span></div>
-            <div class="status-row"><span class="status-label">Available</span><span class="status-value" id="ota-available">--</span></div>
-            <div class="status-row"><span class="status-label">Status</span><span class="status-value" id="ota-state">--</span></div>
-            <div class="status-row"><span class="status-label">Last check</span><span class="status-value" id="ota-last-check">Never</span></div>
+            <div class="status-row"><span class="status-label"><span data-i18n="Installed">Installed</span></span><span class="status-value" id="ota-current">--</span></div>
+            <div class="status-row"><span class="status-label"><span data-i18n="Available">Available</span></span><span class="status-value" id="ota-available">--</span></div>
+            <div class="status-row"><span class="status-label"><span data-i18n="Status">Status</span></span><span class="status-value" id="ota-state">--</span></div>
+            <div class="status-row"><span class="status-label"><span data-i18n="Last check">Last check</span></span><span class="status-value" id="ota-last-check"><span data-i18n="Never">Never</span></span></div>
             <div id="ota-error" style="display:none;color:var(--red);font-size:13px;margin:10px 0;"></div>
             <div style="height:8px;background:var(--input-bg);border-radius:5px;overflow:hidden;margin:14px 0 18px;">
                 <div id="ota-progress" style="height:100%;width:0;background:var(--accent);transition:width .2s;"></div>
             </div>
             <div class="toggle-row">
-                <label for="ota-auto">Install stable updates automatically</label>
+                <label for="ota-auto"><span data-i18n="Install stable updates automatically">Install stable updates automatically</span></label>
                 <input type="checkbox" id="ota-auto" checked>
             </div>
             <div class="form-group" style="max-width:220px;margin-top:12px;">
-                <label for="ota-hour">Nightly install hour</label>
+                <label for="ota-hour"><span data-i18n="Nightly install hour">Nightly install hour</span></label>
                 <select id="ota-hour"></select>
-                <div class="hint">Local time; automatic installs are deferred when the clock is busy or unsafe. Manual install below works even with automatic updates off, and requests only the release assigned to this clock.</div>
+                <div class="hint"><span data-i18n="Local time; automatic installs are deferred when the clock is busy or unsafe. Manual install below works even with automatic updates off, and requests only the release assigned to this clock.">Local time; automatic installs are deferred when the clock is busy or unsafe. Manual install below works even with automatic updates off, and requests only the release assigned to this clock.</span></div>
             </div>
             <div class="btn-group">
-                <button class="btn btn-outline" id="ota-check-btn">Check assigned release</button>
-                <button class="btn btn-primary" id="ota-install-btn">Install assigned release now</button>
+                <button class="btn btn-outline" id="ota-check-btn"><span data-i18n="Check assigned release">Check assigned release</span></button>
+                <button class="btn btn-primary" id="ota-install-btn"><span data-i18n="Install assigned release now">Install assigned release now</span></button>
             </div>
         </div>
 
         <div class="card">
-            <h2>Button Controls</h2>
+            <h2><span data-i18n="Button Controls">Button Controls</span></h2>
             <p class="card-intro" style="margin:-8px 0 16px;">
-                Physical button actions on the SugarClock device.
+                <span data-i18n="Physical button actions on the SugarClock device.">Physical button actions on the SugarClock device.</span>
             </p>
-            <div class="status-row"><span class="status-label">Left Short</span><span class="status-value">Toggle display mode</span></div>
-            <div class="status-row"><span class="status-label">Left Long</span><span class="status-value">Reset to glucose</span></div>
-            <div class="status-row"><span class="status-label">Middle Short</span><span class="status-value">Cycle brightness</span></div>
-            <div class="status-row"><span class="status-label">Middle Double</span><span class="status-value">Show browser address</span></div>
-            <div class="status-row"><span class="status-label">Middle Long</span><span class="status-value">Snooze alerts</span></div>
-            <div class="status-row"><span class="status-label">Right Short</span><span class="status-value">Start/pause (timer/stopwatch)</span></div>
-            <div class="status-row"><span class="status-label">Right Long</span><span class="status-value">Reset timer/stopwatch</span></div>
+            <div class="status-row"><span class="status-label"><span data-i18n="Left Short">Left Short</span></span><span class="status-value"><span data-i18n="Toggle display mode">Toggle display mode</span></span></div>
+            <div class="status-row"><span class="status-label"><span data-i18n="Left Long">Left Long</span></span><span class="status-value"><span data-i18n="Reset to glucose">Reset to glucose</span></span></div>
+            <div class="status-row"><span class="status-label"><span data-i18n="Middle Short">Middle Short</span></span><span class="status-value"><span data-i18n="Cycle brightness">Cycle brightness</span></span></div>
+            <div class="status-row"><span class="status-label"><span data-i18n="Middle Double">Middle Double</span></span><span class="status-value"><span data-i18n="Show browser address">Show browser address</span></span></div>
+            <div class="status-row"><span class="status-label"><span data-i18n="Middle Long">Middle Long</span></span><span class="status-value"><span data-i18n="Snooze alerts">Snooze alerts</span></span></div>
+            <div class="status-row"><span class="status-label"><span data-i18n="Right Short">Right Short</span></span><span class="status-value"><span data-i18n="Start/pause (timer/stopwatch)">Start/pause (timer/stopwatch)</span></span></div>
+            <div class="status-row"><span class="status-label"><span data-i18n="Right Long">Right Long</span></span><span class="status-value"><span data-i18n="Reset timer/stopwatch">Reset timer/stopwatch</span></span></div>
         </div>
 
         <div class="card-grid">
             <div class="card card-compact">
-                <h2>Power</h2>
-                <div class="status-row"><span class="status-label">Battery</span><span class="status-value" id="bat-v">--</span></div>
-                <div class="status-row"><span class="status-label">Level</span><span class="status-value" id="bat-pct">--</span></div>
-                <div class="status-row"><span class="status-label">Uptime</span><span class="status-value" id="uptime">--</span></div>
+                <h2><span data-i18n="Power">Power</span></h2>
+                <div class="status-row"><span class="status-label"><span data-i18n="Battery">Battery</span></span><span class="status-value" id="bat-v">--</span></div>
+                <div class="status-row"><span class="status-label"><span data-i18n="Level">Level</span></span><span class="status-value" id="bat-pct">--</span></div>
+                <div class="status-row"><span class="status-label"><span data-i18n="Uptime">Uptime</span></span><span class="status-value" id="uptime">--</span></div>
             </div>
             <div class="card card-compact">
-                <h2>Actions</h2>
-                <p class="card-intro" style="margin:-8px 0 16px;">Manage your device remotely.</p>
+                <h2><span data-i18n="Actions">Actions</span></h2>
+                <p class="card-intro" style="margin:-8px 0 16px;"><span data-i18n="Manage your device remotely.">Manage your device remotely.</span></p>
                 <div class="btn-group">
-                    <button class="btn btn-outline" id="restart-btn">Restart</button>
-                    <button class="btn btn-danger" id="reset-btn">Factory Reset</button>
+                    <button class="btn btn-outline" id="restart-btn"><span data-i18n="Restart">Restart</span></button>
+                    <button class="btn btn-danger" id="reset-btn"><span data-i18n="Factory Reset">Factory Reset</span></button>
                 </div>
             </div>
         </div>
@@ -127,24 +129,24 @@
     <div class="toast" id="toast"></div>
 
     <script>
-        function showToast(m,t){const e=document.getElementById('toast');e.textContent=m;e.className='toast show '+(t==='error'?'toast-error':'toast-success');setTimeout(()=>e.className='toast',3000);}
+        function showToast(m,t){const e=document.getElementById('toast');I18n.text(e, m);e.className='toast show '+(t==='error'?'toast-error':'toast-success');setTimeout(()=>e.className='toast',3000);}
         function fB(b){if(b>1048576)return(b/1048576).toFixed(1)+' MB';if(b>1024)return(b/1024).toFixed(1)+' KB';return b+' B';}
         function fU(s){const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60);let p=[];if(d)p.push(d+'d');if(h)p.push(h+'h');p.push(m+'m');return p.join(' ');}
         function otaLabel(s){return String(s||'unknown').replaceAll('_',' ');}
         const hourSelect=document.getElementById('ota-hour');
-        for(let h=0;h<24;h++){const o=document.createElement('option');o.value=h;o.textContent=(h===0?'12':h>12?h-12:h)+(h<12?' AM':' PM');hourSelect.appendChild(o);}
+        for(let h=0;h<24;h++){const o=document.createElement('option');o.value=h;I18n.text(o, (h===0?'12':h>12?h-12:h)+(h<12?' AM':' PM'));hourSelect.appendChild(o);}
 
         async function loadOta(){
             try{
                 const r=await fetch('/api/ota/status'),o=await r.json();
-                document.getElementById('fw-version').textContent='v'+o.current_version;
-                document.getElementById('ota-current').textContent='v'+o.current_version;
-                document.getElementById('ota-available').textContent=o.available_version?'v'+o.available_version:'None';
-                document.getElementById('ota-state').textContent=otaLabel(o.state);
-                document.getElementById('ota-last-check').textContent=o.last_check?new Date(o.last_check*1000).toLocaleString():'Never';
+                I18n.text(document.getElementById('fw-version'), 'v'+o.current_version, false);
+                I18n.text(document.getElementById('ota-current'), 'v'+o.current_version, false);
+                I18n.text(document.getElementById('ota-available'), o.available_version ? 'v'+o.available_version : 'None');
+                I18n.text(document.getElementById('ota-state'), otaLabel(o.state));
+                I18n.text(document.getElementById('ota-last-check'), o.last_check ? new Date(o.last_check*1000).toLocaleString() : 'Never');
                 document.getElementById('ota-progress').style.width=(o.progress||0)+'%';
                 const err=document.getElementById('ota-error'),message=o.safety_reason||o.last_error||'';
-                err.textContent=message?otaLabel(message):'';err.style.display=message?'block':'none';
+                I18n.text(err, message ? otaLabel(message) : '', false);err.style.display=message?'block':'none';
                 document.getElementById('ota-auto').checked=!!o.auto_update_enabled;
                 hourSelect.value=String(o.auto_update_hour);
                 const busy=['checking','downloading','verifying','pending_reboot'].includes(o.state);
@@ -161,23 +163,23 @@
 
         async function load(){
             try{const[sr,dr]=await Promise.all([fetch('/api/status'),fetch('/api/debug')]);const s=await sr.json(),d=await dr.json();
-            document.getElementById('ip').textContent=s.wifi_ip||'--';document.getElementById('mac').textContent=d.mac||'--';
-            document.getElementById('rssi').textContent=d.wifi_rssi+' dBm';document.getElementById('free-heap').textContent=fB(d.free_heap);
-            document.getElementById('fs-used').textContent=d.fs_used?fB(d.fs_used):'--';document.getElementById('fs-total').textContent=d.fs_total?fB(d.fs_total):'--';
-            document.getElementById('bat-v').textContent=d.battery_voltage.toFixed(2)+'V';document.getElementById('bat-pct').textContent=d.battery_percent+'%';
-            document.getElementById('uptime').textContent=fU(d.uptime_sec);
-            document.getElementById('installation-id').textContent=s.installation_id||'Unavailable';
-            if(s.firmware_version)document.getElementById('fw-version').textContent='v'+s.firmware_version;
+            I18n.text(document.getElementById('ip'), s.wifi_ip || '--', false);I18n.text(document.getElementById('mac'), d.mac || '--', false);
+            I18n.text(document.getElementById('rssi'), I18n.message("{0} dBm", [d.wifi_rssi]));I18n.text(document.getElementById('free-heap'), fB(d.free_heap), false);
+            I18n.text(document.getElementById('fs-used'), d.fs_used ? fB(d.fs_used) : '--', false);I18n.text(document.getElementById('fs-total'), d.fs_total ? fB(d.fs_total) : '--', false);
+            I18n.text(document.getElementById('bat-v'), d.battery_voltage.toFixed(2)+'V', false);I18n.text(document.getElementById('bat-pct'), d.battery_percent+'%', false);
+            I18n.text(document.getElementById('uptime'), fU(d.uptime_sec), false);
+            I18n.text(document.getElementById('installation-id'), s.installation_id || 'Unavailable');
+            if(s.firmware_version)I18n.text(document.getElementById('fw-version'), 'v'+s.firmware_version, false);
             }catch(e){}
         }
 
         document.getElementById('ota-check-btn').addEventListener('click',()=>otaAction('/api/ota/check'));
-        document.getElementById('ota-install-btn').addEventListener('click',()=>{if(confirm('Install the currently assigned release now? This one attempt bypasses automatic-update settings and the nightly window, but still requires fleet authorization and device safety checks. The clock may restart.'))otaAction('/api/ota/install');});
+        document.getElementById('ota-install-btn').addEventListener('click',()=>{if(confirm(I18n.t('Install the currently assigned release now? This one attempt bypasses automatic-update settings and the nightly window, but still requires fleet authorization and device safety checks. The clock may restart.')))otaAction('/api/ota/install');});
         async function saveOtaSettings(){try{const r=await fetch('/api/ota/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({auto_update_enabled:document.getElementById('ota-auto').checked,auto_update_hour:Number(hourSelect.value)})});if(!r.ok)throw new Error();showToast('Update schedule saved');}catch(e){showToast('Failed to save update schedule','error');}}
         document.getElementById('ota-auto').addEventListener('change',saveOtaSettings);
         hourSelect.addEventListener('change',saveOtaSettings);
-        document.getElementById('restart-btn').addEventListener('click',async()=>{if(!confirm('Restart?'))return;try{await fetch('/api/restart',{method:'POST'});showToast('Restarting...');}catch(e){showToast('Failed','error');}});
-        document.getElementById('reset-btn').addEventListener('click',async()=>{if(!confirm('Factory reset? All settings erased.'))return;try{await fetch('/api/factory-reset',{method:'POST'});showToast('Resetting...');}catch(e){showToast('Failed','error');}});
+        document.getElementById('restart-btn').addEventListener('click',async()=>{if(!confirm(I18n.t('Restart?')))return;try{await fetch('/api/restart',{method:'POST'});showToast('Restarting...');}catch(e){showToast('Failed','error');}});
+        document.getElementById('reset-btn').addEventListener('click',async()=>{if(!confirm(I18n.t('Factory reset? All settings erased.')))return;try{await fetch('/api/factory-reset',{method:'POST'});showToast('Resetting...');}catch(e){showToast('Failed','error');}});
         load();
         loadOta();setInterval(loadOta,2000);
 
@@ -188,7 +190,7 @@
             else{d.setAttribute('data-theme','dark');localStorage.setItem('theme','dark');}
             syncThemeButton();
         }
-        function syncThemeButton(){const dark=document.documentElement.getAttribute('data-theme')==='dark';document.querySelector('.theme-icon').innerHTML=dark?'&#9728;':'&#9790;';document.querySelector('.theme-label').textContent=dark?'Switch to light mode':'Switch to dark mode';}
+        function syncThemeButton(){const dark=document.documentElement.getAttribute('data-theme')==='dark';document.querySelector('.theme-icon').innerHTML=dark?'&#9728;':'&#9790;';I18n.text(document.querySelector('.theme-label'), dark ? 'Switch to light mode' : 'Switch to dark mode');}
         syncThemeButton();
         function setNavOpen(open){document.body.classList.toggle('nav-open',open);}
     </script>

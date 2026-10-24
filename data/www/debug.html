@@ -3,22 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SugarClock - Debug</title>
+    <title data-i18n="SugarClock - Debug">SugarClock - Debug</title>
     <link rel="stylesheet" href="style.css">
     <script>if(localStorage.getItem('theme')==='dark')document.documentElement.setAttribute('data-theme','dark');</script>
+    <link rel="stylesheet" href="i18n.css">
+    <script src="i18n.js"></script>
 </head>
 <body class="app-shell-page">
-    <button class="mobile-nav-toggle" type="button" onclick="setNavOpen(true)" aria-label="Open navigation"><svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14"/></svg> Menu</button>
-    <button class="sidebar-scrim" type="button" onclick="setNavOpen(false)" aria-label="Close navigation"></button>
-    <aside class="sidebar" aria-label="Main navigation">
-        <div class="sidebar-header"><a href="/" class="brand"><img class="brand-logo" src="/logo.png" alt="SugarClock logo"><span class="brand-copy"><span class="brand-name">SugarClock</span><span class="brand-device">Device control</span></span></a><button class="sidebar-close" type="button" onclick="setNavOpen(false)" aria-label="Close navigation">&times;</button></div>
+    <button class="mobile-nav-toggle" type="button" onclick="setNavOpen(true)" aria-label="Open navigation" data-i18n-aria-label="Open navigation"><svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14"/></svg> <span data-i18n="Menu">Menu</span></button>
+    <button class="sidebar-scrim" type="button" onclick="setNavOpen(false)" aria-label="Close navigation" data-i18n-aria-label="Close navigation"></button>
+    <aside class="sidebar" aria-label="Main navigation" data-i18n-aria-label="Main navigation">
+        <div class="sidebar-header"><a href="/" class="brand"><img class="brand-logo" src="/logo.png" alt="SugarClock logo" data-i18n-alt="SugarClock logo"><span class="brand-copy"><span class="brand-name">SugarClock</span><span class="brand-device"><span data-i18n="Device control">Device control</span></span></span></a><button class="sidebar-close" type="button" onclick="setNavOpen(false)" aria-label="Close navigation" data-i18n-aria-label="Close navigation">&times;</button></div>
         <nav class="sidebar-nav">
-            <a class="sidebar-link" href="/display.html"><img class="nav-image-icon" src="/dashboard-icon.png" alt="">Dashboard</a>
-            <details class="sidebar-config"><summary><img class="nav-image-icon" src="/configuration-icon.png" alt="">Configuration<svg class="nav-icon chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg></summary><div class="side-subnav"><a class="subnav-link" href="/#glucose">Blood Sugar</a><a class="subnav-link" href="/#display">Display</a><a class="subnav-link" href="/#ambient">Display Pet</a><a class="subnav-link" href="/#time">Time &amp; timers</a><a class="subnav-link" href="/#weather">Weather</a><a class="subnav-link" href="/#connection">Wi-Fi</a><a class="subnav-link" href="/#integrations">Integrations</a><a class="subnav-link" href="/#danger">Reset device</a></div></details>
-            <a class="sidebar-link active" href="/debug.html"><img class="nav-image-icon" src="/diagnostics-icon.png" alt="">Diagnostics</a>
-            <a class="sidebar-link" href="/device.html"><svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><rect x="5" y="5" width="10" height="10" rx="2"/><path d="M8 2v3M12 2v3M8 15v3M12 15v3M2 8h3M15 8h3M2 12h3M15 12h3"/></svg>Device</a>
+            <a class="sidebar-link" href="/display.html"><img class="nav-image-icon" src="/dashboard-icon.png" alt=""><span data-i18n="Dashboard">Dashboard</span></a>
+            <details class="sidebar-config"><summary><img class="nav-image-icon" src="/configuration-icon.png" alt=""><span data-i18n="Configuration">Configuration</span><svg class="nav-icon chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg></summary><div class="side-subnav"><a class="subnav-link" href="/#glucose"><span data-i18n="Blood Sugar">Blood Sugar</span></a><a class="subnav-link" href="/#display"><span data-i18n="Display">Display</span></a><a class="subnav-link" href="/#ambient"><span data-i18n="Display Pet">Display Pet</span></a><a class="subnav-link" href="/#time"><span data-i18n="Time &amp; timers">Time &amp; timers</span></a><a class="subnav-link" href="/#weather"><span data-i18n="Weather">Weather</span></a><a class="subnav-link" href="/#connection">Wi-Fi</a><a class="subnav-link" href="/#integrations"><span data-i18n="Integrations">Integrations</span></a><a class="subnav-link" href="/#danger"><span data-i18n="Reset device">Reset device</span></a></div></details>
+            <a class="sidebar-link active" href="/debug.html"><img class="nav-image-icon" src="/diagnostics-icon.png" alt=""><span data-i18n="Diagnostics">Diagnostics</span></a>
+            <a class="sidebar-link" href="/device.html"><svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><rect x="5" y="5" width="10" height="10" rx="2"/><path d="M8 2v3M12 2v3M8 15v3M12 15v3M2 8h3M15 8h3M2 12h3M15 12h3"/></svg><span data-i18n="Device">Device</span></a>
         </nav>
-        <div class="sidebar-footer"><button class="theme-toggle" type="button" onclick="toggleTheme()" title="Toggle color mode"><span class="theme-icon" aria-hidden="true">&#9790;</span><span class="theme-label">Switch to dark mode</span></button><div class="sidebar-footer-note">Connected to <a href="https://sugarclock.com" target="_blank" rel="noopener">SugarClock</a></div></div>
+        <div class="sidebar-footer"><div data-language-picker="sidebar"></div><button class="theme-toggle" type="button" onclick="toggleTheme()" title="Toggle color mode" data-i18n-title="Toggle color mode"><span class="theme-icon" aria-hidden="true">&#9790;</span><span class="theme-label"><span data-i18n="Switch to dark mode">Switch to dark mode</span></span></button><div class="sidebar-footer-note"><span data-i18n="Connected to">Connected to</span> <a href="https://sugarclock.com" target="_blank" rel="noopener">SugarClock</a></div></div>
     </aside>
 
     <main class="app-main">
@@ -26,89 +28,89 @@
         <div class="page-header page-title-with-icon">
             <img class="page-header-icon" src="/diagnostics-icon.png" alt="">
             <div>
-                <h1>Debug Info</h1>
-                <p>Real-time diagnostics, auto-refreshes every 3s</p>
+                <h1><span data-i18n="Debug Info">Debug Info</span></h1>
+                <p><span data-i18n="Real-time diagnostics, auto-refreshes every 3s">Real-time diagnostics, auto-refreshes every 3s</span></p>
             </div>
         </div>
 
         <div class="stat-grid">
             <div class="stat-card">
-                <div class="stat-label">Glucose</div>
+                <div class="stat-label"><span data-i18n="Glucose">Glucose</span></div>
                 <div class="stat-value" id="raw-glucose">--</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">Delta</div>
+                <div class="stat-label"><span data-i18n="Delta">Delta</span></div>
                 <div class="stat-value" id="raw-delta">--</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">Trend</div>
+                <div class="stat-label"><span data-i18n="Trend">Trend</span></div>
                 <div class="stat-value" id="raw-trend" style="font-size:16px;">--</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">Force Mode</div>
+                <div class="stat-label"><span data-i18n="Force Mode">Force Mode</span></div>
                 <div class="stat-value" id="raw-force" style="font-size:16px;">--</div>
             </div>
         </div>
 
         <div class="card-grid">
             <div class="card card-compact">
-                <h2>HTTP Client</h2>
-                <div class="status-row"><span class="status-label">Response Code</span><span class="status-value debug-value" id="http-code">--</span></div>
-                <div class="status-row"><span class="status-label">Failures</span><span class="status-value" id="fail-count">0</span></div>
-                <div class="status-row"><span class="status-label">Ever Received</span><span class="status-value" id="ever-received">--</span></div>
-                <div class="status-row"><span class="status-label">Data Age</span><span class="status-value" id="data-age">--</span></div>
-                <div class="status-row"><span class="status-label">Message</span><span class="status-value" id="raw-message">--</span></div>
+                <h2><span data-i18n="HTTP Client">HTTP Client</span></h2>
+                <div class="status-row"><span class="status-label"><span data-i18n="Response Code">Response Code</span></span><span class="status-value debug-value" id="http-code">--</span></div>
+                <div class="status-row"><span class="status-label"><span data-i18n="Failures">Failures</span></span><span class="status-value" id="fail-count">0</span></div>
+                <div class="status-row"><span class="status-label"><span data-i18n="Ever Received">Ever Received</span></span><span class="status-value" id="ever-received">--</span></div>
+                <div class="status-row"><span class="status-label"><span data-i18n="Data Age">Data Age</span></span><span class="status-value" id="data-age">--</span></div>
+                <div class="status-row"><span class="status-label"><span data-i18n="Message">Message</span></span><span class="status-value" id="raw-message">--</span></div>
             </div>
             <div class="card card-compact">
-                <h2>WiFi</h2>
-                <div class="status-row"><span class="status-label">Status</span><span class="status-value" id="wifi-status">--</span></div>
-                <div class="status-row"><span class="status-label">RSSI</span><span class="status-value" id="wifi-rssi">--</span></div>
+                <h2><span data-i18n="WiFi">WiFi</span></h2>
+                <div class="status-row"><span class="status-label"><span data-i18n="Status">Status</span></span><span class="status-value" id="wifi-status">--</span></div>
+                <div class="status-row"><span class="status-label"><span data-i18n="RSSI">RSSI</span></span><span class="status-value" id="wifi-rssi">--</span></div>
             </div>
         </div>
 
         <div class="card-grid">
             <div class="card card-compact">
-                <h2>System</h2>
-                <div class="status-row"><span class="status-label">Free Heap</span><span class="status-value debug-value" id="free-heap">--</span></div>
-                <div class="status-row"><span class="status-label">Min Heap</span><span class="status-value debug-value" id="min-heap">--</span></div>
-                <div class="status-row"><span class="status-label">Largest Block</span><span class="status-value debug-value" id="largest-block">--</span></div>
-                <div class="status-row"><span class="status-label">Uptime</span><span class="status-value" id="uptime">--</span></div>
-                <div class="status-row"><span class="status-label">State</span><span class="status-value"><span class="badge badge-blue" id="display-state">--</span></span></div>
+                <h2><span data-i18n="System">System</span></h2>
+                <div class="status-row"><span class="status-label"><span data-i18n="Free Heap">Free Heap</span></span><span class="status-value debug-value" id="free-heap">--</span></div>
+                <div class="status-row"><span class="status-label"><span data-i18n="Min Heap">Min Heap</span></span><span class="status-value debug-value" id="min-heap">--</span></div>
+                <div class="status-row"><span class="status-label"><span data-i18n="Largest Block">Largest Block</span></span><span class="status-value debug-value" id="largest-block">--</span></div>
+                <div class="status-row"><span class="status-label"><span data-i18n="Uptime">Uptime</span></span><span class="status-value" id="uptime">--</span></div>
+                <div class="status-row"><span class="status-label"><span data-i18n="State">State</span></span><span class="status-value"><span class="badge badge-blue" id="display-state">--</span></span></div>
             </div>
             <div class="card card-compact">
-                <h2>Sensors</h2>
-                <div class="status-row"><span class="status-label">LDR Raw</span><span class="status-value debug-value" id="ldr-raw">--</span></div>
-                <div class="status-row"><span class="status-label">Auto Brightness</span><span class="status-value" id="auto-brt">--</span></div>
-                <div class="status-row"><span class="status-label">Battery</span><span class="status-value" id="bat-v">--</span></div>
-                <div class="status-row"><span class="status-label">Battery %</span><span class="status-value" id="bat-pct">--</span></div>
+                <h2><span data-i18n="Sensors">Sensors</span></h2>
+                <div class="status-row"><span class="status-label"><span data-i18n="LDR Raw">LDR Raw</span></span><span class="status-value debug-value" id="ldr-raw">--</span></div>
+                <div class="status-row"><span class="status-label"><span data-i18n="Auto Brightness">Auto Brightness</span></span><span class="status-value" id="auto-brt">--</span></div>
+                <div class="status-row"><span class="status-label"><span data-i18n="Battery">Battery</span></span><span class="status-value" id="bat-v">--</span></div>
+                <div class="status-row"><span class="status-label"><span data-i18n="Battery %">Battery %</span></span><span class="status-value" id="bat-pct">--</span></div>
             </div>
         </div>
 
         <div class="card card-compact">
-            <h2>Button Test</h2>
+            <h2><span data-i18n="Button Test">Button Test</span></h2>
             <p class="card-intro" style="margin:-8px 0 16px;">
-                Press each physical button. Value shows 0 when pressed, 1 when released.
-                Auto-refreshes every 500ms.
+                <span data-i18n="Press each physical button. Value shows 0 when pressed, 1 when released. Auto-refreshes every 500ms.">Press each physical button. Value shows 0 when pressed, 1 when released.
+                Auto-refreshes every 500ms.</span>
             </p>
             <div style="display:flex;gap:20px;justify-content:center;padding:12px 0;">
                 <div style="text-align:center;">
-                    <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-dim);margin-bottom:6px;">Left (GPIO 26)</div>
+                    <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-dim);margin-bottom:6px;"><span data-i18n="Left (GPIO 26)">Left (GPIO 26)</span></div>
                     <div id="btn-left" style="font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;">--</div>
                 </div>
                 <div style="text-align:center;">
-                    <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-dim);margin-bottom:6px;">Middle (GPIO 27)</div>
+                    <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-dim);margin-bottom:6px;"><span data-i18n="Middle (GPIO 27)">Middle (GPIO 27)</span></div>
                     <div id="btn-middle" style="font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;">--</div>
                 </div>
                 <div style="text-align:center;">
-                    <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-dim);margin-bottom:6px;">Right (GPIO 14)</div>
+                    <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-dim);margin-bottom:6px;"><span data-i18n="Right (GPIO 14)">Right (GPIO 14)</span></div>
                     <div id="btn-right" style="font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;">--</div>
                 </div>
             </div>
-            <div class="status-row"><span class="status-label">User Mode</span><span class="status-value"><span class="badge badge-blue" id="user-mode">--</span></span></div>
+            <div class="status-row"><span class="status-label"><span data-i18n="User Mode">User Mode</span></span><span class="status-value"><span class="badge badge-blue" id="user-mode">--</span></span></div>
         </div>
 
         <div class="card card-compact">
-            <h2>Last HTTP Response</h2>
+            <h2><span data-i18n="Last HTTP Response">Last HTTP Response</span></h2>
             <pre id="http-body">--</pre>
         </div>
     </div>
@@ -120,25 +122,25 @@
 
         async function refresh(){
             try{const r=await fetch('/api/debug');const d=await r.json();
-            document.getElementById('http-code').textContent=d.last_http_code;document.getElementById('fail-count').textContent=d.failure_count;
-            document.getElementById('ever-received').textContent=d.ever_received?'Yes':'No';
-            const age=d.data_age_ms;document.getElementById('data-age').textContent=age<0?'Never':(age/1000).toFixed(1)+'s';
-            document.getElementById('wifi-status').textContent=d.wifi_status;document.getElementById('wifi-rssi').textContent=d.wifi_rssi+' dBm';
-            document.getElementById('free-heap').textContent=fB(d.free_heap);document.getElementById('min-heap').textContent=fB(d.min_free_heap);
-            document.getElementById('largest-block').textContent=fB(d.largest_free_block);document.getElementById('uptime').textContent=fU(d.uptime_sec);
-            document.getElementById('display-state').textContent=d.display_state;document.getElementById('ldr-raw').textContent=d.ldr_raw;
-            document.getElementById('auto-brt').textContent=d.auto_brightness_val;document.getElementById('bat-v').textContent=d.battery_voltage.toFixed(2)+'V';
-            document.getElementById('bat-pct').textContent=d.battery_percent+'%';document.getElementById('raw-glucose').textContent=d.raw_glucose||'--';
-            document.getElementById('raw-delta').textContent=d.raw_delta!==undefined?((d.raw_delta>0?'+':'')+d.raw_delta):'--';
-            document.getElementById('raw-trend').textContent=d.raw_trend||'--';document.getElementById('raw-message').textContent=d.raw_message||'--';
-            document.getElementById('raw-force').textContent=d.raw_force_mode!==undefined?d.raw_force_mode:'--';
-            document.getElementById('http-body').textContent=d.last_http_body||'--';
+            I18n.text(document.getElementById('http-code'), d.last_http_code, false);I18n.text(document.getElementById('fail-count'), d.failure_count, false);
+            I18n.text(document.getElementById('ever-received'), d.ever_received ? 'Yes' : 'No');
+            const age=d.data_age_ms;I18n.text(document.getElementById('data-age'), age<0 ? 'Never' : (age/1000).toFixed(1)+'s');
+            I18n.text(document.getElementById('wifi-status'), d.wifi_status, false);I18n.text(document.getElementById('wifi-rssi'), I18n.message("{0} dBm", [d.wifi_rssi]));
+            I18n.text(document.getElementById('free-heap'), fB(d.free_heap), false);I18n.text(document.getElementById('min-heap'), fB(d.min_free_heap), false);
+            I18n.text(document.getElementById('largest-block'), fB(d.largest_free_block), false);I18n.text(document.getElementById('uptime'), fU(d.uptime_sec), false);
+            I18n.text(document.getElementById('display-state'), d.display_state, false);I18n.text(document.getElementById('ldr-raw'), d.ldr_raw, false);
+            I18n.text(document.getElementById('auto-brt'), d.auto_brightness_val, false);I18n.text(document.getElementById('bat-v'), d.battery_voltage.toFixed(2)+'V', false);
+            I18n.text(document.getElementById('bat-pct'), d.battery_percent+'%', false);I18n.text(document.getElementById('raw-glucose'), d.raw_glucose || '--', false);
+            I18n.text(document.getElementById('raw-delta'), d.raw_delta!==undefined ? (d.raw_delta>0?'+':'')+d.raw_delta : '--', false);
+            I18n.text(document.getElementById('raw-trend'), d.raw_trend || '--', false);I18n.text(document.getElementById('raw-message'), d.raw_message || '--', false);
+            I18n.text(document.getElementById('raw-force'), d.raw_force_mode!==undefined ? d.raw_force_mode : '--', false);
+            I18n.text(document.getElementById('http-body'), d.last_http_body || '--', false);
             }catch(e){}
         }
         // Button state helper - color red when pressed (0), green when released (1)
         function updateBtn(id, val) {
             const el = document.getElementById(id);
-            el.textContent = val;
+            I18n.text(el, val);
             el.style.color = val === 0 ? 'var(--red)' : 'var(--green)';
         }
 
@@ -149,7 +151,7 @@
                 updateBtn('btn-left', d.btn_left_raw);
                 updateBtn('btn-middle', d.btn_middle_raw);
                 updateBtn('btn-right', d.btn_right_raw);
-                document.getElementById('user-mode').textContent = d.user_mode || '--';
+                I18n.text(document.getElementById('user-mode'), d.user_mode || '--', false);
             } catch(e) {}
         }
 
@@ -163,7 +165,7 @@
             else{d.setAttribute('data-theme','dark');localStorage.setItem('theme','dark');}
             syncThemeButton();
         }
-        function syncThemeButton(){const dark=document.documentElement.getAttribute('data-theme')==='dark';document.querySelector('.theme-icon').innerHTML=dark?'&#9728;':'&#9790;';document.querySelector('.theme-label').textContent=dark?'Switch to light mode':'Switch to dark mode';}
+        function syncThemeButton(){const dark=document.documentElement.getAttribute('data-theme')==='dark';document.querySelector('.theme-icon').innerHTML=dark?'&#9728;':'&#9790;';I18n.text(document.querySelector('.theme-label'), dark ? 'Switch to light mode' : 'Switch to dark mode');}
         syncThemeButton();
         function setNavOpen(open){document.body.classList.toggle('nav-open',open);}
     </script>
