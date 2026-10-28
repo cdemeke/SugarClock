@@ -1,4 +1,5 @@
 #include <atomic>
+#include <cstring>
 #include <array>
 #include <cassert>
 #include <cstdint>
@@ -11,7 +12,42 @@
 // boundary is stubbed, allowing either ordering of NimBLE's connection events.
 constexpr uint16_t BLE_HS_CONN_HANDLE_NONE=0xffff;
 constexpr int BLE_HS_ENOMEM=6;
-struct ble_store_status_event {};
+struct ble_addr_t {uint8_t type;uint8_t val[6];};
+union ble_store_value {struct {ble_addr_t peer_addr;} sec;};
+enum {BLE_STORE_EVENT_OVERFLOW=1,BLE_STORE_EVENT_FULL=2};
+enum {BLE_STORE_OBJ_TYPE_OUR_SEC=1,BLE_STORE_OBJ_TYPE_PEER_SEC=2,BLE_STORE_OBJ_TYPE_CCCD=3};
+struct ble_store_status_event {
+ int event_code;
+ union {struct {int obj_type;const ble_store_value* value;} overflow;};
+};
+std::vector<ble_addr_t> storedBonds;
+std::vector<int> unpaired;
+int ble_store_util_bonded_peers(ble_addr_t* out,int* count,int max) {
+ *count=0;
+ for(auto& bond:storedBonds) if(*count<max) out[(*count)++]=bond;
+ return 0;
+}
+int ble_gap_unpair(const ble_addr_t* peer) {
+ for(size_t i=0;i<storedBonds.size();++i) if(storedBonds[i].val[0]==peer->val[0]) {
+  unpaired.push_back(peer->val[0]);storedBonds.erase(storedBonds.begin()+i);return 0;
+ }
+ return 1;
+}
+std::vector<uint8_t> savedOrder;
+int orderWrites=0;
+struct Preferences {
+ bool begin(const char*,bool) {return true;}
+ size_t getBytesLength(const char*) {return savedOrder.size();}
+ size_t getBytes(const char*,void* out,size_t n) {memcpy(out,savedOrder.data(),n);return n;}
+ size_t putBytes(const char*,const void* in,size_t n) {
+  auto bytes=static_cast<const uint8_t*>(in);savedOrder.assign(bytes,bytes+n);++orderWrites;return n;
+ }
+ void end() {}
+};
+struct NimBLEAddress {
+ ble_addr_t addr;
+ const ble_addr_t* getBase() const {return &addr;}
+};
 struct NimBLEConnInfo {
  uint16_t handle=1;
  uint16_t interval=12,latency=0,timeout=72,mtu=185;
@@ -22,7 +58,8 @@ struct NimBLEConnInfo {
  uint16_t getConnLatency() const {return latency;}
  uint16_t getConnTimeout() const {return timeout;}
  uint16_t getMTU() const {return mtu;}
- int getIdAddress() const {return handle;}
+ uint8_t peerID=1;
+ NimBLEAddress getIdAddress() const {return {{0,{peerID}}};}
  bool isEncrypted() const {return encrypted;}
  bool isAuthenticated() const {return authenticated;}
  bool isBonded() const {return bonded;}
@@ -48,7 +85,7 @@ struct NimBLEServerCallbacks {
 };
 bool storedBond=true;
 struct NimBLEDevice {
- static bool isBonded(int) {return storedBond;}
+ static bool isBonded(const NimBLEAddress&) {return storedBond;}
  static unsigned getNumBonds() {return 1;}
  static void injectConfirmPasskey(NimBLEConnInfo&,bool) {}
 };
@@ -73,15 +110,19 @@ bool queued=false,responsePending=false;
 std::atomic<uint16_t> connection{BLE_HS_CONN_HANDLE_NONE};
 std::atomic<uint32_t> connectedAt{0},lastActivity{0},sessionEpoch{0};
 std::atomic<uint32_t> windowUntil{0},passkeyUntil{0},passkey{0};
-std::atomic<bool> secure{false},networkLease{false};
+std::atomic<bool> secure{false},networkLease{false},admittedPairing{false};
+scble::BondOrder bondOrder;
 #include "ble_session.inc"
 NimBLEServerCallbacks& callbacks=serverCallbacks;
+NimBLEDeviceCallbacks& storeCallbacks=deviceCallbacks;
 
 void reset() {
  fakeServer.rejected.clear();connection=BLE_HS_CONN_HANDLE_NONE;secure=false;
  fakeServer.requestedParameters.clear();Serial.output.clear();
  connectedAt=lastActivity=0;sessionEpoch=0;now=1000;
  windowUntil=passkeyUntil=0;storedBond=true;ble_hs_cfg.sm_sc_only=true;
+ admittedPairing=false;bondOrder=scble::BondOrder();storedBonds.clear();unpaired.clear();
+ savedOrder.clear();orderWrites=0;
  clearMailbox();
 }
 int main() {
@@ -164,5 +205,35 @@ int main() {
  reset();storedBond=false;windowUntil=2000;
  callbacks.onConnect(server,unencrypted);
  assert(connection==peer.handle && !secure && fakeServer.rejected.empty());
+ // Full bond storage: only an owner-admitted pairing replaces a bond, and it
+ // replaces the phone that has gone longest without authenticating.
+ reset();
+ auto authenticate=[&](uint8_t id) {
+  auto phone=peer;phone.peerID=id;
+  callbacks.onAuthenticationComplete(phone);callbacks.onDisconnect(server,phone,19);
+ };
+ for(uint8_t id:{1,2,3,4}) {storedBonds.push_back({0,{id}});authenticate(id);}
+ authenticate(1);assert(orderWrites==5);
+ authenticate(1);assert(orderWrites==5); // Unchanged order is not rewritten.
+ ble_store_value incoming{};incoming.sec.peer_addr={0,{5}};
+ ble_store_status_event full{};full.event_code=BLE_STORE_EVENT_FULL;
+ ble_store_status_event overflow{};overflow.event_code=BLE_STORE_EVENT_OVERFLOW;
+ overflow.overflow.obj_type=BLE_STORE_OBJ_TYPE_OUR_SEC;overflow.overflow.value=&incoming;
+ assert(storeCallbacks.onStoreStatus(&full,nullptr)==BLE_HS_ENOMEM);
+ assert(storeCallbacks.onStoreStatus(&overflow,nullptr)==BLE_HS_ENOMEM && unpaired.empty());
+ windowUntil=now+120000;
+ assert(storeCallbacks.onStoreStatus(&full,nullptr)==0 && unpaired.empty());
+ storedBond=false;callbacks.onConnect(server,peer);callbacks.onPassKeyDisplay();
+ now+=130000; // The window expires while the owner types the code.
+ assert(storeCallbacks.onStoreStatus(&overflow,nullptr)==0);
+ assert(unpaired==std::vector<int>({2}) && storedBonds.size()==3);
+ ble_store_status_event cccd=overflow;cccd.overflow.obj_type=BLE_STORE_OBJ_TYPE_CCCD;
+ assert(storeCallbacks.onStoreStatus(&cccd,nullptr)==BLE_HS_ENOMEM);
+ callbacks.onDisconnect(server,peer,19); // An abandoned pairing loses its admission.
+ assert(storeCallbacks.onStoreStatus(&overflow,nullptr)==BLE_HS_ENOMEM && unpaired.size()==1);
+ // The saved order survives a restart, independent of NimBLE's slot order.
+ bondOrder=scble::BondOrder();loadBondOrder();
+ assert(bondOrder.count==4 && bondOrder.peers[0].bytes[1]==2 && bondOrder.peers[3].bytes[1]==1);
+
  puts("BLE session callbacks: event ordering, mailbox preservation, peer isolation, reconnect and security checks passed");
 }

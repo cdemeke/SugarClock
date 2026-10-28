@@ -26,7 +26,7 @@ Relevant source files: [phone storage](../SugarClock/Core/LocalSettingsStore.swi
 
 - A pending secret replacement is cleared after confirmation/discard according to the draft lifecycle. Uncertain saves can stay pending until resolved.
 - Removing a saved clock deletes its local Keychain workspace, saved device entry and schema cache. Failure to erase the workspace leaves the clock listed and reports an error.
-- Removing an app entry does not erase the clock's NVS credentials or necessarily remove an iOS system bond. A clock bond reset preserves its other settings; a factory reset is different.
+- Removing an app entry does not erase the clock's NVS credentials or necessarily remove an iOS system bond. Pairing a fifth phone replaces the clock's least recently used bond and preserves its other settings; a factory reset clears all bonds and the configuration.
 - Do not promise that uninstalling clears Keychain storage or that local removal deletes server fleet records.
 
 ## Owner facts still needed

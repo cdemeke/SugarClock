@@ -42,7 +42,27 @@ int main() {
  }
  assert(config_transaction([] {return true;},[] {return true;},[] {return false;})==ConfigCommit::RecoveryPending);
 
- assert(canAdmit(true,false,4));assert(!canAdmit(false,false,0));assert(!canAdmit(false,true,4));assert(canAdmit(false,true,0));
+ assert(canAdmit(true,false));assert(!canAdmit(false,false));assert(canAdmit(false,true));
+ {
+  // Full storage replaces the phone that has gone longest without authenticating.
+  BondPeer a{{0,1}},b{{0,2}},c{{0,3}},d{{0,4}},e{{1,5}};
+  BondPeer bonded[MaxBonds]={a,b,c,d};
+  BondOrder order;
+  assert(order.touch(a,bonded,1));assert(order.touch(b,bonded,2));
+  assert(order.touch(c,bonded,3));assert(order.touch(d,bonded,4));
+  assert(!order.touch(d,bonded,4)); // Repeat use of the newest phone needs no save.
+  assert(leastRecentBond(order,bonded,4,e)==0);
+  assert(order.touch(a,bonded,4));assert(leastRecentBond(order,bonded,4,e)==1);
+  // NVS slot reuse puts the newest bond first after a reboot; order still wins.
+  BondPeer rebooted[MaxBonds]={e,c,d,a};
+  assert(order.touch(e,rebooted,4));
+  assert(order.count==4 && samePeer(order.peers[0],c) && samePeer(order.peers[3],e));
+  assert(leastRecentBond(order,rebooted,4,b)==1);
+  // Bonds saved before ordering existed are replaced first; never the incoming phone.
+  BondPeer legacy[MaxBonds]={c,b,d,e};
+  assert(leastRecentBond(order,legacy,4,a)==1);
+  assert(leastRecentBond(order,legacy,1,c)==-1);
+ }
  Receiver r;
  uint8_t p[MaxPacket];header(p,0,1,0,4096);memset(p+8,'A',172);
  assert(r.accept(p,180,1)==Result::More);

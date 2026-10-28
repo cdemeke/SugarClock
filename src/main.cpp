@@ -162,9 +162,12 @@ void loop() {
         if (evt == BTN_PAIRING) {
             engine_dismiss_connection_info();
             ble_pairing_window();
-        } else if (evt == BTN_BOND_RESET) {
-            engine_dismiss_connection_info();
-            ble_reset_bonds();
+        } else if ((evt == BTN_MIDDLE_SHORT || evt == BTN_MIDDLE_DOUBLE) &&
+                   engine_alert_sounding()) {
+            // Any middle tap silences a sounding alert instead of changing
+            // brightness or showing the connection screen.
+            engine_snooze_alerts();
+            Serial.println("[BTN] Alerts snoozed");
         } else if (engine_get_state() == STATE_CONNECTION_INFO_DISPLAY) {
             engine_dismiss_connection_info();
             Serial.println("[BTN] Connection info dismissed");

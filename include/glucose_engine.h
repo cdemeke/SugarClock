@@ -94,6 +94,9 @@ void engine_right_button_action();
 // Interact with a Pixel Pet, reset a timer/stopwatch, or clear overrides.
 void engine_right_long_action();
 
+// True while a glucose buzzer alert is active and not snoozed.
+bool engine_alert_sounding();
+
 // Snooze buzzer alerts (called from button press)
 void engine_snooze_alerts();
 

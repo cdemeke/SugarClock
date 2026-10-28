@@ -86,8 +86,8 @@ void buttons_loop() {
                 // Fire long press event
                 switch (i) {
                     case 0: pending_event = BTN_LEFT_LONG; break;
-                    // Wait for release to distinguish snooze, pairing and
-                    // bond reset without suppressing alerts during pairing.
+                    // Wait for release to distinguish snooze from pairing
+                    // without suppressing alerts during pairing.
                     case 1: break;
                     case 2: pending_event = BTN_RIGHT_LONG; break;
                 }
@@ -99,8 +99,7 @@ void buttons_loop() {
             // Button just released. No middle action fires while held.
             if (i == 1 && buttons[i].long_fired && middle_exclusive) {
                 unsigned long held = now - buttons[i].press_start;
-                pending_event = held >= 10000 ? BTN_BOND_RESET :
-                                held >= 3000 ? BTN_PAIRING : BTN_MIDDLE_LONG;
+                pending_event = held >= 3000 ? BTN_PAIRING : BTN_MIDDLE_LONG;
             }
             if (!buttons[i].long_fired) {
                 if (i == 1) {

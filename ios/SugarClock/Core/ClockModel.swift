@@ -400,7 +400,7 @@ private struct PendingSave {
             case CBError.encryptionTimedOut.rawValue:
                 return "Pairing timed out. Open the clock’s pairing window and retry with its displayed code."
             case CBError.tooManyLEPairedDevices.rawValue:
-                return "Bluetooth pairing storage is full. See Help for resetting clock bonds without erasing settings."
+                return "Bluetooth pairing storage is full. See Help for replacing a phone."
             default:break
             }
         }

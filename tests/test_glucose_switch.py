@@ -9,7 +9,7 @@ class GlucoseSwitchTests(unittest.TestCase):
         source = (ROOT / 'src/glucose_engine.cpp').read_text()
         blocks = []
         for start, end in [('void engine_rebuild_toggle_order()', '// Get color for glucose'),
-                           ('static void check_alerts()', '// Snooze alerts'),
+                           ('static bool alert_is_sounding()', '// Snooze alerts'),
                            ('static DisplayState evaluate_state()', 'static void render_state(')]:
             blocks.append(source[source.index(start):source.index(end)])
         with tempfile.TemporaryDirectory() as tmp:

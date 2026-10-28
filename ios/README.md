@@ -23,7 +23,7 @@ The system Bluetooth usage explanation is generated into Info.plist. `PrivacyInf
 
 ## Testing on a clock
 
-Use [BLE_MIGRATION.md](../docs/BLE_MIGRATION.md) for fresh, configured-OTA, legacy-USB and broken-Wi-Fi paths. A configured clock requires holding only the middle button for three seconds then releasing to admit a new phone. Holding only the middle button for ten seconds then releasing resets all bonds; also forget the device in iOS Settings when recovering stale bonds. This preserves clock configuration.
+Use [BLE_MIGRATION.md](../docs/BLE_MIGRATION.md) for fresh, configured-OTA, legacy-USB and broken-Wi-Fi paths. A configured clock requires holding only the middle button for three seconds then releasing to admit a new phone. When recovering a stale bond, forget the device in iOS Settings first, then pair again. The clock keeps up to four phone bonds; pairing a fifth replaces the phone that has gone longest without connecting.
 
 After connecting, open Clock Settings. Existing values and secret-configured indicators are read from the clock. Each editor sends only the field being changed. Secrets have separate leave/replace/clear actions. Integer ranges come from firmware metadata. Glucose thresholds remain integer mg/dL in the protocol; mmol conversion occurs only on an explicit edit/save. Pairing and routine settings changes require neither a known IP address nor joining the temporary AP.
 

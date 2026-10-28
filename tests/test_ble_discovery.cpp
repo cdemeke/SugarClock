@@ -18,7 +18,7 @@ struct Advertisement {
   payload+=strlen(value)+2;advertisedName=value;return true;
  }
 };
-static bool enabled=true,suspended=false,resetRequested=false;
+static bool enabled=true,suspended=false;
 static unsigned now=1000,windowUntil=0;
 unsigned millis() {return now;}
 #include "ble_admission.inc"
@@ -33,8 +33,8 @@ int main() {
  Advertisement c;c.failName=true;assert(!scble::configure_advertisement(c,"service",first));
  ble_pairing_window();assert(windowUntil==121000);
  // A physical gesture during a network pause must survive radio reinitialization.
- enabled=false;suspended=true;now=2000;ble_pairing_window();ble_reset_bonds();
- assert(windowUntil==122000 && resetRequested);
- suspended=false;resetRequested=false;now=3000;ble_pairing_window();ble_reset_bonds();
- assert(windowUntil==122000 && !resetRequested);
+ enabled=false;suspended=true;now=2000;ble_pairing_window();
+ assert(windowUntil==122000);
+ suspended=false;now=3000;ble_pairing_window();
+ assert(windowUntil==122000);
 }

@@ -13,6 +13,7 @@
 #include "buzzer.h"
 #include "notify_engine.h"
 #include <NimBLEDevice.h>
+#include <Preferences.h>
 #include <esp_heap_caps.h>
 #include <esp_system.h>
 #include <atomic>
@@ -40,7 +41,8 @@ uint16_t responseID=0,responseLen=0,responseOffset=0,lastID=0;
 uint8_t lastHash[32]={};
 std::atomic<uint16_t> connection{BLE_HS_CONN_HANDLE_NONE};
 std::atomic<uint32_t> windowUntil{0},passkeyUntil{0},passkey{0},connectedAt{0},lastActivity{0};
-std::atomic<bool> secure{false},resetRequested{false};
+std::atomic<bool> secure{false},admittedPairing{false};
+scble::BondOrder bondOrder; // NimBLE host task only, after ble_init loads it.
 bool enabled=false,queued=false,working=false,suspended=false,responsePending=false;
 std::atomic<bool> networkLease{false};
 std::atomic<uint32_t> networkReleasedAt{0};
@@ -78,12 +80,51 @@ bool beginSession(NimBLEConnInfo& c) {
  ++sessionEpoch;clearMailbox();
  return true;
 }
+scble::BondPeer bondPeer(const ble_addr_t& addr) {
+ static_assert(sizeof(ble_addr_t)==sizeof(scble::BondPeer::bytes),"ble_addr_t layout");
+ scble::BondPeer peer;memcpy(peer.bytes,&addr,sizeof(peer.bytes));return peer;
+}
+unsigned bondedPeers(scble::BondPeer* out) {
+ ble_addr_t addrs[scble::MaxBonds];int n=0;
+ if(ble_store_util_bonded_peers(addrs,&n,scble::MaxBonds)) return 0;
+ for(int i=0;i<n;++i) out[i]=bondPeer(addrs[i]);
+ return unsigned(n);
+}
+void loadBondOrder() {
+ bondOrder=scble::BondOrder();Preferences p;
+ if(!p.begin("scble_bonds",true)) return;
+ if(p.getBytesLength("order")==sizeof(bondOrder)) p.getBytes("order",&bondOrder,sizeof(bondOrder));
+ if(bondOrder.count>scble::MaxBonds) bondOrder=scble::BondOrder();
+ p.end();
+}
+void recordBondUse(NimBLEConnInfo& c) {
+ scble::BondPeer bonded[scble::MaxBonds];unsigned n=bondedPeers(bonded);
+ if(!bondOrder.touch(bondPeer(*c.getIdAddress().getBase()),bonded,n)) return;
+ Preferences p;if(p.begin("scble_bonds",false)) {p.putBytes("order",&bondOrder,sizeof(bondOrder));p.end();}
+}
+int replaceLeastRecentBond(const ble_addr_t& incoming) {
+ scble::BondPeer bonded[scble::MaxBonds];unsigned n=bondedPeers(bonded);
+ int victim=scble::leastRecentBond(bondOrder,bonded,n,bondPeer(incoming));
+ if(victim<0) return BLE_HS_ENOMEM;
+ ble_addr_t addr;memcpy(&addr,bonded[victim].bytes,sizeof(addr));
+ Serial.println("[BLE] Bond storage full; replacing least recently used phone");
+ return ble_gap_unpair(&addr);
+}
 class DeviceCallbacks:public NimBLEDeviceCallbacks {
- int onStoreStatus(ble_store_status_event*,void*) override { return BLE_HS_ENOMEM; } // Never evict an owner's bond implicitly.
+ int onStoreStatus(ble_store_status_event* event,void*) override {
+  // Only a phone admitted through the owner's pairing window may displace a bond.
+  if(!windowOpen() && !admittedPairing) return BLE_HS_ENOMEM;
+  // Pairing start reports full storage; make room only once keys are saved.
+  if(event->event_code==BLE_STORE_EVENT_FULL) return 0;
+  if(event->event_code!=BLE_STORE_EVENT_OVERFLOW) return BLE_HS_ENOMEM;
+  int type=event->overflow.obj_type;
+  if(type!=BLE_STORE_OBJ_TYPE_OUR_SEC && type!=BLE_STORE_OBJ_TYPE_PEER_SEC) return BLE_HS_ENOMEM;
+  return replaceLeastRecentBond(event->overflow.value->sec.peer_addr);
+ }
 } deviceCallbacks;
 class ServerCallbacks:public NimBLEServerCallbacks {
  void onConnect(NimBLEServer* s,NimBLEConnInfo& c) override {
-  if(!scble::canAdmit(NimBLEDevice::isBonded(c.getIdAddress()),windowOpen(),NimBLEDevice::getNumBonds())) {rejectPeer(c,"admission");return;}
+  if(!scble::canAdmit(NimBLEDevice::isBonded(c.getIdAddress()),windowOpen())) {rejectPeer(c,"admission");return;}
   if(!beginSession(c)) return;
   // Bond encryption can complete before NimBLE finishes remote feature discovery
   // and calls onConnect. Use the peer's verified security, and initialize the
@@ -101,21 +142,24 @@ class ServerCallbacks:public NimBLEServerCallbacks {
    unsigned(c.getConnHandle()),reason,int(networkLease.load()),unsigned(c.getConnInterval())*1250,
    unsigned(c.getConnLatency()),unsigned(c.getConnTimeout())*10);
   if(connection!=c.getConnHandle()) return;
-  secure=false;connection=BLE_HS_CONN_HANDLE_NONE;passkeyUntil=0;
+  secure=false;connection=BLE_HS_CONN_HANDLE_NONE;passkeyUntil=0;admittedPairing=false;
   Guard g;++sessionEpoch;clearMailbox(); // queued but unexecuted work is canceled; Wi-Fi/OTA already started continues.
  }
  uint32_t onPassKeyDisplay() override {
-  if(!windowOpen() || NimBLEDevice::getNumBonds()>=4) { disconnect();return esp_random()%1000000; }
+  if(!windowOpen()) { disconnect();return esp_random()%1000000; }
+  admittedPairing=true; // Lets this pairing replace a bond even if the window expires.
   uint32_t code=esp_random()%1000000;passkey=code;passkeyUntil=millis()+30000;return code;
  }
  void onConfirmPassKey(NimBLEConnInfo& c,uint32_t) override { NimBLEDevice::injectConfirmPasskey(c,false); }
  void onAuthenticationComplete(NimBLEConnInfo& c) override {
+  admittedPairing=false;
   if(!peerAuthorized(c)) {
    if(connection==c.getConnHandle()) secure=false;
    rejectPeer(c,"authentication");return;
   }
   if(!beginSession(c)) return;
   secure=true;passkeyUntil=0;windowUntil=0;
+  recordBondUse(c);
   Serial.printf("[BLE] Phone authenticated handle=%u interval_us=%u latency=%u timeout_ms=%u mtu=%u\n",
    unsigned(c.getConnHandle()),unsigned(c.getConnInterval())*1250,unsigned(c.getConnLatency()),
    unsigned(c.getConnTimeout())*10,unsigned(c.getMTU()));
@@ -231,6 +275,7 @@ void ble_init() {
 #endif
  if(!mutex) {mutex=xSemaphoreCreateMutexStatic(&storage);bootID=esp_random();}
  snprintf(identity,sizeof(identity),"%012llX",ESP.getEfuseMac());scble::discovery_name(name,sizeof(name),identity);
+ loadBondOrder();admittedPairing=false; // Before the NimBLE host task can call back.
  if(!NimBLEDevice::init(name)) { Serial.println("[BLE] Unavailable; normal clock operation continues");return; }
  NimBLEDevice::setDeviceCallbacks(&deviceCallbacks);
  if(config_bond_reset_pending() && NimBLEDevice::deleteAllBonds()) config_bond_reset_finished();
@@ -255,7 +300,6 @@ void ble_init() {
  enabled=true;if(!config_has_wifi() && NimBLEDevice::getNumBonds()==0) ble_pairing_window();adv->start();
 }
 void ble_pairing_window() { if(enabled || suspended) windowUntil=millis()+120000; }
-void ble_reset_bonds() { if(enabled || suspended) resetRequested=true; }
 bool ble_is_connected() { return connection!=BLE_HS_CONN_HANDLE_NONE; }
 void ble_suspend_for_ota() {
  if(!enabled) return;
@@ -297,10 +341,6 @@ void ble_loop() {
 #endif
  if(suspended && !ota_is_busy() && !networkLease && millis()-networkReleasedAt>=1500) {suspended=false;ble_init();}
  if(!enabled) return;
- if(resetRequested) {
-  disconnect();if(ble_is_connected()) return;
-  NimBLEDevice::deleteAllBonds();resetRequested=false;ble_pairing_window();
- }
  uint32_t now=millis();
  if(ble_is_connected() && ((!secure && now-connectedAt>45000) || now-lastActivity>60000 || now-connectedAt>600000)) disconnect();
  if(!ble_is_connected() && !ota_is_busy() && !NimBLEDevice::getAdvertising()->isAdvertising()) NimBLEDevice::startAdvertising();

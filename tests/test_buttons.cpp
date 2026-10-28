@@ -28,7 +28,7 @@ int main() {
     middleHold(1500,BTN_MIDDLE_LONG);
     middleHold(3100,BTN_PAIRING);
     middleHold(9000,BTN_PAIRING);
-    middleHold(10100,BTN_BOND_RESET);
+    middleHold(15000,BTN_PAIRING); // Long holds never erase phone pairings.
     reset();press(PIN_BUTTON_MIDDLE);release(PIN_BUTTON_MIDDLE);
     assert(buttons_get_event()==BTN_NONE);
     tick(350);assert(buttons_get_event()==BTN_MIDDLE_SHORT);
@@ -41,11 +41,11 @@ int main() {
     tick(100);press(PIN_BUTTON_MIDDLE);tick(3100);
     assert(buttons_get_event()==BTN_NONE);
     release(PIN_BUTTON_MIDDLE);assert(buttons_get_event()==BTN_PAIRING);
-    // Outer-button power gestures never admit phones or erase bonds.
+    // Outer-button power gestures never admit phones.
     reset();press(PIN_BUTTON_LEFT);press(PIN_BUTTON_RIGHT);tick(11000);
-    auto event=buttons_get_event();assert(event!=BTN_PAIRING && event!=BTN_BOND_RESET);
+    auto event=buttons_get_event();assert(event!=BTN_PAIRING);
     release(PIN_BUTTON_LEFT);release(PIN_BUTTON_RIGHT);
-    event=buttons_get_event();assert(event!=BTN_PAIRING && event!=BTN_BOND_RESET);
+    event=buttons_get_event();assert(event!=BTN_PAIRING);
     // Pairing must be a middle-only gesture, even if a side button is released first.
     reset();press(PIN_BUTTON_MIDDLE);press(PIN_BUTTON_LEFT);tick(11000);
     buttons_get_event();release(PIN_BUTTON_LEFT);release(PIN_BUTTON_MIDDLE);

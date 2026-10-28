@@ -25,7 +25,7 @@ Real-device demonstration video: [ACCESSIBLE VIDEO URL OR ATTACHMENT]
 
 Firmware updates request the existing signed Wi-Fi update path. Firmware bytes are not transferred over Bluetooth, arbitrary update URLs are not accepted, and the app does not download executable iOS code. A controlled update may need a specifically authorized firmware release; do not promise an available OTA update if none is assigned to the review clock.
 
-If pairing is stale, hold the middle button for ten seconds and release to reset all clock Bluetooth bonds; forget the old device in iOS Settings if present, then pair again. Wi-Fi/source/display settings remain intact. Do not use factory reset unless intentionally clearing the clock configuration.
+If pairing is stale, forget the old device in iOS Settings, then hold the middle button for three seconds, release and pair again. The clock keeps up to four phone bonds; pairing a fifth replaces the phone that has gone longest without connecting. Wi-Fi/source/display settings remain intact.
 
 ## Record a 2–3 minute uncut demonstration
 

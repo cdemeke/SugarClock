@@ -223,26 +223,34 @@ static uint8_t effective_brightness() {
     return cfg.brightness;
 }
 
-// Handle buzzer alerts
-static void check_alerts() {
+// True while an unsnoozed buzzer alert is due for the current reading.
+static bool alert_is_sounding() {
     AppConfig& cfg = config_get();
-    if (!cfg.glucose_enabled || !cfg.alert_enabled) return;
+    if (!cfg.glucose_enabled || !cfg.alert_enabled) return false;
 
     const GlucoseReading& reading = http_get_reading();
-    if (!reading.valid) return;
+    if (!reading.valid) return false;
 
     // Check if snoozed
-    if (millis() < alert_snooze_until_ms) return;
+    if (millis() < alert_snooze_until_ms) return false;
 
     // Do not sound alerts if glucose data is stale
     unsigned long stale_ms = (unsigned long)cfg.stale_timeout_min * 60UL * 1000UL;
     unsigned long age = http_time_since_last_reading();
     int failures = http_get_failure_count();
     bool is_stale = (cfg.data_source != 2) && (age >= stale_ms || failures >= FAILURE_STALE_COUNT);
-    if (is_stale) return;
+    if (is_stale) return false;
 
-    bool should_alert = (reading.glucose < cfg.alert_low || reading.glucose > cfg.alert_high);
-    if (!should_alert) return;
+    return reading.glucose < cfg.alert_low || reading.glucose > cfg.alert_high;
+}
+
+bool engine_alert_sounding() {
+    return alert_is_sounding();
+}
+
+// Handle buzzer alerts
+static void check_alerts() {
+    if (!alert_is_sounding()) return;
 
     // Beep periodically using shared buzzer module
     if (millis() - last_beep_ms >= BEEP_INTERVAL_MS) {
