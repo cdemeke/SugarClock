@@ -73,7 +73,8 @@ int sysmon_get_max() { return 100; }
 const char* sysmon_get_label() { return "CPU"; }
 bool countdown_is_configured() { return false; }
 long countdown_get_remaining_sec() { return 0; }
-bool weather_has_data() { return false; }
+static bool weather_data = false;
+bool weather_has_data() { return weather_data; }
 const WeatherReading& weather_get_reading() { static WeatherReading wx = {}; return wx; }
 void weather_set_pre_fetch_callback(WeatherPreFetchCallback) {}
 void display_set_brightness(uint8_t value) { brightness = value; }
@@ -302,5 +303,17 @@ int main() {
     cfg.data_source = 2; age_ms = 600000;
     render_state(STATE_GLUCOSE_DISPLAY);
     assert(drawn_color == green);
+
+    // A weather startup screen waits for the first reading after boot.
+    cfg.data_source = 0; age_ms = 0; cfg.default_mode = 2; cfg.auto_cycle_enabled = false;
+    weather_data = false; engine_init();
+    assert(user_mode == STATE_GLUCOSE_DISPLAY);
+    weather_data = true; engine_rebuild_toggle_order();
+    assert(user_mode == STATE_WEATHER_DISPLAY && default_mode == STATE_WEATHER_DISPLAY);
+    // A manual selection before the first reading takes precedence.
+    weather_data = false; engine_init(); engine_toggle_mode();
+    const DisplayState chosen = user_mode;
+    weather_data = true; engine_rebuild_toggle_order();
+    assert(user_mode == chosen && chosen != STATE_WEATHER_DISPLAY);
     return 0;
 }

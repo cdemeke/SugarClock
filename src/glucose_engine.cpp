@@ -31,6 +31,8 @@ static DisplayState forced_state = STATE_BOOT;
 static bool state_forced = false;
 static DisplayState default_mode = STATE_GLUCOSE_DISPLAY;
 static DisplayState user_mode = STATE_GLUCOSE_DISPLAY;
+// Weather was the requested startup screen but had no reading yet at boot.
+static bool weather_startup_pending = false;
 static char message_buf[128] = "";
 static char connection_info_buf[96] = "";
 static bool connection_info_visible = false;
@@ -152,6 +154,14 @@ void engine_rebuild_toggle_order() {
     if (cfg.countdown_enabled) toggle_order[toggle_count++] = STATE_COUNTDOWN_DISPLAY;
 
     if (!toggle_count) toggle_order[toggle_count++] = STATE_TIME_DISPLAY;
+
+    if (weather_startup_pending && (cfg.default_mode != 2 || !cfg.weather_enabled)) {
+        weather_startup_pending = false;
+    } else if (weather_startup_pending && weather_has_data()) {
+        weather_startup_pending = false;
+        default_mode = STATE_WEATHER_DISPLAY;
+        user_mode = STATE_WEATHER_DISPLAY;
+    }
 
     // Reset toggle_index to match current user_mode
     for (int i = 0; i < toggle_count; i++) {
@@ -304,6 +314,8 @@ void engine_init() {
     } else {
         default_mode = STATE_GLUCOSE_DISPLAY;
     }
+    weather_startup_pending = cfg.default_mode == 2 && cfg.weather_enabled &&
+                              default_mode != STATE_WEATHER_DISPLAY;
     user_mode = default_mode;
     transition_phase = TRANSITION_NONE;
     transition_target = STATE_BOOT;
@@ -1057,12 +1069,14 @@ void engine_set_default_mode(DisplayState mode) {
         mode = STATE_GLUCOSE_DISPLAY;
     }
     if (!config_get().glucose_enabled && (mode==STATE_GLUCOSE_DISPLAY || mode==STATE_TREND_DISPLAY)) mode=toggle_order[0];
+    weather_startup_pending = false;
     default_mode = mode;
     user_mode = mode;
 }
 
 bool engine_toggle_mode() {
     if (engine_low_glucose_lock_active()) return false;
+    weather_startup_pending = false;
     toggle_index = (toggle_index + 1) % toggle_count;
     user_mode = toggle_order[toggle_index];
     last_cycle_ms = millis(); // reset auto-cycle timer on manual toggle
@@ -1072,6 +1086,7 @@ bool engine_toggle_mode() {
 
 bool engine_toggle_mode_prev() {
     if (engine_low_glucose_lock_active()) return false;
+    weather_startup_pending = false;
     toggle_index = (toggle_index - 1 + toggle_count) % toggle_count;
     user_mode = toggle_order[toggle_index];
     last_cycle_ms = millis(); // reset auto-cycle timer on manual toggle

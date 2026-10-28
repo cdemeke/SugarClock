@@ -11,7 +11,8 @@ constexpr unsigned BEEP_INTERVAL_MS=1000;
 constexpr int FAILURE_STALE_COUNT=3,FAILURE_NODATA_COUNT=5;
 unsigned long millis() {return now;}
 bool connection_info_visible=false,state_forced=false;
-DisplayState forced_state=STATE_GLUCOSE_DISPLAY,user_mode=STATE_GLUCOSE_DISPLAY;
+DisplayState forced_state=STATE_GLUCOSE_DISPLAY,default_mode=STATE_GLUCOSE_DISPLAY,user_mode=STATE_GLUCOSE_DISPLAY;
+bool weather_startup_pending=false;
 DisplayState toggle_order[12];int toggle_count=0,toggle_index=0;
 char message_buf[64]{};
 struct GlucoseReading {bool valid=true;int glucose=40,force_mode=-1;char message[64]{};} reading;

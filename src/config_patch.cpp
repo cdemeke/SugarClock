@@ -127,13 +127,14 @@ const char* config_patch(AppConfig& c,JsonObjectConst patch,bool web) {
   if(!fp) return "unsupported_field";
   const Field& f=*fp; JsonVariantConst v=pair.value(); char* p=(char*)&c+f.offset;
   if(f.kind==Kind::Text) {
-   if(v.isNull() && f.secret) { if(*p && (!strcmp(f.name,"libre_email") || !strcmp(f.name,"libre_password"))) libre_identity_changed=true; *p=0;continue; }
+   if(v.isNull() && f.secret) { if(*p && !strcmp(f.name,"libre_email")) libre_identity_changed=true; *p=0;continue; }
    if(!v.is<const char*>()) return f.name;
    const char* s=v.as<const char*>(); size_t n=strlen(s);
    if(n>=f.size || n!=v.as<JsonString>().size()) return f.name;
    if(web && f.secret && !n) continue;
    if(!strcmp(f.name,"server_url") && n && strncmp(s,"https://",8) && strncmp(s,"http://",7)) return f.name;
-   if((!strcmp(f.name,"libre_email") || !strcmp(f.name,"libre_password")) && strcmp(p,s)) libre_identity_changed=true;
+   // A new password re-authenticates the same account; only a new account invalidates its person.
+   if(!strcmp(f.name,"libre_email") && strcmp(p,s)) libre_identity_changed=true;
    memcpy(p,s,n+1);
   } else if(f.kind==Kind::Bool) {
    if(!v.is<bool>()) return f.name;

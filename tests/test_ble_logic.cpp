@@ -107,9 +107,16 @@ int main() {
  output.clear();config_public(output.to<JsonObject>(),config);
  assert(output["libre_password"].isNull() && output["libre_email"].isNull());
  assert(output["libre_password_configured"].as<bool>() && output["libre_email_configured"].as<bool>());
- deserializeJson(patch,"{\"data_source\":3,\"libre_password\":\"replacement\"}");
- same=config;assert(!config_patch(config,patch.as<JsonObjectConst>()));
- assert(config_source_changed(same,config) && !config.libre_region[0] && !config.libre_patient_id[0]);
+ strcpy(config.libre_patient_name,"Patient");
+ // Rotating the password keeps the selected person on a multi-person account.
+ deserializeJson(patch,"{\"data_source\":3,\"libre_password\":\"replacement\",\"libre_patient_id\":\"\"}");
+ same=config;assert(!config_patch(config,patch.as<JsonObjectConst>(),true));
+ assert(config_source_changed(same,config) && !strcmp(config.libre_password,"replacement"));
+ assert(!strcmp(config.libre_region,"us") && !strcmp(config.libre_patient_id,"patient") && !strcmp(config.libre_patient_name,"Patient"));
+ deserializeJson(patch,"{\"libre_password\":\"rotated\"}");assert(!config_patch(config,patch.as<JsonObjectConst>()));
+ assert(!strcmp(config.libre_patient_id,"patient"));
+ deserializeJson(patch,"{\"libre_email\":\"other@example.invalid\"}");assert(!config_patch(config,patch.as<JsonObjectConst>()));
+ assert(!config.libre_region[0] && !config.libre_patient_id[0] && !config.libre_patient_name[0]);
  deserializeJson(patch,"{\"libre_password\":null}");assert(!config_patch(config,patch.as<JsonObjectConst>()));
  assert(!config.libre_password[0]);
  std::ifstream f("protocol/fixtures/frames.json");JsonDocument fixtures;assert(!deserializeJson(fixtures,f));
