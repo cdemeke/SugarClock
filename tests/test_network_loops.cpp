@@ -43,6 +43,11 @@ void ble_release_network() {lease=false;}
 bool ble_network_batch_window() {return pausedWindow && !lease;}
 void fetch_worker(void*) {}
 void fleet_worker(void*) {}
+FleetManualIntent manual_intent;
+int manual_intent_mux=0;
+void portENTER_CRITICAL(int*) {}
+void portEXIT_CRITICAL(int*) {}
+std::atomic<bool> local_request_pending{false};
 constexpr int pdPASS=1;
 int xTaskCreate(void (*worker)(void*),const char*,int,void*,int,void*) {
  if(failTask) return 0;
@@ -93,6 +98,12 @@ int main() {
  assert(!worker_running && !lease && !http_paused && !weatherPaused);
  pausedWindow=true;unsigned before=acquisitions;fleet_loop();assert(acquisitions==before);
  failTask=false;now=next_attempt_ms+60000;fleet_loop();assert(fleetTasks==3);
+ // A manual install runs at once, without a pause to join or a retry delay, so
+ // the worker still sees the intent before its 60 s permission expires.
+ worker_running=false;lease=false;pausedWindow=false;failure_count=1;glucoseExpected=true;
+ manual_intent.request(now);next_attempt_ms=now;fleet_loop();assert(fleetTasks==4);
+ assert(manual_intent.consume(now));
+ worker_running=false;lease=false;failure_count=0;glucoseExpected=false;
  // Disabled sources neither generate demo data nor acquire a network lease.
  worker_running=false;lease=false;http_paused=false;fetch_running=false;
  config.glucose_enabled=false;

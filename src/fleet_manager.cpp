@@ -52,6 +52,7 @@ static char credential[44];
 static char channel[16] = "stable";
 static bool registered = false;
 static std::atomic<bool> worker_running{false};
+static std::atomic<bool> local_request_pending{false};
 static bool restart_requested = false;
 static uint32_t next_attempt_ms = 0;
 static unsigned failure_count = 0;
@@ -697,6 +698,8 @@ static void fleet_worker(void*) {
     }
     Serial.printf("[NET SCHEDULE] Management end result=%s next_in=%us\n",
                   ok ? "ok":"retry",unsigned((next_attempt_ms-millis())/1000));
+    // Any OTA work this visit queued is already reflected in OTA status.
+    local_request_pending = false;
     ble_release_network();worker_running = false;
     if (!ota_is_busy()) {
         http_set_paused(false);
@@ -723,8 +726,11 @@ void fleet_loop() {
     if (worker_running || http_is_fetching() || ota_is_busy() || !wifi_is_connected() || wifi_is_ap_mode() ||
         !time_is_available()) return;
     bool grouped=ble_network_batch_window();
+    portENTER_CRITICAL(&manual_intent_mux);
+    bool manual_pending = manual_intent.fresh(millis());
+    portEXIT_CRITICAL(&manual_intent_mux);
     if(!scnet::management_ready(millis(),next_attempt_ms,grouped,failure_count!=0,
-                               http_dexcom_due_within(300000))) return;
+                               http_dexcom_due_within(300000),manual_pending)) return;
     if(!ble_acquire_network()) return;
     Serial.printf("[NET SCHEDULE] Management start grouped=%d retry=%u\n",int(grouped),failure_count);
     worker_running = true;
@@ -734,6 +740,7 @@ void fleet_loop() {
     http_set_paused(true);
     weather_set_paused(true);
     if (xTaskCreate(fleet_worker, "fleet", 14336, nullptr, 1, nullptr) != pdPASS) {
+        local_request_pending = false;
         ble_release_network();worker_running = false;
         http_set_paused(false);
         weather_set_paused(false);
@@ -747,6 +754,7 @@ const char* fleet_installation_id() { return installation_id; }
 
 bool fleet_request_check() {
     if (worker_running || ota_is_busy()) return false;
+    local_request_pending = true;
     next_attempt_ms = millis();
     return true;
 }
@@ -756,9 +764,12 @@ bool fleet_request_manual_install() {
     portENTER_CRITICAL(&manual_intent_mux);
     manual_intent.request(millis());
     portEXIT_CRITICAL(&manual_intent_mux);
+    local_request_pending = true;
     next_attempt_ms = millis();
     return true;
 }
+
+bool fleet_request_pending() { return local_request_pending; }
 
 bool fleet_record_update_outcome(bool deferred, const char* error) {
     if (!pending_is_target || !pending_ota_command[0]) return deferred;

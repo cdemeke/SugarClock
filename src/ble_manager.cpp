@@ -6,6 +6,7 @@
 #include "settings_apply.h"
 #include "wifi_manager.h"
 #include "ota_manager.h"
+#include "fleet_manager.h"
 #include "http_client.h"
 #include "net_check.h"
 #include "display.h"
@@ -212,6 +213,7 @@ void status(JsonObject o) {
  ota["state"]=ota_state_name(s.state);ota["progress"]=s.progress;ota["current_version"]=s.current_version;
  ota["available_version"]=s.available_version;ota["error"]=s.last_error;ota["deferral"]=s.safety_reason;
  ota["pending_verification"]=s.pending_verification;
+ ota["request_pending"]=fleet_request_pending();
 }
 void execute(JsonDocument& in,JsonDocument& out) {
  out["v"]=1;out["id"]=workID;out["state"]="applied";

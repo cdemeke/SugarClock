@@ -14,6 +14,8 @@ const char* fleet_installation_id();
 bool fleet_request_check();
 bool fleet_update_authorization_current();
 bool fleet_request_manual_install();
+// True from an accepted local check/install request until its fleet visit ends.
+bool fleet_request_pending();
 bool fleet_record_update_outcome(bool deferred, const char* error);
 
 // Called by the OTA worker after validation, immediately before flashing.

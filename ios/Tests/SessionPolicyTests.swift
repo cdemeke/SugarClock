@@ -19,6 +19,12 @@ final class SessionPolicyTests: XCTestCase {
         XCTAssertFalse(ClockModel.canRetryConnection(NSError(domain:CBATTErrorDomain,code:CBATTError.insufficientAuthentication.rawValue)))
         XCTAssertTrue(ClockModel.canRetryConnection(NSError(domain:CBErrorDomain,code:CBError.connectionTimeout.rawValue)))
     }
+    @MainActor func testUpdateMonitorWaitsForQueuedRequestToExecute() {
+        XCTAssertFalse(ClockModel.updateRequestSettled(["state":"idle","request_pending":true]))
+        XCTAssertFalse(ClockModel.updateRequestSettled(["state":"checking","request_pending":false]))
+        XCTAssertTrue(ClockModel.updateRequestSettled(["state":"idle","request_pending":false]))
+        XCTAssertTrue(ClockModel.updateRequestSettled(["state":"deferred","request_pending":false]))
+    }
     func testSchemaCacheContainsMetadataOnlyAndRejectsUnknownExtensions() throws {
         let preferences=UserDefaults(suiteName:UUID().uuidString)!
         let cache=SchemaCache(preferences:preferences)

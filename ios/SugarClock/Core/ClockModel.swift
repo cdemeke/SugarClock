@@ -664,6 +664,12 @@ private struct PendingSave {
             } else {try await self.refresh()}
         }
     }
+    // A queued request leaves OTA state unchanged until its fleet visit runs;
+    // only a state reported after that visit belongs to the submitted request.
+    static func updateRequestSettled(_ ota:[String:Any])->Bool {
+        if ota["request_pending"] as? Bool==true {return false}
+        return ["error","deferred","update_available","idle"].contains(ota["state"] as? String ?? "")
+    }
     private func monitorUpdate(clock:SavedClock,expected:String?) {
         updateMonitor?.cancel()
         if let expected {preferences.set(expected,forKey:"update.expected."+clock.id)}
@@ -690,7 +696,7 @@ private struct PendingSave {
                         self.sessionReady=true;self.connectionState="Connected"
                         self.busy=false;return
                     }
-                    if ["error","deferred","update_available","idle"].contains(state) {
+                    if Self.updateRequestSettled(ota) {
                         self.updateMessage="Reconnected · \(state). \(ota["error"] as? String ?? "") \(ota["deferral"] as? String ?? "")"
                         self.sessionReady=true;self.connectionState="Connected"
                         self.busy=false;return

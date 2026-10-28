@@ -57,4 +57,9 @@ int main() {
  assert(management_ready(360000,300000,false,true));
  assert(management_ready(500,UINT32_MAX-500,true,true));
  assert(!management_ready(UINT32_MAX-1000,500,true,true));
+ // A fresh manual install runs at its target, before its 60 s permission expires,
+ // even with no other paused window and Dexcom or retry batching pending.
+ assert(!management_ready(299999,300000,false,false,true,true));
+ assert(management_ready(300000,300000,false,false,true,true));
+ assert(management_ready(300000,300000,false,true,true,true));
 }

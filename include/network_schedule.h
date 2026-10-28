@@ -57,8 +57,10 @@ struct DexcomSchedule {
 
 // Prefer the tail of an existing radio pause. An unavailable glucose source
 // must not starve management; it gets its own turn after a bounded extra minute.
+// A fresh explicit install request runs at its target: its permission expires.
 inline bool management_ready(uint32_t now,uint32_t target,bool pausedWindow,bool retry,
-                             bool glucoseExpected=false) {
+                             bool glucoseExpected=false,bool explicitRequest=false) {
+ if(explicitRequest) return due(now,target);
  if(!pausedWindow && glucoseExpected && !due(now,target+300000)) return false;
  if(retry) return (pausedWindow && due(now,target)) || due(now,target+60000);
  return (pausedWindow && int32_t(target-now)<=60000) || due(now,target+60000);
