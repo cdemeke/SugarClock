@@ -46,7 +46,7 @@ class FleetDashboardTests(unittest.TestCase):
         for path, label in (('/admin/overview', 'Overview'), ('/admin/devices', 'Devices'),
                             ('/admin/devices/1', 'Devices'), ('/admin/releases', 'Releases')):
             response = self.get(path)
-            self.assertEqual(re.findall(r'aria-current="page">(.*?)</a>', response.text), [label])
+            self.assertEqual([re.sub(r'<[^>]+>', '', text) for text in re.findall(r'aria-current="page">(.*?)</a>', response.text)], [label])
 
     def test_nickname_is_escaped_and_identity_stays_stable(self):
         with self.app.app_context():
@@ -74,6 +74,13 @@ class FleetDashboardTests(unittest.TestCase):
         response = self.client.patch('/admin/api/rollouts/1', json={'percentage':100},
             base_url='http://127.0.0.1:8081', headers={'X-CSRF-Token':token})
         self.assertEqual(response.status_code, 200, response.text)
+
+    def test_devices_table_renders_data_location_for_filtering(self):
+        response = self.get('/admin/devices')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('data-location="Boston, US"', response.text)
+        self.assertIn('data-location="London, GB"', response.text)
+        self.assertIn('data-location="Toronto, CA"', response.text)
 
 
 if __name__ == '__main__':

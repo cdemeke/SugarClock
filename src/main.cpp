@@ -65,7 +65,6 @@ void setup() {
     // 4. Initialize display + show boot screen
     display_init();
     display_clear();
-    display_draw_text("SUGAR", 1, 0, display_color(0, 200, 200));
     display_show();
 
     // 5. Init buttons

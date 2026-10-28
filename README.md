@@ -11,9 +11,12 @@
 <p align="center">
   <a href="https://sugarclock.com/">Website</a> &bull;
   <a href="#quick-start">Quick Start</a> &bull;
-  <a href="https://sugarclock.com/setup.html">Setup Guide</a> &bull;
-  <a href="https://sugarclock.com/support.html">Help & FAQ</a>
+  <a href="https://sugarclock.com/#install">Setup Guide</a> &bull;
+  <a href="https://sugarclock.com/faq.html">Help & FAQ</a>
 </p>
+
+> [!WARNING]
+> **SugarClock is not a medical device.** It is an unofficial DIY project and is not affiliated with or endorsed by Dexcom, Abbott, Nightscout, or Ulanzi. Readings can be delayed or missing, and the clock may not sound alerts when its data is stale. Do not use SugarClock for treatment decisions or as a replacement for your CGM's own alarms; always confirm with your CGM receiver, app, or blood glucose meter.
 
 ---
 
@@ -28,6 +31,7 @@ SugarClock is free, open-source firmware that turns the [Ulanzi TC001 Smart Pixe
 - **Live glucose display** — Large color-coded numbers (green = in range, orange = high/low, red = urgent)
 - **Trend arrows** — See which direction your glucose is heading
 - **Dexcom, Libre & Nightscout** — Works with Dexcom and FreeStyle Libre 2/3 CGMs directly, or any Nightscout-compatible setup
+- **Stale reading color** — Old readings switch to the stale color (dim purple by default, configurable in Settings → Colors) while keeping the last number and arrow visible. The default cutoff is seven minutes; longer polling intervals add time for delivery. Fresh data restores the usual color, and a shorter configured stale timeout takes precedence.
 - **Low glucose focus** — Enable “Show Only Blood Sugar When Low” in Settings → Display to keep the glucose value visible below the configured Low threshold (including urgent lows). It blocks other screens and navigation while readings are fresh. Notifications (including urgent ones) are hidden and may expire unseen; they are not deferred. Normal behavior resumes after recovery, stale data, repeated glucose fetch failures, or entry into Wi-Fi setup mode. Brief Wi-Fi drops and failed network checks do not hide a fresh low reading. Off by default.
 - **Audible alerts** — Buzzer for high/low glucose with snooze button
 - **Auto brightness** — Built-in light sensor adjusts to your room
@@ -93,7 +97,7 @@ Open **SugarClock Setup** and follow the on-screen steps. The app will walk you 
 
 When it's done, the clock restarts and your glucose reading should appear within a minute.
 
-For detailed step-by-step instructions (with screenshots), see the **[Setup Guide](https://sugarclock.com/setup.html)**.
+For browser-based installation (Chrome or Edge on any computer), see the **[Setup Guide](https://sugarclock.com/#install)**.
 
 <details>
 <summary><strong>Advanced: Build from source (all platforms)</strong></summary>
@@ -156,7 +160,7 @@ Companion integrations: see the [configuration API and legacy-field migration no
 | `NO WIFI` on display | Check SSID/password, make sure it's a 2.4 GHz network |
 | `NO DATA` on display | Check Dexcom/LibreLinkUp credentials or server URL on the config page |
 
-See the **[Help & FAQ](https://sugarclock.com/support.html)** for more.
+See the **[Help & FAQ](https://sugarclock.com/faq.html)** for more.
 
 ## Backup & Restore Factory Firmware
 
@@ -177,8 +181,7 @@ esptool.py -p /dev/cu.usbserial-* -b 460800 write_flash 0x0 tc001_factory_backup
 
 ## License
 
-MIT
-
+Released under the [MIT License](LICENSE).
 
 ## iPhone companion (firmware 0.3.0 / protocol 1)
 

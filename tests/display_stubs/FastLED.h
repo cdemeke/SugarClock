@@ -6,6 +6,7 @@ unsigned long millis();
 struct CRGB {uint8_t r=0,g=0,b=0;};
 struct WS2812B {};
 constexpr int GRB=0,DISABLE_DITHER=0;
+constexpr int FASTLED_SCALE8_FIXED=1;
 struct FakeLEDs {
  CRGB* pixels=nullptr;
  int count=0,shows=0;

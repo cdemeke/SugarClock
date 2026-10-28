@@ -32,3 +32,6 @@ __pycache__/
 
 # Swift Package Manager local builds
 .build/
+
+# Browser test dependencies
+node_modules/

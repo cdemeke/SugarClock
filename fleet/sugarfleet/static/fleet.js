@@ -8,16 +8,16 @@ window.fleet = {
   },
   element(tag, text, className) {
     const element = document.createElement(tag);
-    if (text !== undefined && text !== null) element.textContent = String(text);
+    if (text !== undefined && text !== null) I18n.text(element, text, typeof text === "object");
     if (className) element.className = className;
     return element;
   },
   date(value) { return value ? new Date(Number(value)*1000).toLocaleString() : 'Not reported'; },
   label(value) { const names={dexcom:'Dexcom',libre:'FreeStyle Libre',custom:'Custom source',demo:'Demo',companion_enabled:'Companion',weather_enabled:'Weather',sysmon_enabled:'System monitor',notifications_enabled:'Notifications'}; return names[value] || String(value).replaceAll('_', ' '); },
   async action(button, output, callback) {
-    button.disabled = true; output.textContent = 'Saving…';
-    try { await callback(); } catch (error) { output.textContent = error.message; }
+    button.disabled = true; I18n.text(output, 'Saving…');
+    try { await callback(); } catch (error) { I18n.text(output, error.message, false); }
     finally { button.disabled = false; }
   },
 };
-document.querySelectorAll('[data-time]').forEach(element => { element.textContent = fleet.date(element.dataset.time); });
+document.querySelectorAll('[data-time]').forEach(element => { I18n.text(element, fleet.date(element.dataset.time), false); });
