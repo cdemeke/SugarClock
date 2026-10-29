@@ -668,6 +668,7 @@ private struct PendingSave {
     // only a state reported after that visit belongs to the submitted request.
     static func updateRequestSettled(_ ota:[String:Any])->Bool {
         if ota["request_pending"] as? Bool==true {return false}
+        if ota["request_failed"] as? Bool==true {return true}
         return ["error","deferred","update_available","idle"].contains(ota["state"] as? String ?? "")
     }
     private func monitorUpdate(clock:SavedClock,expected:String?) {
@@ -697,7 +698,9 @@ private struct PendingSave {
                         self.busy=false;return
                     }
                     if Self.updateRequestSettled(ota) {
-                        self.updateMessage="Reconnected · \(state). \(ota["error"] as? String ?? "") \(ota["deferral"] as? String ?? "")"
+                        self.updateMessage=ota["request_failed"] as? Bool==true ?
+                            "Reconnected. The clock couldn’t reach the update service; try again later." :
+                            "Reconnected · \(state). \(ota["error"] as? String ?? "") \(ota["deferral"] as? String ?? "")"
                         self.sessionReady=true;self.connectionState="Connected"
                         self.busy=false;return
                     }

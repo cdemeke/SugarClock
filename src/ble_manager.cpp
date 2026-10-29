@@ -214,7 +214,9 @@ void status(JsonObject o) {
  ota["state"]=ota_state_name(s.state);ota["progress"]=s.progress;ota["current_version"]=s.current_version;
  ota["available_version"]=s.available_version;ota["error"]=s.last_error;ota["deferral"]=s.safety_reason;
  ota["pending_verification"]=s.pending_verification;
- ota["request_pending"]=fleet_request_pending();
+ // Read pending first: a false value guarantees the failure flag is final.
+ bool pending=fleet_request_pending();
+ ota["request_pending"]=pending;ota["request_failed"]=!pending && fleet_request_failed();
 }
 void execute(JsonDocument& in,JsonDocument& out) {
  out["v"]=1;out["id"]=workID;out["state"]="applied";

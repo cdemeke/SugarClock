@@ -47,7 +47,7 @@ FleetManualIntent manual_intent;
 int manual_intent_mux=0;
 void portENTER_CRITICAL(int*) {}
 void portEXIT_CRITICAL(int*) {}
-std::atomic<bool> local_request_pending{false};
+std::atomic<bool> local_request_pending{false},local_request_failed{false};
 constexpr int pdPASS=1;
 int xTaskCreate(void (*worker)(void*),const char*,int,void*,int,void*) {
  if(failTask) return 0;
@@ -107,6 +107,10 @@ int main() {
  // An explicit check likewise skips batching before the app's 180 s monitor ends.
  local_request_pending=true;next_attempt_ms=now;fleet_loop();assert(fleetTasks==5);
  local_request_pending=false;worker_running=false;lease=false;glucoseExpected=false;
+ // A request whose worker cannot start publishes failure before pending clears.
+ failure_count=0;local_request_pending=true;failTask=true;next_attempt_ms=now;fleet_loop();
+ assert(local_request_failed && !local_request_pending && !lease && !worker_running);
+ failTask=false;local_request_failed=false;failure_count=0;
  // Disabled sources neither generate demo data nor acquire a network lease.
  worker_running=false;lease=false;http_paused=false;fetch_running=false;
  config.glucose_enabled=false;

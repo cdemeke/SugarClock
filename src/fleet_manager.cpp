@@ -53,6 +53,8 @@ static char channel[16] = "stable";
 static bool registered = false;
 static std::atomic<bool> worker_running{false};
 static std::atomic<bool> local_request_pending{false};
+// Outcome of the last explicit request's visit; published before pending clears.
+static std::atomic<bool> local_request_failed{false};
 static bool restart_requested = false;
 static uint32_t next_attempt_ms = 0;
 static unsigned failure_count = 0;
@@ -698,7 +700,10 @@ static void fleet_worker(void*) {
     }
     Serial.printf("[NET SCHEDULE] Management end result=%s next_in=%us\n",
                   ok ? "ok":"retry",unsigned((next_attempt_ms-millis())/1000));
-    // Any OTA work this visit queued is already reflected in OTA status.
+    // Any OTA work this visit queued is already reflected in OTA status. A
+    // visit that never reached the service leaves OTA state unchanged, so the
+    // explicit request's failure is published separately before pending clears.
+    if (local_request_pending) local_request_failed = !ok;
     local_request_pending = false;
     ble_release_network();worker_running = false;
     if (!ota_is_busy()) {
@@ -742,6 +747,7 @@ void fleet_loop() {
     http_set_paused(true);
     weather_set_paused(true);
     if (xTaskCreate(fleet_worker, "fleet", 14336, nullptr, 1, nullptr) != pdPASS) {
+        if (local_request_pending) local_request_failed = true;
         local_request_pending = false;
         ble_release_network();worker_running = false;
         http_set_paused(false);
@@ -756,6 +762,7 @@ const char* fleet_installation_id() { return installation_id; }
 
 bool fleet_request_check() {
     if (worker_running || ota_is_busy()) return false;
+    local_request_failed = false;
     local_request_pending = true;
     next_attempt_ms = millis();
     return true;
@@ -766,12 +773,14 @@ bool fleet_request_manual_install() {
     portENTER_CRITICAL(&manual_intent_mux);
     manual_intent.request(millis());
     portEXIT_CRITICAL(&manual_intent_mux);
+    local_request_failed = false;
     local_request_pending = true;
     next_attempt_ms = millis();
     return true;
 }
 
 bool fleet_request_pending() { return local_request_pending; }
+bool fleet_request_failed() { return local_request_failed; }
 
 bool fleet_record_update_outcome(bool deferred, const char* error) {
     if (!pending_is_target || !pending_ota_command[0]) return deferred;

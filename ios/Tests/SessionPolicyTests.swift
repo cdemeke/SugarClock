@@ -24,6 +24,8 @@ final class SessionPolicyTests: XCTestCase {
         XCTAssertFalse(ClockModel.updateRequestSettled(["state":"checking","request_pending":false]))
         XCTAssertTrue(ClockModel.updateRequestSettled(["state":"idle","request_pending":false]))
         XCTAssertTrue(ClockModel.updateRequestSettled(["state":"deferred","request_pending":false]))
+        XCTAssertTrue(ClockModel.updateRequestSettled(["state":"checking","request_pending":false,"request_failed":true]))
+        XCTAssertFalse(ClockModel.updateRequestSettled(["state":"idle","request_pending":true,"request_failed":true]))
     }
     func testSchemaCacheContainsMetadataOnlyAndRejectsUnknownExtensions() throws {
         let preferences=UserDefaults(suiteName:UUID().uuidString)!
