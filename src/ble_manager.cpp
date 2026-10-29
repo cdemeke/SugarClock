@@ -272,6 +272,14 @@ void execute(JsonDocument& in,JsonDocument& out) {
  else out["error"]="unsupported_operation";
 }
 }
+// Called by the patched NimBLE server (scripts/patch_nimble.py) before it would
+// delete a bonded peer's keys for a new pairing. Only the owner's physical
+// pairing window may replace a bond; otherwise the stack keeps it and ignores the request.
+extern "C" bool sugarclock_repeat_pairing_allowed(uint16_t conn_handle) {
+ if(windowOpen()) return true;
+ Serial.printf("[BLE] Ignoring repeat pairing handle=%u reason=window_closed\n",unsigned(conn_handle));
+ return false;
+}
 void ble_init() {
 #if SUGARCLOCK_BLE_COEXIST_TEST
  heap_caps_register_failed_alloc_callback(allocationFailed);

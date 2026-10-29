@@ -57,7 +57,8 @@ struct DexcomSchedule {
 
 // Prefer the tail of an existing radio pause. An unavailable glucose source
 // must not starve management; it gets its own turn after a bounded extra minute.
-// A fresh explicit install request runs at its target: its permission expires.
+// A fresh explicit check or install request runs at its target: the phone
+// monitors it for a bounded time and install permission expires.
 inline bool management_ready(uint32_t now,uint32_t target,bool pausedWindow,bool retry,
                              bool glucoseExpected=false,bool explicitRequest=false) {
  if(explicitRequest) return due(now,target);

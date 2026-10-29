@@ -103,7 +103,10 @@ int main() {
  worker_running=false;lease=false;pausedWindow=false;failure_count=1;glucoseExpected=true;
  manual_intent.request(now);next_attempt_ms=now;fleet_loop();assert(fleetTasks==4);
  assert(manual_intent.consume(now));
- worker_running=false;lease=false;failure_count=0;glucoseExpected=false;
+ worker_running=false;lease=false;failure_count=0;
+ // An explicit check likewise skips batching before the app's 180 s monitor ends.
+ local_request_pending=true;next_attempt_ms=now;fleet_loop();assert(fleetTasks==5);
+ local_request_pending=false;worker_running=false;lease=false;glucoseExpected=false;
  // Disabled sources neither generate demo data nor acquire a network lease.
  worker_running=false;lease=false;http_paused=false;fetch_running=false;
  config.glucose_enabled=false;

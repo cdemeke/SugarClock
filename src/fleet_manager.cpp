@@ -729,8 +729,10 @@ void fleet_loop() {
     portENTER_CRITICAL(&manual_intent_mux);
     bool manual_pending = manual_intent.fresh(millis());
     portEXIT_CRITICAL(&manual_intent_mux);
+    // A phone-requested check is monitored for a bounded time, like an install.
+    bool explicit_pending = manual_pending || local_request_pending;
     if(!scnet::management_ready(millis(),next_attempt_ms,grouped,failure_count!=0,
-                               http_dexcom_due_within(300000),manual_pending)) return;
+                               http_dexcom_due_within(300000),explicit_pending)) return;
     if(!ble_acquire_network()) return;
     Serial.printf("[NET SCHEDULE] Management start grouped=%d retry=%u\n",int(grouped),failure_count);
     worker_running = true;
