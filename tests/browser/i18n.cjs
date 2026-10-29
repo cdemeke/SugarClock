@@ -8,12 +8,11 @@ const {spawn} = require('node:child_process');
 const root = path.resolve(__dirname, '../..');
 let browser, deviceServer, siteServer, deviceURL, siteURL;
 const screenshots = path.join(root, 'docs/pr/languages');
-function serve(directory, device = false) {
+function serve(directory) {
   return new Promise(resolve => {
     const server = http.createServer((req, res) => {
       let relative = decodeURIComponent(new URL(req.url, 'http://localhost').pathname).replace(/^\//, '') || 'index.html';
       let file = path.join(directory, relative);
-      if (device && relative.startsWith('locales/')) file = path.join(root, 'web/i18n/device-locales', path.basename(relative));
       if (!file.startsWith(root) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {res.writeHead(404);res.end();return;}
       const type = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json','.png':'image/png'}[path.extname(file)] || 'application/octet-stream';
       res.writeHead(200, {'Content-Type':type});fs.createReadStream(file).pipe(res);
@@ -22,7 +21,7 @@ function serve(directory, device = false) {
 }
 before(async () => {
   browser = await chromium.launch({headless:true});
-  [deviceServer, deviceURL] = await serve(path.join(root,'data/www'), true);
+  [deviceServer, deviceURL] = await serve(path.join(root,'data/www'));
   [siteServer, siteURL] = await serve(path.join(root,'docs'));
   if (process.env.CAPTURE_SCREENSHOTS) fs.mkdirSync(screenshots, {recursive:true});
 });
@@ -43,6 +42,10 @@ async function pageFor(locale='en-US', mobile=false) {
     if(pathname==='/api/debug')body={battery_voltage:4.1,battery_percent:80};
     await route.fulfill({json:body});
   });
+  // Clock pages fetch non-English catalogs from the public site's checked-in copy.
+  await page.route('https://sugarclock.com/js/device-locales/*.json',route=>route.fulfill({
+    path:path.join(root,'docs/js/device-locales',path.basename(new URL(route.request().url()).pathname)),
+    contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*'}}));
   // External install widget/media are outside localization and remain untouched.
   await page.route('https://unpkg.com/feather-icons',route=>route.fulfill({contentType:'text/javascript',body:'window.feather={replace(){}}'}));
   await page.route('https://unpkg.com/esp-web-tools**',route=>route.fulfill({contentType:'text/javascript',body:''}));
@@ -127,6 +130,15 @@ test('unsupported locale, unavailable storage, failed catalog, rapid selection a
  await page.evaluate(()=>{const div=document.createElement('div');div.id='injection';document.body.append(div);I18n.text(div,I18n.message('Showing: {0} ({1})',['<img src=x onerror=alert(1)>',42]));});
  assert.equal(await page.evaluate(()=>I18n.t(I18n.message('{0}',[I18n.message('Language')]))),'Language');
  assert.equal(await page.locator('#injection img').count(),0);assert.match(await page.locator('#injection').innerText(),/<img/);
+ assert.deepEqual(errors,[]);await context.close();
+});
+
+test('clock pages stay usable in English without internet access',async()=>{
+ const {page,context,errors}=await pageFor('de-DE');
+ await page.route('https://sugarclock.com/**',route=>route.abort('internetdisconnected'));
+ await page.goto(deviceURL);await page.waitForFunction(()=>document.querySelector('[data-language-status]')?.textContent.length>0);
+ assert.equal(await page.locator('html').getAttribute('lang'),'en');
+ assert.equal(await page.locator('[data-i18n="Dashboard"]').first().innerText(),'Dashboard');
  assert.deepEqual(errors,[]);await context.close();
 });
 

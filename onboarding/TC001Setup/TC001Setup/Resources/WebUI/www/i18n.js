@@ -1,8 +1,11 @@
-/* Shared, offline-capable UI localization. Only authored copy is translated. */
+/* Shared UI localization. Only authored copy is translated. */
 (function () {
   'use strict';
   const script = document.currentScript;
-  const base = new URL('locales/', script.src);
+  // Clock pages name a remote catalog folder so translations need no firmware
+  // space. English is built in, so those pages still work without internet.
+  const remote = Boolean(script.dataset.catalogs);
+  const base = new URL(script.dataset.catalogs || 'locales/', script.src);
   const languages = [
     ['en', 'English'], ['zh', '中文'], ['hi', 'हिन्दी'], ['es', 'Español'],
     ['ar', 'العربية'], ['fr', 'Français'], ['bn', 'বাংলা'], ['pt', 'Português'],
@@ -85,7 +88,7 @@
     setBusy(true);
     try {
       if (!cache.has(next)) {
-        const response = await fetch(new URL(next + '.json', base), {cache: 'force-cache'});
+        const response = await fetch(new URL(next + '.json', base), {cache: remote ? 'default' : 'force-cache'});
         if (!response.ok) throw new Error('Catalog unavailable');
         const catalog = await response.json();
         if (!catalog || Array.isArray(catalog) || typeof catalog !== 'object' ||

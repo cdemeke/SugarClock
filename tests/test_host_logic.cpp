@@ -563,7 +563,11 @@ int main() {
     FleetManualIntent manual;
     assert(!manual.consume(10));
     manual.request(20);
+    // Peeking for scheduling does not consume the intent.
+    assert(manual.fresh(21));
+    assert(!manual.fresh(60020));
     assert(manual.consume(21));
+    assert(!manual.fresh(22));
     assert(!manual.consume(22));
     manual.request(30);
     assert(!manual.consume(60030));

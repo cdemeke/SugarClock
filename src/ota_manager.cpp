@@ -1,6 +1,8 @@
 #include "ota_manager.h"
+#include "ble_manager.h"
 #include "ota_boot_validation.h"
 #include "fleet_manager.h"
+#include <esp_heap_caps.h>
 
 #include "buzzer.h"
 #include "config_manager.h"
@@ -102,12 +104,14 @@ static void set_state(OtaState state, const char* error = nullptr,
         }
     }
     portENTER_CRITICAL(&status_mux);
+    bool changed=status_snapshot.state!=state;
     status_snapshot.state = state;
     if (state == OTA_CHECKING) status_snapshot.last_error[0] = '\0';
     if (error) copy_text(status_snapshot.last_error, sizeof(status_snapshot.last_error), error);
     if (safety) copy_text(status_snapshot.safety_reason, sizeof(status_snapshot.safety_reason), safety);
     else if (state != OTA_DEFERRED) status_snapshot.safety_reason[0] = '\0';
     portEXIT_CRITICAL(&status_mux);
+    if(changed) Serial.printf("[OTA MEM] state=%d free=%u min=%u largest=%u\n",int(state),ESP.getFreeHeap(),ESP.getMinFreeHeap(),heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
 }
 
 static void set_progress(int progress) {
@@ -534,15 +538,16 @@ static void ota_worker(void*) {
     vTaskDelete(nullptr);
 }
 
-static OtaRequestResult start_worker() {
-    if (worker_running) return OTA_REQUEST_BUSY;
-    worker_running = true;
-    BaseType_t result = xTaskCreate(ota_worker, "ota_install", 12288, nullptr, 1, nullptr);
-    if (result != pdPASS) {
-        worker_running = false;
-        set_state(OTA_ERROR, "task_create_failed");
-        return OTA_REQUEST_INTERNAL_ERROR;
-    }
+// Requests enqueue first, allowing the BLE acknowledgment to be read. The main
+// loop releases Bluetooth memory before creating the existing OTA worker.
+static int queued_worker_mode=-1;
+static unsigned long queued_worker_at=0;
+static OtaRequestResult start_worker(unsigned mode) {
+    portENTER_CRITICAL(&status_mux);
+    if(worker_running) {portEXIT_CRITICAL(&status_mux);return OTA_REQUEST_BUSY;}
+    worker_running=true;queued_worker_mode=mode;queued_worker_at=millis();
+    http_set_paused(true);weather_set_paused(true);
+    portEXIT_CRITICAL(&status_mux);
     return OTA_REQUEST_QUEUED;
 }
 
@@ -552,7 +557,6 @@ OtaRequestResult ota_request_check() {
 }
 
 OtaRequestResult ota_request_install(bool manual) {
-    // Even local/manual retries require a new fleet offer and authorization.
     if (!manual) return ota_request_check();
     return fleet_request_manual_install() ? OTA_REQUEST_QUEUED : OTA_REQUEST_BUSY;
 }
@@ -581,7 +585,7 @@ OtaRequestResult ota_request_managed_install(const char* manifest_url,
     copy_text(managed_request.expected_sha256, sizeof(managed_request.expected_sha256), expected_sha256);
     set_state(OTA_CHECKING);
     set_progress(0);
-    return start_worker();
+    return start_worker(2);
 }
 
 static void inspect_boot_state() {
@@ -686,6 +690,15 @@ static void render_update_status() {
 }
 
 void ota_loop() {
+    if(queued_worker_mode>=0 && !http_is_fetching() && !ble_network_is_busy() && millis()-queued_worker_at>=1500) {
+        int mode=queued_worker_mode;queued_worker_mode=-1;
+        ble_suspend_for_ota();
+        if(xTaskCreate(ota_worker,mode ? "ota_install":"ota_check",12288,
+            reinterpret_cast<void*>(static_cast<uintptr_t>(mode)),1,nullptr)!=pdPASS) {
+            worker_running=false;http_set_paused(false);weather_set_paused(false);set_state(OTA_ERROR,"task_create_failed");
+        }
+    }
+
     validate_pending_image();
     render_update_status();
 

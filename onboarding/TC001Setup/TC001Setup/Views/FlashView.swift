@@ -11,6 +11,7 @@ import SwiftUI
 struct FlashView: View {
 
     @EnvironmentObject var state: SetupState
+    @State private var preserveSettings = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -19,11 +20,15 @@ struct FlashView: View {
                 Text("Install SugarClock")
                     .font(.largeTitle.bold())
 
-                Text("Your settings and software will be installed to the device. This takes about a minute.")
+                Text("Your settings and software will be installed to the device. Backup and installation may take several minutes.")
                     .font(.body)
                     .foregroundStyle(.secondary)
             }
 
+            Toggle("Upgrade existing SugarClock — preserve saved settings and certificates", isOn: $preserveSettings)
+                .disabled(state.isFlashing)
+            Text(preserveSettings ? "The settings entered in this installer are ignored. A private flash backup is saved before upgrading. For a stock/new clock, turn this option off." : "Fresh installation applies the settings entered above and replaces the filesystem. Use the upgrade option for a configured SugarClock.")
+                .font(.caption)
             Divider()
 
             // Stage progress
@@ -192,7 +197,7 @@ struct FlashView: View {
 
             let littlefsPath: String
             do {
-                littlefsPath = try await FirmwareManager.buildLittleFSImage(config: config) { text in
+                littlefsPath = try await FirmwareManager.buildLittleFSImage(config: preserveSettings ? [:] : config) { text in
                     appendLog(text)
                 }
             } catch {
@@ -207,7 +212,7 @@ struct FlashView: View {
             appendLog("Installing software to your device...\n")
 
             do {
-                try await FirmwareManager.flashDevice(port: port, littlefsPath: littlefsPath) { text in
+                try await FirmwareManager.flashDevice(port: port, littlefsPath: littlefsPath, preserveSettings: preserveSettings) { text in
                     appendLog(text)
                 }
             } catch {
@@ -221,7 +226,9 @@ struct FlashView: View {
             state.flashProgress = 4.0 / totalStages
             appendLog("Waiting for your device to start up...\n")
 
-            if state.configureWiFiOnDevice {
+            if preserveSettings {
+                appendLog("Saved settings preserved. Pair with the iPhone companion after the clock starts.\n")
+            } else if state.configureWiFiOnDevice {
                 state.deviceIP = ""
                 appendLog("WiFi setup was deferred. The clock will start the SugarClock-Setup network for your phone.\n\n")
             } else {
@@ -237,7 +244,9 @@ struct FlashView: View {
             // Stage 5: Push config via HTTP (belt-and-suspenders)
             state.flashStage = .pushingConfig
             state.flashProgress = 4.5 / totalStages
-            if state.configureWiFiOnDevice {
+            if preserveSettings {
+                appendLog("Saved settings preserved. Pair with the iPhone companion after the clock starts.\n")
+            } else if state.configureWiFiOnDevice {
                 appendLog("Skipping network settings push until on-device WiFi setup is complete.\n\n")
             } else if !state.deviceIP.isEmpty {
                 appendLog("Applying settings to device...\n")

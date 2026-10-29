@@ -13,7 +13,7 @@
 #include <cassert>
 #include <initializer_list>
 
-static AppConfig cfg = {};
+static AppConfig cfg = [] { AppConfig c{}; c.glucose_enabled=true; return c; }();
 static GlucoseReading reading = {};
 static unsigned long now_ms = 0, age_ms = 0;
 static int failures = 0, drawn_glucose = 0, delta_frames = 0, button_actions = 0;
@@ -27,7 +27,7 @@ unsigned long millis() { return now_ms; }
 AppConfig& config_get() { return cfg; }
 bool config_has_wifi() { return true; }
 bool config_has_server() { return true; }
-const GlucoseReading& http_get_reading() { return reading; }
+GlucoseReading http_get_reading() { return reading; }
 unsigned long http_time_since_last_reading() { return age_ms; }
 int http_get_failure_count() { return failures; }
 bool http_has_ever_received() { return ever_received; }
@@ -73,7 +73,8 @@ int sysmon_get_max() { return 100; }
 const char* sysmon_get_label() { return "CPU"; }
 bool countdown_is_configured() { return false; }
 long countdown_get_remaining_sec() { return 0; }
-bool weather_has_data() { return false; }
+static bool weather_data = false;
+bool weather_has_data() { return weather_data; }
 const WeatherReading& weather_get_reading() { static WeatherReading wx = {}; return wx; }
 void weather_set_pre_fetch_callback(WeatherPreFetchCallback) {}
 void display_set_brightness(uint8_t value) { brightness = value; }
@@ -265,6 +266,9 @@ int main() {
     reading.glucose = 300; assert(!engine_low_glucose_lock_active());
     // Preserve urgent-low handling even with misordered configured thresholds.
     cfg.thresh_low = 60; reading.glucose = 65; assert_low_frame();
+    cfg.glucose_enabled = false;
+    assert(!engine_low_glucose_lock_active());
+    cfg.glucose_enabled = true;
     // Disabling the option while low restores normal override precedence.
     cfg.glucose_only_when_low = false; notification = true; settle();
     assert(engine_get_state() == STATE_NOTIFY_DISPLAY);
@@ -299,5 +303,17 @@ int main() {
     cfg.data_source = 2; age_ms = 600000;
     render_state(STATE_GLUCOSE_DISPLAY);
     assert(drawn_color == green);
+
+    // A weather startup screen waits for the first reading after boot.
+    cfg.data_source = 0; age_ms = 0; cfg.default_mode = 2; cfg.auto_cycle_enabled = false;
+    weather_data = false; engine_init();
+    assert(user_mode == STATE_GLUCOSE_DISPLAY);
+    weather_data = true; engine_rebuild_toggle_order();
+    assert(user_mode == STATE_WEATHER_DISPLAY && default_mode == STATE_WEATHER_DISPLAY);
+    // A manual selection before the first reading takes precedence.
+    weather_data = false; engine_init(); engine_toggle_mode();
+    const DisplayState chosen = user_mode;
+    weather_data = true; engine_rebuild_toggle_order();
+    assert(user_mode == chosen && chosen != STATE_WEATHER_DISPLAY);
     return 0;
 }

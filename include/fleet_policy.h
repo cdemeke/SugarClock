@@ -26,10 +26,13 @@ const char* fleet_local_install_block(bool manual, bool automatic_enabled, bool 
 class FleetManualIntent {
 public:
     void request(uint32_t now) { requested_at_ = now; pending_ = true; }
+    bool fresh(uint32_t now) const {
+        return pending_ && static_cast<uint32_t>(now - requested_at_) < 60000UL;
+    }
     bool consume(uint32_t now) {
-        bool fresh = pending_ && static_cast<uint32_t>(now - requested_at_) < 60000UL;
+        bool was_fresh = fresh(now);
         pending_ = false;
-        return fresh;
+        return was_fresh;
     }
 private:
     bool pending_ = false;

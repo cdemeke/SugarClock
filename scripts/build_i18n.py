@@ -6,6 +6,9 @@ import shutil
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / 'web/i18n'
+# Clocks load non-English device catalogs from the public site, which keeps
+# them out of the firmware image. English is built in and always works.
+DEVICE_CATALOGS = ROOT / 'docs/js/device-locales'
 SURFACES = {
     'marketing': ROOT / 'docs/js',
     'device': ROOT / 'data/www',
@@ -32,8 +35,7 @@ def build():
     for surface, destination in SURFACES.items():
         for name in ('i18n.js', 'i18n.css'):
             shutil.copyfile(SOURCE / name, destination / name)
-        # Device catalogs are flash assets, not a duplicate LittleFS overlay.
-        output = SOURCE / 'device-locales' if surface == 'device' else destination / 'locales'
+        output = DEVICE_CATALOGS if surface == 'device' else destination / 'locales'
         output.mkdir(exist_ok=True)
         for path in sorted((SOURCE / 'locales').glob('*.json')):
             translations = json.loads(path.read_text())

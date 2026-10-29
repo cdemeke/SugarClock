@@ -43,8 +43,8 @@ def generate_web_assets():
         return
 
     assets = []
-    sources = [(DATA_WWW_DIR, "/"),
-               (os.path.join(ROOT_DIR, "web", "i18n", "device-locales"), "/locales/")]
+    # Translation catalogs are served by sugarclock.com, not embedded here.
+    sources = [(DATA_WWW_DIR, "/")]
     for source_dir, prefix in sources:
         for root, directories, files in os.walk(source_dir):
             directories.sort()

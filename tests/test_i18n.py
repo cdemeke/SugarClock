@@ -39,14 +39,18 @@ class LocalizationTests(unittest.TestCase):
                     self.assertIn(html.unescape(value), inventory[surface], str(page))
             for name in ('i18n.js', 'i18n.css'):
                 self.assertEqual((ROOT / 'web/i18n' / name).read_bytes(), (folder / name).read_bytes())
-            output = ROOT / 'web/i18n/device-locales' if surface == 'device' else folder / 'locales'
+            output = ROOT / 'docs/js/device-locales' if surface == 'device' else folder / 'locales'
             for catalog in (ROOT / 'web/i18n/locales').glob('*.json'):
                 translations = json.loads(catalog.read_text())
                 compiled = json.loads((output / catalog.name).read_text())
                 self.assertEqual(compiled, {key(value):translations[value] for value in inventory[surface]})
 
-    def test_device_catalogs_are_embedded_without_filling_the_filesystem_overlay(self):
+    def test_device_catalogs_are_published_on_the_site_not_embedded_in_firmware(self):
         generated = (ROOT / 'src/web_assets.cpp').read_text()
-        for catalog in (ROOT / 'web/i18n/device-locales').glob('*.json'):
-            self.assertIn(f'"/locales/{catalog.name}"', generated)
+        self.assertNotIn('"/locales/', generated)
         self.assertFalse((ROOT / 'data/www/locales').exists())
+        self.assertEqual(len(list((ROOT / 'docs/js/device-locales').glob('*.json'))), 19)
+        for page in (ROOT / 'data/www').glob('*.html'):
+            if 'i18n.js' in page.read_text():
+                self.assertIn('<script src="i18n.js" data-catalogs="https://sugarclock.com/js/device-locales/"></script>',
+                              page.read_text(), page.name)

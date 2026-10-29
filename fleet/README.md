@@ -83,6 +83,16 @@ future releases use fleet targeting. This PR does not promote or publish a relea
 
 ## Reporting and location
 
+Before each deployment, stop writes briefly and copy the SQLite database plus its WAL files from the named volume to encrypted storage. After deployment, require the container health check to pass, confirm `/healthz`, sign in through GitHub, verify the expected fleet count, and exercise one canary check-in before reopening enrollment or issuing commands.
+
+
+### Remote configuration scope (management protocol 1)
+
+The queue accepts the device's validated remote subset: display brightness (1–255), display/time/unit switches, default mode, companion selection/style/colors, notification preferences, system-monitor preferences, low-glucose display lock, and auto-cycle settings. `fleet/sugarfleet/validation.py::CONFIG_FIELDS` defines exact names and bounds; the executable contract test compares every field with the firmware gate. Switches are JSON booleans. Unsupported fields reject the entire request before a command is inserted; valid fields are not silently split out of a mixed patch.
+
+Glucose thresholds, timezone and polling interval are not supported through `config_patch`; configure them locally. The local wire key is `poll_interval`; `poll_interval_sec` is a C++ member name, not a wire alias. Neither is accepted in fleet config patches. Secret/connectivity protection remains in place. Previously queued unsupported commands are not rewritten and may still fail on the device.
+
+The contract regression compares server validation with the real firmware fleet gate and `config_patch` for every supported field's types and boundaries. CI runs it again after firmware dependencies are installed.
 Firmware reports every five minutes with jitter; legacy firmware polls faster.
 Overview shows registered installations, online status, 7/30-day activity, firmware
 versions, enabled-feature counts, and approximate city/country counts. Device details
