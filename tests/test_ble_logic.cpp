@@ -117,8 +117,31 @@ int main() {
  assert(!strcmp(config.libre_patient_id,"patient"));
  deserializeJson(patch,"{\"libre_email\":\"other@example.invalid\"}");assert(!config_patch(config,patch.as<JsonObjectConst>()));
  assert(!config.libre_region[0] && !config.libre_patient_id[0] && !config.libre_patient_name[0]);
+ strcpy(config.libre_region,"us");strcpy(config.libre_patient_id,"patient");strcpy(config.libre_patient_name,"Alice");
  deserializeJson(patch,"{\"libre_password\":null}");assert(!config_patch(config,patch.as<JsonObjectConst>()));
- assert(!config.libre_password[0]);
+ assert(!config.libre_password[0] && !strcmp(config.libre_region,"us") && !strcmp(config.libre_patient_id,"patient"));
+ // A new person must come from this account's tested list, and brings its name.
+ LibrePatientSnapshot people("other@example.invalid",2);
+ strcpy(people.people[0].id,"patient");strcpy(people.people[0].name,"Alice");
+ strcpy(people.people[1].id,"other");strcpy(people.people[1].name,"Bob");
+ LibrePatientSnapshot stranger("someone@example.invalid",2);stranger.people=people.people;
+ deserializeJson(patch,"{\"libre_patient_id\":\"other\"}");same=config;
+ assert(!strcmp(config_patch(config,patch.as<JsonObjectConst>()),"libre_patient_id"));config=same;
+ assert(!strcmp(config_patch(config,patch.as<JsonObjectConst>(),true,&stranger),"libre_patient_id"));config=same;
+ assert(!config_patch(config,patch.as<JsonObjectConst>(),true,&people));
+ assert(!strcmp(config.libre_patient_id,"other") && !strcmp(config.libre_patient_name,"Bob"));
+ deserializeJson(patch,"{\"libre_patient_id\":\"unknown\"}");same=config;
+ assert(!strcmp(config_patch(config,patch.as<JsonObjectConst>(),true,&people),"libre_patient_id"));config=same;
+ // The web form always resends the current person; that needs no list.
+ deserializeJson(patch,"{\"libre_patient_id\":\"other\",\"brightness\":79}");
+ assert(!config_patch(config,patch.as<JsonObjectConst>(),true) && !strcmp(config.libre_patient_name,"Bob"));
+ deserializeJson(patch,"{\"libre_patient_id\":null}");assert(!config_patch(config,patch.as<JsonObjectConst>()));
+ assert(!config.libre_patient_id[0] && !config.libre_patient_name[0]);
+ // A new email may be a different account: forget its region and person.
+ strcpy(config.libre_patient_id,"patient");strcpy(config.libre_patient_name,"Alice");
+ deserializeJson(patch,"{\"libre_email\":\"new@example.invalid\",\"libre_patient_id\":\"other\"}");
+ assert(!config_patch(config,patch.as<JsonObjectConst>(),false,&people));
+ assert(!config.libre_region[0] && !config.libre_patient_id[0] && !config.libre_patient_name[0]);
  std::ifstream f("protocol/fixtures/frames.json");JsonDocument fixtures;assert(!deserializeJson(fixtures,f));
  for(JsonObject fixture:fixtures.as<JsonArray>()) {
   std::string hex=fixture["hex"].as<std::string>();std::string bytes;

@@ -107,7 +107,7 @@ int main() {
 }
 """)
             exe = str(pathlib.Path(tmp, "contract"))
-            subprocess.run(["c++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-Iinclude", "-I"+str(library), str(harness), "src/config_patch.cpp", "-o", exe], cwd=ROOT, check=True)
+            subprocess.run(["c++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-Iinclude", "-I"+str(library), str(harness), "src/config_patch.cpp", "src/libre_patient.cpp", "-o", exe], cwd=ROOT, check=True)
             result = subprocess.run([exe], input="\n".join(json.dumps(case) for case in cases), text=True, capture_output=True, check=True)
             self.assertEqual(result.stdout.splitlines(), expected)
     def test_companion_selection_is_validated(self):

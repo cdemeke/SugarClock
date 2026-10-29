@@ -17,7 +17,7 @@ class ReviewRegressionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             source=(ROOT/'src/settings_apply.cpp').read_text()
             (pathlib.Path(tmp)/'settings_apply.inc').write_text(source[source.index('bool settings_apply('):])
-            self.compile_run(tmp,'test_settings_apply',['src/config_patch.cpp'])
+            self.compile_run(tmp,'test_settings_apply',['src/config_patch.cpp','src/libre_patient.cpp'])
 
     def test_actual_wifi_scan_and_ble_failure_responses(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -36,7 +36,7 @@ class ReviewRegressionTests(unittest.TestCase):
             config=source[source.index('static void handle_post_config('):source.index('static String frame_etag')]
             wifi=source[source.index('// POST /api/wifi/connect'):source.index('// DELETE /api/wifi/ca')]
             (pathlib.Path(tmp)/'web_bodies.inc').write_text(config+'\n'+wifi)
-            self.compile_run(tmp,'test_web_bodies',['src/config_patch.cpp','-fsanitize=address,undefined','-fno-omit-frame-pointer'])
+            self.compile_run(tmp,'test_web_bodies',['src/config_patch.cpp','src/libre_patient.cpp','-fsanitize=address,undefined','-fno-omit-frame-pointer'])
 
     def test_web_ui_polling_endpoints_are_registered_with_matching_methods(self):
         routes=(ROOT/'src/web_server.cpp').read_text()

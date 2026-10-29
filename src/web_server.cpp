@@ -303,7 +303,8 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     ConfigGuard guard;
     AppConfig candidate=config_get();
     SensitiveScope<AppConfig> erase_candidate(candidate);
-    const char* error=config_patch(candidate,doc.as<JsonObjectConst>(),true);
+    LibrePatients people=libre_get_patients();
+    const char* error=config_patch(candidate,doc.as<JsonObjectConst>(),true,people.get());
     if(error) { request->send(400,"application/json",String("{\"error\":\"")+error+"\"}");return; }
     const AppConfig& current=config_get();
     if(strcmp(candidate.wifi_ssid,current.wifi_ssid) || strcmp(candidate.wifi_password,current.wifi_password) ||

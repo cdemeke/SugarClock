@@ -8,6 +8,7 @@
 #include "ota_manager.h"
 #include "fleet_manager.h"
 #include "http_client.h"
+#include "libre_client.h"
 #include "net_check.h"
 #include "display.h"
 #include "glucose_engine.h"
@@ -238,7 +239,8 @@ void execute(JsonDocument& in,JsonDocument& out) {
   if(ota_is_busy()) { out["error"]="busy";return; }
   ConfigGuard guard;AppConfig candidate=config_get();JsonObjectConst patch=in["patch"].as<JsonObjectConst>();
   for(JsonPairConst p:patch) if(!strncmp(p.key().c_str(),"wifi_",5)) { out["error"]="use_wifi_trial";return; }
-  const char* error=config_patch(candidate,patch);if(error) { out["error"]="validation";out["field"]=error;return; }
+  LibrePatients people=libre_get_patients();
+  const char* error=config_patch(candidate,patch,false,people.get());if(error) { out["error"]="validation";out["field"]=error;return; }
   if(!settings_apply(candidate)) { out["error"]="persistence_failed";return; }
   out["saved"]=true;
  } else if(!strcmp(op,"wifi.scan")) {

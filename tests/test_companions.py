@@ -40,7 +40,7 @@ class CompanionTests(unittest.TestCase):
             if 'doc["ambient_character"] =' in line or 'doc["ambient_creature"] =' in line))
         binary = str(temp / 'companion-config')
         subprocess.run(['c++', '-std=c++17', '-I'+str(temp), '-Iinclude', '-I.pio/libdeps/esp32dev/ArduinoJson/src',
-                        'tests/test_companion_config.cpp', 'src/config_patch.cpp', '-o', binary], cwd=ROOT, check=True)
+                        'tests/test_companion_config.cpp', 'src/config_patch.cpp','src/libre_patient.cpp', '-o', binary], cwd=ROOT, check=True)
         subprocess.run([binary], check=True)
 
     def test_installer_has_identical_companion_assets(self):

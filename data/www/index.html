@@ -1574,7 +1574,9 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
             try {
                 const r = await fetch('/api/config', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
-                showToast(r.ok ? 'Configuration saved!' : 'Save failed', r.ok ? 'success' : 'error');
+                const failure = r.ok ? null : await r.json().catch(() => ({}));
+                showToast(r.ok ? 'Configuration saved!' : failure.error === 'libre_patient_id'
+                    ? 'Test the Libre connection, then choose a person from the list.' : 'Save failed', r.ok ? 'success' : 'error');
                 if (r.ok && data.weather_api_key.trim()) {
                     weatherKeySaved = true;
                     document.getElementById('weather_api_key').value = '';

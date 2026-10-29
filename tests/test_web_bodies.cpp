@@ -75,6 +75,7 @@ void config_lock() {}
 void config_unlock() {}
 AppConfig& config_get() {return current;}
 bool ota_is_busy() {return false;}
+LibrePatients libre_get_patients() {return nullptr;}
 bool settings_apply(const AppConfig& candidate) {current=candidate;++configSaves;return true;}
 
 // The production handlers, extracted without rewriting their logic.

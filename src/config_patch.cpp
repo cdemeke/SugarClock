@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <string>
+static_assert(sizeof(AppConfig::libre_patient_name)==sizeof(LibrePatient::name),"Libre person name sizes differ");
 namespace {
 enum class Kind { Text,Int,Bool,Byte,UInt,ULong };
 struct Field { const char* name; size_t offset,size; Kind kind; long lo,hi; bool secret; };
@@ -116,9 +117,10 @@ void config_public(JsonObject o,const AppConfig& c) {
   }
  }
 }
-const char* config_patch(AppConfig& c,JsonObjectConst patch,bool web) {
+const char* config_patch(AppConfig& c,JsonObjectConst patch,bool web,const LibrePatientSnapshot* people) {
  if(patch.isNull()) return "invalid_patch";
  bool libre_identity_changed=false;
+ char selected_before[sizeof(c.libre_patient_id)];memcpy(selected_before,c.libre_patient_id,sizeof(selected_before));
  for(JsonPairConst pair:patch) {
   // Match production precedence, independent of JSON key order.
   if(!strcmp(pair.key().c_str(),"ambient_creature") && !patch["ambient_character"].isNull()) continue;
@@ -157,6 +159,14 @@ const char* config_patch(AppConfig& c,JsonObjectConst patch,bool web) {
  }
  if(libre_identity_changed) {
   c.libre_region[0]=0;c.libre_patient_id[0]=0;c.libre_patient_name[0]=0;
+ } else if(strcmp(c.libre_patient_id,selected_before)) {
+  // Never accept an arbitrary ID: a new person must come from this account's tested list.
+  if(c.libre_patient_id[0]) {
+   int index=people && !strcmp(people->account,c.libre_email)
+    ? libre_patient_index(people->people.data(),people->people.size(),c.libre_patient_id) : LIBRE_PATIENT_MISSING;
+   if(index<0) return "libre_patient_id";
+   memcpy(c.libre_patient_name,people->people[index].name,sizeof(c.libre_patient_name));
+  } else c.libre_patient_name[0]=0;
  }
  if(!(c.thresh_urgent_low<=c.thresh_low && c.thresh_low<c.thresh_high && c.thresh_high<=c.thresh_urgent_high)) return "threshold_order";
  if(c.alert_low>=c.alert_high) return "alert_order";
