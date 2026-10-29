@@ -273,7 +273,7 @@
   "Example Push Scripts": "Ejemplos de scripts push",
   "Expand rollout": "Ampliar la implementación",
   "Expand to (%)": "Ampliar a (%)",
-  "FAQ - SugarClock": "Preguntas frecuentes - SugarClock",
+  "SugarClock FAQ | CGM Display Setup & Troubleshooting": "SugarClock FAQ | Configuración de la pantalla CGM y solución de problemas",
   "FS Total": "Total de cuentas bancarias",
   "FS Used": "FS usado",
   "Factory Reset": "Restablecimiento de fábrica",
@@ -704,7 +704,7 @@
   "SugarClock - Dashboard": "SugarClock - Panel de control",
   "SugarClock - Debug": "SugarClock - Depuración",
   "SugarClock - Device": "SugarClock - Dispositivo",
-  "SugarClock - Glucose Visible at a Glance": "SugarClock: glucosa visible de un vistazo",
+  "SugarClock (Sugar Clock) | Open-Source CGM Display": "SugarClock (Sugar Clock) | Pantalla CGM de código abierto",
   "SugarClock - Send Notification": "SugarClock - Enviar notificación",
   "SugarClock Fleet": "Flota SugarClock",
   "SugarClock Notification": "SugarClock Notificación",
@@ -970,5 +970,6 @@
   "New here?": "¿Eres nuevo?",
   "Watch the setup video or send us feedback anytime from here.": "Mira el video de configuración o envíanos comentarios cuando quieras desde aquí.",
   "Show me": "Muéstrame",
-  "Got it": "Entendido"
+  "Got it": "Entendido",
+  "SugarClock (Sugar Clock) turns an affordable Ulanzi TC001 pixel clock into a Wi-Fi blood sugar display for Dexcom Share, FreeStyle Libre via LibreLinkUp, and Nightscout.": "SugarClock (Sugar Clock) convierte un económico reloj de píxeles Ulanzi TC001 en una pantalla de glucosa por Wi-Fi para Dexcom Share, FreeStyle Libre mediante LibreLinkUp y Nightscout."
 }
