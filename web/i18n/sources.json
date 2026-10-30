@@ -352,6 +352,8 @@
     "Force Mode",
     "Free Heap",
     "FreeStyle Libre (LibreLinkUp)",
+    "Nightscout",
+    "Enter your Nightscout site address. For a private site, create a token with the readable role in Nightscout Admin Tools and paste it as the Auth Token.",
     "Get a free key at",
     "Glucose",
     "Glucose Thresholds",

@@ -303,6 +303,8 @@
   "Free heap": "自由堆",
   "FreeStyle Libre": "FreeStyle Libre",
   "FreeStyle Libre (LibreLinkUp)": "FreeStyle Libre（LibreLinkUp）",
+  "Nightscout": "Nightscout",
+  "Enter your Nightscout site address. For a private site, create a token with the readable role in Nightscout Admin Tools and paste it as the Auth Token.": "输入您的 Nightscout 网站地址。对于私有网站，请在 Nightscout 的 Admin Tools 中创建一个具有 readable 角色的令牌，并将其粘贴为身份验证令牌。",
   "From clock to CGM display": "从时钟到 CGM 显示",
   "General": "一般",
   "Get a free key at": "获取免费钥匙：",

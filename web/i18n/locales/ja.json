@@ -303,6 +303,8 @@
   "Free heap": "空きヒープ",
   "FreeStyle Libre": "FreeStyle Libre",
   "FreeStyle Libre (LibreLinkUp)": "FreeStyle Libre (LibreLinkUp)",
+  "Nightscout": "Nightscout",
+  "Enter your Nightscout site address. For a private site, create a token with the readable role in Nightscout Admin Tools and paste it as the Auth Token.": "Nightscout サイトのアドレスを入力してください。非公開サイトの場合は、Nightscout の Admin Tools で readable ロールのトークンを作成し、認証トークンに貼り付けてください。",
   "From clock to CGM display": "時計からCGM表示まで",
   "General": "一般",
   "Get a free key at": "無料のキーを入手するには、",

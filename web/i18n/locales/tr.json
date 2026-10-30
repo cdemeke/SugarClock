@@ -303,6 +303,8 @@
   "Free heap": "Serbest yığın",
   "FreeStyle Libre": "FreeStyle Libre",
   "FreeStyle Libre (LibreLinkUp)": "FreeStyle Libre (LibreLinkUp)",
+  "Nightscout": "Nightscout",
+  "Enter your Nightscout site address. For a private site, create a token with the readable role in Nightscout Admin Tools and paste it as the Auth Token.": "Nightscout sitenizin adresini girin. Özel bir site için Nightscout Admin Tools'ta readable rolüne sahip bir jeton oluşturun ve bunu Kimlik Doğrulama Jetonu olarak yapıştırın.",
   "From clock to CGM display": "Saatten CGM ekranına",
   "General": "Genel",
   "Get a free key at": "adresinden ücretsiz bir anahtar alın",
