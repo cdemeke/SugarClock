@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nightscout clock via a custom JSON endpoint | SugarClock</title>
+  <meta name="description" content="Connect Nightscout data to SugarClock using an adapter that returns the supported glucose JSON format. Includes field mapping, timestamps, authentication, and troubleshooting.">
+  <link rel="canonical" href="https://sugarclock.com/nightscout-clock.html">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="SugarClock">
+  <meta property="og:title" content="Nightscout clock via a custom JSON endpoint | SugarClock">
+  <meta property="og:description" content="Connect Nightscout data to SugarClock using an adapter that returns the supported glucose JSON format. Includes field mapping, timestamps, authentication, and troubleshooting.">
+  <meta property="og:url" content="https://sugarclock.com/nightscout-clock.html">
+  <meta property="og:image" content="https://sugarclock.com/images/hero.png">
+  <meta property="og:image:alt" content="A SugarClock displaying a glucose value and trend arrow">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#fff7cc">
+  <link rel="icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lilita+One&amp;family=Source+Sans+3:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="guides.css">
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Nightscout clock via a custom JSON endpoint", "description": "Connect Nightscout data to SugarClock using an adapter that returns the supported glucose JSON format. Includes field mapping, timestamps, authentication, and troubleshooting.", "url": "https://sugarclock.com/nightscout-clock.html", "inLanguage": "en", "image": "https://sugarclock.com/images/hero.png", "isPartOf": {"@id": "https://sugarclock.com/#website"}}</script>
+  <script defer src="js/analytics-config.js"></script>
+  <script defer src="js/analytics.js"></script>
+</head>
+<body>
+  <a class="guide-skip" href="#main">Skip to guide</a>
+  <nav class="site-nav" aria-label="Main navigation"><div class="container">
+    <a href="./" class="nav-brand" aria-label="SugarClock home"><img src="images/logo.png" alt="" class="nav-logo"><span>SugarClock</span></a>
+    <ul class="nav-links"><li><a href="guides.html">Guides</a></li><li><a href="faq.html">FAQ</a></li></ul>
+    <div class="nav-actions"><a href="./#install" class="btn btn-sm">Install Now</a></div>
+  </div></nav>
+  <main id="main" class="guide-main container">
+    <nav aria-label="Breadcrumb" class="guide-breadcrumb"><a href="./">Home</a> / <a href="guides.html">Connection guides</a></nav>
+    <header class="guide-header"><p class="section-label">Connection guides · English</p><h1>Nightscout clock via a custom JSON endpoint</h1><p class="section-desc">Connect Nightscout data to SugarClock using an adapter that returns the supported glucose JSON format. Includes field mapping, timestamps, authentication, and troubleshooting.</p></header>
+    <nav class="guide-toc" aria-label="On this page"><a href="#before">Before you start</a><a href="#connect">Connection steps</a><a href="#troubleshoot">Troubleshooting</a><a href="#references">References</a></nav><figure class="guide-photo"><img src="images/hero.png" width="1147" height="860" alt="A SugarClock showing 154 and a right-pointing trend arrow" loading="lazy"><figcaption>Existing project photo of SugarClock on a Ulanzi TC001, with the background removed. The display appearance is shared across data sources; this photo does not establish a particular sensor connection.</figcaption></figure>
+<section id="before"><h2>Check compatibility first</h2>
+<p>SugarClock (Sugar Clock) can display Nightscout data through <strong>Custom URL</strong>. The current firmware expects one JSON object with <code>glucose</code>, <code>trend</code>, and a sensor <code>timestamp</code>. It does not parse Nightscout's raw entries array or its <code>sgv</code>/<code>date</code> fields directly.</p>
+<p>This guide is for people who already operate a Nightscout server and can provide an adapter endpoint. There is no built-in Nightscout adapter or one-click Nightscout connection in this firmware. If you do not have an adapter, build or obtain one that satisfies the contract below before configuring the clock.</p>
+<ul><li>A Ulanzi TC001 with SugarClock installed and 2.4 GHz Wi-Fi.</li><li>A Nightscout instance that already receives current CGM readings.</li><li>An adapter reachable by the clock that reads the latest Nightscout entry and returns the JSON object below.</li><li>Authentication appropriate to both services. Give the adapter read-only access to Nightscout; it does not need an administrator credential.</li></ul></section>
+<section id="connect"><h2>Prepare the adapter and connect</h2>
+<ol><li>Verify that Nightscout shows a current reading. Use your instance's API documentation to read its latest glucose entry; a typical v1 endpoint is <code>/api/v1/entries/sgv.json?count=1</code>.</li><li>Have your adapter select that latest entry and map its fields to SugarClock's format. Return an HTTP 200 JSON object, not a login page, HTML dashboard, or array.</li><li>Preserve the sensor's timestamp and units using the mapping below. Return an error when no valid current reading is available; do not manufacture a new timestamp for cached data.</li><li>Open the clock's local settings page. In <strong>Settings → Blood Sugar</strong>, select <strong>Custom URL</strong> and enter the adapter's <strong>Server URL</strong>.</li><li>If the adapter requires a bearer token, enter that token in <strong>Auth Token</strong>. SugarClock sends <code>Authorization: Bearer &lt;token&gt;</code>. This is the adapter's authentication contract, not automatic support for every Nightscout authentication method.</li><li>Save and use <strong>Test Connection</strong>. Compare the number, trend, and reading age with Nightscout. Keep the default 60-second polling interval while validating.</li></ol>
+<h3>JSON response contract</h3><pre><code>{
+  "glucose": 125,
+  "trend": "Flat",
+  "timestamp": 1708000000
+}</code></pre><p class="guide-caption">Synthetic format example with a historical timestamp. An actual endpoint must return the real sensor reading and its original timestamp.</p>
+<div class="guide-table-wrap"><table><caption>Nightscout entry to SugarClock object</caption><thead><tr><th>Input</th><th>Output</th><th>Rule</th></tr></thead><tbody>
+<tr><td><code>sgv</code></td><td><code>glucose</code></td><td>Positive glucose value in mg/dL. The clock's display setting handles conversion to mmol/L.</td></tr>
+<tr><td><code>direction</code></td><td><code>trend</code></td><td>Use a supported name such as Flat, FortyFiveUp, SingleUp, DoubleUp, FortyFiveDown, SingleDown, or DoubleDown.</td></tr>
+<tr><td><code>date</code></td><td><code>timestamp</code></td><td>Convert UTC epoch milliseconds to integer seconds. Preserve it across repeated polls of the same entry.</td></tr></tbody></table></div>
+<p>Missing or zero timestamps use receipt-time fallback, which cannot detect cached readings returned by successful polls. Supplying the sensor timestamp is essential for meaningful age and stale-data behavior. Optional <code>message</code> and <code>force_mode</code> fields are documented in the project's installation reference.</p></section>
+<section id="troubleshoot"><h2>Troubleshooting</h2>
+<dl><dt>HTTP 200 but no glucose</dt><dd>Inspect the response shape. A raw <code>[{"sgv":125}]</code> Nightscout array is not the expected <code>{"glucose":125}</code> object. Check the adapter's conversion and content type.</dd>
+<dt>401 or 403</dt><dd>Check adapter authentication separately from its upstream Nightscout token. Do not make your medical data public to work around authentication failures.</dd>
+<dt>Reading looks fresh when Nightscout is stale</dt><dd>Check that the adapter keeps the sensor's timestamp instead of replacing it with request time. Confirm milliseconds were converted to seconds.</dd>
+<dt>Wrong units or trend</dt><dd>Return glucose in mg/dL and a supported text direction. Configure mmol/L on the clock if desired; do not convert twice.</dd></dl></section>
+<section id="references"><h2>References</h2><ul>
+<li><a href="https://github.com/cdemeke/SugarClock/blob/main/INSTALL.md#required-configuration">SugarClock configuration and response format</a></li>
+<li><a href="https://github.com/cdemeke/SugarClock/blob/main/src/http_client.cpp">Custom URL response parser</a></li>
+<li><a href="https://github.com/nightscout/cgm-remote-monitor/blob/master/lib/server/swagger.yaml">Nightscout v1 API and entry fields</a></li>
+<li><a href="https://nightscout.github.io/nightscout/security/">Nightscout security and read-only access tokens</a></li></ul></section>
+<aside class="guide-notice"><h2>Your connection and settings</h2><p>Configure account credentials only on your clock's local page, not on this website. Use a trusted local network and do not expose the settings page to the internet. See the <a href="./#install">installation reporting notice</a> before installing.</p></aside><p class="guide-caption">Current firmware limitation: the Dexcom and Custom URL clients do not validate the remote TLS certificate. An HTTPS address alone does not remove that limitation. Keep this in mind when deciding where to use these integrations.</p>
+    <aside class="guide-notice"><h2>Not a medical device</h2><p>SugarClock is an unofficial DIY project and is not affiliated with or endorsed by Dexcom, Abbott, Nightscout, or Ulanzi. Readings can be delayed or missing, and the clock may not sound alerts when its data is stale. Do not use SugarClock for treatment decisions or as a replacement for your CGM&#x27;s own alarms; always confirm with your CGM receiver, app, or blood glucose meter.</p></aside>
+    <section class="guide-next"><h2>Keep going</h2><p><a href="guides.html">All connection guides</a> · <a href="faq.html">Help &amp; FAQ</a> · <a href="./#install">Install SugarClock</a></p></section>
+  </main>
+  <footer class="site-footer"><div class="container"><p><a href="https://github.com/cdemeke/SugarClock">Source code</a> · <a href="https://github.com/cdemeke/SugarClock/issues">Report a problem</a> · <a href="https://github.com/cdemeke/SugarClock/blob/main/LICENSE">MIT License</a></p><p>© 2026 SugarClock Contributors.</p></div></footer>
+</body>
+</html>

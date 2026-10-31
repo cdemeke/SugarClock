@@ -12,7 +12,17 @@ Configuration follows [PostHog's JavaScript SDK documentation](https://posthog.c
 
 ## Event contract (schema_version = 2)
 
-Every event includes `page` (home/faq), `web_serial_supported`, and `secure_context`, plus PostHog's standard browser/session metadata.
+Every event includes `page`, `web_serial_supported`, and `secure_context`, plus PostHog's standard browser/session metadata. The bounded `page` labels distinguish guide visits from homepage traffic:
+
+| Path | `page` |
+| --- | --- |
+| `/` or `/index.html` | `home` |
+| `/faq.html` | `faq` |
+| `/guides.html` | `guides` |
+| `/dexcom-blood-sugar-clock.html` | `guide_dexcom` |
+| `/freestyle-libre-display.html` | `guide_libre` |
+| `/nightscout-clock.html` | `guide_nightscout` |
+| Any other path | `other` |
 
 | Event | Meaning / additional properties |
 | --- | --- |
@@ -41,7 +51,7 @@ Add `data-track-event` to clickable markup and optional `data-track-location`, `
 
 ## Validate before merging
 
-Run `node --test tests/test_site_analytics.cjs` from the repository root; the dedicated `site` CI job also runs this suite with Node 22. Both analytics scripts are deferred in document order, keeping configuration in one shared file without blocking parsing. Configure a test project and allow a local hostname, serve `docs` with `python3 -m http.server --directory docs 8000`, then check PostHog live events while opening both pages, clicking each CTA, opening/closing FAQs, and scrolling through sections. Expect one pageview per load and one section event per section per load. Verify nested icon clicks and keyboard activation. Block the SDK request and confirm navigation, video, FAQs, and the installer remain usable. Restore production config before committing.
+Run `node --test tests/test_site_analytics.cjs` from the repository root; the dedicated `site` CI job also runs this suite with Node 22. Both analytics scripts are deferred in document order, keeping configuration in one shared file without blocking parsing. Configure a test project and allow a local hostname, serve `docs` with `python3 -m http.server --directory docs 8000`, then check PostHog live events while opening the homepage, FAQ, guide hub and each guide, clicking each CTA, opening/closing FAQs, and scrolling through sections. Expect one pageview per load with the matching `page` label and one section event per observed section per load. Verify nested icon clicks and keyboard activation. Block the SDK request and confirm navigation, video, FAQs, and the installer remain usable. Restore production config before committing.
 
 The project token and US region have been configured. Live browser ingestion still needs verification before merging. Existing anonymous Mixpanel IDs are not transferred, so visitor counts restart at migration.
 
