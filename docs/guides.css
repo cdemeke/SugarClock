@@ -1,0 +1,38 @@
+/* Connection guides share the existing site's colors and typography. */
+.guide-main { max-width: 848px; padding-top: 2rem; padding-bottom: 3rem; }
+.guide-main a, .guide-links a { text-decoration: underline; text-underline-offset: 3px; }
+.guide-breadcrumb { color: var(--muted); font-size: .9rem; margin-bottom: 2rem; }
+.guide-header h1 { font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.1; max-width: 23ch; margin-bottom: 1.2rem; }
+.guide-header .section-desc { margin: 0 0 2rem; max-width: 65ch; }
+.guide-main section { margin: 2.5rem 0; scroll-margin-top: 85px; }
+.guide-main h2 { font-size: 1.65rem; line-height: 1.25; margin-bottom: 1rem; }
+.guide-main h3 { font-size: 1.25rem; }
+.guide-main li { margin-bottom: .8rem; padding-left: .3rem; }
+.guide-main ol, .guide-main ul { padding-left: 1.5rem; }
+.guide-main dt { font-weight: 700; margin-top: 1.3rem; }
+.guide-main dd { margin: .3rem 0 0; }
+.guide-toc { display: flex; flex-wrap: wrap; gap: .6rem 1.3rem; padding: 1.2rem 0; border-block: var(--border-thin); }
+.guide-photo { margin: 2rem 0; }
+.guide-photo img { width: 100%; height: auto; max-height: 440px; object-fit: cover; border: var(--border-thin); border-radius: var(--radius); }
+.guide-photo figcaption, .guide-caption { font-size: .9rem; color: var(--muted); margin-top: .7rem; }
+.guide-notice, .guide-links { background: var(--panel); border: var(--border-thin); border-radius: var(--radius); padding: 1.5rem; margin: 2rem 0; }
+.guide-notice h2, .guide-links h2 { font-size: 1.35rem; margin-bottom: .6rem; }
+.guide-notice p:last-child, .guide-links p:last-child { margin-bottom: 0; }
+.guide-main pre { overflow-x: auto; background: var(--panel); border: var(--border-thin); padding: 1.2rem; border-radius: var(--radius); }
+.guide-main code { font-size: .9em; overflow-wrap: anywhere; }
+.guide-table-wrap { overflow-x: auto; }
+.guide-main table { width: 100%; border-collapse: collapse; margin: 1.2rem 0; }
+.guide-main th, .guide-main td { padding: .8rem; border: 1px solid var(--muted); text-align: left; vertical-align: top; }
+.guide-main caption { text-align: left; font-weight: 700; margin-bottom: .6rem; }
+.guide-cards { display: grid; gap: 1.3rem; }
+.guide-card { padding: 1.5rem; background: var(--panel); border: var(--border-thin); border-radius: var(--radius); box-shadow: var(--shadow); }
+.guide-card .section-label { margin-bottom: .5rem; }
+.guide-card p:last-of-type { margin-bottom: 1rem; }
+.guide-skip { position: absolute; top: -80px; left: 1rem; z-index: 50; background: var(--panel); padding: 1rem; border: var(--border-thin); }
+.guide-skip:focus { top: .5rem; }
+@media (max-width: 620px) {
+  .guide-main { padding-top: 1.3rem; }
+  .guide-notice, .guide-links, .guide-card { padding: 1.1rem; }
+  .guide-photo img { max-height: none; }
+  .guide-main th, .guide-main td { padding: .5rem; }
+}
