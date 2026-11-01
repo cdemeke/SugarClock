@@ -12,7 +12,7 @@ from unittest import mock
 from fleet import create_app
 from fleet.sugarfleet import auth
 from fleet.sugarfleet.db import get_db
-from fleet.sugarfleet.geolocation import location_label, public_ip
+from fleet.sugarfleet.geolocation import location_label, location_summary, public_ip
 from fleet.sugarfleet.releases import canonical_payload
 from fleet.sugarfleet.security import hash_device_credential, verify_device_credential
 from fleet.sugarfleet.util import ApiError, connectivity_state
@@ -199,6 +199,22 @@ int main() {
         self.assertEqual(
             location_label("Singapore", "Singapore", "SG"), "Singapore, SG"
         )
+
+    def test_location_summaries_include_regions_and_us_postal_abbreviations(self):
+        for city, region, country, expected in (
+            ('Portland', 'Oregon', 'US', 'Portland, OR, US'),
+            ('Portland', 'Maine', 'US', 'Portland, ME, US'),
+            ('Chicago', 'Illinois', 'US', 'Chicago, IL, US'),
+            ('San Francisco', 'California', 'US', 'San Francisco, CA, US'),
+            ('Boston', 'ma', 'US', 'Boston, MA, US'),
+            ('Toronto', 'Ontario', 'CA', 'Toronto, Ontario, CA'),
+            ('Singapore', 'Singapore', 'SG', 'Singapore, SG'),
+            ('Boston', '', 'US', 'Boston, US'),
+            ('', '', 'FR', 'FR'),
+            ('', '', '', 'Unknown'),
+        ):
+            with self.subTest(city=city, region=region):
+                self.assertEqual(location_summary(city, region, country), expected)
 
 
 class FleetServiceTests(unittest.TestCase):
@@ -509,11 +525,39 @@ class FleetServiceTests(unittest.TestCase):
 
         self.admin_headers()
         device = self.client.get("/admin/api/devices/1").json["device"]
-        self.assertEqual(device["detected_location"]["label"], "Boston, US")
+        self.assertEqual(device["detected_location"]["label"], "Boston, Massachusetts, US")
+        self.assertEqual(device["detected_location"]["region"], "Massachusetts")
+        self.assertEqual(device["detected_location"]["summary"], "Boston, MA, US")
         self.assertNotIn("8.8.8.8", json.dumps(device))
         with self.app.app_context():
             columns = [row[1] for row in get_db().execute("PRAGMA table_info(devices)")]
             self.assertFalse(any("ip" in column.lower() for column in columns))
+
+    @mock.patch("fleet.sugarfleet.geolocation.urlopen")
+    def test_provider_regions_separate_same_named_cities_in_overview_and_links(self, urlopen):
+        self.app.config["IP_GEOLOCATION_ENABLED"] = True
+        urlopen.return_value.__enter__.return_value.read.side_effect = [
+            json.dumps({"success": True, "city": "Portland", "region": region,
+                        "country_code": "US"}).encode()
+            for region in ("Oregon", "Maine")
+        ]
+        for index in (1, 2):
+            registration = fixture("register-request.json")
+            registration["installation_id"] = INSTALLATION_ID[:-1] + str(index)
+            response = self.client.post("/device/v1/register", json=registration,
+                headers=self.auth_headers(), environ_overrides={"REMOTE_ADDR": "8.8.8.8"})
+            self.assertEqual(response.status_code, 201, response.json)
+            checkin = fixture("check-in-request.json")
+            checkin["installation_id"] = registration["installation_id"]
+            self.assertEqual(self.client.post("/device/v1/check-in", json=checkin,
+                headers=self.auth_headers()).status_code, 200)
+        self.assertEqual(urlopen.call_count, 2)
+        self.admin_headers()
+        self.assertEqual(self.client.get("/admin/api/overview").json["location_counts"],
+            {"Portland, OR, US": 1, "Portland, ME, US": 1})
+        page = self.client.get("/admin/devices").text
+        self.assertIn('data-location="Portland, OR, US"', page)
+        self.assertIn('data-location="Portland, ME, US"', page)
 
     @mock.patch("fleet.sugarfleet.location_worker.lookup_approximate_location")
     def test_private_ip_and_untrusted_forwarding_header_are_not_geolocated(

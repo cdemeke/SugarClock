@@ -973,5 +973,13 @@
   "Test the Libre connection, then choose a person from the list.": "Libre कनेक्शनची चाचणी करा, नंतर यादीतून एक व्यक्ती निवडा.",
   "SugarClock FAQ | CGM Display Setup & Troubleshooting": "SugarClock FAQ | CGM डिस्प्ले सेटअप आणि समस्या निवारण",
   "SugarClock (Sugar Clock) | Open-Source CGM Display": "SugarClock (Sugar Clock) | ओपन-सोर्स CGM डिस्प्ले",
-  "SugarClock (Sugar Clock) turns an affordable Ulanzi TC001 pixel clock into a Wi-Fi blood sugar display for Dexcom Share, FreeStyle Libre via LibreLinkUp, and Nightscout.": "SugarClock (Sugar Clock) परवडणाऱ्या Ulanzi TC001 पिक्सेल घड्याळाचे Dexcom Share, LibreLinkUp द्वारे FreeStyle Libre आणि Nightscout साठी Wi-Fi रक्तातील साखरेच्या डिस्प्लेमध्ये रूपांतर करते."
+  "SugarClock (Sugar Clock) turns an affordable Ulanzi TC001 pixel clock into a Wi-Fi blood sugar display for Dexcom Share, FreeStyle Libre via LibreLinkUp, and Nightscout.": "SugarClock (Sugar Clock) परवडणाऱ्या Ulanzi TC001 पिक्सेल घड्याळाचे Dexcom Share, LibreLinkUp द्वारे FreeStyle Libre आणि Nightscout साठी Wi-Fi रक्तातील साखरेच्या डिस्प्लेमध्ये रूपांतर करते.",
+  "All time": "संपूर्ण कालावधी",
+  "Latest reported config from all installations that have checked in. “Enabled” is configuration, not usage. Snapshots are cleared after 90 days without contact.": "संपर्क केलेल्या सर्व इंस्टॉलेशनची सर्वात अलीकडे कळवलेली सेटिंग. “सक्षम” म्हणजे सेटिंग, वापर नव्हे. 90 दिवस संपर्क नसल्यास स्नॅपशॉट हटवले जातात.",
+  "All installations that have checked in, grouped by country. IP estimates may be inaccurate or unavailable. Locations are cleared after 90 days without contact.": "संपर्क केलेली सर्व इंस्टॉलेशन, देशानुसार गटबद्ध. IP अंदाज चुकीचे किंवा अनुपलब्ध असू शकतात. 90 दिवस संपर्क नसल्यास स्थाने हटवली जातात.",
+  "No clocks in this time range. Features appear after a clock checks in.": "या कालावधीत कोणतेही घड्याळ नाही. घड्याळाने संपर्क केल्यानंतर वैशिष्ट्ये दिसतात.",
+  "Share of {0} installations in this time range{1}.": "या कालावधीतील {0} इंस्टॉलेशनमधील प्रमाण{1}.",
+  "Share of {0} installations in this time range. Unknown means the clock didn’t report that setting.": "या कालावधीतील {0} इंस्टॉलेशनमधील प्रमाण. अज्ञात म्हणजे घड्याळाने त्या सेटिंगची माहिती कळवलेली नाही.",
+  "Latest reported config from installations active in the last {0} days. “Enabled” is configuration, not usage.": "मागील {0} दिवसांत सक्रिय असलेल्या इंस्टॉलेशन्समधून नवीनतम रिपोर्ट केलेले कॉन्फिगरेशन. “सक्षम” हे कॉन्फिगरेशन आहे, वापर नाही.",
+  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "देशानुसार गटबद्ध केलेले, गेल्या {0} दिवसांत सक्रिय. IP अंदाज चुकीचे किंवा अनुपलब्ध असू शकतात."
 }

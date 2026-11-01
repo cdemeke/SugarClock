@@ -58,7 +58,7 @@ test('features keep unknown reports distinct and use all active clocks as the de
   const rows = app.node('feature-counts').children[0].children;
   assert.deepEqual(rows.slice(0, 2).map(row => [row.children[0].textContent, row.children[1].textContent]),
     [['Auto cycle', '29% · 2'], ['Weather', '14% · 1']]);
-  assert.match(app.node('feature-counts').textContent, /Share of 7 active installations; 5 didn’t report configuration/);
+  assert.match(app.node('feature-counts').textContent, /Share of 7 installations in this time range; 5 didn’t report configuration/);
   const fill = rows[0].all('span').find(el => el.className?.includes('bar-fill'));
   assert.ok(Math.abs(parseFloat(fill.style.width) - 200 / 7) < .001);
   assert.match(app.node('metrics').textContent, /78% of registered/);
@@ -74,7 +74,7 @@ test('features show per-row unknowns when clocks disagree on which settings they
 
 test('empty fleet renders useful states without NaN, invented activity, or an online dot', async () => {
   const app = await boot(payload({counts: {total: 0, online: 0, active_7d: 0, active_30d: 0}, feature_denominator: 0, source_counts: {}, version_counts: {}, location_counts: {}}));
-  assert.match(app.node('feature-counts').textContent, /No active clocks/);
+  assert.match(app.node('feature-counts').textContent, /No clocks in this time range/);
   assert.match(app.node('daily-counts').textContent, /No snapshots/);
   assert.equal(app.node('daily-counts').all('svg').length, 0);
   assert.equal(byClass(app.node('metrics'), 'span', 'online-dot').length, 0);
@@ -176,10 +176,15 @@ test('locations group by country, expand to cities, and link to exact device loc
   const [spain, cities, usa, unknown] = list.children;
   assert.equal(spain.tag, 'button');
   assert.equal(spain.attributes['aria-expanded'], 'true'); // The largest multi-city country starts open.
-  assert.match(spain.textContent, /2 cities13 · 65%/);
+  assert.match(spain.textContent, /2 cities›13 · 65%/);
+  const labels = spain.children[0].children;
+  assert.equal(labels.at(-2).className, 'bar-sublabel');
+  assert.equal(labels.at(-1).className, 'location-toggle');
+  assert.equal(labels.at(-1).attributes['aria-hidden'], 'true');
   assert.equal(byClass(spain, 'span', 'country-flag')[0].textContent, '🇪🇸');
   assert.equal(byClass(spain, 'span', 'country-flag')[0].attributes['aria-hidden'], 'true');
   assert.equal(byClass(usa, 'span', 'country-flag')[0].textContent, '🇺🇸');
+  assert.equal(byClass(usa, 'span', 'location-toggle').length, 0);
   assert.equal(byClass(unknown, 'span', 'country-flag').length, 0);
   assert.deepEqual(cities.children.map(row => row.href), ['/admin/devices?location=Valdepenas%2C%20ES', '/admin/devices?location=Madrid%2C%20ES']);
   assert.equal(usa.href, '/admin/devices?location=Washington%2C%20US');
@@ -204,13 +209,65 @@ test('mixed country-only and city reports expand, include country-only rows, and
   const [france, cities] = list.children;
   assert.equal(france.tag, 'button');
   assert.equal(france.attributes['aria-expanded'], 'true');
-  assert.match(france.textContent, /2 locations8 · 100%/);
+  assert.match(france.textContent, /2 locations›8 · 100%/);
   assert.equal(cities.children.length, 2);
   const [other, paris] = cities.children;
   assert.equal(other.href, '/admin/devices?location=FR');
   assert.match(other.textContent, /France \(other\)5/);
   assert.equal(paris.href, '/admin/devices?location=Paris%2C%20FR');
   assert.match(paris.textContent, /Paris3/);
+});
+
+test('feature and location ranges filter independently, preserve selection on refresh, and use matching denominators', async () => {
+  const breakdown = (total, enabled, locations) => ({feature_denominator: total,
+    feature_counts: {weather_enabled: {enabled, known: total, unknown: 0}}, location_counts: locations});
+  const data = payload({breakdowns: {
+    7: breakdown(2, 1, {'Portland, OR, US': 2}),
+    30: breakdown(4, 3, {'Portland, OR, US': 2, 'Portland, ME, US': 2}),
+    90: breakdown(5, 4, {'Chicago, IL, US': 5}),
+    all: breakdown(8, 6, {'San Francisco, CA, US': 6, Unknown: 2}),
+  }});
+  const app = await boot(data);
+  const selected = id => app.node(id).children.map(button => button.attributes['aria-pressed']);
+  assert.deepEqual(selected('features-range'), ['false', 'true', 'false', 'false']);
+  assert.match(app.node('feature-counts').textContent, /75% · 3/);
+  assert.match(app.node('location-counts').textContent, /4 · 100%/);
+  const cities = byClass(app.node('location-counts'), 'div', 'city-list')[0];
+  assert.deepEqual(cities.children.map(row => row.children[0].textContent), ['Portland, ME', 'Portland, OR']);
+  assert.equal(cities.children[0].href, '/admin/devices?location=Portland%2C%20ME%2C%20US');
+
+  app.node('features-range').children[0].listeners.click();
+  assert.match(app.node('feature-counts').textContent, /50% · 1/);
+  assert.match(app.node('features-description').textContent, /last 7 days/);
+  assert.match(app.node('location-counts').textContent, /4 · 100%/);
+  app.node('locations-range').children[2].listeners.click();
+  assert.match(app.node('location-counts').textContent, /Chicago, IL5 · 100%/);
+  assert.match(app.node('locations-description').textContent, /last 90 days/);
+  assert.match(app.node('feature-counts').textContent, /50% · 1/);
+  app.node('locations-range').children[3].listeners.click();
+  assert.match(app.node('location-counts').textContent, /San Francisco, CA6 · 75%/);
+  assert.match(app.node('locations-description').textContent, /All installations.*cleared after 90 days/);
+  assert.equal(app.calls.length, 1); // Filtering reuses one consistent server snapshot.
+  await app.refresh();
+  assert.deepEqual(selected('features-range'), ['true', 'false', 'false', 'false']);
+  assert.deepEqual(selected('locations-range'), ['false', 'false', 'false', 'true']);
+  assert.match(app.node('feature-counts').textContent, /50% · 1/);
+  app.node('features-range').children[3].listeners.click();
+  assert.match(app.node('feature-counts').textContent, /75% · 6/);
+  assert.match(app.node('features-description').textContent, /all installations.*cleared after 90 days/);
+});
+
+test('empty selected windows show an empty state and can switch back to populated data', async () => {
+  const data = payload({breakdowns: {7: {feature_denominator: 0, feature_counts: {}, location_counts: {}}, 30: payload()}});
+  const app = await boot(data);
+  app.node('features-range').children[0].listeners.click();
+  app.node('locations-range').children[0].listeners.click();
+  assert.match(app.node('feature-counts').textContent, /No clocks in this time range/);
+  assert.match(app.node('location-counts').textContent, /No location reports/);
+  app.node('features-range').children[1].listeners.click();
+  app.node('locations-range').children[1].listeners.click();
+  assert.match(app.node('feature-counts').textContent, /29% · 2/);
+  assert.match(app.node('location-counts').textContent, /Washington/);
 });
 
 test('failed refresh retains previous counts and allows recovery', async () => {
