@@ -971,5 +971,13 @@
   "Watch the setup video or send us feedback anytime from here.": "ఇక్కడి నుండి ఎప్పుడైనా సెటప్ వీడియో చూడండి లేదా మాకు అభిప్రాయం పంపండి.",
   "Show me": "చూపించు",
   "Got it": "సరే",
-  "SugarClock (Sugar Clock) turns an affordable Ulanzi TC001 pixel clock into a Wi-Fi blood sugar display for Dexcom Share, FreeStyle Libre via LibreLinkUp, and Nightscout.": "SugarClock (Sugar Clock) సరసమైన Ulanzi TC001 పిక్సెల్ గడియారాన్ని Dexcom Share, LibreLinkUp ద్వారా FreeStyle Libre మరియు Nightscout కోసం Wi-Fi రక్తంలో చక్కెర డిస్‌ప్లేగా మారుస్తుంది."
+  "SugarClock (Sugar Clock) turns an affordable Ulanzi TC001 pixel clock into a Wi-Fi blood sugar display for Dexcom Share, FreeStyle Libre via LibreLinkUp, and Nightscout.": "SugarClock (Sugar Clock) సరసమైన Ulanzi TC001 పిక్సెల్ గడియారాన్ని Dexcom Share, LibreLinkUp ద్వారా FreeStyle Libre మరియు Nightscout కోసం Wi-Fi రక్తంలో చక్కెర డిస్‌ప్లేగా మారుస్తుంది.",
+  "All time": "మొత్తం కాలం",
+  "Latest reported config from all installations that have checked in. “Enabled” is configuration, not usage. Snapshots are cleared after 90 days without contact.": "కనెక్ట్ అయిన అన్ని ఇన్‌స్టాలేషన్‌లు చివరిగా నివేదించిన సెట్టింగ్‌లు. “ప్రారంభించబడింది” అనేది సెట్టింగ్‌ను సూచిస్తుంది, వినియోగాన్ని కాదు. 90 రోజుల పాటు సంప్రదింపు లేకపోతే స్నాప్‌షాట్‌లు తొలగించబడతాయి.",
+  "All installations that have checked in, grouped by country. IP estimates may be inaccurate or unavailable. Locations are cleared after 90 days without contact.": "కనెక్ట్ అయిన అన్ని ఇన్‌స్టాలేషన్‌లు, దేశం వారీగా సమూహీకరించబడ్డాయి. IP అంచనాలు తప్పుగా ఉండవచ్చు లేదా అందుబాటులో లేకపోవచ్చు. 90 రోజుల పాటు సంప్రదింపు లేకపోతే స్థానాలు తొలగించబడతాయి.",
+  "No clocks in this time range. Features appear after a clock checks in.": "ఈ కాల వ్యవధిలో గడియారాలు లేవు. గడియారం కనెక్ట్ అయిన తర్వాత ఫీచర్లు కనిపిస్తాయి.",
+  "Share of {0} installations in this time range{1}.": "ఈ కాల వ్యవధిలోని {0} ఇన్‌స్టాలేషన్‌లలో వాటా{1}.",
+  "Share of {0} installations in this time range. Unknown means the clock didn’t report that setting.": "ఈ కాల వ్యవధిలోని {0} ఇన్‌స్టాలేషన్‌లలో వాటా. తెలియదు అంటే గడియారం ఆ సెట్టింగ్‌ను నివేదించలేదని అర్థం.",
+  "Latest reported config from installations active in the last {0} days. “Enabled” is configuration, not usage.": "గత {0} రోజులలో యాక్టివ్‌గా ఉన్న ఇన్‌స్టాలేషన్‌ల నుండి తాజా నివేదించబడిన కాన్ఫిగర్. “ప్రారంభించబడింది” అనేది కాన్ఫిగరేషన్, ఉపయోగం కాదు.",
+  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "గత {0} రోజులలో సక్రియంగా ఉంది, దేశం వారీగా సమూహం చేయబడింది. IP అంచనాలు సరికాకపోవచ్చు లేదా అందుబాటులో ఉండకపోవచ్చు."
 }

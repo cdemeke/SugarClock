@@ -971,5 +971,13 @@
   "Watch the setup video or send us feedback anytime from here.": "এখান থেকে যেকোনো সময় সেটআপ ভিডিও দেখুন বা আমাদের মতামত পাঠান।",
   "Show me": "দেখান",
   "Got it": "বুঝেছি",
-  "SugarClock (Sugar Clock) turns an affordable Ulanzi TC001 pixel clock into a Wi-Fi blood sugar display for Dexcom Share, FreeStyle Libre via LibreLinkUp, and Nightscout.": "SugarClock (Sugar Clock) একটি সাশ্রয়ী Ulanzi TC001 পিক্সেল ঘড়িকে Dexcom Share, LibreLinkUp-এর মাধ্যমে FreeStyle Libre এবং Nightscout-এর জন্য Wi-Fi রক্তে শর্করার ডিসপ্লেতে পরিণত করে।"
+  "SugarClock (Sugar Clock) turns an affordable Ulanzi TC001 pixel clock into a Wi-Fi blood sugar display for Dexcom Share, FreeStyle Libre via LibreLinkUp, and Nightscout.": "SugarClock (Sugar Clock) একটি সাশ্রয়ী Ulanzi TC001 পিক্সেল ঘড়িকে Dexcom Share, LibreLinkUp-এর মাধ্যমে FreeStyle Libre এবং Nightscout-এর জন্য Wi-Fi রক্তে শর্করার ডিসপ্লেতে পরিণত করে।",
+  "All time": "সব সময়",
+  "Latest reported config from all installations that have checked in. “Enabled” is configuration, not usage. Snapshots are cleared after 90 days without contact.": "সংযুক্ত হওয়া সব ইনস্টলেশনের সর্বশেষ রিপোর্ট করা কনফিগারেশন। “সক্রিয়” বলতে কনফিগারেশন বোঝায়, ব্যবহার নয়। 90 দিন যোগাযোগ না থাকলে স্ন্যাপশট মুছে ফেলা হয়।",
+  "All installations that have checked in, grouped by country. IP estimates may be inaccurate or unavailable. Locations are cleared after 90 days without contact.": "সংযুক্ত হওয়া সব ইনস্টলেশন, দেশ অনুযায়ী সাজানো। IP অনুমান ভুল বা অনুপলব্ধ হতে পারে। 90 দিন যোগাযোগ না থাকলে অবস্থান মুছে ফেলা হয়।",
+  "No clocks in this time range. Features appear after a clock checks in.": "এই সময়সীমায় কোনো ঘড়ি নেই। ঘড়ি সংযুক্ত হলে বৈশিষ্ট্য দেখা যাবে।",
+  "Share of {0} installations in this time range{1}.": "এই সময়সীমার {0}টি ইনস্টলেশনের অনুপাত{1}।",
+  "Share of {0} installations in this time range. Unknown means the clock didn’t report that setting.": "এই সময়সীমার {0}টি ইনস্টলেশনের অনুপাত। অজানা মানে ঘড়িটি ওই সেটিং রিপোর্ট করেনি।",
+  "Latest reported config from installations active in the last {0} days. “Enabled” is configuration, not usage.": "গত {0} দিনে সক্রিয় ইনস্টলেশন থেকে সর্বশেষ রিপোর্ট করা কনফিগ। \"সক্ষম\" হল কনফিগারেশন, ব্যবহার নয়।",
+  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "দেশ অনুসারে গোষ্ঠীবদ্ধ, গত {0} দিনে সক্রিয়৷ IP অনুমান ভুল বা অনুপলব্ধ হতে পারে."
 }

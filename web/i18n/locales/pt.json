@@ -971,5 +971,13 @@
   "Watch the setup video or send us feedback anytime from here.": "Assista ao vídeo de configuração ou envie seu feedback a qualquer momento por aqui.",
   "Show me": "Mostrar",
   "Got it": "Entendi",
-  "SugarClock (Sugar Clock) turns an affordable Ulanzi TC001 pixel clock into a Wi-Fi blood sugar display for Dexcom Share, FreeStyle Libre via LibreLinkUp, and Nightscout.": "SugarClock (Sugar Clock) transforma um relógio de píxeis Ulanzi TC001 acessível num visor de glicose por Wi-Fi para Dexcom Share, FreeStyle Libre através do LibreLinkUp e Nightscout."
+  "SugarClock (Sugar Clock) turns an affordable Ulanzi TC001 pixel clock into a Wi-Fi blood sugar display for Dexcom Share, FreeStyle Libre via LibreLinkUp, and Nightscout.": "SugarClock (Sugar Clock) transforma um relógio de píxeis Ulanzi TC001 acessível num visor de glicose por Wi-Fi para Dexcom Share, FreeStyle Libre através do LibreLinkUp e Nightscout.",
+  "All time": "Todo o período",
+  "Latest reported config from all installations that have checked in. “Enabled” is configuration, not usage. Snapshots are cleared after 90 days without contact.": "Última configuração informada por todas as instalações que se conectaram. “Ativado” indica configuração, não uso. Os registros são apagados após 90 dias sem contato.",
+  "All installations that have checked in, grouped by country. IP estimates may be inaccurate or unavailable. Locations are cleared after 90 days without contact.": "Todas as instalações que se conectaram, agrupadas por país. As estimativas por IP podem ser imprecisas ou indisponíveis. As localizações são apagadas após 90 dias sem contato.",
+  "No clocks in this time range. Features appear after a clock checks in.": "Nenhum relógio neste período. Os recursos aparecem quando um relógio se conecta.",
+  "Share of {0} installations in this time range{1}.": "Proporção de {0} instalações neste período{1}.",
+  "Share of {0} installations in this time range. Unknown means the clock didn’t report that setting.": "Proporção de {0} instalações neste período. Desconhecido significa que o relógio não informou essa configuração.",
+  "Latest reported config from installations active in the last {0} days. “Enabled” is configuration, not usage.": "Última configuração relatada de instalações ativas nos últimos {0} dias. “Ativado” é configuração, não uso.",
+  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "Ativos nos últimos {0} dias, agrupados por país. As estimativas de IP podem ser imprecisas ou indisponíveis."
 }
