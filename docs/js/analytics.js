@@ -8,7 +8,17 @@
   var queue = [];
   var client;
   var failed = false;
-  var page = /faq\.html$/.test(location.pathname) ? "faq" : "home";
+  // Bounded labels keep guide traffic separate without capturing arbitrary paths.
+  var pages = {
+    "/": "home",
+    "/index.html": "home",
+    "/faq.html": "faq",
+    "/guides.html": "guides",
+    "/dexcom-blood-sugar-clock.html": "guide_dexcom",
+    "/freestyle-libre-display.html": "guide_libre",
+    "/nightscout-clock.html": "guide_nightscout",
+  };
+  var page = pages[location.pathname] || "other";
   function track(event, properties) {
     var props = Object.assign({
       page: page,
