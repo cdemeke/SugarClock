@@ -233,6 +233,35 @@ private final class FailingLocalSettingsStore:LocalSettingsStore {
         XCTAssertTrue(model.canSend)
         model.suspend()
     }
+    func testFirmwareWatchDeadlineCancelsAStalledSettingsRead() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id)
+        model.updatePollInterval=1_000_000;model.updateWatchTimeout=50_000_000
+        radio.holdSettings=true
+        await model.command("ota.check")
+        await settle {radio.waiting != nil}
+        // Clearing this flag permits later recovery; the existing read stays
+        // suspended until the watch's cancellation closes the transport.
+        radio.holdSettings=false
+        await settle {!model.updatingClock && model.sessionReady}
+        XCTAssertNil(radio.waiting)
+        XCTAssertTrue(model.canSend)
+        XCTAssertTrue(model.updateMessage.contains("timed out"))
+        XCTAssertEqual(radio.operations.filter {$0=="ota.check"}.count,1)
+        model.suspend()
+    }
+    func testFirmwareWatchDeadlineIncludesItsPollingDelay() async {
+        let (model,radio,_,id)=fixture()
+        await model.connect(id)
+        model.updatePollInterval=1_000_000_000;model.updateWatchTimeout=20_000_000
+        await model.command("ota.check")
+        await settle {!model.updatingClock}
+        XCTAssertTrue(model.updateMessage.contains("timed out"))
+        XCTAssertTrue(model.sessionReady);XCTAssertTrue(model.canSend)
+        XCTAssertFalse(model.busy)
+        XCTAssertEqual(radio.attempts,1,"A healthy session is retained when the watch expires between polls")
+        model.suspend()
+    }
     func testWiFiStartAndCompletionFailuresKeepPreviousResultsWithoutReconnecting() async {
         for failAtStart in [true,false] {
             let (model,radio,_,id)=fixture()
@@ -1451,6 +1480,93 @@ private final class FailingLocalSettingsStore:LocalSettingsStore {
         XCTAssertEqual(model.connectionSummary,"Connected via Bluetooth")
         XCTAssertNil(model.clocks.first?.host)
         model.suspend()
+    }
+    func testFirmwareWatchDeadlineCancelsUnreachableDualLinkRecoveryWithoutReplayingInstall() async {
+        for permanent in [false,true] {
+            let server=officeServer()
+            server.mutateClock(at:"192.168.1.81") {
+                $0.queueOTARequests=true
+                $0.otaStatus=["state":"update_available","available_version":"0.3.1",
+                              "request_pending":false,"request_failed":false]
+            }
+            let (model,radio,defaults,id)=fixture(server:server)
+            radio.holdConnection=true
+            await model.connect(id)
+            radio.holdConnection=false
+            radio.connectionError=permanent
+                ? NSError(domain:CBErrorDomain,code:CBError.peerRemovedPairingInformation.rawValue)
+                : ClockError.timeout
+            model.updatePollInterval=1_000_000;model.updateWatchTimeout=50_000_000
+            let attempts=radio.attempts
+            await model.command("ota.install")
+            server.offline=true
+            await settle {radio.attempts>attempts}
+            await settle {!model.updatingClock}
+            XCTAssertTrue(model.updateMessage.contains("timed out"))
+            XCTAssertTrue(model.canChooseAnotherClock)
+            XCTAssertTrue(model.canEditSettingsDraft)
+            XCTAssertEqual(defaults.string(forKey:"update.expected."+office),"0.3.1")
+            XCTAssertEqual(server.requests.filter {$0=="POST 192.168.1.81/api/ota/install"}.count,1)
+            // Ordinary foreground recovery can continue, but the watch no
+            // longer owns controls. Stop and explicit Retry work again.
+            model.stopReconnecting();await settle {!model.busy && !model.updatingClock}
+            server.offline=false
+            await model.retrySelected()
+            XCTAssertTrue(model.sessionReady)
+            XCTAssertEqual(model.activeLink,.localNetwork("192.168.1.81"))
+            XCTAssertEqual(server.requests.filter {$0.hasPrefix("POST ") && $0.contains("/api/ota/")}.count,1)
+            model.suspend()
+        }
+    }
+    func testCompletedFirmwareWatchCannotExpireANewerWatch() async {
+        let server=officeServer()
+        server.mutateClock(at:"192.168.1.81") {
+            $0.queueOTARequests=true
+            $0.otaStatus=["state":"update_available","available_version":"0.3.1",
+                          "request_pending":false,"request_failed":false]
+        }
+        let (model,radio,defaults,id)=fixture(server:server)
+        radio.holdConnection=true
+        await model.connect(id)
+        model.updatePollInterval=1_000_000;model.updateWatchTimeout=60_000_000
+        await model.command("ota.install")
+        server.mutateClock(at:"192.168.1.81") {
+            $0.firmware="0.3.1";$0.otaStatus["request_pending"]=false
+        }
+        await settle {!model.updatingClock}
+        XCTAssertTrue(model.updateMessage.contains("passed startup validation"))
+        XCTAssertNil(defaults.string(forKey:"update.expected."+office))
+        model.updateWatchTimeout=500_000_000
+        await model.command("ota.check")
+        try? await Task.sleep(nanoseconds:90_000_000)
+        XCTAssertTrue(model.updatingClock,"The completed watch's old deadline cannot cancel a later request")
+        XCTAssertFalse(model.updateMessage.contains("timed out"))
+        server.mutateClock(at:"192.168.1.81") {$0.otaStatus["request_pending"]=false}
+        await settle {!model.updatingClock}
+        XCTAssertTrue(model.canSend)
+        XCTAssertEqual(server.requests.filter {$0.hasPrefix("POST ") && $0.contains("/api/ota/")}.count,2)
+        model.suspend()
+    }
+    func testBackgroundCancellationOfFirmwareWatchDoesNotReportTimeoutLater() async {
+        let server=officeServer()
+        server.mutateClock(at:"192.168.1.81") {
+            $0.queueOTARequests=true;$0.otaStatus=["request_pending":false,"request_failed":false]
+        }
+        let (model,radio,_,id)=fixture(server:server)
+        radio.holdConnection=true
+        await model.connect(id)
+        model.updatePollInterval=1_000_000;model.updateWatchTimeout=80_000_000
+        await model.command("ota.check")
+        server.offline=true
+        await settle {radio.waiting != nil}
+        model.suspend()
+        await settle {!model.updatingClock && !model.busy}
+        let message=model.updateMessage
+        try? await Task.sleep(nanoseconds:100_000_000)
+        XCTAssertEqual(model.updateMessage,message)
+        XCTAssertFalse(model.updateMessage.contains("timed out"))
+        XCTAssertFalse(model.sessionReady);XCTAssertFalse(model.reconnecting)
+        XCTAssertTrue(model.canChooseAnotherClock)
     }
     func testClockThatMovedAddressIsFoundAgainByIdentity() async {
         let server=officeServer()

@@ -168,6 +168,8 @@ private struct EstablishedRoute:@unchecked Sendable {
     /// How often a saved Wi-Fi address is rechecked while Bluetooth is pending.
     var localWatchInterval:UInt64=4_000_000_000
     var updatePollInterval:UInt64=2_000_000_000
+    /// Whole firmware-watch lifetime, including connection recovery and reads.
+    var updateWatchTimeout:UInt64=180_000_000_000
     @Published var operationTitle="Saving…"
     private var unconfirmedChange=false
     private var foreground=true
@@ -180,6 +182,7 @@ private struct EstablishedRoute:@unchecked Sendable {
     private let preferences:UserDefaults
     private let retryDelay:UInt64
     private var updateMonitor:Task<Void,Never>?
+    private var updateWatchID:UUID?
     private var reconnectTask:Task<Void,Never>?
     private var hostSearch:Task<Void,Never>?
     private var upgradeCheck:Task<Void,Never>?
@@ -961,17 +964,35 @@ private struct EstablishedRoute:@unchecked Sendable {
     }
     private func monitorUpdate(clock:SavedClock,expected:String?) {
         updateMonitor?.cancel()
+        let watchID=UUID(),timeout=updateWatchTimeout
+        updateWatchID=watchID
         if let expected {preferences.set(expected,forKey:"update.expected."+clock.id)}
         updateMessage="Update request accepted. Waiting for the clock; Bluetooth may temporarily disconnect."
         updatingClock=true
         updateMonitor=Task {
-            defer {self.updateMonitor=nil;self.updatingClock=false;self.startReconnect()}
-            let deadline=Date().addingTimeInterval(180)
-            while Date()<deadline {
+            // Connection recovery can intentionally wait for as long as a saved
+            // clock is missing. This watch has its own deadline, including time
+            // spent inside recovery, reads, or the polling delay.
+            let deadline=Task { @MainActor [weak self] in
+                do {try await Task.sleep(nanoseconds:timeout)} catch {return}
+                guard let self,self.updateWatchID==watchID,self.updateMonitor?.isCancelled==false else {return}
+                self.updateMessage="Automatic reconnection timed out. Reconnect from My Clocks and check the current version and update status."
+                self.updateMonitor?.cancel()
+            }
+            var ownsBusy=false
+            defer {
+                deadline.cancel()
+                if ownsBusy {self.busy=false}
+                if self.updateWatchID==watchID {
+                    self.updateWatchID=nil;self.updateMonitor=nil;self.updatingClock=false
+                    self.startReconnect()
+                }
+            }
+            while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds:self.updatePollInterval)
                 if Task.isCancelled {return}
                 if self.busy {continue}
-                self.busy=true
+                self.busy=true;ownsBusy=true
                 do {
                     if !self.linkConnected {try await self.establish(clock.peripheral)}
                     try await self.refresh()
@@ -983,19 +1004,21 @@ private struct EstablishedRoute:@unchecked Sendable {
                         self.updateMessage="Reconnected. Firmware \(expected) passed startup validation."
                         preferences.removeObject(forKey:"update.expected."+clock.id)
                         self.sessionReady=true;self.connectionState="Connected"
-                        self.busy=false;return
+                        self.busy=false;ownsBusy=false;return
                     }
                     if Self.updateRequestSettled(ota) {
                         self.updateMessage=ota["request_failed"] as? Bool==true ?
                             "Reconnected. The clock couldn’t reach the update service; try again later." :
                             "Reconnected · \(state). \(ota["error"] as? String ?? "") \(ota["deferral"] as? String ?? "")"
                         self.sessionReady=true;self.connectionState="Connected"
-                        self.busy=false;return
+                        self.busy=false;ownsBusy=false;return
                     }
-                } catch {self.sessionReady=false;self.closeLink();self.client=nil;self.updateMessage="Waiting to reconnect. The clock may be updating or rebooting."}
-                self.busy=false
+                } catch {
+                    self.sessionReady=false;self.closeLink();self.client=nil
+                    if !Task.isCancelled {self.updateMessage="Waiting to reconnect. The clock may be updating or rebooting."}
+                }
+                self.busy=false;ownsBusy=false
             }
-            self.updateMessage="Automatic reconnection timed out. Reconnect from My Clocks and check the current version and update status."
         }
     }
     @discardableResult func scanWiFi(pollDelay:UInt64=1_000_000_000) async -> Bool {
