@@ -10,7 +10,7 @@ from unittest import mock
 from fleet import create_app
 from fleet.sugarfleet import auth
 from fleet.sugarfleet.db import get_db
-from fleet.sugarfleet.geolocation import location_label, public_ip
+from fleet.sugarfleet.geolocation import location_label, location_summary, public_ip
 from fleet.sugarfleet.releases import canonical_payload
 from fleet.sugarfleet.security import hash_device_credential, verify_device_credential
 from fleet.sugarfleet.util import ApiError, connectivity_state
@@ -140,6 +140,22 @@ class FleetProtocolFixtureTests(unittest.TestCase):
         self.assertEqual(
             location_label("Singapore", "Singapore", "SG"), "Singapore, SG"
         )
+
+    def test_location_summaries_include_regions_and_us_postal_abbreviations(self):
+        for city, region, country, expected in (
+            ('Portland', 'Oregon', 'US', 'Portland, OR, US'),
+            ('Portland', 'Maine', 'US', 'Portland, ME, US'),
+            ('Chicago', 'Illinois', 'US', 'Chicago, IL, US'),
+            ('San Francisco', 'California', 'US', 'San Francisco, CA, US'),
+            ('Boston', 'ma', 'US', 'Boston, MA, US'),
+            ('Toronto', 'Ontario', 'CA', 'Toronto, Ontario, CA'),
+            ('Singapore', 'Singapore', 'SG', 'Singapore, SG'),
+            ('Boston', '', 'US', 'Boston, US'),
+            ('', '', 'FR', 'FR'),
+            ('', '', '', 'Unknown'),
+        ):
+            with self.subTest(city=city, region=region):
+                self.assertEqual(location_summary(city, region, country), expected)
 
 
 class FleetServiceTests(unittest.TestCase):

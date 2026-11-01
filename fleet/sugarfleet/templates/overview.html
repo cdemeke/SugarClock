@@ -49,12 +49,19 @@
 
   <div class="overview-pair">
     <section class="card" aria-labelledby="features-title">
-      <h2 id="features-title"><span data-i18n="Enabled features">Enabled features</span></h2><p class="hint panel-description"><span data-i18n="Latest reported config from installations active in the last 30 days. “Enabled” is configuration, not usage.">Latest reported config from installations active in the last 30 days. “Enabled” is configuration, not usage.</span></p>
+      <div class="panel-heading breakdown-heading">
+        <h2 id="features-title"><span data-i18n="Enabled features">Enabled features</span></h2>
+        <div class="segmented" id="features-range" role="group" aria-labelledby="features-title"></div>
+      </div>
+      <p class="hint panel-description" id="features-description"></p>
       <div id="feature-counts"><p class="empty"><span data-i18n="Loading features…">Loading features…</span></p></div>
     </section>
     <section class="card" aria-labelledby="locations-title">
-      <div class="panel-heading"><h2 id="locations-title"><span data-i18n="Where clocks are">Where clocks are</span></h2><span class="mono hint"><span data-i18n="IP estimate">IP estimate</span></span></div>
-      <p class="hint panel-description"><span data-i18n="Active in the last 30 days, grouped by country. IP estimates may be inaccurate or unavailable.">Active in the last 30 days, grouped by country. IP estimates may be inaccurate or unavailable.</span></p>
+      <div class="panel-heading breakdown-heading">
+        <h2 id="locations-title"><span data-i18n="Where clocks are">Where clocks are</span></h2>
+        <div class="segmented" id="locations-range" role="group" aria-labelledby="locations-title"></div>
+      </div>
+      <p class="hint panel-description" id="locations-description"></p>
       <div id="location-counts"><p class="empty"><span data-i18n="Loading locations…">Loading locations…</span></p></div>
     </section>
   </div>

@@ -407,11 +407,46 @@
     node.append(layout);
   }
 
+  let summaryData, featuresRange = 30, locationsRange = 30;
+
+  function renderBreakdownRange(id, selected, onSelect) {
+    const group = target(id);
+    group.replaceChildren();
+    [7, 30, 90, 'all'].forEach((days, index) => {
+      const button = element('button', days === 'all' ? I18n.message('All time') : I18n.message('{0}D', [days]));
+      button.type = 'button';
+      button.setAttribute('aria-pressed', String(days === selected));
+      button.addEventListener('click', () => {
+        onSelect(days);
+        target(id).children[index].focus?.();
+      });
+      group.append(button);
+    });
+  }
+
+  function renderFeatureSection() {
+    const data = summaryData.breakdowns?.[featuresRange] || summaryData;
+    renderBreakdownRange('features-range', featuresRange, days => { featuresRange = days; renderFeatureSection(); });
+    I18n.text(target('features-description'), featuresRange === 'all'
+      ? 'Latest reported config from all installations that have checked in. “Enabled” is configuration, not usage. Snapshots are cleared after 90 days without contact.'
+      : I18n.message('Latest reported config from installations active in the last {0} days. “Enabled” is configuration, not usage.', [featuresRange]));
+    renderFeatures(data.feature_counts, data.feature_denominator ?? summaryData.counts.active_30d);
+  }
+
+  function renderLocationSection() {
+    const data = summaryData.breakdowns?.[locationsRange] || summaryData;
+    renderBreakdownRange('locations-range', locationsRange, days => { locationsRange = days; renderLocationSection(); });
+    I18n.text(target('locations-description'), locationsRange === 'all'
+      ? 'All installations that have checked in, grouped by country. IP estimates may be inaccurate or unavailable. Locations are cleared after 90 days without contact.'
+      : I18n.message('Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.', [locationsRange]));
+    renderLocations(data.location_counts, summaryData.breakdowns?.[locationsRange]?.feature_denominator ?? summaryData.counts.active_30d);
+  }
+
   function renderFeatures(features, total) {
     const node = target('feature-counts');
     node.replaceChildren();
     if (!total) {
-      node.append(element('p', I18n.message('No active clocks yet. Features appear after a clock checks in.'), 'empty'));
+      node.append(element('p', I18n.message('No clocks in this time range. Features appear after a clock checks in.'), 'empty'));
       return;
     }
     const rows = Object.entries(features || {}).sort((a, b) => b[1].enabled - a[1].enabled || (featureNames[a[0]] || a[0]).localeCompare(featureNames[b[0]] || b[0]));
@@ -427,7 +462,7 @@
       list.append(row);
     });
     node.append(list);
-    node.append(element('p', shared ? I18n.message("Share of {0} active installations{1}.", [number(total),shared ? I18n.message("; {0} didn’t report configuration and count as unknown", [number(shared)]) : '']) : I18n.message("Share of {0} active installations. Unknown means the clock didn’t report that setting.", [number(total)]), 'hint panel-footnote'));
+    node.append(element('p', shared ? I18n.message("Share of {0} installations in this time range{1}.", [number(total),shared ? I18n.message("; {0} didn’t report configuration and count as unknown", [number(shared)]) : '']) : I18n.message("Share of {0} installations in this time range. Unknown means the clock didn’t report that setting.", [number(total)]), 'hint panel-footnote'));
   }
 
   let openCountries = new Set(), locationsTouched = false;
@@ -495,12 +530,21 @@
         const flag = element('span', emoji, 'country-flag');
         flag.setAttribute('aria-hidden', 'true');
         label.append(flag);
+      } else {
+        const placeholder = element('span', null, 'country-placeholder');
+        placeholder.setAttribute('aria-hidden', 'true');
+        label.append(placeholder);
       }
       label.append(element('span', group.name));
       if (group.cities.length && !group.countryOnly) {
         label.append(element('span', group.cities.length === 1 ? group.cities[0][0] : I18n.message("{0} cities", [group.cities.length]), 'bar-sublabel'));
       } else if (expandable) {
         label.append(element('span', I18n.message("{0} locations", [entries.length]), 'bar-sublabel'));
+      }
+      if (expandable) {
+        const toggle = element('span', '›', 'location-toggle');
+        toggle.setAttribute('aria-hidden', 'true');
+        label.append(toggle);
       }
       const value = element('span', null, 'bar-value');
       value.append(element('strong', number(group.count)), document.createTextNode(` · ${Math.round(percent(group.count, total))}%`));
@@ -563,10 +607,11 @@
       const days = snapshots(data.daily);
       renderMetrics(data, days);
       I18n.text(target('reporting-summary'), counts.active_30d ? I18n.message("Connections, enabled features, and firmware adoption. Feature reports come from {0} of {1} active installations; missing fields are unknown.", [number(counts.feature_reporting), number(counts.active_30d)]) : 'No clocks have checked in during the last 30 days.');
-      renderFeatures(data.feature_counts, data.feature_denominator ?? counts.active_30d);
+      summaryData = data;
+      renderFeatureSection();
       renderVersions(data.version_counts, counts.active_30d);
       renderSources(data.source_counts, counts.active_30d);
-      renderLocations(data.location_counts, counts.active_30d);
+      renderLocationSection();
       renderHistory(data.daily);
       renderCapacity(counts, data.capacity);
       I18n.text(target('updated-at'), I18n.message("Updated {0}", [new Date().toLocaleTimeString()]));
