@@ -29,7 +29,7 @@ int time_get_hour() {return hour;}
 int time_get_day() {return 1;}
 int time_get_month() {return 7;}
 bool weather_has_data() {return false;}
-const WeatherReading& weather_get_reading() {return weather;}
+WeatherReading weather_get_reading() {return weather;}
 void display_clear() {pixel_count=0;text[0]=0;memset(screen,0,sizeof(screen));}
 void display_draw_pixel(int x,int y,uint16_t color) {assert(x>=0&&x<32&&y>=0&&y<8);screen[y][x]=color;++pixel_count;}
 uint16_t display_color(uint8_t r,uint8_t g,uint8_t b) {return ((r&0xf8)<<8)|((g&0xfc)<<3)|(b>>3);}

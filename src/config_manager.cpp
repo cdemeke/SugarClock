@@ -570,12 +570,14 @@ bool config_save() {
         if(prefs.isKey("pending_v1") && !prefs.remove("pending_v1")) return false;
         return prefs.remove("pending_v2");
       });
+    // A complete redo journal is the rollback point even if mirroring/cleanup
+    // failed. A later rejected journal must keep runtime and boot recovery equal.
+    if(result!=ConfigCommit::Rejected) committed=config;
     durable=result==ConfigCommit::Saved;
     if(!durable) {
         if(result==ConfigCommit::Rejected && committed.magic==CONFIG_MAGIC) config=committed;
         return false;
     }
-    committed=config;
     Serial.println("[CONFIG] Saved to NVS");
     return true;
 }

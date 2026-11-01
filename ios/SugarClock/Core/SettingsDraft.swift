@@ -94,6 +94,12 @@ public struct SettingsDraft:Equatable,Codable {
         // An explicitly discarded/cleared replacement must not linger in storage.
         if value != 1 {text.removeValue(forKey:key)}
     }
+    /// Keep which uncertain secret operation was submitted, without retaining
+    /// its replacement value after the owner explicitly discards that edit.
+    public mutating func redactSubmittedSecret(_ key:String) {
+        guard secretKeys.contains(key) else {return}
+        text.removeValue(forKey:key)
+    }
     /// Explicitly use the clock's current value for one reviewed change. Keep
     /// every other edit's original conflict baseline, even if the clock changed
     /// those fields too. A removed field is forgotten without retaining secrets.

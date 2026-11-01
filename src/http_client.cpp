@@ -48,6 +48,7 @@ struct PublishedHTTP {
  uint32_t wifi_generation=0;
 };
 static PublishedHTTP published;
+static std::atomic<bool> configuration_changed{false};
 static std::atomic<unsigned long> fetch_generation{0};
 unsigned long http_fetch_generation() {return fetch_generation;}
 bool http_is_fetching() {return fetch_running;}
@@ -483,6 +484,7 @@ static void demo_generate() {
 
 static void publish_result() {
  portENTER_CRITICAL(&published_mux);
+ if(configuration_changed) {portEXIT_CRITICAL(&published_mux);return;}
  published.reading=current_reading;memcpy(published.history,history_buf,sizeof(history_buf));
  published.failure_count=failure_count;published.code=last_response_code;published.delta=current_delta;
  published.history_count=history_count;published.history_write=history_write_idx;
@@ -536,8 +538,14 @@ void http_init() {
     publish_result();
 }
 
-static std::atomic<bool> configuration_changed{false};
-void http_configuration_changed() {configuration_changed=true;}
+void http_configuration_changed() {
+ // Invalidate the public view now, even while an obsolete worker is blocked.
+ // Worker-owned accumulators/session state are reset only after it finishes.
+ portENTER_CRITICAL(&published_mux);
+ configuration_changed=true;
+ published={};published.reading.force_mode=-1;
+ portEXIT_CRITICAL(&published_mux);
+}
 void http_loop() {
     if(fetch_running) return;
     const bool complete=fetch_complete.exchange(false);

@@ -30,7 +30,7 @@ int time_get_hour() { return hour; }
 int time_get_day() { return 31; }
 int time_get_month() { return 10; }
 bool weather_has_data() { return false; }
-const WeatherReading& weather_get_reading() { return weather; }
+WeatherReading weather_get_reading() { return weather; }
 void display_clear() { pixel_count = 0; text[0] = 0; memset(screen, 0, sizeof(screen)); }
 void display_draw_pixel(int x, int y, uint16_t color) {
     assert(x >= 0 && x < 32 && y >= 0 && y < 8);

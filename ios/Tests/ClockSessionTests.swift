@@ -1042,6 +1042,53 @@ private final class FailingLocalSettingsStore:LocalSettingsStore {
         XCTAssertEqual(restored.pendingChangeCount,1)
         restored.suspend()
     }
+    func testDiscardedUnconfirmedSecretIsRemovedFromEveryStoredDraft() async throws {
+        let store=MemoryLocalSettingsStore()
+        let (model,radio,defaults,id)=fixture(store:store)
+        await model.connect(id)
+        var draft=model.settingsDraft
+        draft.setSecretAction(1,key:"dexcom_password")
+        draft.setText("discarded-test-replacement",key:"dexcom_password")
+        draft.setText("99",key:"brightness");model.setDraft(draft)
+        radio.loseSaveAck=true
+        await model.updateSettings(pollDelay:1_000_000)
+        await settle {model.sessionReady}
+        model.discardSettingChange("dexcom_password")
+        let snapshot=try XCTUnwrap(store.load(clockID:"clock-a"))
+        XCTAssertNil(snapshot.draft.text["dexcom_password"])
+        XCTAssertNil(snapshot.submittedDraft?.text["dexcom_password"])
+        XCTAssertTrue(snapshot.submittedDraft?.changed.contains("dexcom_password")==true,
+                      "Keep the uncertainty marker without the replacement value")
+        XCTAssertEqual(snapshot.submittedDraft?.text["brightness"],"99")
+        XCTAssertFalse(String(decoding:try JSONEncoder().encode(snapshot),as:UTF8.self).contains("discarded-test-replacement"))
+        model.suspend()
+        let restored=ClockModel(enableBluetooth:false,transport:radio,preferences:defaults,retryDelay:0,localSettingsStore:store)
+        XCTAssertEqual(restored.saveReceipt(for:["dexcom_password"])?.phase,.unconfirmed)
+        await restored.connect(id)
+        XCTAssertEqual(radio.operations.filter {$0=="settings.patch"}.count,1)
+        XCTAssertNil(try store.load(clockID:"clock-a")?.submittedDraft?.text["dexcom_password"])
+        restored.suspend()
+    }
+    func testSingleSecretDiscardCanRetryAfterSecureStorageFailure() async throws {
+        let store=FailingLocalSettingsStore()
+        let (model,radio,_,id)=fixture(store:store)
+        await model.connect(id)
+        var draft=model.settingsDraft
+        draft.setSecretAction(1,key:"dexcom_password");draft.setText("retry-discard-test",key:"dexcom_password");model.setDraft(draft)
+        radio.loseSaveAck=true;await model.updateSettings(pollDelay:1_000_000)
+        await settle {model.sessionReady}
+        store.failSave=true;model.discardSettingChange("dexcom_password")
+        XCTAssertEqual(model.settingsDraft.text["dexcom_password"],"retry-discard-test")
+        XCTAssertTrue(model.settingsUpdateMessage.contains("Couldn’t discard"))
+        XCTAssertFalse(model.canChooseAnotherClock)
+        store.failSave=false;model.discardSettingChange("dexcom_password")
+        let saved=try XCTUnwrap(store.memory.load(clockID:"clock-a"))
+        XCTAssertNil(saved.draft.text["dexcom_password"])
+        XCTAssertNil(saved.submittedDraft?.text["dexcom_password"])
+        XCTAssertTrue(model.canChooseAnotherClock)
+        XCTAssertEqual(model.settingsUpdateMessage,"Local changes discarded.")
+        model.suspend()
+    }
     func testPersistenceFailedRemainsUnconfirmedUntilDurableReadbackWithoutReplay() async {
         let (model,radio,_,id)=fixture()
         await model.connect(id);editBrightness(model,"99")

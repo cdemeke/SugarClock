@@ -52,5 +52,6 @@ class ReviewRegressionTests(unittest.TestCase):
         self.assertNotIn('weather_do_fetch',force)
         self.assertIn('weather_paused',force)
         loop=source[source.index('void weather_loop()'):source.index('void weather_set_paused(')]
-        self.assertLess(loop.index('if (weather_paused) return;'),loop.index('force_requested = false;'))
-        self.assertLess(loop.index('ble_acquire_network()'),loop.index('force_ok = weather_do_fetch();'))
+        self.assertLess(loop.index('if (weather_paused) return;'),loop.index('force_requested.exchange(false)'))
+        self.assertNotIn('weather_do_fetch(',loop)
+        self.assertLess(loop.index('ble_acquire_network()'),loop.index('xTaskCreate(weather_worker'))

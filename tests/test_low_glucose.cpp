@@ -75,7 +75,7 @@ bool countdown_is_configured() { return false; }
 long countdown_get_remaining_sec() { return 0; }
 static bool weather_data = false;
 bool weather_has_data() { return weather_data; }
-const WeatherReading& weather_get_reading() { static WeatherReading wx = {}; return wx; }
+WeatherReading weather_get_reading() { return {}; }
 void weather_set_pre_fetch_callback(WeatherPreFetchCallback) {}
 void display_set_brightness(uint8_t value) { brightness = value; }
 void display_set_transition_level(uint8_t level) { frame_level = level; }

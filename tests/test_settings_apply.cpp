@@ -15,7 +15,7 @@ AppConfig& config_get() {return active;}
 bool config_save() {
     auto outcome=config_transaction([] {return failure!=1;},[] {return failure!=2;},[] {return failure!=3;});
     if(outcome==ConfigCommit::Rejected) active=committed;
-    if(outcome==ConfigCommit::Saved) committed=active;
+    if(outcome!=ConfigCommit::Rejected) committed=active;
     return outcome==ConfigCommit::Saved;
 }
 void http_configuration_changed() {++refreshes;}
