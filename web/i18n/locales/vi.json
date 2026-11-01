@@ -273,7 +273,6 @@
   "Example Push Scripts": "Tập lệnh đẩy ví dụ",
   "Expand rollout": "Mở rộng triển khai",
   "Expand to (%)": "Mở rộng đến (%)",
-  "FAQ - SugarClock": "Câu hỏi thường gặp - SugarClock",
   "FS Total": "Tổng số FS",
   "FS Used": "FS đã sử dụng",
   "Factory Reset": "Khôi phục cài đặt gốc",
@@ -704,7 +703,6 @@
   "SugarClock - Dashboard": "SugarClock - Bảng điều khiển",
   "SugarClock - Debug": "SugarClock - Gỡ lỗi",
   "SugarClock - Device": "SugarClock - Thiết bị",
-  "SugarClock - Glucose Visible at a Glance": "SugarClock - Glucose có thể nhìn thấy trong nháy mắt",
   "SugarClock - Send Notification": "SugarClock - Gửi thông báo",
   "SugarClock Fleet": "Hạm đội SugarClock",
   "SugarClock Notification": "SugarClock Thông báo",
@@ -972,5 +970,8 @@
   "Show me": "Cho tôi xem",
   "Got it": "Đã hiểu",
   "App": "Ứng dụng",
-  "Test the Libre connection, then choose a person from the list.": "Hãy kiểm tra kết nối Libre, rồi chọn một người trong danh sách."
+  "Test the Libre connection, then choose a person from the list.": "Hãy kiểm tra kết nối Libre, rồi chọn một người trong danh sách.",
+  "SugarClock FAQ | CGM Display Setup & Troubleshooting": "SugarClock FAQ | Thiết lập màn hình CGM và khắc phục sự cố",
+  "SugarClock (Sugar Clock) | Open-Source CGM Display": "SugarClock (Sugar Clock) | Màn hình CGM mã nguồn mở",
+  "SugarClock (Sugar Clock) turns an affordable Ulanzi TC001 pixel clock into a Wi-Fi blood sugar display for Dexcom Share, FreeStyle Libre via LibreLinkUp, and Nightscout.": "SugarClock (Sugar Clock) biến đồng hồ pixel Ulanzi TC001 giá phải chăng thành màn hình đường huyết Wi-Fi cho Dexcom Share, FreeStyle Libre qua LibreLinkUp và Nightscout."
 }

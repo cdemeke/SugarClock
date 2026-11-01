@@ -273,7 +273,6 @@
   "Example Push Scripts": "推送脚本示例",
   "Expand rollout": "扩大推出",
   "Expand to (%)": "扩展到 (%)",
-  "FAQ - SugarClock": "常见问题解答 - SugarClock",
   "FS Total": "FS总计",
   "FS Used": "已使用的FS",
   "Factory Reset": "恢复出厂设置",
@@ -704,7 +703,6 @@
   "SugarClock - Dashboard": "SugarClock - 仪表板",
   "SugarClock - Debug": "SugarClock - 调试",
   "SugarClock - Device": "SugarClock - 设备",
-  "SugarClock - Glucose Visible at a Glance": "SugarClock - 葡萄糖一目了然",
   "SugarClock - Send Notification": "SugarClock - 发送通知",
   "SugarClock Fleet": "SugarClock 舰队",
   "SugarClock Notification": "SugarClock 通知",
@@ -972,5 +970,8 @@
   "Show me": "带我看看",
   "Got it": "知道了",
   "App": "应用",
-  "Test the Libre connection, then choose a person from the list.": "请测试 Libre 连接，然后从列表中选择一个人。"
+  "Test the Libre connection, then choose a person from the list.": "请测试 Libre 连接，然后从列表中选择一个人。",
+  "SugarClock FAQ | CGM Display Setup & Troubleshooting": "SugarClock FAQ | CGM 显示屏设置与故障排除",
+  "SugarClock (Sugar Clock) | Open-Source CGM Display": "SugarClock (Sugar Clock) | 开源 CGM 显示屏",
+  "SugarClock (Sugar Clock) turns an affordable Ulanzi TC001 pixel clock into a Wi-Fi blood sugar display for Dexcom Share, FreeStyle Libre via LibreLinkUp, and Nightscout.": "SugarClock (Sugar Clock) 将价格实惠的 Ulanzi TC001 像素时钟变成 Wi-Fi 血糖显示屏，支持 Dexcom Share、通过 LibreLinkUp 连接的 FreeStyle Libre 和 Nightscout。"
 }
