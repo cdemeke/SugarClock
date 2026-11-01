@@ -191,9 +191,12 @@ public enum LocalClockSchema {
     private let http: LocalHTTP
     private var nextID = 1
     private var lastConfig: [String: Any]?
+    private var expectedIdentity: String?
     static let capabilities = ["settings.patch", "schema", "wifi.trial", "ota.signed_wifi"]
 
-    public init(host: String, http: LocalHTTP) { self.host = host; self.http = http }
+    public init(host: String, http: LocalHTTP, expectedIdentity: String? = nil) {
+        self.host = host; self.http = http; self.expectedIdentity = expectedIdentity?.uppercased()
+    }
 
     public func request(_ operation: String, fields: [String: Any]) async throws -> [String: Any] {
         let id = nextID
@@ -215,13 +218,16 @@ public enum LocalClockSchema {
             try await save(fields["patch"] as? [String: Any] ?? [:])
             response["saved"] = try await settings().saved
         case "wifi.scan":
-            let (code, body) = try await send("POST", "/api/wifi/scan/refresh")
+            let (code, body) = try await post("/api/wifi/scan/refresh")
             guard (200..<300).contains(code), body["started"] as? Bool == true || body["scanning"] as? Bool == true else {
                 throw ClockError.rejected("scan_failed")
             }
             response["state"] = "queued"
         case "wifi.results":
+            _ = try await verifiedIdentity()
             let body = try await get("/api/wifi/scan")
+            _ = try await verifiedIdentity()
+            if let error = body["error"] as? String, !error.isEmpty { throw ClockError.rejected("scan_failed") }
             response["scanning"] = body["scanning"] as? Bool ?? false
             response["networks"] = (body["networks"] as? [[String: Any]] ?? []).map { network in
                 ["ssid": network["ssid"] ?? "", "rssi": network["rssi"] ?? -100,
@@ -230,6 +236,7 @@ public enum LocalClockSchema {
         case "wifi.trial":
             try await startWiFiTrial(fields["patch"] as? [String: Any] ?? [:]); response["state"] = "queued"
         case "ota.check", "ota.install":
+            _ = try await verifiedIdentity()
             // Legacy web firmware cannot distinguish a queued fleet visit from
             // an old idle result. Do not submit a request we cannot monitor.
             let ota = try await get("/api/ota/status")
@@ -237,7 +244,7 @@ public enum LocalClockSchema {
                   Self.reportedBool(ota["request_failed"]) != nil else {
                 throw ClockError.unavailable("This clock’s firmware can’t confirm update requests over Wi-Fi. Use its web page to check or install firmware updates.")
             }
-            let (code, body) = try await send("POST", operation == "ota.check" ? "/api/ota/check" : "/api/ota/install")
+            let (code, body) = try await post(operation == "ota.check" ? "/api/ota/check" : "/api/ota/install")
             guard (200..<300).contains(code) else {
                 let error = body["error"] as? String ?? "internal"
                 throw ClockError.rejected(code == 412 ? "deferred" : error == "no_update_available" ? "no_update" : error == "ota_busy" ? "busy" : error)
@@ -249,28 +256,32 @@ public enum LocalClockSchema {
         return response
     }
     public func schema(progress: SchemaProgress? = nil) async throws -> [[String: Any]] {
+        _ = try await verifiedIdentity()
         let config: [String: Any]
         if let lastConfig { config = lastConfig } else { config = try await get("/api/config"); lastConfig = config }
+        _ = try await verifiedIdentity()
         return LocalClockSchema.fields(supportedBy: config)
     }
     public func save(_ patch: [String: Any]) async throws {
         let body = try LocalClockSchema.httpBody(forPatch: patch)
-        let (code, response) = try await send("POST", "/api/config", body: body)
+        let (code, response) = try await post("/api/config", body: body)
         guard (200..<300).contains(code) else {
             throw ClockError.rejected(response["error"] as? String ?? "http_\(code)")
         }
     }
     func hello() async throws -> [String: Any] {
-        let debug = try await get("/api/debug")
+        let identity = try await verifiedIdentity()
         let status = try await get("/api/status")
-        guard let mac = debug["mac"] as? String, let identity = LocalClockIdentity.identity(fromMAC: mac),
-              let firmware = status["firmware_version"] as? String, !firmware.isEmpty else { throw ClockError.malformed }
+        _ = try await verifiedIdentity()
+        guard let firmware = status["firmware_version"] as? String, !firmware.isEmpty else { throw ClockError.malformed }
         return ["device_id": identity, "name": LocalClockIdentity.name(for: identity), "firmware": firmware,
                 "hardware": status["hardware"] as? String ?? "ulanzi-tc001-esp32-4mb",
                 "capabilities": Self.capabilities, "max_message": Frame.maximum, "transport": "wifi", "host": host]
     }
     private func settings() async throws -> (values: [String: Any], saved: Bool) {
+        _ = try await verifiedIdentity()
         let config = try await get("/api/config")
+        _ = try await verifiedIdentity()
         lastConfig = config
         return (LocalClockSchema.settings(fromHTTP: config), Self.reportedBool(config["configuration_saved"]) == true)
     }
@@ -282,6 +293,7 @@ public enum LocalClockSchema {
     }
     /// The Bluetooth status shape the diagnostics and firmware screens read.
     private func status() async throws -> [String: Any] {
+        _ = try await verifiedIdentity()
         let clock = try await get("/api/status")
         let wifi = (try? await get("/api/wifi/status")) ?? [:]
         // The web API reports durability in /api/config. Read it afresh:
@@ -310,6 +322,7 @@ public enum LocalClockSchema {
         ]
         if let age = clock["data_age_sec"] as? NSNumber, age.doubleValue >= 0 { status["data_age_ms"] = age.doubleValue * 1000 }
         if let rssi = clock["wifi_rssi"] as? Int { status["wifi_rssi"] = rssi }
+        _ = try await verifiedIdentity()
         return status
     }
     private func startWiFiTrial(_ patch: [String: Any]) async throws {
@@ -328,8 +341,28 @@ public enum LocalClockSchema {
             "identity": patch["wifi_identity"] as? String ?? "", "anon_identity": patch["wifi_anon_identity"] as? String ?? "",
             "validate_ca": patch["wifi_validate_ca"] as? Bool ?? false, "password": password,
         ]
-        let (code, response) = try await send("POST", "/api/wifi/connect", body: body)
+        let (code, response) = try await post("/api/wifi/connect", body: body)
         guard (200..<300).contains(code) else { throw ClockError.rejected(response["error"] as? String ?? "http_\(code)") }
+    }
+    /// An address can be reassigned or belong to a different clock after the
+    /// phone changes networks. Never rebind this client to that replacement.
+    private func verifiedIdentity() async throws -> String {
+        do {
+            let debug = try await get("/api/debug")
+            guard let mac = debug["mac"] as? String, let identity = LocalClockIdentity.identity(fromMAC: mac),
+                  expectedIdentity == nil || expectedIdentity == identity else { throw ClockError.disconnected }
+            expectedIdentity = identity
+            return identity
+        } catch {
+            lastConfig = nil
+            throw error // Retryable mismatches make ClockModel rediscover its saved identity.
+        }
+    }
+    /// Every mutation, including direct save calls, gets a fresh identity check
+    /// immediately before the request body can be sent to this address.
+    private func post(_ path: String, body: [String: Any]? = nil) async throws -> (Int, [String: Any]) {
+        _ = try await verifiedIdentity()
+        return try await send("POST", path, body: body)
     }
     private func get(_ path: String) async throws -> [String: Any] {
         let (code, body) = try await send("GET", path)
@@ -385,12 +418,14 @@ public enum LocalClockSchema {
                 hosts: @escaping () -> [String] = { LocalSubnet.candidateHosts() }, minimumSweepInterval: TimeInterval = 30) {
         self.http = http; self.probeHTTP = probeHTTP; self.hosts = hosts; self.minimumSweepInterval = minimumSweepInterval
     }
-    public func client(host: String) -> LocalNetworkClockClient { LocalNetworkClockClient(host: host, http: http) }
+    public func client(host: String, expecting identity: String? = nil) -> LocalNetworkClockClient {
+        LocalNetworkClockClient(host: host, http: http, expectedIdentity: identity)
+    }
 
     /// Greets a clock at a known address. Nil when it is unreachable or is a
     /// different clock (for example after a DHCP address change).
     public func connect(host: String, expecting identity: String?) async -> (LocalNetworkClockClient, [String: Any])? {
-        let client = client(host: host)
+        let client = client(host: host, expecting: identity)
         client.requestTimeout = 2.5
         guard let greeting = try? await client.request("hello"),
               let found = greeting["device_id"] as? String, identity == nil || found == identity else { return nil }

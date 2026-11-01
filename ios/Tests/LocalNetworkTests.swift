@@ -12,6 +12,7 @@ final class FakeClockServer: LocalHTTP, @unchecked Sendable {
         var failPersistence = false
         var failConfigRead = false
         var queueOTARequests = false
+        var scanError: String?
     }
     static let officeMAC = "48:9D:31:F8:20:DC", officeIdentity = "DC20F8319D48"
     static let mainlineConfig: [String: Any] = [
@@ -87,11 +88,30 @@ final class FakeClockServer: LocalHTTP, @unchecked Sendable {
                     : try reply(["error": "safety_requirements_not_met", "reason": "low_battery"], 412)
             case ("POST", "/api/wifi/scan/refresh"): return try reply(["started": true, "scanning": true])
             case ("GET", "/api/wifi/scan"):
-                return try reply(["scanning": false, "networks": [["ssid": "Home", "rssi": -40, "enc": 3, "enterprise": false]]])
+                var result: [String: Any] = ["scanning": false, "networks": [["ssid": "Home", "rssi": -40, "enc": 3, "enterprise": false]]]
+                if let error = clock.scanError { result["error"] = error }
+                return try reply(result)
             case ("POST", "/api/wifi/connect"): return try reply(["status": "started"], 202)
             default: return (Data(), 404)
             }
         }
+    }
+}
+
+/// Reassigns an address between logical request stages, after returning one
+/// response from the original clock. No timing assumptions are needed.
+private actor ReassigningClockHTTP: LocalHTTP {
+    let server: FakeClockServer
+    private var trigger: String?
+    init(server: FakeClockServer) { self.server = server }
+    func reassignAfterGET(_ path: String) { trigger = path }
+    func send(_ request: URLRequest) async throws -> (Data, Int) {
+        let result = try await server.send(request)
+        if request.httpMethod == "GET", request.url?.path == trigger {
+            trigger = nil
+            server.place(.init(mac: "88:57:21:17:79:0C"), at: "192.168.1.81")
+        }
+        return result
     }
 }
 
@@ -328,6 +348,92 @@ final class FakeClockServer: LocalHTTP, @unchecked Sendable {
         XCTAssertEqual(LocalNetworkClockClient.linkError(URLError(.timedOut)) as? ClockError, .timeout)
         XCTAssertTrue(LocalNetworkClockClient.linkError(URLError(.cancelled)) is CancellationError)
         XCTAssertEqual(LocalNetworkClockClient.linkError(URLError(.notConnectedToInternet)) as? ClockError, .disconnected)
+    }
+    func testEveryHTTPMutationRejectsAReassignedAddressBeforeSendingAnything() async throws {
+        for operation in ["save", "settings.patch", "wifi.trial", "ota.check", "ota.install", "wifi.scan"] {
+            let server = officeServer()
+            let client = LocalNetworkClockClient(host: "192.168.1.81", http: server)
+            _ = try await client.request("hello")
+            server.place(.init(mac: "88:57:21:17:79:0C", otaStatus: ["request_pending": false, "request_failed": false]), at: "192.168.1.81")
+            let before = server.requests.count
+            do {
+                switch operation {
+                case "save": try await client.save(["dexcom_password": "must-not-be-sent"])
+                case "settings.patch": _ = try await client.request(operation, fields: ["patch": ["brightness": 120]])
+                case "wifi.trial": _ = try await client.request(operation, fields: ["patch": ["wifi_ssid": "Office", "wifi_password": "must-not-be-sent"]])
+                default: _ = try await client.request(operation)
+                }
+                XCTFail("\(operation) accepted a different clock")
+            } catch { XCTAssertEqual(error as? ClockError, .disconnected, operation) }
+            XCTAssertFalse(server.requests.dropFirst(before).contains { $0.hasPrefix("POST ") }, operation)
+            XCTAssertEqual(server.config("192.168.1.81")["brightness"] as? Int, 40)
+        }
+    }
+    func testReassignedAddressCannotProvideSettingsStatusOrCachedSchemaOrRepinHello() async throws {
+        for operation in ["settings.get", "status.get", "schema", "hello"] {
+            let server = officeServer()
+            let client = LocalNetworkClockClient(host: "192.168.1.81", http: server)
+            _ = try await client.request("hello")
+            _ = try await client.request("settings.get") // Populates the schema's config cache.
+            server.place(.init(mac: "88:57:21:17:79:0C"), at: "192.168.1.81")
+            do {
+                if operation == "schema" { _ = try await client.schema() }
+                else { _ = try await client.request(operation) }
+                XCTFail("\(operation) used another clock's data")
+            } catch { XCTAssertEqual(error as? ClockError, .disconnected, operation) }
+        }
+    }
+    func testFailedHTTPScanDoesNotReturnCachedNetworksAsFreshResults() async throws {
+        let server = officeServer()
+        server.mutateClock(at: "192.168.1.81") { $0.scanError = "Wi-Fi search failed. Previous results may be out of date." }
+        let client = LocalNetworkClockClient(host: "192.168.1.81", http: server)
+        _ = try await client.request("wifi.scan")
+        do { _ = try await client.request("wifi.results"); XCTFail("Failed scan returned stale results") }
+        catch { XCTAssertEqual(error as? ClockError, .rejected("scan_failed")) }
+    }
+    func testIdentityIsRecheckedAfterOTAAdmissionBeforeThePOST() async throws {
+        let server = officeServer()
+        server.mutateClock(at: "192.168.1.81") { $0.otaStatus = ["request_pending": false, "request_failed": false] }
+        let http = ReassigningClockHTTP(server: server)
+        let client = LocalNetworkClockClient(host: "192.168.1.81", http: http)
+        _ = try await client.request("hello")
+        await http.reassignAfterGET("/api/ota/status")
+        do { _ = try await client.request("ota.install"); XCTFail("Sent an install after the address changed") }
+        catch { XCTAssertEqual(error as? ClockError, .disconnected) }
+        XCTAssertFalse(server.requests.contains { $0.hasPrefix("POST ") })
+    }
+    func testIdentityChangesDuringReadbackDiscardTheSnapshot() async throws {
+        for path in ["/api/config", "/api/status"] {
+            let server = officeServer()
+            let http = ReassigningClockHTTP(server: server)
+            let client = LocalNetworkClockClient(host: "192.168.1.81", http: http)
+            _ = try await client.request("hello")
+            await http.reassignAfterGET(path)
+            do { _ = try await client.request(path == "/api/config" ? "settings.get" : "status.get"); XCTFail("Published a snapshot across identity changes") }
+            catch { XCTAssertEqual(error as? ClockError, .disconnected) }
+        }
+    }
+    func testMalformedOrUnavailableIdentityBlocksSecretWrites() async throws {
+        for missing in [false, true] {
+            let server = officeServer()
+            let client = LocalNetworkClockClient(host: "192.168.1.81", http: server)
+            _ = try await client.request("hello")
+            if missing { server.offline = true }
+            else { server.mutateClock(at: "192.168.1.81") { $0.mac = "not-a-mac" } }
+            do { try await client.save(["dexcom_password": "must-not-be-sent"]); XCTFail() }
+            catch { XCTAssertEqual(error as? ClockError, .disconnected) }
+            XCTAssertFalse(server.requests.contains { $0.hasPrefix("POST ") })
+        }
+    }
+    func testKnownIdentityIsBoundBeforeTheFirstGreetingOrMutation() async throws {
+        let server = FakeClockServer(["192.168.1.81": .init(mac: "88:57:21:17:79:0C")])
+        let network = LocalClockNetwork(http: server)
+        let client = network.client(host: "192.168.1.81", expecting: FakeClockServer.officeIdentity)
+        do { _ = try await client.request("hello"); XCTFail("Rebound a saved identity to the replacement") }
+        catch { XCTAssertEqual(error as? ClockError, .disconnected) }
+        do { try await client.save(["brightness": 120]); XCTFail("Mutation used the replacement") }
+        catch { XCTAssertEqual(error as? ClockError, .disconnected) }
+        XCTAssertFalse(server.requests.contains { $0.hasPrefix("POST ") })
     }
     func testSubnetHostsStartNearThePhoneAndStayBounded() {
         let own: UInt32 = 0xC0A8_0158  // 192.168.1.88

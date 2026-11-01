@@ -1481,6 +1481,64 @@ private final class FailingLocalSettingsStore:LocalSettingsStore {
         XCTAssertNil(model.clocks.first?.host)
         model.suspend()
     }
+    func testReassignedAddressTriggersRecoveryWithoutWritingOrConfirmingTheReplacement() async {
+        for operation in ["health", "save", "update"] {
+            let server=officeServer()
+            server.mutateClock(at:"192.168.1.81") {$0.config["configuration_saved"]=true}
+            let (model,radio,_,id)=fixture(server:server)
+            radio.isPoweredOn=false
+            await model.connect(id)
+            var draft=model.settingsDraft;draft.setText("120",key:"brightness");model.setDraft(draft)
+            server.move(from:"192.168.1.81",to:"192.168.1.99")
+            var replacement=FakeClockServer.Clock(mac:"88:57:21:17:79:0C")
+            // Matching values on this device must never confirm the original's save.
+            replacement.config["brightness"]=120;replacement.config["configuration_saved"]=true
+            server.place(replacement,at:"192.168.1.81")
+            switch operation {
+            case "health":await model.checkConnection()
+            case "save":
+                let saved=await model.save(["brightness":120])
+                XCTAssertFalse(saved)
+            default:await model.updateSettings(pollDelay:1_000_000)
+            }
+            await settle {model.sessionReady && model.activeLink == .localNetwork("192.168.1.99")}
+            XCTAssertEqual(model.selected?.id,office)
+            XCTAssertEqual(model.clocks.first?.host,"192.168.1.99")
+            XCTAssertFalse(server.requests.contains {$0.hasPrefix("POST 192.168.1.81/")})
+            XCTAssertEqual(server.config("192.168.1.81")["brightness"] as? Int,120)
+            if operation=="update" {
+                XCTAssertEqual(server.config("192.168.1.99")["brightness"] as? Int,120)
+                XCTAssertEqual(server.requests.filter {$0=="POST 192.168.1.99/api/config"}.count,1)
+            } else {
+                XCTAssertEqual(model.settings["brightness"] as? Int,40)
+                XCTAssertEqual(model.pendingChangeCount,1)
+                XCTAssertFalse(server.requests.contains {$0.hasPrefix("POST ")})
+                if operation=="save" {XCTAssertEqual(model.saveReceipt(for:["brightness"])?.phase,.unconfirmed)}
+            }
+            model.suspend()
+        }
+    }
+    func testFailedHTTPScanPreservesPreviousNetworksAndReportsFailureWithoutReconnect() async {
+        let server=officeServer()
+        let (model,radio,_,id)=fixture(server:server)
+        radio.isPoweredOn=false
+        await model.connect(id)
+        model.networks=[["ssid":"Previous successful search","rssi":-45]]
+        server.mutateClock(at:"192.168.1.81") {$0.scanError="Wi-Fi search failed. Previous results may be out of date."}
+        let scanned=await model.scanWiFi(pollDelay:1_000_000)
+        XCTAssertFalse(scanned)
+        XCTAssertEqual(model.networks.first?["ssid"] as? String,"Previous successful search")
+        XCTAssertTrue(model.wifiScanMessage.contains("Couldn’t finish"))
+        XCTAssertTrue(model.sessionReady);XCTAssertTrue(model.canSend)
+        XCTAssertEqual(radio.attempts,0)
+        server.mutateClock(at:"192.168.1.81") {$0.scanError=nil}
+        let retried=await model.scanWiFi(pollDelay:1_000_000)
+        XCTAssertTrue(retried)
+        XCTAssertEqual(model.networks.first?["ssid"] as? String,"Home")
+        XCTAssertTrue(model.wifiScanMessage.isEmpty)
+        XCTAssertFalse(server.requests.contains {$0=="POST 192.168.1.81/api/config"})
+        model.suspend()
+    }
     func testFirmwareWatchDeadlineCancelsUnreachableDualLinkRecoveryWithoutReplayingInstall() async {
         for permanent in [false,true] {
             let server=officeServer()
