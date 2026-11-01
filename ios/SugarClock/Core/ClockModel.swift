@@ -575,7 +575,9 @@ private struct EstablishedRoute:@unchecked Sendable {
                         // and retry transient Bluetooth failures independently.
                         self.transport.close()
                         self.connectionState="Looking for your clock on Wi-Fi…"
-                        guard Self.canRetryConnection(error) else {return nil}
+                        // A powered-off radio reports unavailable on its next
+                        // attempt; it must still recover when Bluetooth returns.
+                        guard Self.canRetryConnection(error) || !self.transport.isPoweredOn else {return nil}
                         failures=min(failures+1,5)
                         try await Task.sleep(nanoseconds:SessionPolicy.retryDelay(afterFailures:failures,base:self.retryDelay))
                     }

@@ -1586,6 +1586,21 @@ private final class FailingLocalSettingsStore:LocalSettingsStore {
         XCTAssertFalse(radio.operations.contains("settings.patch"))
         model.suspend();await opening.value
     }
+    func testBluetoothPowerCycleDuringRecoveryDoesNotRetireTheRadio() async {
+        let (model,radio,_,id)=fixture(server:FakeClockServer(),hosts:[])
+        radio.holdConnection=true
+        let opening=Task {await model.connect(id)}
+        await settle {radio.waiting != nil}
+        radio.isPoweredOn=false
+        radio.connectionError=ClockError.unavailable("Bluetooth is off")
+        radio.close()
+        await settle {radio.attempts>=2}
+        try? await Task.sleep(nanoseconds:20_000_000)
+        radio.connectionError=nil;radio.holdConnection=false;radio.isPoweredOn=true
+        await settle {model.sessionReady}
+        XCTAssertEqual(model.activeLink,.bluetooth)
+        model.suspend();await opening.value
+    }
     func testSwitchingClockCancelsWiFiRecoveryAfterBluetoothFailure() async {
         let server=officeServer();server.offline=true
         let (model,radio,_,id)=fixture(server:server)
