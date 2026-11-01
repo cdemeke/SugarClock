@@ -273,7 +273,6 @@
   "Example Push Scripts": "পুশ স্ক্রিপ্টের উদাহরণ",
   "Expand rollout": "রোলআউট প্রসারিত করুন",
   "Expand to (%)": "(%) পর্যন্ত প্রসারিত করুন",
-  "FAQ - SugarClock": "প্রায়শই জিজ্ঞাসিত প্রশ্ন - SugarClock",
   "FS Total": "এফএস মোট",
   "FS Used": "এফএস ব্যবহার করা হয়েছে",
   "Factory Reset": "ফ্যাক্টরি রিসেট",
@@ -704,7 +703,6 @@
   "SugarClock - Dashboard": "SugarClock - ড্যাশবোর্ড",
   "SugarClock - Debug": "SugarClock - ডিবাগ",
   "SugarClock - Device": "SugarClock - ডিভাইস",
-  "SugarClock - Glucose Visible at a Glance": "SugarClock - গ্লুকোজ এক নজরে দৃশ্যমান",
   "SugarClock - Send Notification": "SugarClock - বিজ্ঞপ্তি পাঠান৷",
   "SugarClock Fleet": "SugarClock নৌবহর",
   "SugarClock Notification": "SugarClock বিজ্ঞপ্তি",
@@ -972,5 +970,8 @@
   "Show me": "দেখান",
   "Got it": "বুঝেছি",
   "App": "অ্যাপ",
-  "Test the Libre connection, then choose a person from the list.": "Libre সংযোগ পরীক্ষা করুন, তারপর তালিকা থেকে একজন ব্যক্তিকে বেছে নিন।"
+  "Test the Libre connection, then choose a person from the list.": "Libre সংযোগ পরীক্ষা করুন, তারপর তালিকা থেকে একজন ব্যক্তিকে বেছে নিন।",
+  "SugarClock FAQ | CGM Display Setup & Troubleshooting": "SugarClock FAQ | CGM ডিসপ্লে সেটআপ ও সমস্যা সমাধান",
+  "SugarClock (Sugar Clock) | Open-Source CGM Display": "SugarClock (Sugar Clock) | ওপেন-সোর্স CGM ডিসপ্লে",
+  "SugarClock (Sugar Clock) turns an affordable Ulanzi TC001 pixel clock into a Wi-Fi blood sugar display for Dexcom Share, FreeStyle Libre via LibreLinkUp, and Nightscout.": "SugarClock (Sugar Clock) একটি সাশ্রয়ী Ulanzi TC001 পিক্সেল ঘড়িকে Dexcom Share, LibreLinkUp-এর মাধ্যমে FreeStyle Libre এবং Nightscout-এর জন্য Wi-Fi রক্তে শর্করার ডিসপ্লেতে পরিণত করে।"
 }

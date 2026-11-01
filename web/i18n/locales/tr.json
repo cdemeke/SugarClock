@@ -273,7 +273,6 @@
   "Example Push Scripts": "Örnek Push Komut Dosyaları",
   "Expand rollout": "Kullanıma sunumu genişlet",
   "Expand to (%)": "(%) olarak genişlet",
-  "FAQ - SugarClock": "SSS - SugarClock",
   "FS Total": "FS Toplamı",
   "FS Used": "FS Kullanılan",
   "Factory Reset": "Fabrika Ayarlarına Sıfırlama",
@@ -704,7 +703,6 @@
   "SugarClock - Dashboard": "SugarClock - Kontrol Paneli",
   "SugarClock - Debug": "SugarClock - Hata ayıklama",
   "SugarClock - Device": "SugarClock - Cihaz",
-  "SugarClock - Glucose Visible at a Glance": "SugarClock - Bir Bakışta Görünür Glikoz",
   "SugarClock - Send Notification": "SugarClock - Bildirim Gönder",
   "SugarClock Fleet": "SugarClock Filosu",
   "SugarClock Notification": "SugarClock Bildirimi",
@@ -972,5 +970,8 @@
   "Show me": "Göster",
   "Got it": "Anladım",
   "App": "Uygulama",
-  "Test the Libre connection, then choose a person from the list.": "Libre bağlantısını test edin, ardından listeden bir kişi seçin."
+  "Test the Libre connection, then choose a person from the list.": "Libre bağlantısını test edin, ardından listeden bir kişi seçin.",
+  "SugarClock FAQ | CGM Display Setup & Troubleshooting": "SugarClock FAQ | CGM ekranı kurulumu ve sorun giderme",
+  "SugarClock (Sugar Clock) | Open-Source CGM Display": "SugarClock (Sugar Clock) | Açık kaynaklı CGM ekranı",
+  "SugarClock (Sugar Clock) turns an affordable Ulanzi TC001 pixel clock into a Wi-Fi blood sugar display for Dexcom Share, FreeStyle Libre via LibreLinkUp, and Nightscout.": "SugarClock (Sugar Clock), uygun fiyatlı bir Ulanzi TC001 piksel saati Dexcom Share, LibreLinkUp üzerinden FreeStyle Libre ve Nightscout için Wi-Fi kan şekeri ekranına dönüştürür."
 }

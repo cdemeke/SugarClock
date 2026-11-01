@@ -273,7 +273,6 @@
   "Example Push Scripts": "プッシュスクリプトの例",
   "Expand rollout": "展開ロールアウト",
   "Expand to (%)": "(%) まで展開",
-  "FAQ - SugarClock": "よくある質問 - SugarClock",
   "FS Total": "FS合計",
   "FS Used": "使用したFS",
   "Factory Reset": "工場出荷時設定にリセット",
@@ -704,7 +703,6 @@
   "SugarClock - Dashboard": "SugarClock - ダッシュボード",
   "SugarClock - Debug": "SugarClock - デバッグ",
   "SugarClock - Device": "SugarClock - デバイス",
-  "SugarClock - Glucose Visible at a Glance": "SugarClock - グルコースが一目でわかる",
   "SugarClock - Send Notification": "SugarClock - 通知の送信",
   "SugarClock Fleet": "SugarClock艦隊",
   "SugarClock Notification": "SugarClock 通知",
@@ -972,5 +970,8 @@
   "Show me": "見てみる",
   "Got it": "OK",
   "App": "アプリ",
-  "Test the Libre connection, then choose a person from the list.": "Libre の接続をテストしてから、一覧から人を選んでください。"
+  "Test the Libre connection, then choose a person from the list.": "Libre の接続をテストしてから、一覧から人を選んでください。",
+  "SugarClock FAQ | CGM Display Setup & Troubleshooting": "SugarClock FAQ | CGMディスプレイの設定とトラブルシューティング",
+  "SugarClock (Sugar Clock) | Open-Source CGM Display": "SugarClock (Sugar Clock) | オープンソースのCGMディスプレイ",
+  "SugarClock (Sugar Clock) turns an affordable Ulanzi TC001 pixel clock into a Wi-Fi blood sugar display for Dexcom Share, FreeStyle Libre via LibreLinkUp, and Nightscout.": "SugarClock (Sugar Clock) は、手頃な価格のUlanzi TC001ピクセルクロックを、Dexcom Share、LibreLinkUp経由のFreeStyle Libre、Nightscoutに対応するWi-Fi血糖値ディスプレイに変えます。"
 }
