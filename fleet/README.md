@@ -85,7 +85,12 @@ future releases use fleet targeting. This PR does not promote or publish a relea
 
 Firmware reports every five minutes with jitter; legacy firmware polls faster.
 Overview shows registered installations, online status, 7/30-day activity, firmware
-versions, enabled-feature counts, and approximate city/country counts. Device details
+versions, enabled-feature counts, and approximate city/region/country counts. Enabled
+features and locations each have independent 7-day, 30-day (default), 90-day, and
+all-time filters based on the latest check-in. All time includes installations that
+have checked in, excluding blocked/retired clocks. These are latest snapshots, not a
+history of configuration or movement; cleared snapshots count as unknown. US regions
+use postal abbreviations in location summaries (for example, Portland, OR). Device details
 show the latest feature snapshot. Unknown fields remain unknown. One person can own
 multiple clocks, and erasing storage can create another installation identity.
 

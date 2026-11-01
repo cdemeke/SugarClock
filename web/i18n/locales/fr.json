@@ -971,5 +971,13 @@
   "Watch the setup video or send us feedback anytime from here.": "Regardez la vidéo d’installation ou envoyez-nous vos commentaires à tout moment depuis ici.",
   "Show me": "Me montrer",
   "Got it": "Compris",
-  "SugarClock (Sugar Clock) turns an affordable Ulanzi TC001 pixel clock into a Wi-Fi blood sugar display for Dexcom Share, FreeStyle Libre via LibreLinkUp, and Nightscout.": "SugarClock (Sugar Clock) transforme une horloge à pixels Ulanzi TC001 abordable en un affichage de glycémie Wi-Fi pour Dexcom Share, FreeStyle Libre via LibreLinkUp et Nightscout."
+  "SugarClock (Sugar Clock) turns an affordable Ulanzi TC001 pixel clock into a Wi-Fi blood sugar display for Dexcom Share, FreeStyle Libre via LibreLinkUp, and Nightscout.": "SugarClock (Sugar Clock) transforme une horloge à pixels Ulanzi TC001 abordable en un affichage de glycémie Wi-Fi pour Dexcom Share, FreeStyle Libre via LibreLinkUp et Nightscout.",
+  "All time": "Toute la période",
+  "Latest reported config from all installations that have checked in. “Enabled” is configuration, not usage. Snapshots are cleared after 90 days without contact.": "Dernière configuration transmise par toutes les installations qui se sont connectées. « Activé » décrit la configuration, pas l’utilisation. Les instantanés sont effacés après 90 jours sans contact.",
+  "All installations that have checked in, grouped by country. IP estimates may be inaccurate or unavailable. Locations are cleared after 90 days without contact.": "Toutes les installations qui se sont connectées, regroupées par pays. Les estimations IP peuvent être inexactes ou indisponibles. Les localisations sont effacées après 90 jours sans contact.",
+  "No clocks in this time range. Features appear after a clock checks in.": "Aucune horloge sur cette période. Les fonctionnalités apparaissent lorsqu’une horloge se connecte.",
+  "Share of {0} installations in this time range{1}.": "Part des {0} installations sur cette période{1}.",
+  "Share of {0} installations in this time range. Unknown means the clock didn’t report that setting.": "Part des {0} installations sur cette période. Inconnu signifie que l’horloge n’a pas transmis ce réglage.",
+  "Latest reported config from installations active in the last {0} days. “Enabled” is configuration, not usage.": "Dernière configuration signalée pour les installations actives au cours des {0} derniers jours. « Activé » correspond à la configuration et non à l'utilisation.",
+  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "Actif au cours des {0} derniers jours, regroupés par pays. Les estimations IP peuvent être inexactes ou indisponibles."
 }

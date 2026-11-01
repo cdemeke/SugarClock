@@ -971,5 +971,13 @@
   "Watch the setup video or send us feedback anytime from here.": "Отсюда можно в любой момент посмотреть видео о настройке или отправить нам отзыв.",
   "Show me": "Показать",
   "Got it": "Понятно",
-  "SugarClock (Sugar Clock) turns an affordable Ulanzi TC001 pixel clock into a Wi-Fi blood sugar display for Dexcom Share, FreeStyle Libre via LibreLinkUp, and Nightscout.": "SugarClock (Sugar Clock) превращает недорогие пиксельные часы Ulanzi TC001 в Wi-Fi-дисплей уровня глюкозы для Dexcom Share, FreeStyle Libre через LibreLinkUp и Nightscout."
+  "SugarClock (Sugar Clock) turns an affordable Ulanzi TC001 pixel clock into a Wi-Fi blood sugar display for Dexcom Share, FreeStyle Libre via LibreLinkUp, and Nightscout.": "SugarClock (Sugar Clock) превращает недорогие пиксельные часы Ulanzi TC001 в Wi-Fi-дисплей уровня глюкозы для Dexcom Share, FreeStyle Libre через LibreLinkUp и Nightscout.",
+  "All time": "За всё время",
+  "Latest reported config from all installations that have checked in. “Enabled” is configuration, not usage. Snapshots are cleared after 90 days without contact.": "Последняя конфигурация всех установок, выходивших на связь. «Включено» означает настройку, а не использование. Снимки удаляются после 90 дней без связи.",
+  "All installations that have checked in, grouped by country. IP estimates may be inaccurate or unavailable. Locations are cleared after 90 days without contact.": "Все установки, выходившие на связь, по странам. Оценки по IP могут быть неточными или недоступными. Данные о местоположении удаляются после 90 дней без связи.",
+  "No clocks in this time range. Features appear after a clock checks in.": "В этом периоде нет часов. Функции появятся после подключения часов.",
+  "Share of {0} installations in this time range{1}.": "Доля из {0} установок за этот период{1}.",
+  "Share of {0} installations in this time range. Unknown means the clock didn’t report that setting.": "Доля из {0} установок за этот период. Неизвестно означает, что часы не сообщили эту настройку.",
+  "Latest reported config from installations active in the last {0} days. “Enabled” is configuration, not usage.": "Последняя зарегистрированная конфигурация из установок, активных за последние {0} дней. «Включено» — это конфигурация, а не использование.",
+  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "Активны за последние {0} дней, сгруппированы по странам. Оценки IP могут быть неточными или недоступными."
 }
