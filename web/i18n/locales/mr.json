@@ -303,6 +303,8 @@
   "Free heap": "मुक्त ढीग",
   "FreeStyle Libre": "FreeStyle Libre",
   "FreeStyle Libre (LibreLinkUp)": "FreeStyle Libre (LibreLinkUp)",
+  "Nightscout": "Nightscout",
+  "Enter your Nightscout site address. For a private site, create a token with the readable role in Nightscout Admin Tools and paste it as the Auth Token.": "तुमच्या Nightscout साइटचा पत्ता टाका. खाजगी साइटसाठी, Nightscout Admin Tools मध्ये readable भूमिका असलेले टोकन तयार करा आणि ते प्रमाणीकरण टोकन म्हणून पेस्ट करा.",
   "From clock to CGM display": "घड्याळ पासून CGM डिस्प्ले पर्यंत",
   "General": "सामान्य",
   "Get a free key at": "येथे विनामूल्य की मिळवा",

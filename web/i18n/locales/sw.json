@@ -303,6 +303,8 @@
   "Free heap": "Lundo la bure",
   "FreeStyle Libre": "FreeStyle Libre",
   "FreeStyle Libre (LibreLinkUp)": "FreeStyle Libre (LibreLinkUp)",
+  "Nightscout": "Nightscout",
+  "Enter your Nightscout site address. For a private site, create a token with the readable role in Nightscout Admin Tools and paste it as the Auth Token.": "Weka anwani ya tovuti yako ya Nightscout. Kwa tovuti ya faragha, unda tokeni yenye jukumu la readable katika Nightscout Admin Tools na uibandike kama Ishara ya Uthibitishaji.",
   "From clock to CGM display": "Kutoka saa hadi onyesho la CGM",
   "General": "Mkuu",
   "Get a free key at": "Pata ufunguo bila malipo kwa",

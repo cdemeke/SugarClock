@@ -303,6 +303,8 @@
   "Free heap": "Tulin kyauta",
   "FreeStyle Libre": "FreeStyle Libre",
   "FreeStyle Libre (LibreLinkUp)": "FreeStyle Libre (LibreLinkUp)",
+  "Nightscout": "Nightscout",
+  "Enter your Nightscout site address. For a private site, create a token with the readable role in Nightscout Admin Tools and paste it as the Auth Token.": "Shigar da adireshin shafin Nightscout ɗinku. Don shafi na sirri, ƙirƙiri token mai matsayin readable a cikin Nightscout Admin Tools kuma liƙa shi a matsayin Auth Token.",
   "From clock to CGM display": "Daga agogo zuwa nunin CGM",
   "General": "Gabaɗaya",
   "Get a free key at": "Samu maɓalli kyauta a",

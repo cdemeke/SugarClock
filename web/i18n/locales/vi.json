@@ -303,6 +303,8 @@
   "Free heap": "Đống miễn phí",
   "FreeStyle Libre": "FreeStyle Libre",
   "FreeStyle Libre (LibreLinkUp)": "FreeStyle Libre (LibreLinkUp)",
+  "Nightscout": "Nightscout",
+  "Enter your Nightscout site address. For a private site, create a token with the readable role in Nightscout Admin Tools and paste it as the Auth Token.": "Nhập địa chỉ trang Nightscout của bạn. Với trang riêng tư, hãy tạo mã thông báo có vai trò readable trong Nightscout Admin Tools và dán vào ô Mã thông báo xác thực.",
   "From clock to CGM display": "Từ đồng hồ đến màn hình CGM",
   "General": "chung",
   "Get a free key at": "Nhận key miễn phí tại",

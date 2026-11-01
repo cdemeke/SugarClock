@@ -303,6 +303,8 @@
   "Free heap": "বিনামূল্যে গাদা",
   "FreeStyle Libre": "FreeStyle Libre",
   "FreeStyle Libre (LibreLinkUp)": "FreeStyle Libre (LibreLinkUp)",
+  "Nightscout": "Nightscout",
+  "Enter your Nightscout site address. For a private site, create a token with the readable role in Nightscout Admin Tools and paste it as the Auth Token.": "আপনার Nightscout সাইটের ঠিকানা লিখুন। ব্যক্তিগত সাইটের জন্য, Nightscout Admin Tools-এ readable ভূমিকা সহ একটি টোকেন তৈরি করুন এবং সেটি প্রমাণ টোকেন হিসেবে পেস্ট করুন।",
   "From clock to CGM display": "ঘড়ি থেকে CGM ডিসপ্লে",
   "General": "সাধারণ",
   "Get a free key at": "এ একটি বিনামূল্যে কী পান",

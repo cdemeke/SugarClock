@@ -303,6 +303,8 @@
   "Free heap": "montón gratis",
   "FreeStyle Libre": "FreeStyle Libre",
   "FreeStyle Libre (LibreLinkUp)": "FreeStyle Libre (LibreLinkUp)",
+  "Nightscout": "Nightscout",
+  "Enter your Nightscout site address. For a private site, create a token with the readable role in Nightscout Admin Tools and paste it as the Auth Token.": "Introduzca la dirección de su sitio Nightscout. Para un sitio privado, cree un token con el rol readable en Admin Tools de Nightscout y péguelo como Token de autenticación.",
   "From clock to CGM display": "Del reloj a la pantalla CGM",
   "General": "generales",
   "Get a free key at": "Obtenga una clave gratuita en",

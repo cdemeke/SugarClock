@@ -5,6 +5,7 @@
 #include "wifi_manager.h"
 #include "http_client.h"
 #include "libre_client.h"
+#include "nightscout.h"
 #include "glucose_engine.h"
 #include "time_engine.h"
 #include "sensors.h"
@@ -374,14 +375,31 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
         strncpy(cfg.wifi_anon_identity, doc["wifi_anon_identity"] | "", sizeof(cfg.wifi_anon_identity) - 1);
         cfg.wifi_anon_identity[sizeof(cfg.wifi_anon_identity) - 1] = '\0';
     }
+    const int previous_source = cfg.data_source;
+    char previous_url[sizeof(cfg.server_url)];
+    strcpy(previous_url, cfg.server_url);
+    char entered_token[sizeof(cfg.auth_token)] = "";
     if (doc["data_source"].is<int>()) {
         cfg.data_source = doc["data_source"].as<int>();
     }
     if (doc["server_url"].is<const char*>()) {
         strncpy(cfg.server_url, doc["server_url"] | "", sizeof(cfg.server_url) - 1);
     }
-    if (doc["auth_token"].is<const char*>() && strlen(doc["auth_token"] | "") > 0) {
-        strncpy(cfg.auth_token, doc["auth_token"] | "", sizeof(cfg.auth_token) - 1);
+    if (doc["auth_token"].is<const char*>()) {
+        strncpy(entered_token, doc["auth_token"] | "", sizeof(entered_token) - 1);
+    }
+    if (cfg.data_source == NIGHTSCOUT_SOURCE) {
+        nightscout_normalize_settings(cfg.server_url, sizeof(cfg.server_url),
+                                      entered_token, sizeof(entered_token));
+    }
+    // A blank token keeps the saved one only for the same source and address,
+    // so a secret never follows an address change to another server.
+    const bool source_changed = cfg.data_source != previous_source ||
+                                strcmp(cfg.server_url, previous_url) != 0;
+    if (entered_token[0]) {
+        strcpy(cfg.auth_token, entered_token);
+    } else if (source_changed) {
+        cfg.auth_token[0] = '\0';
     }
     if (doc["dexcom_username"].is<const char*>()) {
         strncpy(cfg.dexcom_username, doc["dexcom_username"] | "", sizeof(cfg.dexcom_username) - 1);
@@ -635,6 +653,8 @@ static void handle_post_config(AsyncWebServerRequest* request, uint8_t* data, si
     engine_rebuild_toggle_order();
     if (libre_changed) libre_reset_session();
     if (libre_person_changed && cfg.data_source == 3) http_clear_readings();
+    // Never show the previous source's reading, or a delta across sources.
+    if (source_changed) http_clear_readings();
     lock.unlock();
 
     // Apply brightness immediately
