@@ -543,7 +543,10 @@ private struct EstablishedRoute:@unchecked Sendable {
         }
         // A clock added over Wi-Fi has no Bluetooth identity to connect to.
         let bluetoothPossible = !LocalClockIdentity.isLocalOnly(id) && transport.isPoweredOn
-        guard let localNetwork else {
+        // A new Bluetooth clock has no verified identity to search for on the
+        // LAN yet. Its pairing errors and bounded setup retries still apply.
+        let hasLocalIdentity=clocks.contains(where:{$0.peripheral==id}) || pendingLocalClocks[id] != nil
+        guard let localNetwork,hasLocalIdentity else {
             guard bluetoothPossible else {throw ClockError.timeout}
             let route=try await connectBluetooth(id)
             try await adopt(route.client,greeting:route.greeting,peripheral:id,link:route.link)
@@ -561,8 +564,23 @@ private struct EstablishedRoute:@unchecked Sendable {
         // found on Wi-Fi afterwards still moves to the better link.
         searchForLocalHost(id,network:localNetwork)
         let interval=localWatchInterval
-        let route=try await withThrowingTaskGroup(of:EstablishedRoute.self) {group in
-            group.addTask {try await self.connectBluetooth(id)}
+        let route=try await withThrowingTaskGroup(of:EstablishedRoute?.self) {group in
+            group.addTask { @MainActor in
+                var failures=0
+                while true {
+                    do {return try await self.connectBluetooth(id)} catch {
+                        try Task.checkCancellation()
+                        // Failure of this radio says nothing about Wi-Fi. Keep
+                        // identity-checked LAN recovery alive after pairing errors,
+                        // and retry transient Bluetooth failures independently.
+                        self.transport.close()
+                        self.connectionState="Looking for your clock on Wi-Fi…"
+                        guard Self.canRetryConnection(error) else {return nil}
+                        failures=min(failures+1,5)
+                        try await Task.sleep(nanoseconds:SessionPolicy.retryDelay(afterFailures:failures,base:self.retryDelay))
+                    }
+                }
+            }
             group.addTask {
                 while true {
                     try await Task.sleep(nanoseconds:interval)
@@ -575,8 +593,10 @@ private struct EstablishedRoute:@unchecked Sendable {
                 }
             }
             defer {group.cancelAll()}
-            guard let first=try await group.next() else {throw ClockError.timeout}
-            return first
+            while let result=try await group.next() {
+                if let route=result {return route}
+            }
+            throw ClockError.timeout
         }
         try Task.checkCancellation()
         if route.link.host != nil {transport.close()}

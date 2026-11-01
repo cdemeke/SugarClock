@@ -1308,13 +1308,13 @@ private final class FailingLocalSettingsStore:LocalSettingsStore {
         XCTFail("Session did not settle")
     }
     private func fixture(server:FakeClockServer,hosts:[String]=["192.168.1.10","192.168.1.81","192.168.1.99"],
-                         clock:SavedClock?=nil)->(ClockModel,SessionTransport,UserDefaults,UUID) {
+                         clock:SavedClock?=nil,includeNetwork:Bool=true)->(ClockModel,SessionTransport,UserDefaults,UUID) {
         let radio=SessionTransport(),id=clock?.peripheral ?? UUID()
         radio.identity=clock?.id ?? office
         let defaults=UserDefaults(suiteName:"SugarClockTests."+UUID().uuidString)!
         let network=LocalClockNetwork(http:server,probeHTTP:server,hosts:{hosts},minimumSweepInterval:0)
         let model=ClockModel(enableBluetooth:false,loadSaved:false,transport:radio,preferences:defaults,retryDelay:0,
-                             localSettingsStore:MemoryLocalSettingsStore(),localNetwork:network)
+                             localSettingsStore:MemoryLocalSettingsStore(),localNetwork:includeNetwork ? network:nil)
         model.localWatchInterval=5_000_000
         let saved=clock ?? SavedClock(id:office,peripheral:id,nickname:"Office")
         model.clocks=[saved];model.selected=saved
@@ -1529,6 +1529,97 @@ private final class FailingLocalSettingsStore:LocalSettingsStore {
         XCTAssertNil(radio.waiting,"The pending Bluetooth attempt was cancelled")
         model.suspend()
     }
+    func testBluetoothPairingFailureDoesNotCancelSavedClockWiFiRecovery() async {
+        for oldHost in [nil, "192.168.1.50"] as [String?] {
+            let server=officeServer();server.offline=true
+            // A DHCP address can now belong to a different clock.
+            server.place(.init(mac:"88:57:21:17:79:0C"),at:"192.168.1.50")
+            let id=UUID()
+            let (model,radio,_,_)=fixture(server:server,hosts:["192.168.1.50","192.168.1.81"],
+                clock:SavedClock(id:office,peripheral:id,nickname:"Office",host:oldHost))
+            radio.connectionError=NSError(domain:CBErrorDomain,code:CBError.peerRemovedPairingInformation.rawValue)
+            let opening=Task {await model.connect(id)}
+            await settle {radio.attempts==1 && !server.requests.isEmpty}
+            // Let Bluetooth report its error before Wi-Fi becomes available.
+            try? await Task.sleep(nanoseconds:20_000_000)
+            XCTAssertTrue(model.reconnecting)
+            XCTAssertEqual(model.connectionSummary,"Searching…")
+            server.offline=false
+            await settle {model.sessionReady}
+            XCTAssertEqual(model.activeLink,.localNetwork("192.168.1.81"))
+            XCTAssertEqual(model.hello["device_id"] as? String,office)
+            XCTAssertEqual(model.clocks.first?.host,"192.168.1.81")
+            XCTAssertEqual(radio.attempts,1,"Wi-Fi recovery does not repeat failed Bluetooth pairing")
+            XCTAssertTrue(model.message.isEmpty)
+            model.suspend();await opening.value
+        }
+    }
+    func testWiFiRecoveryAfterBluetoothFailureRemainsCancellable() async {
+        for background in [false,true] {
+            let server=officeServer();server.offline=true
+            let (model,radio,_,id)=fixture(server:server)
+            radio.connectionError=NSError(domain:CBErrorDomain,code:CBError.peerRemovedPairingInformation.rawValue)
+            let opening=Task {await model.connect(id)}
+            await settle {radio.attempts==1 && !server.requests.isEmpty}
+            try? await Task.sleep(nanoseconds:20_000_000)
+            XCTAssertTrue(model.reconnecting)
+            if background {model.suspend()} else {model.stopReconnecting()}
+            await opening.value
+            XCTAssertFalse(model.busy);XCTAssertFalse(model.reconnecting)
+            XCTAssertFalse(model.sessionReady)
+            server.offline=false
+            try? await Task.sleep(nanoseconds:20_000_000)
+            XCTAssertFalse(model.sessionReady,"Cancellation cannot be undone by late discovery")
+            if background {model.resume();await settle {model.sessionReady}}
+            else {await model.retrySelected()}
+            XCTAssertEqual(model.activeLink,.localNetwork("192.168.1.81"))
+            model.suspend()
+        }
+    }
+    func testTransientBluetoothFailuresStillRecoverWhileWiFiIsUnavailable() async {
+        let (model,radio,_,id)=fixture(server:FakeClockServer(),hosts:[])
+        radio.failures=2
+        let opening=Task {await model.connect(id)}
+        await settle {model.sessionReady}
+        XCTAssertEqual(model.activeLink,.bluetooth)
+        XCTAssertEqual(radio.attempts,3)
+        XCTAssertFalse(radio.operations.contains("settings.patch"))
+        model.suspend();await opening.value
+    }
+    func testSwitchingClockCancelsWiFiRecoveryAfterBluetoothFailure() async {
+        let server=officeServer();server.offline=true
+        let (model,radio,_,id)=fixture(server:server)
+        let second=UUID()
+        model.clocks.append(SavedClock(id:"clock-b",peripheral:second,nickname:"Kitchen"))
+        radio.connectionError=NSError(domain:CBErrorDomain,code:CBError.peerRemovedPairingInformation.rawValue)
+        let opening=Task {await model.connect(id)}
+        await settle {radio.attempts==1 && !server.requests.isEmpty}
+        try? await Task.sleep(nanoseconds:20_000_000)
+        XCTAssertTrue(model.reconnecting);XCTAssertTrue(model.canChooseAnotherClock)
+        radio.connectionError=nil;radio.identity="clock-b"
+        await model.connect(second);await opening.value
+        server.offline=false
+        try? await Task.sleep(nanoseconds:20_000_000)
+        XCTAssertEqual(model.selected?.id,"clock-b")
+        XCTAssertTrue(model.sessionReady)
+        XCTAssertEqual(model.activeLink,.bluetooth)
+        model.suspend()
+    }
+    func testUnknownBluetoothClockDoesNotWaitForUnidentifiableWiFiRoute() async {
+        for permanent in [false,true] {
+            let (model,radio,_,_)=fixture(server:officeServer())
+            model.clocks=[];model.selected=nil
+            radio.connectionError=permanent
+                ? NSError(domain:CBErrorDomain,code:CBError.peerRemovedPairingInformation.rawValue)
+                : ClockError.timeout
+            await model.connect(UUID())
+            XCTAssertFalse(model.sessionReady);XCTAssertFalse(model.reconnecting)
+            XCTAssertEqual(radio.attempts,permanent ? 1:SessionPolicy.newClockMaximumAttempts)
+            XCTAssertTrue(model.clocks.isEmpty)
+            if permanent {XCTAssertTrue(model.message.contains("Pairing has changed"))}
+            model.suspend()
+        }
+    }
     func testStatusBadgeShowsEachConnectionState() async throws {
         let server=officeServer();server.offline=true
         let (model,radio,_,id)=fixture(server:server)
@@ -1548,7 +1639,7 @@ private final class FailingLocalSettingsStore:LocalSettingsStore {
         XCTAssertEqual(model.connectionStatus.title,"Not connected")
     }
     func testStatusBadgeShowsBluetoothAndPermanentFailures() async {
-        let (model,radio,_,id)=fixture(server:FakeClockServer(),hosts:[])
+        let (model,radio,_,id)=fixture(server:FakeClockServer(),hosts:[],includeNetwork:false)
         await model.connect(id)
         XCTAssertEqual(model.connectionStatus.level,.connected)
         XCTAssertEqual(model.connectionStatus.link,"Bluetooth")
