@@ -167,6 +167,7 @@ private struct EstablishedRoute:@unchecked Sendable {
     private var pendingLocalClocks:[UUID:LocalClockCandidate]=[:]
     /// How often a saved Wi-Fi address is rechecked while Bluetooth is pending.
     var localWatchInterval:UInt64=4_000_000_000
+    var updatePollInterval:UInt64=2_000_000_000
     @Published var operationTitle="Saving…"
     private var unconfirmedChange=false
     private var foreground=true
@@ -945,7 +946,7 @@ private struct EstablishedRoute:@unchecked Sendable {
             defer {self.updateMonitor=nil;self.updatingClock=false;self.startReconnect()}
             let deadline=Date().addingTimeInterval(180)
             while Date()<deadline {
-                try? await Task.sleep(nanoseconds:2_000_000_000)
+                try? await Task.sleep(nanoseconds:self.updatePollInterval)
                 if Task.isCancelled {return}
                 if self.busy {continue}
                 self.busy=true

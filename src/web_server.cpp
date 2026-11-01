@@ -170,6 +170,7 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     ConfigGuard guard;
     AppConfig& cfg = config_get();
     JsonDocument doc;
+    doc["configuration_saved"] = config_is_durable();
 
     // Secrets are never echoed back. This endpoint is reachable over plain HTTP,
     // including from an open setup AP, so the UI is told only whether a value is
@@ -454,6 +455,9 @@ static void handle_timer_status(AsyncWebServerRequest* request) {
 
 // GET /api/ota/status
 static void handle_ota_status(AsyncWebServerRequest* request) {
+    // Sample admission first so a completed request's OTA snapshot cannot be
+    // paired with a terminal flag read after an older snapshot was captured.
+    const bool pending=fleet_request_pending();
     OtaStatusSnapshot snapshot;
     ota_get_status(snapshot);
     JsonDocument doc;
@@ -469,6 +473,9 @@ static void handle_ota_status(AsyncWebServerRequest* request) {
     doc["running_partition"] = snapshot.running_partition;
     doc["boot_partition"] = snapshot.boot_partition;
     doc["pending_verification"] = snapshot.pending_verification;
+    // Read pending first, as on BLE: failure is final only after pending clears.
+    doc["request_pending"] = pending;
+    doc["request_failed"] = !pending && fleet_request_failed();
     String output;
     serializeJson(doc, output);
     request->send(200, "application/json", output);

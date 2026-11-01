@@ -8,6 +8,9 @@ final class FakeClockServer: LocalHTTP, @unchecked Sendable {
         var mac: String
         var firmware = "0.2.18"
         var config: [String: Any] = FakeClockServer.mainlineConfig
+        var otaStatus: [String: Any] = [:]
+        var failPersistence = false
+        var queueOTARequests = false
     }
     static let officeMAC = "48:9D:31:F8:20:DC", officeIdentity = "DC20F8319D48"
     static let mainlineConfig: [String: Any] = [
@@ -33,6 +36,9 @@ final class FakeClockServer: LocalHTTP, @unchecked Sendable {
     func lastBody(_ path: String) -> [String: Any]? { lock.withLock { bodies[path] } }
     func move(from old: String, to new: String) { lock.withLock { clocks[new] = clocks.removeValue(forKey: old) } }
     func place(_ clock: Clock, at host: String) { lock.withLock { clocks[host] = clock } }
+    func mutateClock(at host: String, _ change: (inout Clock) -> Void) {
+        lock.withLock { if var clock = clocks[host] { change(&clock); clocks[host] = clock } }
+    }
 
     func send(_ request: URLRequest) async throws -> (Data, Int) {
         try lock.withLock {
@@ -59,14 +65,24 @@ final class FakeClockServer: LocalHTTP, @unchecked Sendable {
                     } else if clock.config[key] != nil { clock.config[key] = value }
                 }
                 clocks[host] = clock
+                if clock.failPersistence { return try reply(["error": "persistence_failed"], 500) }
                 return try reply(["status": "ok"])
             case ("GET", "/api/wifi/status"):
                 return try reply(["state": "connected", "trial": "idle", "detail": "", "ssid": "Home", "checks": ["dns": "ok", "data": "fail"]])
             case ("GET", "/api/ota/status"):
-                return try reply(["current_version": clock.firmware, "state": "idle", "available_version": "", "progress": 0,
-                                  "last_error": "", "safety_reason": "", "pending_verification": false])
-            case ("POST", "/api/ota/check"): return try reply(["error": "no_update_available"], 409)
-            case ("POST", "/api/ota/install"): return try reply(["error": "safety_requirements_not_met", "reason": "low_battery"], 412)
+                var result: [String: Any] = ["current_version": clock.firmware, "state": "idle", "available_version": "", "progress": 0,
+                                            "last_error": "", "safety_reason": "", "pending_verification": false]
+                result.merge(clock.otaStatus) { $1 }
+                return try reply(result)
+            case ("POST", "/api/ota/check"), ("POST", "/api/ota/install"):
+                if clock.queueOTARequests {
+                    clock.otaStatus["request_pending"] = true
+                    clock.otaStatus["request_failed"] = false
+                    clocks[host] = clock
+                    return try reply(["status": "queued"], 202)
+                }
+                return url.path.hasSuffix("/check") ? try reply(["error": "no_update_available"], 409)
+                    : try reply(["error": "safety_requirements_not_met", "reason": "low_battery"], 412)
             case ("POST", "/api/wifi/scan/refresh"): return try reply(["started": true, "scanning": true])
             case ("GET", "/api/wifi/scan"):
                 return try reply(["scanning": false, "networks": [["ssid": "Home", "rssi": -40, "enc": 3, "enterprise": false]]])
@@ -151,7 +167,7 @@ final class FakeClockServer: LocalHTTP, @unchecked Sendable {
         XCTAssertNil(SchemaIdentity(hello), "No boot identity over Wi-Fi: schema is rebuilt locally, never cached as Bluetooth's")
 
         let settings = try await client.request("settings.get")
-        XCTAssertEqual(settings["saved"] as? Bool, true)
+        XCTAssertEqual(settings["saved"] as? Bool, false, "Legacy /api/config is not durability evidence")
         XCTAssertEqual((settings["settings"] as? [String: Any])?["brightness"] as? Int, 40)
         let schema = try await client.schema(progress: nil)
         XCTAssertTrue(schema.contains { $0["key"] as? String == "brightness" })
@@ -173,7 +189,9 @@ final class FakeClockServer: LocalHTTP, @unchecked Sendable {
         XCTAssertEqual(reread?["color_in_range"] as? Int, 0xFF0000)
     }
     func testOperationsMapWebErrorsToBluetoothErrors() async throws {
-        let client = LocalNetworkClockClient(host: "192.168.1.81", http: officeServer())
+        let server = officeServer()
+        server.mutateClock(at: "192.168.1.81") { $0.otaStatus = ["request_pending": false, "request_failed": false] }
+        let client = LocalNetworkClockClient(host: "192.168.1.81", http: server)
         do { _ = try await client.request("ota.check"); XCTFail() } catch { XCTAssertEqual(error as? ClockError, .rejected("no_update")) }
         do { _ = try await client.request("ota.install"); XCTFail() } catch { XCTAssertEqual(error as? ClockError, .rejected("deferred")) }
         do { _ = try await client.request("bonds.reset"); XCTFail() } catch { XCTAssertEqual(error as? ClockError, .rejected("unsupported_operation")) }
@@ -182,6 +200,55 @@ final class FakeClockServer: LocalHTTP, @unchecked Sendable {
         let results = try await client.request("wifi.results")
         XCTAssertEqual(results["scanning"] as? Bool, false)
         XCTAssertEqual((results["networks"] as? [[String: Any]])?.first?["auth"] as? Int, 3)
+    }
+    func testHTTPReadsRequireAnExplicitBooleanDurabilityMarker() async throws {
+        let server = officeServer()
+        let client = LocalNetworkClockClient(host: "192.168.1.81", http: server)
+        let cases: [(Any, Bool)] = [(false, false), ("true", false), (1, false), (NSNull(), false), (true, true)]
+        for (evidence, expected) in cases {
+            server.mutateClock(at: "192.168.1.81") { $0.config["configuration_saved"] = evidence }
+            let read = try await client.request("settings.get")
+            XCTAssertEqual(read["saved"] as? Bool, expected)
+            XCTAssertNil((read["settings"] as? [String: Any])?["configuration_saved"])
+        }
+        server.mutateClock(at: "192.168.1.81") { $0.config.removeValue(forKey: "configuration_saved") }
+        let legacy = try await client.request("settings.get")
+        XCTAssertEqual(legacy["saved"] as? Bool, false)
+    }
+    func testQueuedHTTPUpdateCannotSettleAtAnOldTerminalState() async throws {
+        for state in ["idle", "update_available"] {
+            let server = officeServer()
+            server.mutateClock(at: "192.168.1.81") {
+                $0.queueOTARequests = true
+                $0.otaStatus = ["state": state, "request_pending": false, "request_failed": false]
+            }
+            let client = LocalNetworkClockClient(host: "192.168.1.81", http: server)
+            _ = try await client.request("ota.check")
+            for _ in 0..<3 {
+                let response = try await client.request("status.get")
+                let ota = try XCTUnwrap((response["status"] as? [String: Any])?["ota"] as? [String: Any])
+                XCTAssertEqual(ota["request_pending"] as? Bool, true)
+                XCTAssertFalse(ClockModel.updateRequestSettled(ota))
+            }
+            server.mutateClock(at: "192.168.1.81") { $0.otaStatus["request_pending"] = false; $0.otaStatus["request_failed"] = true }
+            let failed = try await client.request("status.get")
+            let ota = try XCTUnwrap((failed["status"] as? [String: Any])?["ota"] as? [String: Any])
+            XCTAssertEqual(ota["request_failed"] as? Bool, true)
+            XCTAssertTrue(ClockModel.updateRequestSettled(ota))
+        }
+    }
+    func testLegacyHTTPUpdatesAreNotSubmittedWithoutCompletionEvidence() async throws {
+        let server = officeServer()
+        let client = LocalNetworkClockClient(host: "192.168.1.81", http: server)
+        for op in ["ota.check", "ota.install"] {
+            do { _ = try await client.request(op); XCTFail("Legacy queued updates cannot be monitored") }
+            catch { guard case ClockError.unavailable = error else { return XCTFail("\(error)") } }
+        }
+        XCTAssertFalse(server.requests.contains { $0.hasPrefix("POST ") })
+        // If evidence disappears during an already accepted request, keep waiting.
+        let response = try await client.request("status.get")
+        let ota = try XCTUnwrap((response["status"] as? [String: Any])?["ota"] as? [String: Any])
+        XCTAssertFalse(ClockModel.updateRequestSettled(ota))
     }
     func testWiFiTrialNeedsAPasswordOverTheWebAPI() async throws {
         let server = officeServer()

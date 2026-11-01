@@ -1,4 +1,5 @@
 import Foundation
+import CoreFoundation
 #if canImport(Darwin)
 import Darwin
 #endif
@@ -195,7 +196,8 @@ public enum LocalClockSchema {
         case "hello":
             response.merge(try await hello()) { $1 }
         case "settings.get":
-            response["settings"] = try await settings(); response["saved"] = true
+            let read = try await settings()
+            response["settings"] = read.values; response["saved"] = read.saved
         case "schema.get":
             let page = fields["page"] as? Int ?? 0
             response["fields"] = page == 0 ? try await schema(progress: nil) : []
@@ -203,7 +205,8 @@ public enum LocalClockSchema {
         case "status.get":
             response["status"] = try await status()
         case "settings.patch":
-            try await save(fields["patch"] as? [String: Any] ?? [:]); response["saved"] = true
+            try await save(fields["patch"] as? [String: Any] ?? [:])
+            response["saved"] = try await settings().saved
         case "wifi.scan":
             let (code, body) = try await send("POST", "/api/wifi/scan/refresh")
             guard (200..<300).contains(code), body["started"] as? Bool == true || body["scanning"] as? Bool == true else {
@@ -220,6 +223,13 @@ public enum LocalClockSchema {
         case "wifi.trial":
             try await startWiFiTrial(fields["patch"] as? [String: Any] ?? [:]); response["state"] = "queued"
         case "ota.check", "ota.install":
+            // Legacy web firmware cannot distinguish a queued fleet visit from
+            // an old idle result. Do not submit a request we cannot monitor.
+            let ota = try await get("/api/ota/status")
+            guard Self.reportedBool(ota["request_pending"]) != nil,
+                  Self.reportedBool(ota["request_failed"]) != nil else {
+                throw ClockError.unavailable("This clock’s firmware can’t confirm update requests over Wi-Fi. Use its web page to check or install firmware updates.")
+            }
             let (code, body) = try await send("POST", operation == "ota.check" ? "/api/ota/check" : "/api/ota/install")
             guard (200..<300).contains(code) else {
                 let error = body["error"] as? String ?? "internal"
@@ -252,16 +262,24 @@ public enum LocalClockSchema {
                 "hardware": status["hardware"] as? String ?? "ulanzi-tc001-esp32-4mb",
                 "capabilities": Self.capabilities, "max_message": Frame.maximum, "transport": "wifi", "host": host]
     }
-    private func settings() async throws -> [String: Any] {
+    private func settings() async throws -> (values: [String: Any], saved: Bool) {
         let config = try await get("/api/config")
         lastConfig = config
-        return LocalClockSchema.settings(fromHTTP: config)
+        return (LocalClockSchema.settings(fromHTTP: config), Self.reportedBool(config["configuration_saved"]) == true)
+    }
+    /// Only an actual JSON Boolean is evidence; numeric/string lookalikes and
+    /// absent legacy metadata must not establish durability or request completion.
+    private static func reportedBool(_ value: Any?) -> Bool? {
+        guard let number = value as? NSNumber, CFGetTypeID(number) == CFBooleanGetTypeID() else { return nil }
+        return number.boolValue
     }
     /// The Bluetooth status shape the diagnostics and firmware screens read.
     private func status() async throws -> [String: Any] {
         let clock = try await get("/api/status")
         let wifi = (try? await get("/api/wifi/status")) ?? [:]
         let ota = (try? await get("/api/ota/status")) ?? [:]
+        let pending = Self.reportedBool(ota["request_pending"])
+        let failed = Self.reportedBool(ota["request_failed"])
         func probe(_ value: Any?) -> Int { value as? String == "ok" ? 1 : value as? String == "fail" ? 2 : 0 }
         let checks = wifi["checks"] as? [String: Any] ?? [:]
         var status: [String: Any] = [
@@ -274,7 +292,9 @@ public enum LocalClockSchema {
             "ota": ["state": ota["state"] as? String ?? "unknown", "progress": ota["progress"] as? Int ?? 0,
                     "current_version": ota["current_version"] as? String ?? clock["firmware_version"] as? String ?? "",
                     "available_version": ota["available_version"] as? String ?? "", "error": ota["last_error"] as? String ?? "",
-                    "deferral": ota["safety_reason"] as? String ?? "", "pending_verification": ota["pending_verification"] as? Bool ?? false] as [String: Any],
+                    "deferral": ota["safety_reason"] as? String ?? "", "pending_verification": ota["pending_verification"] as? Bool ?? false,
+                    "request_pending": pending == nil || failed == nil ? true : pending!,
+                    "request_failed": pending == false ? failed ?? false : false] as [String: Any],
         ]
         if let age = clock["data_age_sec"] as? NSNumber, age.doubleValue >= 0 { status["data_age_ms"] = age.doubleValue * 1000 }
         if let rssi = clock["wifi_rssi"] as? Int { status["wifi_rssi"] = rssi }

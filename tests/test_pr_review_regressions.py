@@ -38,6 +38,14 @@ class ReviewRegressionTests(unittest.TestCase):
             (pathlib.Path(tmp)/'web_bodies.inc').write_text(config+'\n'+wifi)
             self.compile_run(tmp,'test_web_bodies',['src/config_patch.cpp','src/libre_patient.cpp','-fsanitize=address,undefined','-fno-omit-frame-pointer'])
 
+    def test_http_exposes_real_durability_and_queued_update_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source=(ROOT/'src/web_server.cpp').read_text()
+            config=source[source.index('static void handle_get_config('):source.index('// POST /api/config (JSON body)')]
+            ota=source[source.index('static void handle_ota_status('):source.index('static void send_ota_request_result(')]
+            (pathlib.Path(tmp)/'http_evidence.inc').write_text(config+'\n'+ota)
+            self.compile_run(tmp,'test_http_evidence')
+
     def test_web_ui_polling_endpoints_are_registered_with_matching_methods(self):
         routes=(ROOT/'src/web_server.cpp').read_text()
         for page in ['data/www/index.html','onboarding/TC001Setup/TC001Setup/Resources/WebUI/www/index.html']:

@@ -53,7 +53,8 @@ import Combine
 
 extension LiveClockTests {
     /// The production coordinator finds a Bluetooth-saved clock on Wi-Fi by
-    /// identity alone, loads it, and confirms an (unchanged) save by readback.
+    /// identity alone, loads it, and respects real durability evidence for an
+    /// unchanged save. Legacy firmware must keep the receipt unconfirmed.
     func testCoordinatorReachesRealClockOverWiFi() async throws {
         guard let host = ProcessInfo.processInfo.environment["SUGARCLOCK_LIVE_HOST"] else { throw XCTSkip("Set SUGARCLOCK_LIVE_HOST to run") }
         let probe = await LocalClockNetwork().probe(host: host)
@@ -70,8 +71,10 @@ extension LiveClockTests {
         XCTAssertEqual(model.activeLink, .localNetwork(host))
         XCTAssertEqual(model.clocks.first?.host, host)
         let brightness = try XCTUnwrap(model.settings["brightness"] as? Int)
+        let evidence = try await LocalNetworkClockClient(host:host,http:URLSessionLocalHTTP()).request("settings.get")
         let saved = await model.save(["brightness": brightness])
-        XCTAssertTrue(saved, "Readback should confirm the unchanged brightness")
+        XCTAssertEqual(saved,evidence["saved"] as? Bool==true,
+                       "Only firmware durability evidence can confirm the unchanged brightness")
         model.suspend()
         let restart = Date()
         model.resume()

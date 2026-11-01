@@ -1358,6 +1358,7 @@ private final class FailingLocalSettingsStore:LocalSettingsStore {
     }
     func testSavesOverWiFiAreConfirmedByReadback() async throws {
         let server=officeServer()
+        server.mutateClock(at:"192.168.1.81") {$0.config["configuration_saved"]=true}
         let (model,radio,_,id)=fixture(server:server)
         radio.holdConnection=true
         await model.connect(id)
@@ -1370,6 +1371,71 @@ private final class FailingLocalSettingsStore:LocalSettingsStore {
         XCTAssertEqual(model.settings["color_in_range"] as? Int,0xFF0000)
         XCTAssertTrue(model.sessionReady)
         model.suspend()
+    }
+    func testWiFiPersistenceFailureRetainsDraftUntilDurableReadbackWithoutReplay() async throws {
+        let server=officeServer()
+        server.mutateClock(at:"192.168.1.81") {
+            $0.config["configuration_saved"]=false;$0.failPersistence=true
+        }
+        let (model,radio,_,id)=fixture(server:server)
+        radio.holdConnection=true
+        await model.connect(id)
+        var draft=model.settingsDraft;draft.setText("120",key:"brightness");model.setDraft(draft)
+        await model.updateSettings(pollDelay:1_000_000)
+        await settle {model.sessionReady}
+        XCTAssertEqual(model.settings["brightness"] as? Int,120,"The new value is live, but not durable")
+        XCTAssertEqual(model.pendingChangeCount,1)
+        XCTAssertEqual(model.saveReceipt(for:["brightness"])?.phase,.unconfirmed)
+        let posts=server.requests.filter {$0=="POST 192.168.1.81/api/config"}.count
+        XCTAssertEqual(posts,1)
+        try await model.refresh()
+        XCTAssertEqual(model.pendingChangeCount,1)
+        XCTAssertEqual(model.saveReceipt(for:["brightness"])?.phase,.unconfirmed)
+        server.mutateClock(at:"192.168.1.81") {$0.config["configuration_saved"]=true}
+        try await model.refresh()
+        XCTAssertEqual(model.pendingChangeCount,0)
+        guard case .saved=model.saveReceipt(for:["brightness"])?.phase else {return XCTFail("Durable readback did not finish verification")}
+        XCTAssertEqual(server.requests.filter {$0=="POST 192.168.1.81/api/config"}.count,posts)
+        model.suspend()
+    }
+    func testLegacyWiFiReadbackNeverConfirmsLiveValuesAsSaved() async throws {
+        let server=officeServer()
+        let (model,radio,_,id)=fixture(server:server)
+        radio.holdConnection=true
+        await model.connect(id)
+        var draft=model.settingsDraft;draft.setText("120",key:"brightness");model.setDraft(draft)
+        await model.updateSettings(pollDelay:1_000_000)
+        try await model.refresh()
+        XCTAssertEqual(model.settings["brightness"] as? Int,120)
+        XCTAssertEqual(model.pendingChangeCount,1)
+        XCTAssertEqual(model.saveReceipt(for:["brightness"])?.phase,.unconfirmed)
+        XCTAssertEqual(server.requests.filter {$0=="POST 192.168.1.81/api/config"}.count,1)
+        model.suspend()
+    }
+    func testWiFiUpdateMonitorKeepsOwnershipUntilQueuedRequestFinishes() async throws {
+        for failure in [false,true] {
+            let server=officeServer()
+            server.mutateClock(at:"192.168.1.81") {
+                $0.queueOTARequests=true
+                $0.otaStatus=["state":"idle","request_pending":false,"request_failed":false]
+            }
+            let (model,radio,_,id)=fixture(server:server)
+            radio.holdConnection=true;model.updatePollInterval=1_000_000
+            await model.connect(id)
+            let before=server.requests.filter {$0.hasSuffix("/api/ota/status")}.count
+            await model.command("ota.check")
+            await settle {server.requests.filter {$0.hasSuffix("/api/ota/status")}.count>before+2}
+            XCTAssertTrue(model.updatingClock)
+            XCTAssertFalse(model.canChooseAnotherClock)
+            server.mutateClock(at:"192.168.1.81") {
+                $0.otaStatus["request_pending"]=false;$0.otaStatus["request_failed"]=failure
+            }
+            await settle {!model.updatingClock}
+            XCTAssertTrue(model.canChooseAnotherClock)
+            XCTAssertEqual(model.updateMessage.contains("couldn’t reach the update service"),failure)
+            XCTAssertEqual(server.requests.filter {$0=="POST 192.168.1.81/api/ota/check"}.count,1)
+            model.suspend()
+        }
     }
     func testSavedClockOffWiFiFallsBackToBluetooth() async {
         let (model,radio,_,id)=fixture(server:FakeClockServer(),hosts:[])
