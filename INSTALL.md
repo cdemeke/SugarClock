@@ -297,12 +297,14 @@ Supported trend values: `RisingFast` (↑↑), `Rising` (↑), `FortyFiveUp` (�
 | Button | Short Press (<1s) | Double Press | Long Press (>1s) |
 |--------|-------------------|--------------|------------------|
 | Left | Toggle display mode | — | Reset display overrides |
-| Middle | Cycle brightness (10→40→100→200) | Show the clock's browser address | Release after 1–3s: snooze; 3–10s: Bluetooth pairing; 10s or longer: reset Bluetooth bonds |
+| Middle | Cycle brightness (10→40→100→200) | Show the clock's browser address | Release after 1s but before 3s: snooze; 3s or longer: Bluetooth pairing |
 | Right | Previous display / context action | — | Reset display / context action |
 
 ---
 
-The middle-button hold actions happen on release. Hold only the middle button for Bluetooth controls. The outer-button combination is a TC001 power shortcut and must not be used for pairing. Bluetooth bond reset preserves Wi-Fi and application settings.
+The middle-button hold actions happen on release. Hold only the middle button for three seconds, then release to open a two-minute Bluetooth pairing window. Select the clock in the SugarClock app and enter the passkey shown on the clock. The outer-button combination is a TC001 power shortcut and must not be used for pairing. No button hold clears saved Bluetooth bonds.
+
+To recover a stale pairing, first forget SugarClock in iOS Bluetooth Settings, then open the pairing window and pair again. The clock remembers up to four phones. Pairing a new phone while all four slots are occupied replaces the phone that has gone longest without authenticating; other saved phones remain bonded. This pairing flow preserves Wi-Fi, glucose, alert and display settings. See [BLE migration and recovery](docs/BLE_MIGRATION.md) for firmware requirements and recovery paths.
 
 ## Display States
 
