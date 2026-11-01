@@ -157,9 +157,7 @@ struct PendingSettingsReview:View {
                         Text(label(key)).font(.headline)
                         Spacer()
                         Button(role:.destructive) {
-                        var draft=model.settingsDraft
-                        draft.discardChange(key,settings:model.settings,fields:model.fields)
-                        model.setDraft(draft)
+                            model.discardSettingChange(key)
                         } label:{
                             Image(systemName:"xmark").font(.subheadline.weight(.semibold))
                                 .frame(width:44,height:44).contentShape(Rectangle())

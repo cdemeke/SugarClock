@@ -10,6 +10,17 @@ struct WeatherReading {
     bool valid;
 };
 
+// Coherent data/diagnostic snapshot, copied under the publication lock.
+struct WeatherSnapshot {
+    WeatherReading reading{};
+    bool ever_received=false;
+    int http_code=0;
+    unsigned long force_generation=0;
+    bool force_ok=false;
+    char response[256]={};
+};
+WeatherSnapshot weather_snapshot();
+
 // Initialize weather client
 void weather_init();
 
@@ -17,12 +28,13 @@ void weather_init();
 void weather_loop();
 
 // Get the latest weather reading
-const WeatherReading& weather_get_reading();
+WeatherReading weather_get_reading();
 
 // Check if weather data has been received
 bool weather_has_data();
 
-// Queue a weather fetch (for testing) on the main loop; returns false while paused.
+// Queue a weather test through the scheduler; HTTPS runs on a worker.
+// Returns false while paused or another test is pending.
 // Completion is signalled by weather_force_generation() advancing.
 bool weather_force_fetch();
 bool weather_force_pending();
@@ -32,14 +44,12 @@ unsigned long weather_force_generation();
 // Get the last HTTP status code from weather fetch
 int weather_get_last_http_code();
 
-// Get the last error/response body from weather fetch (for debugging)
-const char* weather_get_last_response();
+// Error/response text is included in weather_snapshot().
 
 // Inject mock weather data for testing animations (condition_id: 200=thunder, 300=drizzle, 500=rain, 600=snow)
 void weather_set_mock(float temp, const char* desc, int condition_id);
 
-// Register a callback invoked just before a blocking weather fetch
-// (used by the engine to render a coherent weather frame before the HTTP call blocks)
+// Register an engine-task callback invoked before a weather worker starts.
 typedef void (*WeatherPreFetchCallback)();
 void weather_set_pre_fetch_callback(WeatherPreFetchCallback cb);
 

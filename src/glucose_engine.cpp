@@ -112,12 +112,11 @@ bool engine_low_glucose_lock_active() {
     return reading.glucose < cfg.thresh_low || reading.glucose < cfg.thresh_urgent_low;
 }
 
-// Freeze a complete compact weather frame before a blocking HTTP fetch, using
-// the same numeric rounding, layout, and current fade level as normal rendering.
+// Refresh a complete compact frame before the weather worker starts, using the
+// same numeric rounding, layout, and current fade level as normal rendering.
 static void on_weather_pre_fetch() {
-    // Test Weather API also fetches from AsyncTCP. Only the engine's task may
-    // touch its animation state or the LED buffer; that task keeps rendering
-    // normally while a different task is fetching.
+    // Only the engine's task may touch animation state or the LED buffer;
+    // it keeps rendering normally while the HTTPS worker is fetching.
     if (xTaskGetCurrentTaskHandle() != engine_task) return;
     weather_animation_reset(weather_animation);
     if (current_state == STATE_WEATHER_DISPLAY) {

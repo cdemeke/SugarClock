@@ -580,20 +580,21 @@ static void handle_test_weather(AsyncWebServerRequest* request) {
 
 // GET /api/test/weather/result
 static void handle_test_weather_result(AsyncWebServerRequest* request) {
-    bool ok = weather_last_force_ok();
+    const auto snapshot=weather_snapshot();
+    bool ok = snapshot.force_ok;
     JsonDocument doc;
-    doc["generation"] = weather_force_generation();
+    doc["generation"] = snapshot.force_generation;
     doc["pending"] = weather_force_pending();
     doc["ok"] = ok;
-    doc["http_code"] = weather_get_last_http_code();
+    doc["http_code"] = snapshot.http_code;
 
     if (ok) {
-        const WeatherReading& wx = weather_get_reading();
+        const WeatherReading& wx = snapshot.reading;
         doc["temp"] = wx.temp;
         doc["description"] = wx.description;
         doc["humidity"] = wx.humidity;
     } else {
-        doc["error"] = weather_get_last_response();
+        doc["error"] = snapshot.response;
     }
 
     String output;

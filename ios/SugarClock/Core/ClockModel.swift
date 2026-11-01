@@ -151,6 +151,21 @@ private struct PendingSave {
         settingsDraft=draft;draftClockID=selected.id
         persistLocalSettings()
     }
+    func discardSettingChange(_ key:String) {
+        guard canEditSettingsDraft,settingsUpdatePhase == .idle else {return}
+        let previous=settingsDraft,previousSubmission=submittedSettingsDraft
+        settingsDraft.discardChange(key,settings:settings,fields:fields)
+        // An uncertain submission stays as evidence, but an explicitly discarded
+        // replacement must leave every persisted copy of that secret.
+        if submittedSettingsDraft?.secrets[key] != nil {
+            submittedSettingsDraft?.redactSubmittedSecret(key)
+        }
+        if persistLocalSettings() {settingsUpdateMessage="Local changes discarded."}
+        else {
+            settingsDraft=previous;submittedSettingsDraft=previousSubmission
+            settingsUpdateMessage="Couldn’t discard the saved local change securely. Unlock your iPhone and try again."
+        }
+    }
     func discardSettingsChanges() {
         guard settingsUpdatePhase != .sending else {return}
         cancelSettingsUpdate()

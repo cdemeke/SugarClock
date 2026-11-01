@@ -21,8 +21,9 @@ class MigrationTests(unittest.TestCase):
     def test_partition_overflow(self):
         with self.assertRaises(ValueError):migration.partitions(self.image(0x390000,0x80000))
     def test_filesystem_migration_preserves_certificate_and_quarantines_overlay(self):
-        import tempfile, subprocess, json
-        tool=pathlib.Path.home()/'.platformio/packages/tool-mklittlefs/mklittlefs'
+        import tempfile, subprocess, json, os
+        tool=pathlib.Path(os.environ.get('SUGARCLOCK_MKLITTLEFS',
+            str(pathlib.Path.home()/'.platformio/packages/tool-mklittlefs/mklittlefs')))
         if not tool.exists():self.skipTest('Install PlatformIO mklittlefs first')
         with tempfile.TemporaryDirectory() as temp:
             temp=pathlib.Path(temp);tree=temp/'tree';tree.mkdir()
