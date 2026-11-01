@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="style.css">
     <script>if(localStorage.getItem('theme')==='dark')document.documentElement.setAttribute('data-theme','dark');</script>
     <link rel="stylesheet" href="i18n.css">
-    <script src="i18n.js"></script>
+    <script src="i18n.js" data-catalogs="https://sugarclock.com/js/device-locales/"></script>
 </head>
 <body class="app-shell-page">
     <button class="mobile-nav-toggle" type="button" onclick="setNavOpen(true)" aria-label="Open navigation" data-i18n-aria-label="Open navigation">
@@ -1574,7 +1574,9 @@ curl -X POST http://DEVICE_IP/api/sysmon \
 
             try {
                 const r = await fetch('/api/config', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
-                showToast(r.ok ? 'Configuration saved!' : 'Save failed', r.ok ? 'success' : 'error');
+                const failure = r.ok ? null : await r.json().catch(() => ({}));
+                showToast(r.ok ? 'Configuration saved!' : failure.error === 'libre_patient_id'
+                    ? 'Test the Libre connection, then choose a person from the list.' : 'Save failed', r.ok ? 'success' : 'error');
                 if (r.ok && data.weather_api_key.trim()) {
                     weatherKeySaved = true;
                     document.getElementById('weather_api_key').value = '';
@@ -1637,7 +1639,19 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             I18n.text(res, '', false);
             try {
                 const r = await fetch('/api/test/weather', { method: 'POST' });
-                const d = await r.json();
+                let d = await r.json();
+                if (r.status === 202 && d.queued) {
+                    const generation = d.after_generation;
+                    const deadline = Date.now() + 60000;
+                    do {
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        const result = await fetch('/api/test/weather/result');
+                        if (!result.ok) throw new Error('Could not read weather result');
+                        d = await result.json();
+                        if (!d.pending && d.generation > generation) break;
+                    } while (Date.now() < deadline);
+                    if (d.pending || !(d.generation > generation)) throw new Error('Weather test timed out');
+                }
                 if (d.ok) {
                     I18n.text(res, I18n.message("{0}° {1} (Humidity: {2}%)", [Math.round(d.temp), d.description, d.humidity]));
                     res.className = 'test-result test-success';
@@ -1663,7 +1677,19 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             I18n.text(res, '', false);
             try {
                 const r = await fetch('/api/test/glucose', { method: 'POST' });
-                const d = await r.json();
+                let d = await r.json();
+                if (r.status === 202 && d.queued) {
+                    const generation = d.after_generation;
+                    const deadline = Date.now() + 60000;
+                    do {
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        const result = await fetch('/api/test/glucose/result');
+                        if (!result.ok) throw new Error('Could not read connection result');
+                        d = await result.json();
+                        if (!d.pending && d.generation > generation) break;
+                    } while (Date.now() < deadline);
+                    if (d.pending || !(d.generation > generation)) throw new Error('Connection test timed out');
+                }
                 if (document.getElementById('data_source').value === '3') {
                     const configResponse = await fetch('/api/config');
                     const saved = await configResponse.json();

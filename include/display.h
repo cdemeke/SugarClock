@@ -9,7 +9,11 @@ void display_init();
 // Clear all pixels
 void display_clear();
 
-// Push buffer to LEDs
+// Compose competing renderers into one LED update. Boot calls remain immediate.
+void display_begin_frame();
+void display_end_frame();
+
+// Push buffer to LEDs (deferred inside a composed frame)
 void display_show();
 
 // Last fully rendered frame, in logical left-to-right RGB order (not LED wiring order).

@@ -60,7 +60,7 @@ test('FAQ opening is captured but closing is not', () => {
   b.listeners.DOMContentLoaded(); b.load(); click(); active = true; click();
   assert.equal(b.events.filter(e => e[0] === 'faq_answer_opened').length, 1);
 });
-test('all FAQ questions have unique nonempty static IDs and both pages load config first', () => {
+test('all FAQ questions have unique nonempty static IDs and all marketing pages load config first', () => {
   const faq = fs.readFileSync('docs/faq.html', 'utf8');
   const ids = [...faq.matchAll(/data-question-id="([^"]*)"/g)].map(m => m[1]);
   const buttons = [...faq.matchAll(/<button\b[^>]*class="[^"]*\bfaq-question\b[^"]*"[^>]*>/g)];
@@ -69,7 +69,7 @@ test('all FAQ questions have unique nonempty static IDs and both pages load conf
   buttons.forEach(([button]) => assert.match(button, /data-question-id="[^"]+"/));
   assert.ok(ids.every(Boolean));
   assert.equal(new Set(ids).size, ids.length);
-  for (const page of ['index', 'faq']) {
+  for (const page of ['index', 'faq', 'app']) {
     const html = fs.readFileSync(`docs/${page}.html`, 'utf8');
     assert.ok(html.indexOf('js/analytics-config.js') < html.indexOf('js/analytics.js'));
     assert.match(html, /<script defer src="js\/analytics-config.js"/);
