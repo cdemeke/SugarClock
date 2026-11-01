@@ -6,7 +6,28 @@ struct SavedClock: Codable, Identifiable {
     var id: String
     var peripheral: UUID
     var nickname: String
+    /// Last local-network address that answered with this clock's identity.
+    var host: String?=nil
 }
+/// How the current session reaches the clock. Wi-Fi is preferred: the clock
+/// serves it continuously, while Bluetooth pauses for every secure fetch.
+enum ClockLink:Equatable {
+    case bluetooth, localNetwork(String)
+    var host:String? {if case .localNetwork(let host)=self {return host};return nil}
+}
+/// What the clock screen's status badge shows: one glanceable level plus the
+/// link in use and the current step or failure reason.
+struct ConnectionStatus:Equatable {
+    enum Level:Equatable {case connected,connecting,failed,idle}
+    let level:Level
+    let title:String
+    /// "Wi-Fi · 192.168.1.81" or "Bluetooth" once a link is up.
+    let link:String?
+    let detail:String
+}
+/// Whether a clock other than the open one answers on this Wi-Fi. Web requests
+/// are stateless, so an available clock opens in well under a second.
+enum ClockAvailability:Equatable {case checking,onWiFi(String),notFound}
 enum SettingsUpdatePhase:Equatable {case idle,waiting,sending}
 enum SavePhase:Equatable {
     case saving, checking, saved(Date), unconfirmed, failed(String)
@@ -23,6 +44,13 @@ private struct PendingSave {
     let expected:[String:Any]
     let acknowledged:Bool
     let containsSecrets:Bool
+}
+
+/// A greeted clock and the link that reached it, handed from a connection race.
+private struct EstablishedRoute:@unchecked Sendable {
+    let client:ClockRequesting
+    let greeting:[String:Any]
+    let link:ClockLink
 }
 
 @MainActor final class ClockModel: ObservableObject {
@@ -64,25 +92,59 @@ private struct PendingSave {
     var hasLoadedSettings:Bool {!settings.isEmpty && !fields.isEmpty}
     var quietReconnect:Bool {reconnecting && hasLoadedSettings}
     var syncingSettings:Bool {!updatingClock && (reconnecting || checkingConnection || refreshingSettings)}
+    var connectionStatus:ConnectionStatus {
+        let link=activeLink.map {$0.host.map {"Wi-Fi · "+$0} ?? "Bluetooth"}
+        if sessionReady {return ConnectionStatus(level:.connected,title:"Connected",link:link,detail:"")}
+        if reconnecting || updatingClock {
+            let step=updatingClock ? updateMessage:connectionState
+            return ConnectionStatus(level:.connecting,title:"Connecting",link:nil,detail:message.isEmpty ? step:message)
+        }
+        // Recovery stopped on an error, Bluetooth being off with no other route,
+        // or a new clock that never answered. "Not connected" is a deliberate stop.
+        if selected != nil,connectionState.hasPrefix("Couldn") {
+            return ConnectionStatus(level:.failed,title:"Not connected",link:nil,detail:message.isEmpty ? connectionState:message)
+        }
+        if selected != nil,!canAttemptConnection {
+            return ConnectionStatus(level:.failed,title:"Not connected",link:nil,detail:transport.availabilityMessage)
+        }
+        return ConnectionStatus(level:.idle,title:"Not connected",link:nil,detail:"Tap Retry to connect.")
+    }
+    /// The clock list's status line: the open clock's session, or whether any
+    /// other clock answers on Wi-Fi. Nil before the first check.
+    func listStatus(for clock:SavedClock)->(level:ConnectionStatus.Level,text:String)? {
+        if clock.id==selected?.id {return (connectionStatus.level,connectionSummary)}
+        switch availability[clock.id] {
+        case .checking?:return (.connecting,"Searching…")
+        case .onWiFi?:return (.connected,"Available on Wi-Fi")
+        case .notFound?:return (.idle,"Not connected")
+        case nil:return nil
+        }
+    }
     var connectionSummary:String {
-        if syncingSettings,hasLoadedSettings {return "Syncing with clock…"}
-        if sessionReady {return "Connected"}
-        return connectionState
+        if updatingClock {return "Updating clock…"}
+        if reconnecting {
+            if connectionState=="Loading settings…" {return "Updating settings…"}
+            if connectionState.hasPrefix("Looking") || connectionState.hasPrefix("Waiting") {return "Searching…"}
+            return "Connecting…"
+        }
+        if syncingSettings {return "Updating settings…"}
+        if sessionReady {return activeLink?.host != nil ? "Connected via Wi-Fi":"Connected via Bluetooth"}
+        return "Not connected"
     }
     #if DEBUG
     func previewSettingsUpdate(_ phase:SettingsUpdatePhase) {
-        guard ProcessInfo.processInfo.environment["SUGARCLOCK_SCREENSHOT"] != nil else {return}
+        guard ProcessInfo.processInfo.environment["SUGARCLOCK_SCREENSHOT"] != nil || ProcessInfo.processInfo.arguments.contains(where:{$0.hasPrefix("--sugarclock-screenshot=")}) else {return}
         settingsUpdatePhase=phase
         if lastSettingsRefresh==nil {lastSettingsRefresh=Date().addingTimeInterval(-120)}
         settingsUpdateMessage=phase == .waiting ? "Waiting for your clock. You can keep editing.":""
     }
     func previewConnection(ready:Bool) {
-        guard ProcessInfo.processInfo.environment["SUGARCLOCK_SCREENSHOT"] != nil else {return}
+        guard ProcessInfo.processInfo.environment["SUGARCLOCK_SCREENSHOT"] != nil || ProcessInfo.processInfo.arguments.contains(where:{$0.hasPrefix("--sugarclock-screenshot=")}) else {return}
         sessionReady=ready
         connectionState=ready ? "Connected":"Couldn't connect"
     }
     func previewSave(_ phase:SavePhase) {
-        guard ProcessInfo.processInfo.environment["SUGARCLOCK_SCREENSHOT"] != nil,let selected else {return}
+        guard ProcessInfo.processInfo.environment["SUGARCLOCK_SCREENSHOT"] != nil || ProcessInfo.processInfo.arguments.contains(where:{$0.hasPrefix("--sugarclock-screenshot=")}),let selected else {return}
         saveReceipts[selected.id]=SaveReceipt(id:UUID(),clockID:selected.id,keys:["brightness"],phase:phase)
     }
     #endif
@@ -96,6 +158,15 @@ private struct PendingSave {
     @Published var reconnecting=false
     @Published var connectionState = "Not connected"
     @Published private(set) var sessionReady=false
+    @Published private(set) var activeLink:ClockLink?
+    let localNetwork:LocalClockNetwork?
+    @Published private(set) var availability:[String:ClockAvailability]=[:]
+    private var lastAvailabilitySweep:Date?
+    var availabilitySweepInterval:TimeInterval=120
+    /// Clocks found on Wi-Fi that are being added, keyed by synthetic peripheral ID.
+    private var pendingLocalClocks:[UUID:LocalClockCandidate]=[:]
+    /// How often a saved Wi-Fi address is rechecked while Bluetooth is pending.
+    var localWatchInterval:UInt64=4_000_000_000
     @Published var operationTitle="Saving…"
     private var unconfirmedChange=false
     private var foreground=true
@@ -103,12 +174,15 @@ private struct PendingSave {
     private var schemaIdentity:SchemaIdentity?
     private var schemaProgressIdentity:SchemaIdentity?
     private var schemaProgress=SchemaProgress()
-    private var client:ClockClient?
+    private var client:ClockRequesting?
     private let transport:ClockConnectionTransport
     private let preferences:UserDefaults
     private let retryDelay:UInt64
     private var updateMonitor:Task<Void,Never>?
     private var reconnectTask:Task<Void,Never>?
+    private var hostSearch:Task<Void,Never>?
+    private var upgradeCheck:Task<Void,Never>?
+    private var lastUpgrade:Date?
     private var selectionRequest=UUID()
     private var healthTask:Task<Void,Never>?
     private var connectionSubscription:AnyCancellable?
@@ -116,8 +190,10 @@ private struct PendingSave {
     @Published var updateMessage=""
     @Published private(set) var updatingClock=false
     init(enableBluetooth:Bool=true,loadSaved:Bool=true,transport:ClockConnectionTransport?=nil,
-         preferences:UserDefaults = .standard,retryDelay:UInt64=2_000_000_000,localSettingsStore:LocalSettingsStore?=nil) {
+         preferences:UserDefaults = .standard,retryDelay:UInt64=2_000_000_000,localSettingsStore:LocalSettingsStore?=nil,
+         localNetwork:LocalClockNetwork?=nil) {
         bluetooth=BluetoothTransport(enableRadio:enableBluetooth)
+        self.localNetwork=localNetwork ?? (enableBluetooth ? LocalClockNetwork():nil)
         self.transport=transport ?? bluetooth
         self.preferences=preferences;self.retryDelay=retryDelay
         if let localSettingsStore {self.localSettingsStore=localSettingsStore}
@@ -132,8 +208,9 @@ private struct PendingSave {
         if let selected {restoreLocalSettings(for:selected)}
         connectionSubscription=self.transport.connectionPublisher.dropFirst().removeDuplicates().sink { [weak self] connected in
             Task { @MainActor [weak self] in
-                guard let self,!connected,!self.transport.connected else {return}
-                self.sessionReady=false;self.client=nil
+                // A Bluetooth event says nothing about a session carried over Wi-Fi.
+                guard let self,!connected,!self.transport.connected,self.activeLink?.host==nil else {return}
+                self.sessionReady=false;self.client=nil;self.activeLink=nil
                 if self.foreground,self.automaticReconnect,self.reconnectTask==nil,!self.busy,self.updateMonitor==nil {
                     self.startReconnect()
                 }
@@ -264,7 +341,7 @@ private struct PendingSave {
                         guard Self.canRetryConnection(error) else {throw error}
                         // Read-only preparation can reconnect within the same
                         // deadline. This loop ends permanently before any write.
-                        busy=false;ownsBusy=false;sessionReady=false;client=nil;transport.close()
+                        busy=false;ownsBusy=false;sessionReady=false;client=nil;closeLink()
                         settingsUpdateMessage="Waiting for your clock. Your update has not been sent."
                         startReconnect()
                     }
@@ -289,7 +366,7 @@ private struct PendingSave {
             } catch {
                 if !(error is CancellationError) {
                     settingsUpdateMessage=error.localizedDescription
-                    if Self.canRetryConnection(error) {sessionReady=false;client=nil;transport.close()}
+                    if Self.canRetryConnection(error) {sessionReady=false;client=nil;closeLink()}
                 }
             }
         }
@@ -325,7 +402,7 @@ private struct PendingSave {
     }
     private func startReconnect() {
         guard foreground,automaticReconnect,updateMonitor==nil,!busy,reconnectTask==nil,!sessionReady,
-              let selected,transport.isPoweredOn else {return}
+              let selected,canAttemptConnection else {return}
         launchConnection(selected.peripheral)
     }
     private func launchConnection(_ id:UUID) {
@@ -345,17 +422,18 @@ private struct PendingSave {
                     try Task.checkCancellation()
                     guard self.foreground else {throw CancellationError()}
                     if failures>0 {
-                        self.connectionState="Waiting for clock…"
+                        self.connectionState=self.transport.isPoweredOn || self.localNetwork==nil ? "Waiting for clock…":"Waiting for clock on Wi-Fi…"
                         try await Task.sleep(nanoseconds:SessionPolicy.retryDelay(afterFailures:failures,base:self.retryDelay))
                     }
                     try await self.establish(id)
                     self.connectionState="Connected";self.sessionReady=true
                     self.message=self.unconfirmedChange ? "Reconnected. Review the saved settings before retrying your change." : ""
+                    self.preferLocalNetwork()
                     return
                 } catch {
-                    self.transport.close();self.client=nil;self.sessionReady=false
+                    self.closeLink();self.client=nil;self.sessionReady=false
                     if Task.isCancelled || !self.foreground {return}
-                    if !self.transport.isPoweredOn {
+                    if !self.canAttemptConnection {
                         self.finishPendingAsUnconfirmed()
                         self.connectionState=self.transport.availabilityMessage
                         return
@@ -371,9 +449,15 @@ private struct PendingSave {
                     failures=min(failures+1,5)
                     if addingNewClock,failures>=SessionPolicy.newClockMaximumAttempts {
                         self.automaticReconnect=false
+                        self.pendingLocalClocks[id]=nil
                         self.connectionState="Couldn’t finish adding clock"
-                        self.message="Move closer, hold the clock’s middle button for 3 seconds, then release and tap it to try again. If it was already added, open it from My Clocks."
+                        self.message=LocalClockIdentity.isLocalOnly(id)
+                            ? "Couldn’t reach this clock on Wi-Fi. Check that your iPhone is on the same network as the clock, then try again."
+                            : "Move closer, hold the clock’s middle button for 3 seconds, then release and tap it to try again. If it was already added, open it from My Clocks."
                         return
+                    }
+                    if failures==3,self.localNetwork != nil {
+                        self.message="Still looking for your clock. Check that it’s powered on and that your iPhone is on the same Wi-Fi, or nearby with Bluetooth on."
                     }
                 }
             }
@@ -417,7 +501,7 @@ private struct PendingSave {
         if let task=reconnectTask {
             // Drain the old read-only session before giving the shared transport
             // to the next clock. Its cleanup must not close the new connection.
-            automaticReconnect=false;task.cancel();transport.close()
+            automaticReconnect=false;task.cancel();closeLink()
             await task.value
             guard selectionRequest==request,foreground,updateMonitor==nil else {return}
         }
@@ -432,12 +516,58 @@ private struct PendingSave {
             settingsUpdateMessage="";draftStorageMessage=""
             if let selected {restoreLocalSettings(for:selected)}
         }
-        if sessionReady,transport.connected,selected?.peripheral==id {return}
+        if sessionReady,linkConnected,selected?.peripheral==id {return}
         launchConnection(id)
         await reconnectTask?.value
     }
     private func establish(_ id:UUID) async throws {
-        connectionState="Connecting…"
+        if let (local,greeting)=try await connectToKnownLocalHost(id) {
+            try await adopt(local,greeting:greeting,peripheral:id,link:.localNetwork(local.host))
+            return
+        }
+        // A clock added over Wi-Fi has no Bluetooth identity to connect to.
+        let bluetoothPossible = !LocalClockIdentity.isLocalOnly(id) && transport.isPoweredOn
+        guard let localNetwork else {
+            guard bluetoothPossible else {throw ClockError.timeout}
+            let route=try await connectBluetooth(id)
+            try await adopt(route.client,greeting:route.greeting,peripheral:id,link:route.link)
+            return
+        }
+        guard bluetoothPossible else {
+            connectionState="Looking for your clock on Wi-Fi…"
+            guard let (local,greeting)=try await searchLocalNetwork(id,network:localNetwork) else {throw ClockError.timeout}
+            try await adopt(local,greeting:greeting,peripheral:id,link:.localNetwork(local.host))
+            return
+        }
+        // A pending Bluetooth connection can wait up to a minute for a clock that
+        // is not advertising, so search Wi-Fi alongside it rather than before it.
+        // The search outlives this attempt: if Bluetooth answers first, a clock
+        // found on Wi-Fi afterwards still moves to the better link.
+        searchForLocalHost(id,network:localNetwork)
+        let interval=localWatchInterval
+        let route=try await withThrowingTaskGroup(of:EstablishedRoute.self) {group in
+            group.addTask {try await self.connectBluetooth(id)}
+            group.addTask {
+                while true {
+                    try await Task.sleep(nanoseconds:interval)
+                    if let (client,greeting)=try await self.connectToKnownLocalHost(id,quiet:true) {
+                        return EstablishedRoute(client:client,greeting:greeting,link:.localNetwork(client.host))
+                    }
+                    // Still no address: search again (rate-limited) in case the
+                    // clock joined Wi-Fi after this attempt began.
+                    await self.searchForLocalHost(id,network:localNetwork)
+                }
+            }
+            defer {group.cancelAll()}
+            guard let first=try await group.next() else {throw ClockError.timeout}
+            return first
+        }
+        try Task.checkCancellation()
+        if route.link.host != nil {transport.close()}
+        try await adopt(route.client,greeting:route.greeting,peripheral:id,link:route.link)
+    }
+    private func connectBluetooth(_ id:UUID) async throws -> EstablishedRoute {
+        connectionState="Connecting over Bluetooth…"
         transport.operationTimeout=45
         try await transport.connect(id:id)
         try Task.checkCancellation()
@@ -445,6 +575,63 @@ private struct PendingSave {
         let next=ClockClient(transport:transport)
         let greeting=try await next.request("hello")
         try Task.checkCancellation()
+        // Pairing may need 45 seconds; subsequent reads fail promptly on a stale link.
+        next.requestTimeout=15;transport.operationTimeout=15
+        return EstablishedRoute(client:next,greeting:greeting,link:.bluetooth)
+    }
+    /// The saved (or just-discovered) address answers within a second when the
+    /// iPhone shares the clock's network, and fails fast otherwise.
+    private func connectToKnownLocalHost(_ id:UUID,quiet:Bool=false) async throws -> (LocalNetworkClockClient,[String:Any])? {
+        guard let localNetwork else {return nil}
+        let saved=clocks.first(where:{$0.peripheral==id}),pending=pendingLocalClocks[id]
+        var tried:Set<String>=[]
+        for host in [saved?.host,pending?.host].compactMap({$0}) where tried.insert(host).inserted {
+            try Task.checkCancellation()
+            if !quiet {connectionState="Connecting over Wi-Fi…"}
+            if let found=await localNetwork.connect(host:host,expecting:saved?.id ?? pending?.identity) {return found}
+        }
+        return nil
+    }
+    private func searchForLocalHost(_ id:UUID,network:LocalClockNetwork) {
+        guard hostSearch==nil,network.shouldSweep(),
+              let expected=clocks.first(where:{$0.peripheral==id})?.id ?? pendingLocalClocks[id]?.identity else {return}
+        hostSearch=Task { [weak self] in
+            let found=await network.discover()
+            guard let self,!Task.isCancelled else {return}
+            self.hostSearch=nil
+            self.rememberLocalHosts(found)
+            if found.contains(where:{$0.identity==expected}) {self.preferLocalNetwork()}
+        }
+    }
+    /// Move an idle Bluetooth session to Wi-Fi once the clock's address is known
+    /// and answering: a quiet reconnect, never during a save, command or update.
+    private func preferLocalNetwork() {
+        guard let localNetwork,upgradeCheck==nil,activeLink == .bluetooth,let clock=selected,let host=clock.host,
+              lastUpgrade.map({Date().timeIntervalSince($0)>=60}) ?? true else {return}
+        upgradeCheck=Task { [weak self] in
+            let reachable=await localNetwork.connect(host:host,expecting:clock.id) != nil
+            guard let self,!Task.isCancelled else {return}
+            self.upgradeCheck=nil
+            guard reachable,self.selected?.id==clock.id,self.activeLink == .bluetooth,self.sessionReady,!self.busy,
+                  self.pendingSave==nil,self.settingsUpdateTask==nil,self.updateMonitor==nil else {return}
+            // At most once a minute, so a flapping Wi-Fi cannot bounce the session.
+            self.lastUpgrade=Date()
+            self.sessionReady=false;self.client=nil;self.closeLink()
+            self.startReconnect()
+        }
+    }
+    /// Rate-limited subnet search for this clock's identity, covering a first
+    /// Wi-Fi connection and DHCP address changes.
+    private func searchLocalNetwork(_ id:UUID,network:LocalClockNetwork) async throws -> (LocalNetworkClockClient,[String:Any])? {
+        guard let expected=clocks.first(where:{$0.peripheral==id})?.id ?? pendingLocalClocks[id]?.identity,
+              network.shouldSweep() else {return nil}
+        let found=await network.discover()
+        try Task.checkCancellation()
+        rememberLocalHosts(found)
+        guard let match=found.first(where:{$0.identity==expected}) else {return nil}
+        return await network.connect(host:match.host,expecting:expected)
+    }
+    private func adopt(_ next:ClockRequesting,greeting:[String:Any],peripheral id:UUID,link:ClockLink) async throws {
         guard let identity=greeting["device_id"] as? String,
               let caps=greeting["capabilities"] as? [String],caps.contains("settings.patch") else {
             throw ClockError.unavailable("This clock needs companion-compatible firmware.")
@@ -456,12 +643,11 @@ private struct PendingSave {
         let needsStatus=status.isEmpty || greetedIdentity==nil || SchemaIdentity(hello) != greetedIdentity
         if selected?.id != identity {settings=[:];status=[:];fields=[];schemaIdentity=nil;lastSettingsRefresh=nil;lastStatusRefresh=nil}
         let saved=clocks.first(where:{$0.id==identity}) ?? SavedClock(id:identity,peripheral:id,nickname:greeting["name"] as? String ?? "SugarClock")
-        selected=SavedClock(id:identity,peripheral:id,nickname:saved.nickname)
+        let host=link.host ?? saved.host
+        selected=SavedClock(id:identity,peripheral:id,nickname:saved.nickname,host:host)
         // A saved clock found under a new peripheral ID keeps its workspace.
         if draftClockID != identity,let selected {restoreLocalSettings(for:selected)}
-        client=next;hello=greeting
-        // Pairing may need 45 seconds; subsequent reads fail promptly on a stale link.
-        next.requestTimeout=15;transport.operationTimeout=15
+        client=next;hello=greeting;activeLink=link
         connectionState="Loading settings…"
         try await refreshSettings()
         // Reconnection needs current configuration and bounds, not a second
@@ -479,12 +665,70 @@ private struct PendingSave {
         // attempt, retaining the latest user-chosen name without that old ID.
         let nickname=clocks.first(where:{$0.id==identity})?.nickname
             ?? (selected?.id==identity ? selected?.nickname:nil) ?? saved.nickname
-        let confirmed=SavedClock(id:identity,peripheral:id,nickname:nickname)
+        let confirmed=SavedClock(id:identity,peripheral:id,nickname:nickname,host:host)
         selected=confirmed
         if let index=clocks.firstIndex(where:{$0.id==identity}) {clocks[index]=confirmed}
         else {clocks.append(confirmed)}
+        pendingLocalClocks[id]=nil
         remember()
         refreshLocalDraft()
+    }
+    /// Keep saved clocks' Wi-Fi addresses current whenever a search sees them.
+    func rememberLocalHosts(_ found:[LocalClockCandidate]) {
+        var changed=false
+        for candidate in found {
+            guard let index=clocks.firstIndex(where:{$0.id==candidate.identity}),clocks[index].host != candidate.host else {continue}
+            clocks[index].host=candidate.host;changed=true
+            if selected?.id==candidate.identity {selected?.host=candidate.host}
+        }
+        if changed {remember()}
+    }
+    /// Checks every clock except the open one at its saved Wi-Fi address. A
+    /// clock missing from its address (new, or moved by DHCP) gets a subnet
+    /// search at most every two minutes. The open clock's session is untouched.
+    func refreshAvailability() async {
+        guard foreground,let localNetwork else {return}
+        let others=clocks.filter {$0.id != selected?.id}
+        for clock in others where availability[clock.id]==nil {availability[clock.id] = .checking}
+        func check(_ clocks:[SavedClock]) async -> [String:String] {
+            await withTaskGroup(of:(String,String?).self) {group in
+                for clock in clocks {
+                    group.addTask {
+                        guard let host=clock.host,await localNetwork.isAvailable(host:host,identity:clock.id) else {return (clock.id,nil)}
+                        return (clock.id,host)
+                    }
+                }
+                var found:[String:String]=[:]
+                for await (id,host) in group {if let host {found[id]=host}}
+                return found
+            }
+        }
+        var found=await check(others)
+        let missing=others.filter {found[$0.id]==nil}
+        if !missing.isEmpty,hostSearch==nil,localNetwork.shouldSweep(),
+           lastAvailabilitySweep.map({Date().timeIntervalSince($0)>=availabilitySweepInterval}) ?? true {
+            lastAvailabilitySweep=Date()
+            let candidates=await localNetwork.discover()
+            rememberLocalHosts(candidates)
+            for candidate in candidates where missing.contains(where:{$0.id==candidate.identity}) {found[candidate.identity]=candidate.host}
+        }
+        guard !Task.isCancelled else {return}
+        var next:[String:ClockAvailability]=[:]
+        for clock in clocks where clock.id != selected?.id {
+            // A clock added or closed during the check waits for the next one.
+            next[clock.id]=others.contains(where:{$0.id==clock.id}) ? found[clock.id].map {.onWiFi($0)} ?? .notFound:availability[clock.id]
+        }
+        availability=next
+    }
+    /// Adds a clock found on Wi-Fi. No pairing: the clock's web API is already
+    /// open to devices on its network, the same access its admin page uses.
+    func addLocalClock(_ candidate:LocalClockCandidate) async {
+        if let existing=clocks.first(where:{$0.id==candidate.identity}) {
+            rememberLocalHosts([candidate]);await connect(existing.peripheral);return
+        }
+        guard let id=candidate.peripheralID else {return}
+        pendingLocalClocks[id]=candidate
+        await connect(id)
     }
     func checkConnection() async {
         guard foreground,!busy,settingsUpdateTask==nil,reconnectTask==nil,updateMonitor==nil,sessionReady,client != nil else {return}
@@ -493,10 +737,10 @@ private struct PendingSave {
         do {
             try await refreshStatus()
         } catch {
-            sessionReady=false;self.client=nil;transport.close()
+            sessionReady=false;self.client=nil;closeLink()
         }
     }
-    private func loadSchema(_ hello:[String:Any],client:ClockClient) async throws {
+    private func loadSchema(_ hello:[String:Any],client:ClockRequesting) async throws {
         let identity=SchemaIdentity(hello)
         guard (hello["capabilities"] as? [String] ?? []).contains("schema") else {fields=[];schemaIdentity=nil;return}
         if let identity,!fields.isEmpty,schemaIdentity==identity {return}
@@ -571,7 +815,12 @@ private struct PendingSave {
             saveReceipts[pending.clockID]?.phase = .unconfirmed
         }
     }
-    private var readyForOperation:Bool {sessionReady && transport.connected && !busy && updateMonitor==nil}
+    private var readyForOperation:Bool {sessionReady && linkConnected && !busy && updateMonitor==nil}
+    /// Wi-Fi requests are independent; the session is up while they succeed.
+    private var linkConnected:Bool {activeLink?.host != nil || transport.connected}
+    /// Both radios are candidates whenever local-network discovery is available.
+    private var canAttemptConnection:Bool {transport.isPoweredOn || localNetwork != nil}
+    private func closeLink() {transport.close();activeLink=nil}
     var canSend:Bool {readyForOperation && settingsUpdatePhase == .idle}
     var canChooseAnotherClock:Bool {updateMonitor==nil && !updatingClock && settingsUpdatePhase != .sending && !localPersistenceFailed && (!busy || reconnecting || settingsUpdatePhase == .waiting)}
     /// Add Clock owns discovery; an unrelated saved clock must not monopolize it.
@@ -594,13 +843,14 @@ private struct PendingSave {
         cancelSettingsUpdate()
         selectionRequest=UUID()
         automaticReconnect=false;reconnectTask?.cancel();updateMonitor?.cancel()
+        hostSearch?.cancel();hostSearch=nil;upgradeCheck?.cancel();upgradeCheck=nil
         finishPendingAsUnconfirmed()
-        transport.close();client=nil;sessionReady=false
+        closeLink();client=nil;sessionReady=false
         connectionState="Not connected";message=""
     }
     func retrySelected() async {
         guard updateMonitor==nil else {return}
-        if let task=reconnectTask {task.cancel();transport.close();await task.value}
+        if let task=reconnectTask {task.cancel();closeLink();await task.value}
         if let selected {await connect(selected.peripheral)}
     }
     func perform(_ action: @escaping () async throws -> Void) async {
@@ -612,7 +862,7 @@ private struct PendingSave {
             if Self.canRetryConnection(error) {
                 unconfirmedChange=true
                 message="Connection interrupted. Check saved settings before trying your change again."
-                sessionReady=false;client=nil;transport.close()
+                sessionReady=false;client=nil;closeLink()
             }
         }
     }
@@ -644,7 +894,7 @@ private struct PendingSave {
                 // Recovery may continue while the clock is out of range. The save's
                 // outcome is already unknown; do not leave a checking spinner up.
                 saveReceipts[clock.id]?.phase = .unconfirmed
-                sessionReady=false;self.client=nil;transport.close()
+                sessionReady=false;self.client=nil;closeLink()
             } else {
                 saveReceipts[clock.id]?.phase = .failed(error.localizedDescription)
             }
@@ -685,7 +935,7 @@ private struct PendingSave {
                 if self.busy {continue}
                 self.busy=true
                 do {
-                    if !self.transport.connected {try await self.establish(clock.peripheral)}
+                    if !self.linkConnected {try await self.establish(clock.peripheral)}
                     try await self.refresh()
                     try Task.checkCancellation()
                     let ota=self.status["ota"] as? [String:Any] ?? [:]
@@ -704,7 +954,7 @@ private struct PendingSave {
                         self.sessionReady=true;self.connectionState="Connected"
                         self.busy=false;return
                     }
-                } catch {self.sessionReady=false;self.transport.close();self.client=nil;self.updateMessage="Waiting to reconnect. The clock may be updating or rebooting."}
+                } catch {self.sessionReady=false;self.closeLink();self.client=nil;self.updateMessage="Waiting to reconnect. The clock may be updating or rebooting."}
                 self.busy=false
             }
             self.updateMessage="Automatic reconnection timed out. Reconnect from My Clocks and check the current version and update status."
@@ -731,7 +981,7 @@ private struct PendingSave {
         } catch {
             wifiScanMessage="Couldn’t finish the search. Reconnect and try again."
             if Self.canRetryConnection(error) {
-                sessionReady=false;self.client=nil;transport.close()
+                sessionReady=false;self.client=nil;closeLink()
             }
         }
         return false

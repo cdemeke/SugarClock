@@ -21,7 +21,7 @@ struct ClockSettingsDock:ViewModifier {
         }
         #if DEBUG
         .onAppear {
-            if enabled,ProcessInfo.processInfo.environment["SUGARCLOCK_SCREENSHOT"]=="pending-sheet" {reviewing=true}
+            if enabled,ScreenshotPreview.requestedScreen=="pending-sheet" {reviewing=true}
         }
         #endif
         .sheet(isPresented:$reviewing) {
@@ -37,8 +37,8 @@ struct PendingSettingsBar:View {
     let review:()->Void
     private var title:String {
         switch model.settingsUpdatePhase {
-        case .waiting:return "Syncing with clock…"
-        case .sending:return "Updating clock…"
+        case .waiting:return "Connecting…"
+        case .sending:return "Updating settings…"
         case .idle:return model.pendingChangeCount>0 ? "Update clock":"Review update"
         }
     }
@@ -182,10 +182,10 @@ struct PendingSettingsReview:View {
             VStack(spacing:10) {
                 switch model.settingsUpdatePhase {
                 case .waiting:
-                    HStack {SugarSpinner();Text("Syncing with clock…")}.font(.subheadline)
+                    HStack {SugarSpinner();Text("Connecting…")}.font(.subheadline)
                     Button("Cancel update") {model.cancelSettingsUpdate()}.buttonStyle(SugarButtonStyle(prominent:false))
                 case .sending:
-                    HStack {SugarSpinner();Text("Updating clock…")}.font(.subheadline)
+                    HStack {SugarSpinner();Text("Updating settings…")}.font(.subheadline)
                 case .idle:
                     if model.pendingChangeCount>0 {
                         Button("Update clock") {Task {await model.updateSettings()}}

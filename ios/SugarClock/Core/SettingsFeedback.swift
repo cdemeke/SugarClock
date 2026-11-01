@@ -32,8 +32,8 @@ struct SettingsFeedback:Equatable {
             return notice("Updated on clock", "The clock confirmed that your settings were saved.",attention:false)
         }
         if includesConnection {
-            if !loaded {return notice("Syncing settings…","Reading this clock’s settings for the first time.",attention:false)}
-            if !ready,!syncing {return notice("Clock unavailable","Your settings are available to edit. Move closer and retry the connection, or tap Update clock when your changes are ready.")}
+            if !loaded {return notice("Updating settings…","Reading this clock’s settings for the first time.",attention:false)}
+            if !ready,!syncing {return notice("Not connected","Your settings are available to edit. Move closer and retry the connection, or tap Update clock when your changes are ready.")}
         }
         return nil
     }

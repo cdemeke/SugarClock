@@ -19,6 +19,9 @@ struct MyClocksView:View {
                 switch route {
                 case .add:
                     SugarScreen {
+                        if let network=model.localNetwork {
+                            LocalDiscoveryView(network:network) {id in path=[.settings(id)]}
+                        }
                         DiscoveryView(bluetooth:model.bluetooth) {id in path=[.settings(id)]}
                         OperationFeedback()
                     }.navigationTitle("Add clock")
@@ -41,8 +44,11 @@ struct ClockLibraryView:View {
             if !model.clocks.isEmpty {
                 SugarCard {
                     ForEach(model.clocks) {clock in
+                        let status=model.listStatus(for:clock)
                         Button {openClock(clock)} label:{
-                            DestinationRow(title:clock.nickname,subtitle:clock.id==model.selected?.id ? model.connectionSummary:"",symbol:"clock",loading:clock.id==model.selected?.id && (model.syncingSettings || (model.updatingClock && !model.sessionReady)))
+                            DestinationRow(title:clock.nickname,subtitle:status?.text ?? "",symbol:"clock",
+                                           loading:clock.id==model.selected?.id && (model.syncingSettings || (model.updatingClock && !model.sessionReady)),
+                                           status:status?.level)
                         }
                         .buttonStyle(.plain)
                         // Read-only recovery can be interrupted by choosing another clock.
@@ -59,6 +65,79 @@ struct ClockLibraryView:View {
                 .buttonStyle(SugarButtonStyle(prominent:false)).disabled(!model.canChooseAnotherClock)
             NavigationLink {TroubleshootingView()} label:{Label("Help",systemImage:"questionmark.circle")}
         }.navigationTitle("My Clocks")
+        // Every clock's status stays current while the list is on screen.
+        .task {
+            while !Task.isCancelled {
+                await model.refreshAvailability()
+                try? await Task.sleep(for:.seconds(15))
+            }
+        }
+    }
+}
+
+/// Clocks already on this iPhone's Wi-Fi can be added without pairing, using
+/// the same local web access as the clock's admin page.
+struct LocalDiscoveryView:View {
+    @EnvironmentObject var model:ClockModel
+    @ObservedObject var network:LocalClockNetwork
+    var onConnected:(UUID)->Void={_ in}
+    @State private var address=""
+    @State private var addressMessage=""
+    @State private var checkingAddress=false
+    private var newClocks:[LocalClockCandidate] {
+        network.candidates.filter {candidate in !model.clocks.contains(where:{$0.id==candidate.identity})}
+    }
+    private func add(_ candidate:LocalClockCandidate) async {
+        await model.addLocalClock(candidate)
+        if model.sessionReady,model.selected?.id==candidate.identity,let id=model.selected?.peripheral {onConnected(id)}
+    }
+    private func search() async {
+        let found=await network.discover()
+        model.rememberLocalHosts(found)
+    }
+    var body:some View {
+        SugarCard(title:"On your Wi-Fi") {
+            Text("Clocks on the same Wi-Fi as this iPhone connect instantly, without pairing.")
+                .font(.subheadline).foregroundStyle(SugarTheme.secondary)
+            ForEach(newClocks) {candidate in
+                Button {Task {await add(candidate)}} label:{
+                    DestinationRow(title:candidate.name,subtitle:"\(candidate.host) · Firmware \(candidate.firmware)",symbol:"wifi")
+                }.buttonStyle(.plain).disabled(model.busy || model.updatingClock)
+            }
+            if network.searching {
+                HStack(spacing:8) {SugarSpinner();Text("Searching…").font(.subheadline).foregroundStyle(SugarTheme.secondary)}
+            } else if network.searched,newClocks.isEmpty {
+                Text(network.candidates.isEmpty ? "No clocks found on this Wi-Fi.":"Every clock on this Wi-Fi is already in My Clocks.")
+                    .font(.subheadline).foregroundStyle(SugarTheme.secondary)
+            }
+            Button {Task {await search()}} label:{Label("Search Wi-Fi",systemImage:"magnifyingglass")}
+                .buttonStyle(SugarButtonStyle(prominent:false)).disabled(network.searching || model.busy || model.updatingClock)
+            DisclosureGroup("Enter the clock’s address") {
+                VStack(alignment:.leading,spacing:10) {
+                    TextField("192.168.1.50",text:$address).fieldSurface()
+                        .keyboardType(.numbersAndPunctuation).textInputAutocapitalization(.never).autocorrectionDisabled()
+                        .accessibilityLabel("Clock IP address")
+                    Text("Shown on the clock’s web page and in your router. Leave this to search automatically.")
+                        .font(.footnote).foregroundStyle(SugarTheme.secondary)
+                    Button {Task {
+                        guard let host=LocalClockIdentity.normalizedHost(address) else {addressMessage="Enter an address like 192.168.1.50.";return}
+                        checkingAddress=true;addressMessage=""
+                        defer {checkingAddress=false}
+                        guard let candidate=await network.probe(host:host) else {
+                            addressMessage="No SugarClock answered at \(host). Check the address and that your iPhone is on the same Wi-Fi."
+                            return
+                        }
+                        await add(candidate)
+                    }} label:{
+                        HStack(spacing:8) {if checkingAddress {SugarSpinner()};Text("Connect")}
+                    }.buttonStyle(SugarButtonStyle()).disabled(checkingAddress || address.isEmpty || model.busy || model.updatingClock)
+                    if !addressMessage.isEmpty {Text(addressMessage).font(.footnote).foregroundStyle(SugarTheme.secondary)}
+                }.padding(.top,8)
+            }.font(.subheadline).tint(SugarTheme.accent)
+        }.task {
+            // DiscoveryView first stops any unrelated saved-clock recovery.
+            if !Task.isCancelled {await search()}
+        }
     }
 }
 
@@ -70,7 +149,7 @@ struct DiscoveryView:View {
         bluetooth.devices.filter {device in !model.clocks.contains(where:{$0.peripheral==device.identifier})}
     }
     var body:some View {
-        SugarCard(title:"Add a clock") {
+        SugarCard(title:"Nearby with Bluetooth") {
             Text("Hold the middle button for 3 seconds, then release. Enter the code on your clock when asked.")
                 .font(.subheadline).foregroundStyle(SugarTheme.secondary)
             ForEach(newDevices,id:\.identifier) {device in
@@ -99,10 +178,10 @@ struct DiscoveryView:View {
 struct TroubleshootingView:View {
     private let topics:[(String,String)]=[
         ("Edit while the clock is offline","Connect once to load a clock’s settings. You can then edit across screens, review pending changes and tap Update clock when ready. Keep the app open near the clock while it connects. Cancelling or closing the app before sending keeps your edits for later; they are never sent automatically when you reopen."),
-        ("Clock not found","Bluetooth-capable firmware must be installed first. Older firmware cannot be discovered here. Use the Mac USB installer or the clock’s existing signed Wi-Fi updater."),
+        ("Clock not found","On the same Wi-Fi as your clock, open Add clock: clocks on your network appear under On your Wi-Fi, or enter the clock’s IP address. Any SugarClock firmware works over Wi-Fi. Bluetooth needs Bluetooth-capable firmware and is used when your iPhone isn’t on the clock’s network."),
         ("Pair a new phone","Hold the middle button for 3 seconds, then release. Enter the fresh code on the clock. Urgent alerts take priority; retry when the clock can show its code."),
         ("Replace a phone or fix pairing","Forget SugarClock in iOS Bluetooth Settings, then hold the middle button for 3 seconds, release and pair again. A clock remembers up to four phones; pairing another replaces the one that has gone longest without connecting. Wi-Fi, glucose, alerts and display settings remain."),
-        ("Reconnect to your clock","Move within a few metres and allow Bluetooth access in iPhone Settings. Open the app near your clock and select it from My Clocks. If you have one saved clock, it starts connecting automatically. If needed, tap Retry; you do not need to add it again."),
+        ("Reconnect to your clock","The app connects over Wi-Fi when your iPhone is on the clock’s network, and otherwise over Bluetooth within a few metres. Allow Local Network and Bluetooth access in iPhone Settings → SugarClock. If the clock’s address changes, the app finds it again automatically. If needed, tap Retry; you do not need to add it again."),
         ("Wi-Fi or glucose data isn’t working","Use a 2.4 GHz network. A failed trial keeps the previous saved network. Getting an IP address does not confirm internet or provider access—check each status separately."),
         ("Recover older firmware","If an older clock has broken Wi-Fi, use its setup portal or a USB upgrade. Firmware transfer over Bluetooth is not supported.")
     ]

@@ -4,11 +4,16 @@ import SwiftUI
 /// Explicit simulator screenshot fixture. Uses the production views, never a radio,
 /// credentials, saved user preferences or an automatic fallback from a connection.
 struct ScreenshotPreview:View {
+    static var requestedScreen:String? {
+        ProcessInfo.processInfo.environment["SUGARCLOCK_SCREENSHOT"] ??
+            ProcessInfo.processInfo.arguments.first(where:{$0.hasPrefix("--sugarclock-screenshot=")})?
+                .replacingOccurrences(of:"--sugarclock-screenshot=",with:"")
+    }
     @EnvironmentObject var model:ClockModel
     let screen:String
     var body:some View {
         Group {
-            if ["clocks","clocks-connecting"].contains(screen) {MyClocksView()}
+            if ["clocks","clocks-connecting","clocks-offline","clocks-searching","clocks-syncing"].contains(screen) {MyClocksView()}
             else {
                 NavigationStack {
                     switch screen {
@@ -103,7 +108,7 @@ struct ScreenshotPreview:View {
             ["key":"sysmon_display_mode","type":"int","min":0,"max":1],["key":"sysmon_warn_pct","type":"int","min":0,"max":100],["key":"sysmon_crit_pct","type":"int","min":0,"max":100]
         ]
         model.networks=[["ssid":"Home Wi-Fi","rssi":-42],["ssid":"Guest Network","rssi":-61]]
-        let screen=ProcessInfo.processInfo.environment["SUGARCLOCK_SCREENSHOT"] ?? ""
+        let screen=ScreenshotPreview.requestedScreen ?? ""
         if let key=SettingsCategory.all.first(where:{$0.id==screen})?.enableKey {model.settings[key]=true}
         if ["glucose-off","alerts-blocked"].contains(screen) {model.settings["glucose_enabled"]=false;model.settings["alert_enabled"]=false}
         if screen=="time-off" {model.settings["time_display_enabled"]=false}
@@ -126,6 +131,9 @@ struct ScreenshotPreview:View {
         if ["loading","loading-large"].contains(screen) {model.settings=[:];model.fields=[]}
         if screen=="clocks-connecting" {model.previewConnection(ready:false);model.busy=true;model.reconnecting=true;model.connectionState="Connecting…"}
         if screen=="offline" {model.message="Move closer and try again."}
+        if screen=="clocks-offline" {model.previewConnection(ready:false)}
+        if screen=="clocks-searching" {model.previewConnection(ready:false);model.reconnecting=true;model.connectionState="Looking for your clock on Wi-Fi…"}
+        if screen=="clocks-syncing" {model.previewConnection(ready:false);model.reconnecting=true;model.connectionState="Loading settings…"}
         if screen=="operation" {model.busy=true;model.operationTitle="Refreshing settings…"}
         model.previewSettingsUpdate(.idle)
         model.setDraft(SettingsDraft(settings:model.settings,fields:model.fields))

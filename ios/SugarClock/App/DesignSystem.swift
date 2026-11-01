@@ -131,13 +131,24 @@ struct DestinationRow:View {
     let subtitle:String
     let symbol:String
     var loading=false
+    /// Shown as the connection badge's icon, left of the subtitle.
+    var status:ConnectionStatus.Level?=nil
     var body:some View {
         HStack(spacing:14) {
             Image(systemName:symbol).font(.title3).foregroundStyle(SugarTheme.accent)
                 .frame(width:42,height:42).background(SugarTheme.accent.opacity(0.09),in:RoundedRectangle(cornerRadius:12)).accessibilityHidden(true)
             VStack(alignment:.leading,spacing:4) {
                 Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(SugarTheme.text)
-                if !subtitle.isEmpty {HStack(spacing:6) {if loading {SugarSpinner()};Text(subtitle).font(.caption).foregroundStyle(SugarTheme.secondary)}}
+                if !subtitle.isEmpty {
+                    HStack(spacing:6) {
+                        if loading {SugarSpinner()}
+                        else if let status {
+                            Image(systemName:ConnectionBadge.symbol(status)).font(.footnote).foregroundStyle(ConnectionBadge.color(status))
+                                .symbolEffect(.pulse,isActive:status == .connecting).accessibilityHidden(true)
+                        }
+                        Text(subtitle).font(.caption).foregroundStyle(SugarTheme.secondary)
+                    }
+                }
             }
             Spacer(minLength:0)
             Image(systemName:"chevron.right").font(.caption.weight(.semibold)).foregroundStyle(SugarTheme.secondary).accessibilityHidden(true)

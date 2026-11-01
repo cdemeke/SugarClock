@@ -5,7 +5,7 @@ import SwiftUI
     @Environment(\.scenePhase) private var phase
     init() {
         #if DEBUG
-        if ProcessInfo.processInfo.environment["SUGARCLOCK_SCREENSHOT"] != nil {
+        if ScreenshotPreview.requestedScreen != nil {
             _model=StateObject(wrappedValue:ScreenshotPreview.makeModel())
             return
         }
@@ -21,7 +21,7 @@ import SwiftUI
     }
     @ViewBuilder private var content:some View {
         #if DEBUG
-        if let screen=ProcessInfo.processInfo.environment["SUGARCLOCK_SCREENSHOT"] {
+        if let screen=ScreenshotPreview.requestedScreen {
             ScreenshotPreview(screen:screen)
         } else {MyClocksView()}
         #else
