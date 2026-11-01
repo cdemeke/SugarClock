@@ -29,8 +29,8 @@ final class SettingsFeedbackTests:XCTestCase {
         XCTAssertNotNil(feedback(.checking,storage:"Storage locked",updating:true))
     }
     func testInitialReadAndExhaustedReconnectStayVisible() {
-        XCTAssertEqual(feedback(loaded:false,ready:false,syncing:true)?.title,"Syncing settings…")
-        XCTAssertEqual(feedback(ready:false)?.title,"Clock unavailable")
+        XCTAssertEqual(feedback(loaded:false,ready:false,syncing:true)?.title,"Updating settings…")
+        XCTAssertEqual(feedback(ready:false)?.title,"Not connected")
         XCTAssertEqual(feedback(message:"Pairing rejected",loaded:false,ready:false)?.detail,"Pairing rejected")
     }
 }

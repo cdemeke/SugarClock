@@ -24,6 +24,7 @@ struct DeviceView:View {
             HStack(spacing:14) {
                 BrandIcon(name:"BrandLogo",size:56)
                 Text(model.selected?.nickname ?? "SugarClock").font(.title2.bold())
+                ConnectionBadge().padding(.leading,-8)
             }
             OperationFeedback(showsSettingsFeedback:true)
             if model.hasLoadedSettings {

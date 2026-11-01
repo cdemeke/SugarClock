@@ -153,3 +153,13 @@ Sprout, Pebble, Inky and Maple. All seven require firmware 0.3.5 or compatible
 `ambient_character` schema; older firmware keeps its two supported choices.
 See [offline update verification](../docs/IOS_OFFLINE_SETTINGS.md) and
 [pet compatibility and migration](../docs/PIXEL_PETS_BLE.md).
+
+## Build 25: Wi-Fi first, Bluetooth as fallback
+
+The app now reaches clocks through their local web API when the iPhone is on
+the same Wi-Fi network, using any firmware, including mainline 0.2.x, which has
+no Bluetooth. Saved clocks remember their address and are found again by
+identity if it changes. Add clock lists clocks on your Wi-Fi and accepts a typed
+IP address. Bluetooth runs alongside Wi-Fi as a fallback rather than after it,
+so a clock that has stopped advertising no longer stalls reconnection. See
+[the root cause, behavior, limits and real-clock verification](../docs/IOS_WIFI_CONNECTION.md).
