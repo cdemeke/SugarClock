@@ -95,7 +95,12 @@ Glucose thresholds, timezone and polling interval are not supported through `con
 The contract regression compares server validation with the real firmware fleet gate and `config_patch` for every supported field's types and boundaries. CI runs it again after firmware dependencies are installed.
 Firmware reports every five minutes with jitter; legacy firmware polls faster.
 Overview shows registered installations, online status, 7/30-day activity, firmware
-versions, enabled-feature counts, and approximate city/country counts. Device details
+versions, enabled-feature counts, and approximate city/region/country counts. Enabled
+features and locations each have independent 7-day, 30-day (default), 90-day, and
+all-time filters based on the latest check-in. All time includes installations that
+have checked in, excluding blocked/retired clocks. These are latest snapshots, not a
+history of configuration or movement; cleared snapshots count as unknown. US regions
+use postal abbreviations in location summaries (for example, Portland, OR). Device details
 show the latest feature snapshot. Unknown fields remain unknown. One person can own
 multiple clocks, and erasing storage can create another installation identity.
 

@@ -11,6 +11,16 @@ sys.path.insert(0, str(ROOT / 'scripts'))
 from build_i18n import key, SURFACES
 
 class LocalizationTests(unittest.TestCase):
+    def test_fleet_breakdown_copy_is_catalogued(self):
+        inventory = json.loads((ROOT / 'web/i18n/sources.json').read_text())['fleet']
+        script = (ROOT / 'fleet/sugarfleet/static/overview.js').read_text()
+        section = script.split('let summaryData,')[1].split('let openCountries')[0]
+        messages = {text for _, text in re.findall(r'I18n\.message\(([\'"])(.*?)\1', section)}
+        messages.update(re.findall(r"\? '(Latest reported config[^']+|All installations[^']+)'", section))
+        self.assertIn('All time', messages)
+        self.assertTrue(any('Snapshots are cleared' in text for text in messages))
+        self.assertFalse(messages - set(inventory), messages - set(inventory))
+
     def test_catalogs_cover_every_source_and_preserve_parameters_and_brands(self):
         source = ROOT / 'web/i18n'
         inventory = json.loads((source / 'sources.json').read_text())

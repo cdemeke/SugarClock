@@ -17,6 +17,7 @@ from .auth import admin_required, csrf_required
 from .db import get_db
 from . import telemetry, rollouts
 from .geolocation import location_label as format_detected_location
+from .geolocation import location_summary
 from .releases import import_manifest, synchronize
 from .util import (
     ApiError,
@@ -40,11 +41,8 @@ def _device_json(row, *, detail=False):
     detected_label = format_detected_location(
         row["detected_city"], row["detected_region"], row["detected_country_code"]
     )
-    detected_summary = (
-        ", ".join(
-            x for x in (row["detected_city"], row["detected_country_code"]) if x
-        )
-        or "Unknown"
+    detected_summary = location_summary(
+        row["detected_city"], row["detected_region"], row["detected_country_code"]
     )
     value = {
         "id": row["id"],

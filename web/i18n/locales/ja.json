@@ -973,5 +973,13 @@
   "Test the Libre connection, then choose a person from the list.": "Libre の接続をテストしてから、一覧から人を選んでください。",
   "SugarClock FAQ | CGM Display Setup & Troubleshooting": "SugarClock FAQ | CGMディスプレイの設定とトラブルシューティング",
   "SugarClock (Sugar Clock) | Open-Source CGM Display": "SugarClock (Sugar Clock) | オープンソースのCGMディスプレイ",
-  "SugarClock (Sugar Clock) turns an affordable Ulanzi TC001 pixel clock into a Wi-Fi blood sugar display for Dexcom Share, FreeStyle Libre via LibreLinkUp, and Nightscout.": "SugarClock (Sugar Clock) は、手頃な価格のUlanzi TC001ピクセルクロックを、Dexcom Share、LibreLinkUp経由のFreeStyle Libre、Nightscoutに対応するWi-Fi血糖値ディスプレイに変えます。"
+  "SugarClock (Sugar Clock) turns an affordable Ulanzi TC001 pixel clock into a Wi-Fi blood sugar display for Dexcom Share, FreeStyle Libre via LibreLinkUp, and Nightscout.": "SugarClock (Sugar Clock) は、手頃な価格のUlanzi TC001ピクセルクロックを、Dexcom Share、LibreLinkUp経由のFreeStyle Libre、Nightscoutに対応するWi-Fi血糖値ディスプレイに変えます。",
+  "All time": "全期間",
+  "Latest reported config from all installations that have checked in. “Enabled” is configuration, not usage. Snapshots are cleared after 90 days without contact.": "接続実績のあるすべての端末から最後に報告された設定です。「有効」は設定状態を示し、使用状況ではありません。90 日間接続がない場合、スナップショットは消去されます。",
+  "All installations that have checked in, grouped by country. IP estimates may be inaccurate or unavailable. Locations are cleared after 90 days without contact.": "接続実績のあるすべての端末を国別に表示します。IP による推定は不正確または取得できない場合があります。90 日間接続がない場合、位置情報は消去されます。",
+  "No clocks in this time range. Features appear after a clock checks in.": "この期間に該当する時計はありません。時計が接続すると機能情報が表示されます。",
+  "Share of {0} installations in this time range{1}.": "この期間の {0} 台に占める割合{1}。",
+  "Share of {0} installations in this time range. Unknown means the clock didn’t report that setting.": "この期間の {0} 台に占める割合。不明は、時計がその設定を報告していないことを示します。",
+  "Latest reported config from installations active in the last {0} days. “Enabled” is configuration, not usage.": "過去 {0} 日間にアクティブなインストールから報告された最新の構成。 「有効」とは、使用状況ではなく構成です。",
+  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "過去 {0} 日間にアクティブであったものを国別にグループ化しました。 IP の推定値は不正確であるか、利用できない可能性があります。"
 }
