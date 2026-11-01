@@ -1369,6 +1369,9 @@ private final class FailingLocalSettingsStore:LocalSettingsStore {
         XCTAssertEqual(server.config("192.168.1.81")["brightness"] as? Int,120)
         XCTAssertEqual(server.config("192.168.1.81")["color_in_range"] as? String,"#ff0000")
         XCTAssertEqual(model.settings["color_in_range"] as? Int,0xFF0000)
+        XCTAssertEqual(model.status["configuration_saved"] as? Bool,true)
+        XCTAssertEqual(model.settings["wifi_ssid"] as? String,"Home")
+        XCTAssertEqual(model.settings["wifi_password_configured"] as? Bool,true)
         XCTAssertTrue(model.sessionReady)
         model.suspend()
     }
@@ -1391,9 +1394,11 @@ private final class FailingLocalSettingsStore:LocalSettingsStore {
         try await model.refresh()
         XCTAssertEqual(model.pendingChangeCount,1)
         XCTAssertEqual(model.saveReceipt(for:["brightness"])?.phase,.unconfirmed)
+        XCTAssertEqual(model.status["configuration_saved"] as? Bool,false)
         server.mutateClock(at:"192.168.1.81") {$0.config["configuration_saved"]=true}
         try await model.refresh()
         XCTAssertEqual(model.pendingChangeCount,0)
+        XCTAssertEqual(model.status["configuration_saved"] as? Bool,true)
         guard case .saved=model.saveReceipt(for:["brightness"])?.phase else {return XCTFail("Durable readback did not finish verification")}
         XCTAssertEqual(server.requests.filter {$0=="POST 192.168.1.81/api/config"}.count,posts)
         model.suspend()

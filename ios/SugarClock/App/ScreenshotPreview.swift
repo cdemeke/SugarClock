@@ -26,7 +26,8 @@ struct ScreenshotPreview:View {
                     case "glucose", "glucose-off", "alerts", "alerts-off", "alerts-blocked":ConfigurationView(category:SettingsCategory.all.first {$0.id=="glucose"}!)
                     case "weather", "pomodoro", "stopwatch", "countdown", "system":ConfigurationView(category:SettingsCategory.all.first {$0.id==screen}!)
                     case "clock-settings":ClockDetailsView()
-                    case "wifi":WiFiView()
+                    case "wifi", "wifi-enterprise":WiFiView()
+                    case "diagnostics":DiagnosticsView()
                     case "firmware":FirmwareView()
                     case "update-time":SettingEditor(field:["key":"auto_update_hour","type":"int","min":0,"max":23])
                     case "brightness", "saved", "saved-large", "saved-expired", "save-unconfirmed", "checking":SettingEditor(field:["key":"brightness","type":"int","min":1,"max":255])
@@ -109,6 +110,14 @@ struct ScreenshotPreview:View {
         ]
         model.networks=[["ssid":"Home Wi-Fi","rssi":-42],["ssid":"Guest Network","rssi":-61]]
         let screen=ScreenshotPreview.requestedScreen ?? ""
+        if ["wifi", "wifi-enterprise"].contains(screen) {
+            let enterprise=screen=="wifi-enterprise"
+            let readback:[String:Any]=["wifi_ssid":enterprise ? "Office Wi-Fi":"Home Wi-Fi",
+                "wifi_security":enterprise ? 1:0,"wifi_eap_method":1,"wifi_identity":"owner@example.test",
+                "wifi_anon_identity":"anonymous@example.test","wifi_validate_ca":true,
+                "has_wifi_password":true,"has_wifi_eap_password":true]
+            model.settings.merge(LocalClockSchema.settings(fromHTTP:readback)) {$1}
+        }
         if let key=SettingsCategory.all.first(where:{$0.id==screen})?.enableKey {model.settings[key]=true}
         if ["glucose-off","alerts-blocked"].contains(screen) {model.settings["glucose_enabled"]=false;model.settings["alert_enabled"]=false}
         if screen=="time-off" {model.settings["time_display_enabled"]=false}

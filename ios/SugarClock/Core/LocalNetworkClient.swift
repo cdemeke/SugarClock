@@ -121,6 +121,13 @@ public enum LocalClockSchema {
         bool("countdown_enabled"), text("countdown_name", 15), int("countdown_target", 0, 2_147_483_647),
     ]
     private static let byKey = Dictionary(uniqueKeysWithValues: all.map { ($0.key, $0) })
+    // The dedicated Wi-Fi trial editor needs these readback values, but they
+    // must never enter the ordinary settings schema or settings.patch route.
+    private static let wifiMetadata: [Field] = [
+        text("wifi_ssid", 32), secret("wifi_password", 63), int("wifi_security", 0, 1),
+        int("wifi_eap_method", 0, 1), text("wifi_identity", 63), secret("wifi_eap_password", 63),
+        text("wifi_anon_identity", 63), bool("wifi_validate_ca"),
+    ]
 
     private static func supported(_ field: Field, by config: [String: Any]) -> Bool {
         config[field.key] != nil || config["has_" + field.key] != nil
@@ -138,7 +145,7 @@ public enum LocalClockSchema {
     /// flags only, and hex colors become the integers the schema describes.
     public static func settings(fromHTTP config: [String: Any]) -> [String: Any] {
         var settings: [String: Any] = [:]
-        for field in all where supported(field, by: config) {
+        for field in all + wifiMetadata where supported(field, by: config) {
             if field.type == "secret" {
                 let configured = config["has_" + field.key] as? Bool ?? !((config[field.key] as? String) ?? "").isEmpty
                 settings[field.key + "_configured"] = configured
@@ -277,6 +284,10 @@ public enum LocalClockSchema {
     private func status() async throws -> [String: Any] {
         let clock = try await get("/api/status")
         let wifi = (try? await get("/api/wifi/status")) ?? [:]
+        // The web API reports durability in /api/config. Read it afresh:
+        // cached evidence could outlive a later failed write or Wi-Fi trial.
+        // Missing/unreadable evidence stays unconfirmed without hiding OTA status.
+        let config = (try? await get("/api/config")) ?? [:]
         let ota = (try? await get("/api/ota/status")) ?? [:]
         let pending = Self.reportedBool(ota["request_pending"])
         let failed = Self.reportedBool(ota["request_failed"])
@@ -286,6 +297,7 @@ public enum LocalClockSchema {
             "wifi": clock["wifi_connected"] as? Bool == true ? "CONNECTED" : (wifi["state"] as? String ?? "unknown").uppercased(),
             "trial": wifi["trial"] as? String ?? "idle", "trial_detail": wifi["detail"] as? String ?? "",
             "network_saved": !(wifi["ssid"] as? String ?? "").isEmpty,
+            "configuration_saved": Self.reportedBool(config["configuration_saved"]) == true,
             "internet_dns": probe(checks["dns"]), "provider_reachable": probe(checks["data"]),
             "data_received": clock["valid"] as? Bool ?? false,
             "provider_failures": clock["failure_count"] as? Int ?? 0,

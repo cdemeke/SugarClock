@@ -10,6 +10,7 @@ final class FakeClockServer: LocalHTTP, @unchecked Sendable {
         var config: [String: Any] = FakeClockServer.mainlineConfig
         var otaStatus: [String: Any] = [:]
         var failPersistence = false
+        var failConfigRead = false
         var queueOTARequests = false
     }
     static let officeMAC = "48:9D:31:F8:20:DC", officeIdentity = "DC20F8319D48"
@@ -57,7 +58,8 @@ final class FakeClockServer: LocalHTTP, @unchecked Sendable {
                 return try reply(["firmware_version": clock.firmware, "hardware": "ulanzi-tc001-esp32-4mb", "glucose": 112, "valid": true,
                                   "data_age_sec": 42, "failure_count": 0, "wifi_connected": true, "wifi_rssi": -50])
             case ("GET", "/api/debug"): return try reply(["mac": clock.mac, "free_heap": 160_000])
-            case ("GET", "/api/config"): return try reply(clock.config)
+            case ("GET", "/api/config"):
+                return clock.failConfigRead ? try reply(["error": "busy"], 503) : try reply(clock.config)
             case ("POST", "/api/config"):
                 for (key, value) in body {
                     if clock.config["has_" + key] != nil {
@@ -155,6 +157,58 @@ final class FakeClockServer: LocalHTTP, @unchecked Sendable {
             guard case ClockError.unavailable = $0 else { return XCTFail("\($0)") }
         }
         XCTAssertThrowsError(try LocalClockSchema.httpBody(forPatch: ["wifi_password": "x"]))
+    }
+    func testSavedWiFiDetailsSurviveHTTPReadbackWithoutBecomingOrdinarySettings() async throws {
+        let server = officeServer()
+        server.mutateClock(at: "192.168.1.81") {
+            $0.config.merge(["wifi_security": 1, "wifi_eap_method": 1, "wifi_identity": "owner@example.test",
+                             "wifi_anon_identity": "anonymous@example.test", "wifi_validate_ca": true,
+                             "has_wifi_eap_password": true, "wifi_password": "private-personal",
+                             "wifi_eap_password": "private-enterprise"]) { $1 }
+        }
+        let client = LocalNetworkClockClient(host: "192.168.1.81", http: server)
+        let read = try await client.request("settings.get")
+        let settings = try XCTUnwrap(read["settings"] as? [String: Any])
+        XCTAssertEqual(settings["wifi_ssid"] as? String, "Home")
+        XCTAssertEqual(settings["wifi_security"] as? Int, 1)
+        XCTAssertEqual(settings["wifi_eap_method"] as? Int, 1)
+        XCTAssertEqual(settings["wifi_identity"] as? String, "owner@example.test")
+        XCTAssertEqual(settings["wifi_anon_identity"] as? String, "anonymous@example.test")
+        XCTAssertEqual(settings["wifi_validate_ca"] as? Bool, true)
+        XCTAssertEqual(settings["wifi_password_configured"] as? Bool, true)
+        XCTAssertEqual(settings["wifi_eap_password_configured"] as? Bool, true)
+        XCTAssertNil(settings["wifi_password"]); XCTAssertNil(settings["wifi_eap_password"])
+        let schema = try await client.schema()
+        XCTAssertFalse(schema.contains { ($0["key"] as? String)?.hasPrefix("wifi_") == true })
+        XCTAssertThrowsError(try LocalClockSchema.httpBody(forPatch: ["wifi_identity": "replacement"]))
+        // Older personal-network firmware exposes only SSID and its password flag.
+        let personal = LocalClockSchema.settings(fromHTTP: FakeClockServer.mainlineConfig)
+        XCTAssertEqual(personal["wifi_ssid"] as? String, "Home")
+        XCTAssertEqual(personal["wifi_password_configured"] as? Bool, true)
+        XCTAssertNil(personal["wifi_security"])
+        let open = LocalClockSchema.settings(fromHTTP: ["wifi_ssid": "Cafe", "has_wifi_password": false])
+        XCTAssertEqual(open["wifi_password_configured"] as? Bool, false)
+    }
+    func testStatusUsesFreshStrictDurabilityEvidenceAndNeverReusesAnOldConfirmation() async throws {
+        let server = officeServer()
+        let client = LocalNetworkClockClient(host: "192.168.1.81", http: server)
+        let cases: [(Any, Bool)] = [(true, true), (false, false), ("true", false), (1, false), (NSNull(), false)]
+        for (evidence, expected) in cases {
+            server.mutateClock(at: "192.168.1.81") { $0.config["configuration_saved"] = evidence }
+            let read = try await client.request("status.get")
+            XCTAssertEqual((read["status"] as? [String: Any])?["configuration_saved"] as? Bool, expected)
+        }
+        server.mutateClock(at: "192.168.1.81") { $0.config.removeValue(forKey: "configuration_saved") }
+        let legacy = try await client.request("status.get")
+        XCTAssertEqual((legacy["status"] as? [String: Any])?["configuration_saved"] as? Bool, false)
+        server.mutateClock(at: "192.168.1.81") { $0.config["configuration_saved"] = true }
+        _ = try await client.request("settings.get") // Cached settings are durable.
+        server.mutateClock(at: "192.168.1.81") { $0.failConfigRead = true }
+        let unavailable = try await client.request("status.get")
+        let status = try XCTUnwrap(unavailable["status"] as? [String: Any])
+        XCTAssertEqual(status["configuration_saved"] as? Bool, false)
+        XCTAssertEqual(status["wifi"] as? String, "CONNECTED", "Other diagnostics remain available")
+        XCTAssertNotNil(status["ota"], "Config read failure must not stop update monitoring")
     }
     func testClientSpeaksTheBluetoothRequestContract() async throws {
         let server = officeServer()
