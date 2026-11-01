@@ -191,9 +191,12 @@ public enum LocalClockSchema {
     private let http: LocalHTTP
     private var nextID = 1
     private var lastConfig: [String: Any]?
+    private var expectedIdentity: String?
     static let capabilities = ["settings.patch", "schema", "wifi.trial", "ota.signed_wifi"]
 
-    public init(host: String, http: LocalHTTP) { self.host = host; self.http = http }
+    public init(host: String, http: LocalHTTP, expecting identity: String? = nil) {
+        self.host = host; self.http = http; self.expectedIdentity = identity
+    }
 
     public func request(_ operation: String, fields: [String: Any]) async throws -> [String: Any] {
         let id = nextID
@@ -222,6 +225,7 @@ public enum LocalClockSchema {
             response["state"] = "queued"
         case "wifi.results":
             let body = try await get("/api/wifi/scan")
+            if let error = body["error"] as? String, !error.isEmpty { throw ClockError.rejected("scan_failed") }
             response["scanning"] = body["scanning"] as? Bool ?? false
             response["networks"] = (body["networks"] as? [[String: Any]] ?? []).map { network in
                 ["ssid": network["ssid"] ?? "", "rssi": network["rssi"] ?? -100,
@@ -250,7 +254,10 @@ public enum LocalClockSchema {
     }
     public func schema(progress: SchemaProgress? = nil) async throws -> [[String: Any]] {
         let config: [String: Any]
-        if let lastConfig { config = lastConfig } else { config = try await get("/api/config"); lastConfig = config }
+        if let lastConfig {
+            _ = try await verifyIdentity()
+            config = lastConfig
+        } else { config = try await get("/api/config"); lastConfig = config }
         return LocalClockSchema.fields(supportedBy: config)
     }
     public func save(_ patch: [String: Any]) async throws {
@@ -261,10 +268,9 @@ public enum LocalClockSchema {
         }
     }
     func hello() async throws -> [String: Any] {
-        let debug = try await get("/api/debug")
+        let identity = try await verifyIdentity()
         let status = try await get("/api/status")
-        guard let mac = debug["mac"] as? String, let identity = LocalClockIdentity.identity(fromMAC: mac),
-              let firmware = status["firmware_version"] as? String, !firmware.isEmpty else { throw ClockError.malformed }
+        guard let firmware = status["firmware_version"] as? String, !firmware.isEmpty else { throw ClockError.malformed }
         return ["device_id": identity, "name": LocalClockIdentity.name(for: identity), "firmware": firmware,
                 "hardware": status["hardware"] as? String ?? "ulanzi-tc001-esp32-4mb",
                 "capabilities": Self.capabilities, "max_message": Frame.maximum, "transport": "wifi", "host": host]
@@ -310,6 +316,9 @@ public enum LocalClockSchema {
         ]
         if let age = clock["data_age_sec"] as? NSNumber, age.doubleValue >= 0 { status["data_age_ms"] = age.doubleValue * 1000 }
         if let rssi = clock["wifi_rssi"] as? Int { status["wifi_rssi"] = rssi }
+        // Optional diagnostic reads may fail, but must not hide an address
+        // reassignment and keep another clock's session marked ready.
+        _ = try await verifyIdentity()
         return status
     }
     private func startWiFiTrial(_ patch: [String: Any]) async throws {
@@ -335,9 +344,29 @@ public enum LocalClockSchema {
         let (code, body) = try await send("GET", path)
         // A clock mid-restart can briefly answer with errors; retrying is safe for reads.
         guard (200..<300).contains(code) else { throw ClockError.disconnected }
+        // Validate after readback so a network/address change during the read
+        // cannot confirm another clock's settings under the saved identity.
+        if path != "/api/debug" { _ = try await verifyIdentity() }
         return body
     }
+    /// An address is only a route, never a clock identity. Pin the first valid
+    /// greeting (or the saved identity) and never rebind this client on DHCP or
+    /// network changes. A retryable disconnect makes the coordinator rediscover
+    /// the saved clock without replaying an uncertain mutation.
+    @discardableResult private func verifyIdentity() async throws -> String {
+        let debug = try await get("/api/debug")
+        guard let mac = debug["mac"] as? String, let identity = LocalClockIdentity.identity(fromMAC: mac),
+              expectedIdentity == nil || expectedIdentity == identity else {
+            lastConfig = nil
+            throw ClockError.disconnected
+        }
+        expectedIdentity = identity
+        return identity
+    }
     private func send(_ method: String, _ path: String, body: [String: Any]? = nil) async throws -> (Int, [String: Any]) {
+        // Every mutating route, including direct save(), checks the pinned
+        // identity immediately before transmitting settings, secrets or commands.
+        if method != "GET" { _ = try await verifyIdentity() }
         guard let url = URL(string: "http://\(host)\(path)") else { throw ClockError.unavailable("This clock address isn’t valid.") }
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: requestTimeout)
         request.httpMethod = method
@@ -385,12 +414,14 @@ public enum LocalClockSchema {
                 hosts: @escaping () -> [String] = { LocalSubnet.candidateHosts() }, minimumSweepInterval: TimeInterval = 30) {
         self.http = http; self.probeHTTP = probeHTTP; self.hosts = hosts; self.minimumSweepInterval = minimumSweepInterval
     }
-    public func client(host: String) -> LocalNetworkClockClient { LocalNetworkClockClient(host: host, http: http) }
+    public func client(host: String, expecting identity: String? = nil) -> LocalNetworkClockClient {
+        LocalNetworkClockClient(host: host, http: http, expecting: identity)
+    }
 
     /// Greets a clock at a known address. Nil when it is unreachable or is a
     /// different clock (for example after a DHCP address change).
     public func connect(host: String, expecting identity: String?) async -> (LocalNetworkClockClient, [String: Any])? {
-        let client = client(host: host)
+        let client = client(host: host, expecting: identity)
         client.requestTimeout = 2.5
         guard let greeting = try? await client.request("hello"),
               let found = greeting["device_id"] as? String, identity == nil || found == identity else { return nil }

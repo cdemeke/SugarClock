@@ -1404,6 +1404,49 @@ private final class FailingLocalSettingsStore:LocalSettingsStore {
         XCTAssertTrue(model.sessionReady)
         model.suspend()
     }
+    func testReassignedWiFiAddressRecoversOriginalClockWithoutSendingOrReplayingChange() async throws {
+        let server=officeServer()
+        server.mutateClock(at:"192.168.1.81") {$0.config["configuration_saved"]=true}
+        let (model,radio,_,id)=fixture(server:server)
+        radio.holdConnection=true
+        await model.connect(id)
+        XCTAssertEqual(model.activeLink,.localNetwork("192.168.1.81"))
+        server.move(from:"192.168.1.81",to:"192.168.1.99")
+        server.place(.init(mac:"88:57:21:17:79:0C"),at:"192.168.1.81")
+        let saved=await model.save(["brightness":120])
+        XCTAssertFalse(saved)
+        await settle {model.sessionReady && model.activeLink == .localNetwork("192.168.1.99")}
+        XCTAssertEqual(model.selected?.id,office)
+        XCTAssertEqual(model.selected?.host,"192.168.1.99")
+        XCTAssertEqual(model.settings["brightness"] as? Int,40)
+        XCTAssertEqual(server.config("192.168.1.81")["brightness"] as? Int,40)
+        XCTAssertEqual(server.config("192.168.1.99")["brightness"] as? Int,40)
+        XCTAssertFalse(server.requests.contains {$0.hasPrefix("POST ")},"Recovery must never replay the blocked mutation")
+        if case .saved = model.saveReceipts[office]?.phase {
+            XCTFail("A blocked save must not be confirmed by another clock's readback")
+        }
+        model.suspend()
+    }
+    func testFailedWiFiScanShowsErrorAndKeepsPreviousResultsUntilRetrySucceeds() async {
+        let server=officeServer()
+        let (model,radio,_,id)=fixture(server:server)
+        radio.holdConnection=true
+        await model.connect(id)
+        let first=await model.scanWiFi(pollDelay:0)
+        XCTAssertTrue(first)
+        XCTAssertEqual(model.networks.first?["ssid"] as? String,"Home")
+        server.mutateClock(at:"192.168.1.81") {$0.scanError="Wi-Fi search failed. Previous results may be out of date."}
+        let failed=await model.scanWiFi(pollDelay:0)
+        XCTAssertFalse(failed)
+        XCTAssertFalse(model.wifiScanMessage.isEmpty)
+        XCTAssertEqual(model.networks.first?["ssid"] as? String,"Home","Failed cached results are not shown as a fresh scan")
+        XCTAssertFalse(model.scanningWiFi)
+        server.mutateClock(at:"192.168.1.81") {$0.scanError=nil}
+        let retry=await model.scanWiFi(pollDelay:0)
+        XCTAssertTrue(retry)
+        XCTAssertTrue(model.wifiScanMessage.isEmpty)
+        model.suspend()
+    }
     func testWiFiPersistenceFailureRetainsDraftUntilDurableReadbackWithoutReplay() async throws {
         let server=officeServer()
         server.mutateClock(at:"192.168.1.81") {

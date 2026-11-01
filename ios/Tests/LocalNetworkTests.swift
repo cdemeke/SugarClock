@@ -12,6 +12,7 @@ final class FakeClockServer: LocalHTTP, @unchecked Sendable {
         var failPersistence = false
         var failConfigRead = false
         var queueOTARequests = false
+        var scanError: String?
     }
     static let officeMAC = "48:9D:31:F8:20:DC", officeIdentity = "DC20F8319D48"
     static let mainlineConfig: [String: Any] = [
@@ -26,6 +27,7 @@ final class FakeClockServer: LocalHTTP, @unchecked Sendable {
     private var log: [String] = []
     private var bodies: [String: [String: Any]] = [:]
     private var down = false
+    private var replacementsAfterRequest: [String: Clock] = [:]
     init(_ clocks: [String: Clock] = [:]) { self.clocks = clocks }
 
     var offline: Bool {
@@ -37,6 +39,7 @@ final class FakeClockServer: LocalHTTP, @unchecked Sendable {
     func lastBody(_ path: String) -> [String: Any]? { lock.withLock { bodies[path] } }
     func move(from old: String, to new: String) { lock.withLock { clocks[new] = clocks.removeValue(forKey: old) } }
     func place(_ clock: Clock, at host: String) { lock.withLock { clocks[host] = clock } }
+    func replace(after request: String, with clock: Clock) { lock.withLock { replacementsAfterRequest[request] = clock } }
     func mutateClock(at host: String, _ change: (inout Clock) -> Void) {
         lock.withLock { if var clock = clocks[host] { change(&clock); clocks[host] = clock } }
     }
@@ -44,7 +47,11 @@ final class FakeClockServer: LocalHTTP, @unchecked Sendable {
     func send(_ request: URLRequest) async throws -> (Data, Int) {
         try lock.withLock {
             let url = request.url!, host = url.host! + (url.port.map { ":\($0)" } ?? ""), method = request.httpMethod ?? "GET"
-            log.append("\(method) \(host)\(url.path)")
+            let entry = "\(method) \(host)\(url.path)"
+            log.append(entry)
+            defer {
+                if let replacement = replacementsAfterRequest.removeValue(forKey: entry) { clocks[host] = replacement }
+            }
             if down { throw URLError(.cannotConnectToHost) }
             if host == "192.168.1.10" { return (Data("Not found".utf8), 404) }  // a printer
             guard var clock = clocks[host] else { throw URLError(.timedOut) }
@@ -87,6 +94,10 @@ final class FakeClockServer: LocalHTTP, @unchecked Sendable {
                     : try reply(["error": "safety_requirements_not_met", "reason": "low_battery"], 412)
             case ("POST", "/api/wifi/scan/refresh"): return try reply(["started": true, "scanning": true])
             case ("GET", "/api/wifi/scan"):
+                if let error = clock.scanError {
+                    return try reply(["scanning": false, "error": error,
+                                      "networks": [["ssid": "Old network", "rssi": -40, "enc": 3]]])
+                }
                 return try reply(["scanning": false, "networks": [["ssid": "Home", "rssi": -40, "enc": 3, "enterprise": false]]])
             case ("POST", "/api/wifi/connect"): return try reply(["status": "started"], 202)
             default: return (Data(), 404)
@@ -366,5 +377,77 @@ final class FakeClockServer: LocalHTTP, @unchecked Sendable {
         let right = await network.connect(host: "192.168.1.81", expecting: FakeClockServer.officeIdentity)
         XCTAssertEqual(right?.0.requestTimeout, 6)
         XCTAssertEqual(right?.1["device_id"] as? String, FakeClockServer.officeIdentity)
+    }
+
+    func testConnectedClientRejectsReassignedAddressBeforeEveryMutation() async throws {
+        for operation in ["save", "settings.patch", "wifi.trial", "wifi.scan", "ota.check", "ota.install"] {
+            let server = officeServer()
+            server.mutateClock(at: "192.168.1.81") { $0.otaStatus = ["request_pending": false, "request_failed": false] }
+            let network = LocalClockNetwork(http: server, probeHTTP: server, hosts: { [] })
+            let connected = await network.connect(host: "192.168.1.81", expecting: FakeClockServer.officeIdentity)
+            let client = try XCTUnwrap(connected?.0)
+            server.move(from: "192.168.1.81", to: "192.168.1.99")
+            var replacement = FakeClockServer.Clock(mac: "88:57:21:17:79:0C")
+            replacement.otaStatus = ["request_pending": false, "request_failed": false]
+            server.place(replacement, at: "192.168.1.81")
+            do {
+                if operation == "save" { try await client.save(["brightness": 120]) }
+                else {
+                    let patch: [String: Any] = operation == "wifi.trial"
+                        ? ["wifi_ssid": "Office", "wifi_password": "replacement"] : ["brightness": 120]
+                    _ = try await client.request(operation, fields: ["patch": patch])
+                }
+                XCTFail("\(operation) must reject a different clock")
+            } catch {
+                XCTAssertEqual(error as? ClockError, .disconnected, operation)
+                XCTAssertTrue(ClockModel.canRetryConnection(error), "The coordinator must rediscover the saved identity")
+            }
+            XCTAssertFalse(server.requests.contains { $0.hasPrefix("POST ") }, operation)
+            XCTAssertEqual(server.config("192.168.1.81")["brightness"] as? Int, 40)
+        }
+    }
+
+    func testConnectedClientNeverRebindsReadsOrCachedSchemaToAReplacementClock() async throws {
+        for operation in ["hello", "settings.get", "status.get", "schema"] {
+            let server = officeServer()
+            let client = LocalNetworkClockClient(host: "192.168.1.81", http: server)
+            _ = try await client.request("hello")
+            _ = try await client.schema()
+            server.place(.init(mac: "88:57:21:17:79:0C"), at: "192.168.1.81")
+            do {
+                if operation == "schema" { _ = try await client.schema() }
+                else { _ = try await client.request(operation) }
+                XCTFail("\(operation) must not treat another clock as the saved one")
+            } catch { XCTAssertEqual(error as? ClockError, .disconnected, operation) }
+            server.place(.init(mac: FakeClockServer.officeMAC), at: "192.168.1.81")
+            let restored = try await client.request("hello")
+            XCTAssertEqual(restored["device_id"] as? String, FakeClockServer.officeIdentity)
+        }
+    }
+
+    func testIdentityIsRecheckedAfterReadbackBeforeReturningConfirmation() async throws {
+        let server = officeServer()
+        let client = LocalNetworkClockClient(host: "192.168.1.81", http: server)
+        _ = try await client.request("hello")
+        server.replace(after: "GET 192.168.1.81/api/config", with: .init(mac: "88:57:21:17:79:0C"))
+        do {
+            _ = try await client.request("settings.get")
+            XCTFail("Readback must not confirm a session whose address changed during the read")
+        } catch { XCTAssertEqual(error as? ClockError, .disconnected) }
+    }
+
+    func testFailedWiFiSearchRejectsCachedNetworks() async throws {
+        let server = officeServer()
+        let client = LocalNetworkClockClient(host: "192.168.1.81", http: server)
+        _ = try await client.request("wifi.scan")
+        server.mutateClock(at: "192.168.1.81") { $0.scanError = "Wi-Fi search failed. Previous results may be out of date." }
+        do {
+            _ = try await client.request("wifi.results")
+            XCTFail("A completed failed scan must not return cached networks as fresh results")
+        } catch { XCTAssertEqual(error as? ClockError, .rejected("scan_failed")) }
+        server.mutateClock(at: "192.168.1.81") { $0.scanError = nil }
+        _ = try await client.request("wifi.scan")
+        let result = try await client.request("wifi.results")
+        XCTAssertEqual((result["networks"] as? [[String: Any]])?.first?["ssid"] as? String, "Home")
     }
 }
