@@ -17,10 +17,11 @@ struct { void println(const char*) {} template<class... A> void printf(const cha
 static int stations = 0, attempts = 0, disconnects = 0;
 struct { int softAPgetStationNum() { return stations; } void disconnect(bool) { ++disconnects; } } WiFi;
 static bool portal_up = true;
-static void portal_start() { portal_up = true; }
+[[maybe_unused]] static void portal_start() { portal_up = true; }
 static const char* status_str = "";
 static WifiState state = WIFI_ST_RETRY_WAIT;
-static unsigned long attempt_start_ms = 0, retry_wait_start_ms = 0, first_failure_ms = 1;
+static unsigned long attempt_start_ms = 0, retry_wait_start_ms = 0;
+[[maybe_unused]] static unsigned long first_failure_ms = 1;
 static int last_disconnect_reason = 0;
 static void params_from_config(WifiTrialParams& p) { strcpy(p.ssid, "home"); }
 static void start_attempt(const WifiTrialParams&) { ++attempts; state = WIFI_ST_CONNECTING; attempt_start_ms = millis(); }
@@ -65,7 +66,7 @@ class PortalHoldTests(unittest.TestCase):
         source = (ROOT / 'src/wifi_manager.cpp').read_text()
         define = source[source.index('#define WIFI_PORTAL_HOLD_MAX_MS'):].split('\n', 1)[0]
         statics = 'static unsigned long portal_hold_since_ms = 0;\nstatic bool portal_holding = false;\nstatic bool portal_forced_retry = false;\n'
-        body = source[source.index('    // Unconditional fallback'):source.index('// ---------------------------------------------------------------------------\n// Accessors')]
+        body = source[source.index('    // A phone on the portal pauses retries'):source.index('// ---------------------------------------------------------------------------\n// Accessors')]
         with tempfile.TemporaryDirectory() as tmp:
             (pathlib.Path(tmp) / 'portal_hold.inc').write_text(define + '\n' + statics + 'void loop_tail() {\n' + body)
             (pathlib.Path(tmp) / 'test.cpp').write_text(HARNESS)
