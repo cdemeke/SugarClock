@@ -1,4 +1,5 @@
 #include "web_server.h"
+#include "local_request_policy.h"
 #include "glucose_freshness.h"
 #include "config_manager.h"
 #include "config_patch.h"
@@ -884,6 +885,23 @@ static void handle_wifi_ca_delete(AsyncWebServerRequest* request) {
     request->send(200, "application/json", "{\"status\":\"ok\"}");
 }
 
+// Refuse /api requests from other web origins and DNS-rebound hostnames before
+// any handler, including body handlers, runs. See local_request_policy.h.
+static bool api_request_refused(AsyncWebServerRequest* request) {
+    if (!request->url().startsWith("/api/")) return false;
+    const AsyncWebHeader* origin = request->getHeader("Origin");
+    const AsyncWebHeader* site = request->getHeader("Sec-Fetch-Site");
+    String local_ip = request->client()->localIP().toString();
+#ifdef SUGARCLOCK_DEV_CORS
+    origin = nullptr;  // development UI served from another origin
+    site = nullptr;
+#endif
+    return !local_request::allowed(request->host().c_str(),
+                                   origin ? origin->value().c_str() : nullptr,
+                                   site ? site->value().c_str() : nullptr,
+                                   local_ip.c_str());
+}
+
 void webserver_init() {
     // LittleFS is only an optional config/certificate overlay. Embedded web
     // assets keep the UI and firmware atomic and remain available if it fails.
@@ -892,6 +910,15 @@ void webserver_init() {
     } else {
         Serial.println("[WEB] LittleFS mounted for config overlay");
     }
+
+    // Registered first so it is matched before every real /api route.
+    server.on("/api", HTTP_ANY,
+        [](AsyncWebServerRequest* request) {
+            request->send(403, "application/json", "{\"error\":\"cross_site_request_refused\"}");
+        },
+        NULL,
+        [](AsyncWebServerRequest*, uint8_t*, size_t, size_t, size_t) {}
+    ).setFilter(api_request_refused);
 
     for (size_t i = 0; i < get_web_assets_count(); ++i) {
         const WebAsset* asset = get_web_asset_at(i);
