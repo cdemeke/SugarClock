@@ -200,14 +200,7 @@ def maintenance(connection, now):
     )
 
 
-def cleanup(connection, now):
-    ids = [
-        r[0]
-        for r in connection.execute(
-            "SELECT id FROM devices WHERE last_checkin_at IS NULL AND registration_cleanup_exempt=0 AND retired_at IS NULL AND blocked_at IS NULL AND first_seen<?",
-            (now - 86400,),
-        )
-    ]
+def _delete_devices(connection, ids):
     for device_id in ids:
         connection.execute("DELETE FROM commands WHERE device_id=?", (device_id,))
         connection.execute(
@@ -216,6 +209,33 @@ def cleanup(connection, now):
         )
         connection.execute("DELETE FROM devices WHERE id=?", (device_id,))
     return len(ids)
+
+
+def cleanup(connection, now):
+    ids = [
+        r[0]
+        for r in connection.execute(
+            "SELECT id FROM devices WHERE last_checkin_at IS NULL AND registration_cleanup_exempt=0 AND retired_at IS NULL AND blocked_at IS NULL AND first_seen<?",
+            (now - 86400,),
+        )
+    ]
+    return _delete_devices(connection, ids)
+
+
+def reclaim_inactive(connection, cutoff):
+    """Free the longest-silent enrollment so check-in-once records cannot hold capacity forever.
+
+    A reclaimed clock that comes back simply registers again with its own credential.
+    """
+    ids = [
+        r[0]
+        for r in connection.execute(
+            "SELECT id FROM devices WHERE registration_cleanup_exempt=0 AND retired_at IS NULL AND blocked_at IS NULL "
+            "AND COALESCE(last_checkin_at, first_seen)<? ORDER BY COALESCE(last_checkin_at, first_seen) LIMIT 1",
+            (cutoff,),
+        )
+    ]
+    return _delete_devices(connection, ids)
 
 
 def prune_history(connection, now):
