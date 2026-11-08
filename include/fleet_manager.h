@@ -11,6 +11,8 @@ void fleet_loop();
 
 // Public local identifier only; never expose the device credential.
 const char* fleet_installation_id();
+// True once the fleet service has accepted this installation's credential.
+bool fleet_is_registered();
 bool fleet_request_check();
 bool fleet_update_authorization_current();
 bool fleet_request_manual_install();
