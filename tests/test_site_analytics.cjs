@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const source = fs.readFileSync('docs/js/analytics.js', 'utf8');
-function boot({ token = 'phc_test', hostname = 'sugarclock.com', enabledHosts = ['sugarclock.com'], readyState = 'loading', querySelectorAll = () => [] } = {}) {
+function boot({ token = 'phc_test', hostname = 'sugarclock.com', pathname = '/', enabledHosts = ['sugarclock.com'], readyState = 'loading', querySelectorAll = () => [] } = {}) {
   const events = [], listeners = {}, scripts = [], observed = [];
   let options, observerCallback;
   const document = {
@@ -13,7 +13,7 @@ function boot({ token = 'phc_test', hostname = 'sugarclock.com', enabledHosts = 
   };
   const window = {
     SUGARCLOCK_ANALYTICS: { token, enabledHosts, assetHost: 'https://us-assets.i.posthog.com', apiHost: 'https://us.i.posthog.com' },
-    location: { hostname, pathname: '/' }, isSecureContext: true,
+    location: { hostname, pathname }, isSecureContext: true,
     posthog: { init: (token, opts) => { options = opts; opts.loaded({ capture: (e,p) => events.push([e,p]) }); } },
     IntersectionObserver: true,
   };
@@ -25,6 +25,20 @@ function boot({ token = 'phc_test', hostname = 'sugarclock.com', enabledHosts = 
 test('disabled without token or on preview hosts', () => {
   assert.equal(boot({token: ''}).scripts.length, 0);
   assert.equal(boot({hostname: 'localhost'}).scripts.length, 0);
+});
+test('separates guide pageviews from home and uses a bounded label for unknown paths', () => {
+  for (const [pathname, expected] of [
+    ['/', 'home'], ['/index.html', 'home'], ['/faq.html', 'faq'], ['/app.html', 'app'],
+    ['/guides.html', 'guides'], ['/dexcom-blood-sugar-clock.html', 'guide_dexcom'],
+    ['/freestyle-libre-display.html', 'guide_libre'], ['/nightscout-clock.html', 'guide_nightscout'],
+    ['/private-sentinel', 'other'],
+  ]) {
+    const b = boot({pathname}); b.load();
+    assert.equal(b.events.length, 1);
+    assert.equal(b.events[0][0], '$pageview');
+    assert.equal(b.events[0][1].page, expected, pathname);
+    assert.ok(!JSON.stringify(b.events).includes('private-sentinel'));
+  }
 });
 test('queues early clicks and emits one native pageview with explicit capture configuration', () => {
   const b = boot();
@@ -69,7 +83,7 @@ test('all FAQ questions have unique nonempty static IDs and all marketing pages 
   buttons.forEach(([button]) => assert.match(button, /data-question-id="[^"]+"/));
   assert.ok(ids.every(Boolean));
   assert.equal(new Set(ids).size, ids.length);
-  for (const page of ['index', 'faq', 'app']) {
+  for (const page of ['index', 'faq', 'app', 'guides', 'dexcom-blood-sugar-clock', 'freestyle-libre-display', 'nightscout-clock']) {
     const html = fs.readFileSync(`docs/${page}.html`, 'utf8');
     assert.ok(html.indexOf('js/analytics-config.js') < html.indexOf('js/analytics.js'));
     assert.match(html, /<script defer src="js\/analytics-config.js"/);

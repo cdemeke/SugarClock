@@ -2,7 +2,7 @@
   <img src="docs/images/logo.png" alt="SugarClock" width="150" style="border-radius: 20px;">
 </p>
 
-<h1 align="center">SugarClock</h1>
+<h1 align="center">SugarClock (Sugar Clock)</h1>
 
 <p align="center">
   Turn a $40 pixel clock into a real-time glucose display for your desk, nightstand, or kitchen counter.
@@ -22,15 +22,21 @@
 
 ## What is SugarClock?
 
-SugarClock is free, open-source firmware that turns the [Ulanzi TC001 Smart Pixel Clock](https://amzn.to/4rrqbjz) into a dedicated CGM (continuous glucose monitor) display. It connects to **Dexcom Share**, **FreeStyle Libre** (via LibreLinkUp), or **Nightscout** over WiFi and shows your current glucose reading in big, color-coded numbers on an LED matrix.
+SugarClock (Sugar Clock) is free, open-source firmware that turns the [Ulanzi TC001 Smart Pixel Clock](https://amzn.to/4rrqbjz) into a dedicated CGM (continuous glucose monitor) display. Over WiFi, it connects to **Dexcom Share**, **FreeStyle Libre** via LibreLinkUp, or a compatible custom JSON adapter for **Nightscout** and shows your current glucose reading in big, color-coded numbers on an LED matrix.
 
 **Cost:** ~$40 one-time for the clock. The software is free. No subscriptions.
+
+## Connection guides
+
+- [Dexcom Share blood sugar clock](https://sugarclock.com/dexcom-blood-sugar-clock.html)
+- [FreeStyle Libre display via LibreLinkUp](https://sugarclock.com/freestyle-libre-display.html)
+- [Nightscout via a custom JSON adapter](https://sugarclock.com/nightscout-clock.html) — advanced setup; raw Nightscout entries need conversion.
 
 ## Features
 
 - **Live glucose display** — Large color-coded numbers (green = in range, orange = high/low, red = urgent)
 - **Trend arrows** — See which direction your glucose is heading
-- **Dexcom, Libre & Nightscout** — Works with Dexcom and FreeStyle Libre 2/3 CGMs directly, or any Nightscout-compatible setup
+- **Dexcom, Libre & Nightscout** — Reads Dexcom Share or LibreLinkUp over WiFi, or a Nightscout adapter returning the supported custom JSON format
 - **Stale reading color** — Old readings switch to the stale color (dim purple by default, configurable in Settings → Colors) while keeping the last number and arrow visible. The default cutoff is seven minutes; longer polling intervals add time for delivery. Fresh data restores the usual color, and a shorter configured stale timeout takes precedence.
 - **Low glucose focus** — Enable “Show Only Blood Sugar When Low” in Settings → Display to keep the glucose value visible below the configured Low threshold (including urgent lows). It blocks other screens and navigation while readings are fresh. Notifications (including urgent ones) are hidden and may expire unseen; they are not deferred. Normal behavior resumes after recovery, stale data, repeated glucose fetch failures, or entry into Wi-Fi setup mode. Brief Wi-Fi drops and failed network checks do not hide a fresh low reading. Off by default.
 - **Audible alerts** — Buzzer for high/low glucose with snooze button
