@@ -47,6 +47,17 @@ class ConfigurationUITests(unittest.TestCase):
         self.assertEqual(1, len(canvas))
         self.assertEqual(4, int(canvas[0]['width']) / int(canvas[0]['height']))
 
+    def test_weather_tab_reports_missing_api_key(self):
+        source = (WEB / 'index.html').read_text()
+        warning = [attrs for _, attrs in Elements(source).elements if attrs.get('id') == 'weather_key_warning']
+        self.assertEqual(1, len(warning))
+        self.assertIn('hidden', warning[0])
+        # GET /api/config never returns the key itself, only whether one is saved.
+        self.assertNotIn('c.weather_api_key', source)
+        self.assertIn('weatherKeySaved = c.has_weather_api_key === true', source)
+        for event, target in (('change', 'weather_enabled'), ('input', 'weather_api_key')):
+            self.assertIn(f"getElementById('{target}').addEventListener('{event}', updateWeatherKeyState)", source)
+
     def test_installer_web_assets_match_device(self):
         bundled = ROOT / 'onboarding/TC001Setup/TC001Setup/Resources/WebUI/www'
         for asset in WEB.iterdir():

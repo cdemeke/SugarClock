@@ -58,11 +58,16 @@ def build_demo(database, port):
         # Synthetic adoption and history make the overview useful for visual review.
         connection.execute("UPDATE devices SET firmware_version='0.3.1' WHERE id BETWEEN 17 AND 20")
         connection.execute("UPDATE devices SET firmware_version='0.3.2' WHERE id > 20")
+        # Matches the counts shape maintenance() records; two skipped days show snapshot gaps.
         for offset in range(30):
+            if offset in (12, 13):
+                continue
             captured = now - offset * 86400
             day = datetime.datetime.fromtimestamp(captured, datetime.timezone.utc).date().isoformat()
+            active = max(3, 21 - offset // 2)
             connection.execute("INSERT INTO daily_metrics VALUES(?,?,?)",
-                (day, captured, json.dumps({'active_30d': max(3, 21 - offset // 2)})))
+                (day, captured, json.dumps({'total': min(24, active + 3), 'active_30d': active,
+                    'active_7d': max(2, active - 3), 'online': max(1, active // 2 - offset % 3)})))
         for version, channel in [('0.4.0','stable'), ('0.5.0','preview'), ('0.5.0','stable')]:
             connection.execute("INSERT INTO releases(version,channel,manifest_url,firmware_url,firmware_sha256,firmware_size,published_at,imported_at,approved_by,metadata_complete) VALUES(?,?,?,?,?,1000000,?,?,?,1)",
               (version, channel, f'https://example.invalid/releases/v{version}-{channel}/ota-manifest.json',

@@ -20,7 +20,9 @@ Device APIs continue returning glucose and delta in mg/dL. `/api/status` now als
 
 ## Brightness
 
-The main control remains a 1–100% slider. Moving it selects manual brightness. A collapsed **Advanced brightness** section now allows automatic light-sensor adjustment to be turned back on, avoiding the previous one-way transition. Loading and saving without touching brightness preserves the exact device value; neither automatic mode nor hidden alarm/startup settings are reset by unrelated form edits.
+The main control is a slider covering all 255 nonzero device levels, displayed as 0.4–100%. **Dimmer** and **Brighter** move one level at a time, including the previously skipped levels 1 and 2. Moving the slider or using either button selects manual brightness. A collapsed **Advanced brightness** section allows automatic light-sensor adjustment to be turned back on. Loading and saving without touching brightness preserves the exact device value; neither automatic mode nor hidden alarm/startup settings are reset by unrelated form edits. The minimum setting is explicitly distinguished from off. Night Mode retains its 1–255 control and explains that it overrides manual/automatic brightness during scheduled hours.
+
+The output path prevents a nonblack pixel from rounding entirely to black at low brightness by retaining the smallest nonzero output on its strongest color channel(s). Dithering remains disabled. See [the issue #54 investigation](nighttime-brightness.md) for quantization limits, validation, and pending dark-room hardware checks.
 
 ## Icon size and caching
 

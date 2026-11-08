@@ -95,7 +95,7 @@ int main() {
         script = r'''
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const nodes={}; const buttons=[{},{}]; let toast='';
-const context={document:{getElementById:id=>nodes[id]||(nodes[id]={}),querySelectorAll:()=>buttons},
+const context={I18n:require('./tests/i18n_harness.cjs'),document:{getElementById:id=>nodes[id]||(nodes[id]={}),querySelectorAll:()=>buttons},
     showToast:msg=>{toast=msg;},friendlyMode:x=>x,setTimeout:()=>{},liveDisplay:{refresh(){}}};
 vm.createContext(context);
 const display=fs.readFileSync(process.argv[1],'utf8');

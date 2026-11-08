@@ -130,26 +130,20 @@ esptool.py -p /dev/cu.usbserial-1410 -b 460800 write_flash \
   0x390000 .pio/build/esp32dev/littlefs.bin
 ```
 
-### One-time OTA migration (preserve existing settings)
+### One-time OTA/Bluetooth migration (preserve existing settings)
 
-Release 0.2.0 changes the 4 MiB flash layout to two 1.75 MiB application slots and a
-448 KiB LittleFS partition. Existing firmware cannot install this partition table over the
-air, so this bootstrap release must be installed once with the Mac setup app or the command
-below. **Do not run `erase_flash` during migration**: NVS stays at `0x9000`, so saved WiFi,
-Dexcom, Nightscout, alert, and display settings survive.
+For a configured clock, use the Mac installer's **Upgrade existing SugarClock**
+option or the backup/extract/repack procedure in [BLE migration](docs/BLE_MIGRATION.md).
+Do not run `erase_flash`. NVS remains at `0x9000`, but avoiding erase alone does
+not preserve LittleFS overlays or enterprise CA certificates when its layout changes.
+The preservation flow validates the actual partition table, keeps a private full-flash
+backup, and rebuilds the existing filesystem before any write. It stops if preservation
+fails. Do not use a fresh empty filesystem image for this migration.
 
-```bash
-esptool.py -p /dev/cu.usbserial-1410 -b 460800 write_flash \
-  0x1000  .pio/build/esp32dev/bootloader.bin \
-  0x8000  .pio/build/esp32dev/partitions.bin \
-  0xe000  ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin \
-  0x10000 .pio/build/esp32dev/firmware.bin \
-  0x390000 .pio/build/esp32dev/littlefs.bin
-```
+After installing Bluetooth-capable firmware, pair using the [iOS companion](ios/README.md).
+A configured clock requires holding only the middle button for three seconds, then
+releasing. Existing configuration is read from the clock without re-entering secrets.
 
-The old filesystem bytes that overlap `ota_1` are harmless; the first OTA write erases that
-inactive slot. Confirm the clock reconnects and still has its glucose-source settings. This
-is the last normally required USB firmware update.
 
 ---
 
@@ -292,7 +286,9 @@ The server endpoint should return JSON in this format:
 }
 ```
 
-Supported trend values: `RisingFast`, `Rising`, `Flat`, `Falling`, `FallingFast`
+`timestamp` must be the **sensor reading's UTC Unix epoch in seconds**, not milliseconds, local time, or the time the endpoint was polled. Repeated responses for the same reading must retain the same timestamp. With network time synchronized, SugarClock uses this timestamp for reading age, including the stale-color display cue and the configured stale timeout that suppresses buzzer alerts and releases urgent/low-glucose display priority. A skewed server timestamp can therefore suppress alerts even when requests succeed; keep server time synchronized and preserve the sensor timestamp. If no sensor timestamp is available, omit it or use `0` for receipt-time fallback; that fallback cannot detect cached readings returned by successful polls.
+
+Supported trend values: `RisingFast` (↑↑), `Rising` (↑), `FortyFiveUp` (↗), `Flat` (→), `FortyFiveDown` (↘), `Falling` (↓), `FallingFast` (↓↓). Dexcom/Nightscout names `DoubleUp`, `SingleUp`, `SingleDown`, and `DoubleDown` are also accepted (case-insensitive).
 
 ---
 
@@ -301,10 +297,14 @@ Supported trend values: `RisingFast`, `Rising`, `Flat`, `Falling`, `FallingFast`
 | Button | Short Press (<1s) | Double Press | Long Press (>1s) |
 |--------|-------------------|--------------|------------------|
 | Left | Toggle display mode | — | Reset display overrides |
-| Middle | Cycle brightness (10→40→100→200) | Show the clock's browser address | Snooze alerts |
+| Middle | Cycle brightness (10→40→100→200) | Show the clock's browser address | Release after 1s but before 3s: snooze; 3s or longer: Bluetooth pairing |
 | Right | Previous display / context action | — | Reset display / context action |
 
 ---
+
+The middle-button hold actions happen on release. Hold only the middle button for three seconds, then release to open a two-minute Bluetooth pairing window. Select the clock in the SugarClock app and enter the passkey shown on the clock. The outer-button combination is a TC001 power shortcut and must not be used for pairing. No button hold clears saved Bluetooth bonds.
+
+To recover a stale pairing, first forget SugarClock in iOS Bluetooth Settings, then open the pairing window and pair again. The clock remembers up to four phones. Pairing a new phone while all four slots are occupied replaces the phone that has gone longest without authenticating; other saved phones remain bonded. This pairing flow preserves Wi-Fi, glucose, alert and display settings. See [BLE migration and recovery](docs/BLE_MIGRATION.md) for firmware requirements and recovery paths.
 
 ## Display States
 
@@ -313,8 +313,7 @@ Supported trend values: `RisingFast`, `Rising`, `Flat`, `Falling`, `FallingFast`
 | Glucose number | Green | In range (80-180 mg/dL default) |
 | Glucose number | Orange | Low (70-80) or High (180-250) |
 | Glucose number | Red | Urgent low (<70) or Urgent high (>250) |
-| Dimmed + `!` | Yellow | Data 10-20 minutes old (warning) |
-| Glucose number | Gray | Data >20 min old or 5+ fetch failures (stale) |
+| Glucose number | Stale color (dim purple by default) | Reading exceeds visual freshness allowance, configured stale timeout reached (if sooner), or 5+ fetch failures |
 | `NO DATA` | Red | 10+ failures or never received data |
 | `NO WIFI` | Red | WiFi disconnected |
 | Setup AP name / `192.168.4.1` | Teal | On-device WiFi setup is available |
@@ -376,3 +375,7 @@ pio run --target uploadfs  # flash web UI (if changed)
 ```
 
 Your configuration is stored in NVS (non-volatile storage) and persists across firmware updates. Only a factory reset erases settings.
+
+### Visual freshness allowance
+
+The stale-color display cutoff is the greater of seven minutes or five minutes of sensor cadence plus the configured poll interval plus one minute of delivery grace. With the default 60-second polling interval it is seven minutes; with 300-second polling it is eleven minutes. Readings switch to the stale color strictly after that allowance. The configured stale timeout still takes precedence at its exact boundary, so a five-minute stale timeout will switch readings to the stale color at five minutes regardless of polling. Long delays can still show the stale color; this is an age warning, not a guarantee of a connection failure.

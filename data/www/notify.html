@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="SugarClock Notify">
-    <title>SugarClock - Send Notification</title>
+    <title data-i18n="SugarClock - Send Notification">SugarClock - Send Notification</title>
     <link rel="stylesheet" href="style.css">
     <style>
         body { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
@@ -19,13 +19,16 @@
         .feedback-ok { color: var(--green); }
         .feedback-err { color: var(--red); }
     </style>
+    <link rel="stylesheet" href="i18n.css">
+    <script src="i18n.js" data-catalogs="https://sugarclock.com/js/device-locales/"></script>
 </head>
 <body>
     <div class="card notify-card">
-        <h2>Send to Display</h2>
-        <p class="subtitle">SugarClock Notification</p>
-        <input type="text" id="msg" class="notify-input" placeholder="Type a message" maxlength="63" autofocus>
-        <button class="btn btn-primary btn-block notify-btn" id="send-btn" onclick="sendMsg()">Send</button>
+        <div data-language-picker="inline"></div>
+        <h2><span data-i18n="Send to Display">Send to Display</span></h2>
+        <p class="subtitle"><span data-i18n="SugarClock Notification">SugarClock Notification</span></p>
+        <input type="text" id="msg" class="notify-input" placeholder="Type a message" maxlength="63" autofocus data-i18n-placeholder="Type a message">
+        <button class="btn btn-primary btn-block notify-btn" id="send-btn" onclick="sendMsg()"><span data-i18n="Send">Send</span></button>
         <div class="notify-feedback" id="feedback"></div>
     </div>
 
@@ -43,8 +46,8 @@
 
             const btn = document.getElementById('send-btn');
             btn.disabled = true;
-            btn.textContent = 'Sending...';
-            fb.textContent = '';
+            I18n.text(btn, 'Sending...');
+            I18n.text(fb, '', false);
             fb.className = 'notify-feedback';
 
             try {
@@ -54,24 +57,24 @@
                     body: JSON.stringify({text})
                 });
                 if (r.ok) {
-                    fb.textContent = 'Sent!';
+                    I18n.text(fb, 'Sent!');
                     fb.className = 'notify-feedback feedback-ok';
                     inp.value = '';
                 } else {
                     const d = await r.json().catch(() => ({}));
-                    fb.textContent = d.error || 'Failed to send';
+                    I18n.text(fb, d.error || 'Failed to send');
                     fb.className = 'notify-feedback feedback-err';
                 }
             } catch (e) {
-                fb.textContent = 'Network error';
+                I18n.text(fb, 'Network error');
                 fb.className = 'notify-feedback feedback-err';
             }
 
             btn.disabled = false;
-            btn.textContent = 'Send';
+            I18n.text(btn, 'Send');
             inp.focus();
 
-            setTimeout(() => { fb.textContent = ''; fb.className = 'notify-feedback'; }, 3000);
+            setTimeout(() => { I18n.text(fb, '', false); fb.className = 'notify-feedback'; }, 3000);
         }
     </script>
 </body>

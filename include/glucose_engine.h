@@ -69,6 +69,9 @@ void engine_set_default_mode(DisplayState mode);
 // True only while fresh low glucose currently locks the display.
 bool engine_low_glucose_lock_active();
 
+// True only while a fresh reading is outside the urgent thresholds.
+bool engine_urgent_glucose_active();
+
 // Toggle between display modes (data-driven array). False if blocked by the lock.
 bool engine_toggle_mode();
 
@@ -85,11 +88,14 @@ void engine_reset_auto_cycle();
 void engine_show_connection_info();
 void engine_dismiss_connection_info();
 
-// Context-sensitive right button action
+// Advance to the next screen, or start/pause the timer or stopwatch.
 void engine_right_button_action();
 
-// Context-sensitive right long-press action
+// Interact with a Pixel Pet, reset a timer/stopwatch, or clear overrides.
 void engine_right_long_action();
+
+// True while a glucose buzzer alert is active and not snoozed.
+bool engine_alert_sounding();
 
 // Snooze buzzer alerts (called from button press)
 void engine_snooze_alerts();

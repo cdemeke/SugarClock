@@ -9,6 +9,7 @@ from pathlib import Path
 
 from fleet.demo import build_demo
 from fleet.sugarfleet.db import get_db
+from fleet.sugarfleet.telemetry import overview
 
 
 class FleetDashboardTests(unittest.TestCase):
@@ -46,7 +47,7 @@ class FleetDashboardTests(unittest.TestCase):
         for path, label in (('/admin/overview', 'Overview'), ('/admin/devices', 'Devices'),
                             ('/admin/devices/1', 'Devices'), ('/admin/releases', 'Releases')):
             response = self.get(path)
-            self.assertEqual(re.findall(r'aria-current="page">(.*?)</a>', response.text), [label])
+            self.assertEqual([re.sub(r'<[^>]+>', '', text) for text in re.findall(r'aria-current="page">(.*?)</a>', response.text)], [label])
 
     def test_nickname_is_escaped_and_identity_stays_stable(self):
         with self.app.app_context():
@@ -74,6 +75,40 @@ class FleetDashboardTests(unittest.TestCase):
         response = self.client.patch('/admin/api/rollouts/1', json={'percentage':100},
             base_url='http://127.0.0.1:8081', headers={'X-CSRF-Token':token})
         self.assertEqual(response.status_code, 200, response.text)
+
+    def test_devices_table_renders_data_location_for_filtering(self):
+        response = self.get('/admin/devices')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('data-location="Boston, US"', response.text)
+        self.assertIn('data-location="London, GB"', response.text)
+        self.assertIn('data-location="Toronto, CA"', response.text)
+
+    def test_breakdowns_use_checkin_windows_and_exclude_disabled_and_unseen_clocks(self):
+        now = 2_000_000_000
+        with self.app.app_context():
+            connection = get_db()
+            connection.execute('UPDATE devices SET last_checkin_at=NULL')
+            for device_id, age in enumerate((0, 7, 30, 90, 91), start=1):
+                connection.execute('UPDATE devices SET last_checkin_at=?, features_json=?, detected_city=?, detected_region=?, detected_country_code=? WHERE id=?',
+                    (now - age * 86400, json.dumps({'weather_enabled': True}), 'Portland', 'Oregon' if device_id == 1 else 'Maine', 'US', device_id))
+            connection.execute('UPDATE devices SET features_json=NULL, detected_city="", detected_region="", detected_country_code="" WHERE id=5')
+            connection.execute('UPDATE devices SET last_checkin_at=?, blocked_at=? WHERE id=6', (now, now))
+            connection.execute('UPDATE devices SET last_checkin_at=?, retired_at=? WHERE id=7', (now, now))
+            connection.commit()
+            data = overview(connection, now)
+        for days, total in (('7', 2), ('30', 3), ('90', 4), ('all', 5)):
+            with self.subTest(days=days):
+                breakdown = data['breakdowns'][days]
+                self.assertEqual(breakdown['feature_denominator'], total)
+                self.assertEqual(sum(breakdown['location_counts'].values()), total)
+                self.assertEqual(breakdown['location_counts']['Portland, OR, US'], 1)
+                self.assertEqual(breakdown['feature_counts']['weather_enabled'],
+                    {'enabled': min(total, 4), 'known': min(total, 4), 'unknown': int(days == 'all')})
+        self.assertEqual(data['location_counts'], data['breakdowns']['30']['location_counts'])
+        self.assertEqual(data['breakdowns']['all']['location_counts']['Unknown'], 1)
+        page = self.get('/admin/devices')
+        self.assertIn('data-location="Portland, OR, US"', page.text)
+        self.assertIn('data-location="Portland, ME, US"', page.text)
 
 
 if __name__ == '__main__':

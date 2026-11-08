@@ -81,8 +81,8 @@ class WebAssetTests(unittest.TestCase):
 
         self.assertEqual(pages[0], pages[1])
         self.assertIn('<select id="ambient_character">', pages[0])
-        self.assertIn('<option value="0">Pip &mdash; Goldfish</option>', pages[0])
-        self.assertIn('<option value="1">Boo &mdash; Ghost</option>', pages[0])
+        self.assertRegex(pages[0], r'<option value="0"[^>]*>Pip &mdash; Goldfish</option>')
+        self.assertRegex(pages[0], r'<option value="1"[^>]*>Boo &mdash; Ghost</option>')
         self.assertIn("ambient_character: Number", pages[0])
 
 
