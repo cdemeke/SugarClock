@@ -34,12 +34,14 @@ const char* ota_state_name(OtaState) {return "idle";}
 int main() {
     config.brightness=120;
     for(bool saved:{false,true}) {
+        config.night_disable_auto_cycle=saved;
         durable=saved;AsyncWebServerRequest request;handle_get_config(&request);
         assert(request.code==200 && configDepth==0);
         JsonDocument doc;assert(!deserializeJson(doc,request.body));
         assert(doc["configuration_saved"].is<bool>());
         assert(doc["configuration_saved"].as<bool>()==saved);
         assert(doc["brightness"].as<int>()==120);
+        assert(doc["night_disable_auto_cycle"].is<bool>() && doc["night_disable_auto_cycle"].as<bool>()==saved);
     }
     for(bool queued:{false,true}) for(bool failure:{false,true}) {
         pending=queued;failed=failure;order.clear();AsyncWebServerRequest request;

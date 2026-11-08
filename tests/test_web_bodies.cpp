@@ -164,6 +164,17 @@ int main() {
         assert(r.code==200 || r.code==202);assert(allocations.empty());
     }
     assert(configSaves==1 && String(current.dexcom_password)=="temporary-secret");
+    // The real web transaction accepts the pause flag and keeps it on partial
+    // edits, while malformed boolean values never reach settings_apply.
+    for(const String& patch:std::vector<String>{R"({"night_disable_auto_cycle":true})",R"({"brightness":41})"}) {
+        AsyncWebServerRequest r;chunk(handle_post_config,r,patch,0,patch.size());
+        assert(r.code==200 && current.night_disable_auto_cycle);
+    }
+    const int saved=configSaves;
+    for(const String& invalid:std::vector<String>{R"({"night_disable_auto_cycle":1})",R"({"night_disable_auto_cycle":null})"}) {
+        AsyncWebServerRequest r;chunk(handle_post_config,r,invalid,0,invalid.size());
+        assert(r.code==400 && configSaves==saved && current.night_disable_auto_cycle);
+    }
     // Parse, validation, queue rejection and storage failure also erase inputs.
     for(const String& invalid:std::vector<String>{"{bad",R"({"password":"secret"})",R"({"ssid":"x","security":9,"password":"secret"})"}) {
         AsyncWebServerRequest r;chunk(handle_wifi_connect,r,invalid,0,invalid.size());

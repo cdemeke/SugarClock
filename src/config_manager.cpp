@@ -151,6 +151,7 @@ static void config_set_defaults() {
     // Auto-cycle
     config.auto_cycle_enabled = true;
     config.auto_cycle_sec = 10;
+    config.night_disable_auto_cycle = false;
 
     config.auto_update_enabled = true;
     config.auto_update_hour = 3;
@@ -378,6 +379,7 @@ void config_init() {
         // Auto-cycle
         config.auto_cycle_enabled = prefs.getBool("acyc_en", true);
         config.auto_cycle_sec = prefs.getInt("acyc_sec", 10);
+        config.night_disable_auto_cycle = prefs.getBool("acyc_noff", false);
         if (config.auto_cycle_sec < 3) config.auto_cycle_sec = 3;
         if (config.auto_cycle_sec > 300) config.auto_cycle_sec = 300;
 
@@ -403,7 +405,7 @@ void config_init() {
     const size_t journal_size=prefs.getBytesLength(journal_key);
     static_assert(alignof(AppConfig)==4,"Legacy journal migration requires the ESP32 layout");
     const size_t legacy_size=offsetof(AppConfig,glucose_enabled);
-    if(journal_size==sizeof(AppConfig) || journal_size==legacy_size || journal_size==offsetof(AppConfig,ambient_style)) {
+    if(journal_size==sizeof(AppConfig) || journal_size==offsetof(AppConfig,night_disable_auto_cycle) || journal_size==legacy_size || journal_size==offsetof(AppConfig,ambient_style)) {
         AppConfig recovered=config;
         recovered.glucose_enabled=true;
         if(prefs.getBytes(journal_key, &recovered,journal_size)==journal_size && recovered.magic==CONFIG_MAGIC) {
@@ -559,6 +561,7 @@ bool config_save() {
     // Auto-cycle
     ok = (prefs.putBool("acyc_en", config.auto_cycle_enabled) > 0) && ok;
     ok = (prefs.putInt("acyc_sec", config.auto_cycle_sec) > 0) && ok;
+    ok = (prefs.putBool("acyc_noff", config.night_disable_auto_cycle) > 0) && ok;
     ok = (prefs.putBool("ota_auto", config.auto_update_enabled) > 0) && ok;
     ok = (prefs.putInt("ota_hour", config.auto_update_hour) > 0) && ok;
 

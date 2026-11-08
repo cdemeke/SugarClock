@@ -981,5 +981,7 @@
   "Share of {0} installations in this time range{1}.": "Tỷ lệ trong số {0} thiết bị trong khoảng thời gian này{1}.",
   "Share of {0} installations in this time range. Unknown means the clock didn’t report that setting.": "Tỷ lệ trong số {0} thiết bị trong khoảng thời gian này. Không xác định nghĩa là đồng hồ chưa báo cáo cài đặt đó.",
   "Latest reported config from installations active in the last {0} days. “Enabled” is configuration, not usage.": "Cấu hình được báo cáo mới nhất từ các lượt cài đặt hoạt động trong {0} ngày qua. “Đã bật” là cấu hình, không phải cách sử dụng.",
-  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "Hoạt động trong {0} ngày qua, được nhóm theo quốc gia. Ước tính IP có thể không chính xác hoặc không có sẵn."
+  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "Hoạt động trong {0} ngày qua, được nhóm theo quốc gia. Ước tính IP có thể không chính xác hoặc không có sẵn.",
+  "Pause cycling during night mode": "Tạm dừng chuyển màn hình trong chế độ ban đêm",
+  "Keep the current screen on during night mode hours": "Giữ màn hình hiện tại trong khung giờ chế độ ban đêm"
 }

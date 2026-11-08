@@ -151,6 +151,9 @@ struct AppConfig {
     char libre_patient_id[64]; // stable LibreLinkUp patientId, never an array index
     char libre_patient_name[128];
 
+    // Append-only: preserve all previous redo-journal field offsets.
+    // The ESP32 journal includes trailing padding; start after that entire record.
+    alignas(4) bool night_disable_auto_cycle; // default false; pause automatic cycling at night
 
 };
 

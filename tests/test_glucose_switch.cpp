@@ -42,7 +42,7 @@ bool engine_low_glucose_lock_active() { return false; }
 int main() {
  cfg.glucose_enabled=true;cfg.alert_enabled=true;cfg.alert_low=70;cfg.alert_high=250;
  cfg.thresh_urgent_low=55;cfg.thresh_urgent_high=300;cfg.stale_timeout_min=20;
- cfg.time_display_enabled=true;cfg.ambient_enabled=true;
+ cfg.time_display_enabled=true;cfg.ambient_enabled=true;cfg.show_delta=true;
  engine_rebuild_toggle_order();assert(toggle_count==4);
  // Enabled-but-empty weather must not occupy a manual or auto-cycle slot.
  cfg.weather_enabled=true;user_mode=STATE_WEATHER_DISPLAY;

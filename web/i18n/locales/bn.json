@@ -981,5 +981,7 @@
   "Share of {0} installations in this time range{1}.": "এই সময়সীমার {0}টি ইনস্টলেশনের অনুপাত{1}।",
   "Share of {0} installations in this time range. Unknown means the clock didn’t report that setting.": "এই সময়সীমার {0}টি ইনস্টলেশনের অনুপাত। অজানা মানে ঘড়িটি ওই সেটিং রিপোর্ট করেনি।",
   "Latest reported config from installations active in the last {0} days. “Enabled” is configuration, not usage.": "গত {0} দিনে সক্রিয় ইনস্টলেশন থেকে সর্বশেষ রিপোর্ট করা কনফিগ। \"সক্ষম\" হল কনফিগারেশন, ব্যবহার নয়।",
-  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "দেশ অনুসারে গোষ্ঠীবদ্ধ, গত {0} দিনে সক্রিয়৷ IP অনুমান ভুল বা অনুপলব্ধ হতে পারে."
+  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "দেশ অনুসারে গোষ্ঠীবদ্ধ, গত {0} দিনে সক্রিয়৷ IP অনুমান ভুল বা অনুপলব্ধ হতে পারে.",
+  "Pause cycling during night mode": "নাইট মোডে স্ক্রিন পরিবর্তন বিরতি দিন",
+  "Keep the current screen on during night mode hours": "নাইট মোডের সময় বর্তমান স্ক্রিন দেখাতে থাকুন"
 }

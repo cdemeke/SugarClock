@@ -13,7 +13,8 @@ bool durable=false;
 void config_lock() {}
 void config_unlock() {}
 struct Preferences {
-    bool failJournal=false,failMirror=false,failCleanup=false;
+    bool failJournal=false,failMirror=false,failCleanup=false,failPause=false;
+    std::map<std::string,bool> bools;
     std::vector<unsigned char> journal;
     std::map<std::string,std::string> strings;
     size_t putBytes(const char*,const void* data,size_t size) {
@@ -26,15 +27,38 @@ struct Preferences {
     template<class T> size_t putUInt(const char*,T) {return 4;}
     template<class T> size_t putULong(const char*,T) {return 4;}
     template<class T> size_t putInt(const char*,T) {return 4;}
-    template<class T> size_t putBool(const char*,T) {return 1;}
+    template<class T> size_t putBool(const char* key,T value) {
+        if(failPause && !strcmp(key,"acyc_noff")) return 0;
+        bools[key]=value;return 1;
+    }
     template<class T> size_t putUChar(const char*,T) {return failMirror ? 0:1;}
+    bool getBool(const char* key,bool fallback) {return bools.count(key) ? bools[key]:fallback;}
     bool isKey(const char*) {return false;}
     bool remove(const char*) {if(failCleanup) return false;journal.clear();return true;}
 } prefs;
 struct {void println(const char*) {}} Serial;
 #include "config_save.inc"
+#include "config_defaults.inc"
+void load_cycle_setting() {
+#include "config_cycle_load.inc"
+}
 
 int main() {
+    config_set_defaults();assert(!config.night_disable_auto_cycle);
+    config.night_disable_auto_cycle=true;load_cycle_setting();
+    assert(!config.night_disable_auto_cycle); // old installations have no key
+    config={};config.magic=CONFIG_MAGIC;
+    assert(config_save() && !prefs.bools.at("acyc_noff"));
+    config.night_disable_auto_cycle=true;
+    assert(config_save() && prefs.bools.at("acyc_noff"));
+    config.night_disable_auto_cycle=false;load_cycle_setting();
+    assert(config.night_disable_auto_cycle);
+    prefs.failPause=true;config.night_disable_auto_cycle=false;
+    assert(!config_save() && !durable && !committed.night_disable_auto_cycle);
+    AppConfig rebooted{};assert(prefs.journal.size()==sizeof(rebooted));
+    memcpy(&rebooted,prefs.journal.data(),sizeof(rebooted));
+    assert(!rebooted.night_disable_auto_cycle);
+
     for(bool cleanupFailure:{false,true}) {
         prefs={};config={};committed={};config.magic=CONFIG_MAGIC;config.brightness=20;
         assert(config_save() && durable && committed.brightness==20);

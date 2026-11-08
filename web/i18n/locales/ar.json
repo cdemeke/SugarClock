@@ -981,5 +981,7 @@
   "Share of {0} installations in this time range{1}.": "النسبة من {0} جهازًا في هذه الفترة{1}.",
   "Share of {0} installations in this time range. Unknown means the clock didn’t report that setting.": "النسبة من {0} جهازًا في هذه الفترة. غير معروف يعني أن الساعة لم تُبلغ عن هذا الإعداد.",
   "Latest reported config from installations active in the last {0} days. “Enabled” is configuration, not usage.": "أحدث تكوين تم الإبلاغ عنه من عمليات التثبيت النشطة في آخر {0} يومًا. \"ممكّن\" هو التكوين، وليس الاستخدام.",
-  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "نشط في آخر {0} يومًا، مُجمَّعًا حسب البلد. قد تكون تقديرات IP غير دقيقة أو غير متوفرة."
+  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "نشط في آخر {0} يومًا، مُجمَّعًا حسب البلد. قد تكون تقديرات IP غير دقيقة أو غير متوفرة.",
+  "Pause cycling during night mode": "إيقاف التنقل بين الشاشات مؤقتًا أثناء الوضع الليلي",
+  "Keep the current screen on during night mode hours": "إبقاء الشاشة الحالية معروضة خلال ساعات الوضع الليلي"
 }

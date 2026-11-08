@@ -20,7 +20,10 @@ class ReviewFixTests(unittest.TestCase):
 
     def test_rejected_save_uses_latest_recoverable_journal(self):
         source = (ROOT / 'src/config_manager.cpp').read_text()
-        self.run_cpp('test_config_recovery', {'config_save.inc': source[
+        self.run_cpp('test_config_recovery', {
+            'config_defaults.inc': source[source.index('static void config_set_defaults()'):source.index('static void config_check_littlefs_overlay()')],
+            'config_cycle_load.inc': '\n'.join(line for line in source.splitlines() if 'config.night_disable_auto_cycle = prefs.getBool' in line),
+            'config_save.inc': source[
             source.index('bool config_save()'):source.index('bool config_bond_reset_pending()')]})
 
     def test_weather_worker_keeps_main_loop_free_and_serializes_requests(self):

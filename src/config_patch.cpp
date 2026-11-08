@@ -85,6 +85,7 @@ const Field fields[] = {
     {"sysmon_warn_pct",offsetof(AppConfig,sysmon_warn_pct),sizeof(((AppConfig*)0)->sysmon_warn_pct),Kind::Int,0,100,false},
     {"sysmon_crit_pct",offsetof(AppConfig,sysmon_crit_pct),sizeof(((AppConfig*)0)->sysmon_crit_pct),Kind::Int,0,100,false},
     {"auto_cycle_enabled",offsetof(AppConfig,auto_cycle_enabled),sizeof(((AppConfig*)0)->auto_cycle_enabled),Kind::Bool,0,2147483647,false},
+    {"night_disable_auto_cycle",offsetof(AppConfig,night_disable_auto_cycle),sizeof(((AppConfig*)0)->night_disable_auto_cycle),Kind::Bool,0,1,false},
     {"auto_cycle_sec",offsetof(AppConfig,auto_cycle_sec),sizeof(((AppConfig*)0)->auto_cycle_sec),Kind::Int,3,300,false},
     {"auto_update_enabled",offsetof(AppConfig,auto_update_enabled),sizeof(((AppConfig*)0)->auto_update_enabled),Kind::Bool,0,2147483647,false},
     {"auto_update_hour",offsetof(AppConfig,auto_update_hour),sizeof(((AppConfig*)0)->auto_update_hour),Kind::Int,0,23,false},

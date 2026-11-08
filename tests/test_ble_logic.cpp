@@ -77,8 +77,29 @@ int main() {
  for(int bits=0;bits<16;++bits) assert(authorized(bits&1,bits&2,bits&4,bits&8)==(bits==15));
  AppConfig config={};config.glucose_enabled=true;config.thresh_urgent_low=70;config.thresh_low=80;config.thresh_high=180;config.thresh_urgent_high=250;config.alert_low=70;config.alert_high=250;
  strcpy(config.dexcom_password,"keep-test-password");strcpy(config.wifi_eap_password,"keep-enterprise");config.wifi_security=1;config.wifi_validate_ca=true;
- JsonDocument patch;deserializeJson(patch,"{\"brightness\":77}");assert(!config_patch(config,patch.as<JsonObjectConst>()));assert(config.brightness==77);
+ // The new boolean has the same strict public/web/BLE contract as existing
+ // display settings; partial older-client edits must preserve it.
+ JsonDocument patch;
+ for(bool web:{false,true}) {
+  deserializeJson(patch,"{\"night_disable_auto_cycle\":true}");
+  assert(!config_patch(config,patch.as<JsonObjectConst>(),web) && config.night_disable_auto_cycle);
+  for(const char* invalid:{"0","1","\"true\"","null"}) {
+   deserializeJson(patch,std::string("{\"night_disable_auto_cycle\":")+invalid+"}");
+   assert(!strcmp(config_patch(config,patch.as<JsonObjectConst>(),web),"night_disable_auto_cycle"));
+   assert(config.night_disable_auto_cycle);
+  }
+ }
+ JsonDocument publicConfig;config_public(publicConfig.to<JsonObject>(),config);
+ assert(publicConfig["night_disable_auto_cycle"].as<bool>());
+ JsonDocument schema;config_schema(schema.to<JsonArray>());
+ bool foundPause=false;
+ for(JsonObject field:schema.as<JsonArray>()) if(!strcmp(field["key"],"night_disable_auto_cycle")) {
+  foundPause=true;assert(!strcmp(field["type"],"bool"));
+ }
+ assert(foundPause);
+ deserializeJson(patch,"{\"brightness\":77}");assert(!config_patch(config,patch.as<JsonObjectConst>()));assert(config.brightness==77);
  AppConfig same=config;same.brightness=12;assert(!config_source_changed(config,same));same.dexcom_password[0]=0;assert(config_source_changed(config,same));
+ assert(config.night_disable_auto_cycle);
  assert(!strcmp(config.dexcom_password,"keep-test-password"));assert(config.wifi_security==1 && config.wifi_validate_ca);
  deserializeJson(patch,"{\"brightness\":256}");assert(config_patch(config,patch.as<JsonObjectConst>()));
  deserializeJson(patch,"{\"brightness\":true}");assert(config_patch(config,patch.as<JsonObjectConst>()));

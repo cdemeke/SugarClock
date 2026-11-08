@@ -981,5 +981,7 @@
   "Share of {0} installations in this time range{1}.": "占此时间范围内 {0} 个安装实例的比例{1}。",
   "Share of {0} installations in this time range. Unknown means the clock didn’t report that setting.": "占此时间范围内 {0} 个安装实例的比例。未知表示时钟未上报该设置。",
   "Latest reported config from installations active in the last {0} days. “Enabled” is configuration, not usage.": "过去 {0} 天内活动安装的最新报告配置。 “启用”是配置，而不是使用。",
-  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "过去 {0} 天内的活跃情况，按国家/地区分组。 IP 估计可能不准确或不可用。"
+  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "过去 {0} 天内的活跃情况，按国家/地区分组。 IP 估计可能不准确或不可用。",
+  "Pause cycling during night mode": "夜间模式下暂停自动切换屏幕",
+  "Keep the current screen on during night mode hours": "在夜间模式时段保持显示当前屏幕"
 }

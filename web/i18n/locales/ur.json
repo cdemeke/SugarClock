@@ -981,5 +981,7 @@
   "Share of {0} installations in this time range{1}.": "اس مدت کی {0} تنصیبات میں تناسب{1}۔",
   "Share of {0} installations in this time range. Unknown means the clock didn’t report that setting.": "اس مدت کی {0} تنصیبات میں تناسب۔ نامعلوم کا مطلب ہے کہ گھڑی نے اس ترتیب کی اطلاع نہیں دی۔",
   "Latest reported config from installations active in the last {0} days. “Enabled” is configuration, not usage.": "پچھلے {0} دنوں میں فعال تنصیبات سے تازہ ترین رپورٹ کردہ تشکیل۔ \"فعال\" کنفیگریشن ہے، استعمال نہیں۔",
-  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "ملک کے لحاظ سے گروپ کردہ، پچھلے {0} دنوں میں فعال۔ IP تخمینہ غلط یا غیر دستیاب ہو سکتا ہے۔"
+  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "ملک کے لحاظ سے گروپ کردہ، پچھلے {0} دنوں میں فعال۔ IP تخمینہ غلط یا غیر دستیاب ہو سکتا ہے۔",
+  "Pause cycling during night mode": "نائٹ موڈ میں اسکرین کی تبدیلی روکیں",
+  "Keep the current screen on during night mode hours": "نائٹ موڈ کے اوقات میں موجودہ اسکرین دکھاتے رہیں"
 }

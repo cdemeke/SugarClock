@@ -750,7 +750,9 @@
     "New here?",
     "Watch the setup video or send us feedback anytime from here.",
     "Show me",
-    "Got it"
+    "Got it",
+    "Pause cycling during night mode",
+    "Keep the current screen on during night mode hours"
   ],
   "fleet": [
     " blocked",

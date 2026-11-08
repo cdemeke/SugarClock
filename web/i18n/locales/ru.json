@@ -981,5 +981,7 @@
   "Share of {0} installations in this time range{1}.": "Доля из {0} установок за этот период{1}.",
   "Share of {0} installations in this time range. Unknown means the clock didn’t report that setting.": "Доля из {0} установок за этот период. Неизвестно означает, что часы не сообщили эту настройку.",
   "Latest reported config from installations active in the last {0} days. “Enabled” is configuration, not usage.": "Последняя зарегистрированная конфигурация из установок, активных за последние {0} дней. «Включено» — это конфигурация, а не использование.",
-  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "Активны за последние {0} дней, сгруппированы по странам. Оценки IP могут быть неточными или недоступными."
+  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "Активны за последние {0} дней, сгруппированы по странам. Оценки IP могут быть неточными или недоступными.",
+  "Pause cycling during night mode": "Приостановить смену экранов в ночном режиме",
+  "Keep the current screen on during night mode hours": "Сохранять текущий экран в часы ночного режима"
 }

@@ -981,5 +981,7 @@
   "Share of {0} installations in this time range{1}.": "Bu zaman aralığındaki {0} kurulum içindeki pay{1}.",
   "Share of {0} installations in this time range. Unknown means the clock didn’t report that setting.": "Bu zaman aralığındaki {0} kurulum içindeki pay. Bilinmiyor, saatin bu ayarı bildirmediği anlamına gelir.",
   "Latest reported config from installations active in the last {0} days. “Enabled” is configuration, not usage.": "Son {0} gün içinde etkin olan kurulumlardan bildirilen en son yapılandırma. “Etkin” kullanım değil, yapılandırmadır.",
-  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "Ülkeye göre gruplandırılmış, son {0} gün içinde aktif olan. IP tahminleri hatalı veya kullanılamayabilir."
+  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "Ülkeye göre gruplandırılmış, son {0} gün içinde aktif olan. IP tahminleri hatalı veya kullanılamayabilir.",
+  "Pause cycling during night mode": "Gece modunda ekran geçişini duraklat",
+  "Keep the current screen on during night mode hours": "Gece modu saatlerinde mevcut ekranı göstermeye devam et"
 }

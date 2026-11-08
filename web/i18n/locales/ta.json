@@ -981,5 +981,7 @@
   "Share of {0} installations in this time range{1}.": "இந்தக் கால வரம்பில் உள்ள {0} நிறுவல்களின் விகிதம்{1}.",
   "Share of {0} installations in this time range. Unknown means the clock didn’t report that setting.": "இந்தக் கால வரம்பில் உள்ள {0} நிறுவல்களின் விகிதம். தெரியவில்லை என்பது கடிகாரம் அந்த அமைப்பைத் தெரிவிக்கவில்லை என்பதைக் குறிக்கும்.",
   "Latest reported config from installations active in the last {0} days. “Enabled” is configuration, not usage.": "கடந்த {0} நாட்களில் செயலில் உள்ள நிறுவல்களிலிருந்து சமீபத்திய அறிக்கை கட்டமைப்பு. \"இயக்கப்பட்டது\" என்பது உள்ளமைவு, பயன்பாடு அல்ல.",
-  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "நாடு வாரியாக கடந்த {0} நாட்களில் செயலில் உள்ளது. IP மதிப்பீடுகள் தவறானதாக இருக்கலாம் அல்லது கிடைக்காமல் இருக்கலாம்."
+  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "நாடு வாரியாக கடந்த {0} நாட்களில் செயலில் உள்ளது. IP மதிப்பீடுகள் தவறானதாக இருக்கலாம் அல்லது கிடைக்காமல் இருக்கலாம்.",
+  "Pause cycling during night mode": "இரவு பயன்முறையில் திரை மாற்றத்தை இடைநிறுத்து",
+  "Keep the current screen on during night mode hours": "இரவு பயன்முறை நேரங்களில் தற்போதைய திரையைக் காட்டவும்"
 }

@@ -981,5 +981,7 @@
   "Share of {0} installations in this time range{1}.": "Part des {0} installations sur cette période{1}.",
   "Share of {0} installations in this time range. Unknown means the clock didn’t report that setting.": "Part des {0} installations sur cette période. Inconnu signifie que l’horloge n’a pas transmis ce réglage.",
   "Latest reported config from installations active in the last {0} days. “Enabled” is configuration, not usage.": "Dernière configuration signalée pour les installations actives au cours des {0} derniers jours. « Activé » correspond à la configuration et non à l'utilisation.",
-  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "Actif au cours des {0} derniers jours, regroupés par pays. Les estimations IP peuvent être inexactes ou indisponibles."
+  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "Actif au cours des {0} derniers jours, regroupés par pays. Les estimations IP peuvent être inexactes ou indisponibles.",
+  "Pause cycling during night mode": "Suspendre le défilement des écrans en mode nuit",
+  "Keep the current screen on during night mode hours": "Conserver l’écran actuel pendant les heures du mode nuit"
 }

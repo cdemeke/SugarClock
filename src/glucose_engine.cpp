@@ -140,7 +140,7 @@ void engine_rebuild_toggle_order() {
     toggle_count = 0;
     if (cfg.glucose_enabled) {
         toggle_order[toggle_count++] = STATE_GLUCOSE_DISPLAY;
-        toggle_order[toggle_count++] = STATE_TREND_DISPLAY;
+        if (cfg.show_delta) toggle_order[toggle_count++] = STATE_TREND_DISPLAY;
     }
     if (cfg.time_display_enabled) toggle_order[toggle_count++] = STATE_TIME_DISPLAY;
     // Never cycle into a permanent loading placeholder when weather is unconfigured
@@ -496,8 +496,8 @@ static void render_state(DisplayState state) {
             }
 
             display_set_brightness(effective_brightness());
-            // Keep the last value visible even if it ages during a delta flash.
-            if (is_stale) delta_flash_active = false;
+            // Stop an in-flight flash immediately if hidden or no longer fresh.
+            if (is_stale || !cfg.show_delta) delta_flash_active = false;
 
             // Never replace the low value with a delta-only flash, including
             // one that was already active when the low reading arrived.
@@ -732,7 +732,11 @@ static void render_state(DisplayState state) {
 
                 uint16_t tcolor = is_stale ? color_from_uint32(cfg.color_stale) : themed_glucose_color(reading.glucose, cfg);
 
-                display_draw_glucose_delta(http_get_delta(), reading.trend, tcolor, cfg.use_mmol);
+                if (cfg.show_delta) {
+                    display_draw_glucose_delta(http_get_delta(), reading.trend, tcolor, cfg.use_mmol);
+                } else {
+                    display_draw_trend(reading.trend, 1, 0, tcolor);
+                }
             }
 
             display_show();
@@ -921,7 +925,14 @@ void engine_loop() {
         last_cycle_ms = millis();
         connection_info_visible = false;
     }
-    if (!low_glucose_active && !connection_info_visible && cfg.auto_cycle_enabled && toggle_count > 1) {
+    bool cycling_active = !low_glucose_active && !connection_info_visible &&
+                          cfg.auto_cycle_enabled && toggle_count > 1;
+    if (cycling_active && is_night_mode() && cfg.night_disable_auto_cycle) {
+        // Give the selected screen a full interval when the night pause ends.
+        last_cycle_ms = millis();
+        cycling_active = false;
+    }
+    if (cycling_active) {
         unsigned long cycle_interval_ms = (unsigned long)cfg.auto_cycle_sec * 1000UL;
         if (last_cycle_ms == 0) last_cycle_ms = millis();
         if (millis() - last_cycle_ms >= cycle_interval_ms) {

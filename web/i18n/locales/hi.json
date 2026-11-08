@@ -981,5 +981,7 @@
   "Share of {0} installations in this time range{1}.": "इस समयावधि के {0} इंस्टॉलेशन में हिस्सेदारी{1}।",
   "Share of {0} installations in this time range. Unknown means the clock didn’t report that setting.": "इस समयावधि के {0} इंस्टॉलेशन में हिस्सेदारी। अज्ञात का अर्थ है कि घड़ी ने उस सेटिंग की जानकारी नहीं भेजी।",
   "Latest reported config from installations active in the last {0} days. “Enabled” is configuration, not usage.": "पिछले {0} दिनों में सक्रिय इंस्टॉलेशन से नवीनतम रिपोर्ट की गई कॉन्फ़िगरेशन। \"सक्षम\" कॉन्फ़िगरेशन है, उपयोग नहीं।",
-  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "पिछले {0} दिनों में सक्रिय, देश के अनुसार समूहीकृत। आईपी अनुमान गलत या अनुपलब्ध हो सकते हैं।"
+  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "पिछले {0} दिनों में सक्रिय, देश के अनुसार समूहीकृत। आईपी अनुमान गलत या अनुपलब्ध हो सकते हैं।",
+  "Pause cycling during night mode": "नाइट मोड में स्क्रीन बदलना रोकें",
+  "Keep the current screen on during night mode hours": "नाइट मोड के समय वर्तमान स्क्रीन दिखाते रहें"
 }

@@ -981,5 +981,7 @@
   "Share of {0} installations in this time range{1}.": "Rabo cikin na’urori {0} a wannan zangon lokaci{1}.",
   "Share of {0} installations in this time range. Unknown means the clock didn’t report that setting.": "Rabo cikin na’urori {0} a wannan zangon lokaci. Ba a sani ba yana nufin agogon bai bayar da wannan saitin ba.",
   "Latest reported config from installations active in the last {0} days. “Enabled” is configuration, not usage.": "Sabbin saitin da aka ruwaito daga shigarwa yana aiki a cikin kwanaki {0} na ƙarshe. \"An kunna\" tsari ne, ba amfani ba.",
-  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "Yana aiki a cikin kwanaki {0} da suka gabata, an haɗa su ta ƙasa. Ƙididdiga na IP na iya zama mara kyau ko babu."
+  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "Yana aiki a cikin kwanaki {0} da suka gabata, an haɗa su ta ƙasa. Ƙididdiga na IP na iya zama mara kyau ko babu.",
+  "Pause cycling during night mode": "Dakatar da sauya allo a yanayin dare",
+  "Keep the current screen on during night mode hours": "Ci gaba da nuna allon yanzu a lokutan yanayin dare"
 }

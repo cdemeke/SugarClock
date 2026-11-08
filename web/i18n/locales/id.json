@@ -981,5 +981,7 @@
   "Share of {0} installations in this time range{1}.": "Proporsi dari {0} instalasi dalam rentang waktu ini{1}.",
   "Share of {0} installations in this time range. Unknown means the clock didn’t report that setting.": "Proporsi dari {0} instalasi dalam rentang waktu ini. Tidak diketahui berarti jam tidak melaporkan pengaturan tersebut.",
   "Latest reported config from installations active in the last {0} days. “Enabled” is configuration, not usage.": "Konfigurasi terbaru yang dilaporkan dari instalasi yang aktif dalam {0} hari terakhir. \"Diaktifkan\" adalah konfigurasi, bukan penggunaan.",
-  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "Aktif dalam {0} hari terakhir, dikelompokkan berdasarkan negara. Perkiraan IP mungkin tidak akurat atau tidak tersedia."
+  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "Aktif dalam {0} hari terakhir, dikelompokkan berdasarkan negara. Perkiraan IP mungkin tidak akurat atau tidak tersedia.",
+  "Pause cycling during night mode": "Jeda pergantian layar saat mode malam",
+  "Keep the current screen on during night mode hours": "Pertahankan layar saat ini selama jam mode malam"
 }

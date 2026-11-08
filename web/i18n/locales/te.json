@@ -981,5 +981,7 @@
   "Share of {0} installations in this time range{1}.": "ఈ కాల వ్యవధిలోని {0} ఇన్‌స్టాలేషన్‌లలో వాటా{1}.",
   "Share of {0} installations in this time range. Unknown means the clock didn’t report that setting.": "ఈ కాల వ్యవధిలోని {0} ఇన్‌స్టాలేషన్‌లలో వాటా. తెలియదు అంటే గడియారం ఆ సెట్టింగ్‌ను నివేదించలేదని అర్థం.",
   "Latest reported config from installations active in the last {0} days. “Enabled” is configuration, not usage.": "గత {0} రోజులలో యాక్టివ్‌గా ఉన్న ఇన్‌స్టాలేషన్‌ల నుండి తాజా నివేదించబడిన కాన్ఫిగర్. “ప్రారంభించబడింది” అనేది కాన్ఫిగరేషన్, ఉపయోగం కాదు.",
-  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "గత {0} రోజులలో సక్రియంగా ఉంది, దేశం వారీగా సమూహం చేయబడింది. IP అంచనాలు సరికాకపోవచ్చు లేదా అందుబాటులో ఉండకపోవచ్చు."
+  "Active in the last {0} days, grouped by country. IP estimates may be inaccurate or unavailable.": "గత {0} రోజులలో సక్రియంగా ఉంది, దేశం వారీగా సమూహం చేయబడింది. IP అంచనాలు సరికాకపోవచ్చు లేదా అందుబాటులో ఉండకపోవచ్చు.",
+  "Pause cycling during night mode": "రాత్రి మోడ్‌లో స్క్రీన్ మార్పును నిలిపివేయండి",
+  "Keep the current screen on during night mode hours": "రాత్రి మోడ్ సమయంలో ప్రస్తుత స్క్రీన్‌ను చూపుతూ ఉండండి"
 }
