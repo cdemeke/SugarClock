@@ -4,9 +4,29 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title data-i18n="SugarClock - Glucose Visible at a Glance">SugarClock - Glucose Visible at a Glance</title>
+  <title data-i18n="SugarClock (Sugar Clock) | Open-Source CGM Display">SugarClock (Sugar Clock) | Open-Source CGM Display</title>
   <meta name="description"
-    content="SugarClock turns an affordable Ulanzi TC001 smart pixel clock into an open source CGM display for people with diabetes and families.">
+    content="SugarClock (Sugar Clock) turns a Ulanzi TC001 into a Wi-Fi blood sugar display for Dexcom Share, FreeStyle Libre via LibreLinkUp, and Nightscout. Free, open source.">
+  <link rel="canonical" href="https://sugarclock.com/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="SugarClock">
+  <meta property="og:title" content="SugarClock (Sugar Clock) | Open-Source CGM Display">
+  <meta property="og:description" content="Turn an affordable Ulanzi TC001 pixel clock into a Wi-Fi blood sugar display for Dexcom Share, FreeStyle Libre via LibreLinkUp, and Nightscout.">
+  <meta property="og:url" content="https://sugarclock.com/">
+  <meta property="og:image" content="https://sugarclock.com/images/hero.png">
+  <meta property="og:image:alt" content="SugarClock pixel clock displaying a glucose reading and trend arrow">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "@id": "https://sugarclock.com/#website",
+      "url": "https://sugarclock.com/",
+      "name": "SugarClock",
+      "alternateName": "Sugar Clock",
+      "description": "Free, open-source software that turns a Ulanzi TC001 pixel clock into a blood sugar display for Dexcom Share, FreeStyle Libre via LibreLinkUp, and Nightscout."
+    }
+  </script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,6 +35,7 @@
     rel="stylesheet">
 
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="guides.css">
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
@@ -32,7 +53,7 @@
 <body>
   <nav class="site-nav">
     <div class="container">
-      <a href="index.html" class="nav-brand" aria-label="SugarClock home" data-i18n-aria-label="SugarClock home">
+      <a href="./" class="nav-brand" aria-label="SugarClock home" data-i18n-aria-label="SugarClock home">
         <img src="images/logo.png" alt="" class="nav-logo">
         <span>SugarClock</span>
       </a>
@@ -40,6 +61,7 @@
       <ul class="nav-links">
         <li><a href="#why"><span data-i18n="Why">Why</span></a></li>
         <li><a href="#process"><span data-i18n="Process">Process</span></a></li>
+        <li><a href="app.html"><span data-i18n="App">App</span></a></li>
         <li><a href="faq.html" data-track-event="faq_link_clicked" data-track-location="navigation"><span data-i18n="FAQ">FAQ</span></a></li>
       </ul>
 
@@ -68,6 +90,7 @@
         </div>
 
         <div class="hero-stack">
+          <p class="section-desc"><span data-i18n="SugarClock (Sugar Clock) turns an affordable Ulanzi TC001 pixel clock into a Wi-Fi blood sugar display for Dexcom Share, FreeStyle Libre via LibreLinkUp, and Nightscout.">SugarClock (Sugar Clock) turns an affordable Ulanzi TC001 pixel clock into a Wi-Fi blood sugar display for Dexcom Share, FreeStyle Libre via LibreLinkUp, and Nightscout.</span></p>
           <div class="hero-actions">
             <a href="#install" class="btn btn-primary" data-track-event="install_cta_clicked" data-track-location="hero"><span data-i18n="Install Now">Install Now</span></a>
             <a href="https://github.com/cdemeke/SugarClock" class="btn btn-secondary" target="_blank"
@@ -191,6 +214,8 @@
       </div>
     </section>
 
+    <section class="section-py"><div class="container"><aside class="guide-links" lang="en" aria-label="Connection guides in English"><h2>Connect your CGM data</h2><p>Step-by-step connection guides (English):</p><ul><li><a href="dexcom-blood-sugar-clock.html">Dexcom Share blood sugar clock</a></li><li><a href="freestyle-libre-display.html">FreeStyle Libre display via LibreLinkUp</a></li><li><a href="nightscout-clock.html">Nightscout via a custom JSON adapter</a></li></ul><p><a href="guides.html">Browse all connection guides →</a></p></aside></div></section>
+
     <section id="install" class="section-py install-section">
       <div class="container">
         <div class="section-header fade-up">
@@ -201,7 +226,7 @@
         </div>
 
         <aside class="install-panel clean-card" aria-label="Installation reporting notice" data-i18n-aria-label="Installation reporting notice">
-          <h3><span data-i18n="Built-in installation reporting">Built-in installation reporting</span></h3>
+          <h3 id="installation-reporting"><span data-i18n="Built-in installation reporting">Built-in installation reporting</span></h3>
           <p><span data-i18n="SugarClock automatically sends its random installation ID, firmware version, activity and health, configured data source (Dexcom, Libre, custom or demo), and enabled features such as weather and display pet to the fleet service. The administrator can view individual installations and add nicknames. Your network address may be used to estimate city and country.">SugarClock automatically sends its random installation ID, firmware version, activity and health,
             configured data source (Dexcom, Libre, custom or demo), and enabled features such as weather and
             display pet to the fleet service. The administrator can view individual installations and add nicknames.
@@ -302,7 +327,7 @@
     <div class="container">
       <div class="footer-grid">
         <div class="footer-brand-col">
-          <a href="index.html" class="nav-brand">
+          <a href="./" class="nav-brand">
             <img src="images/logo.png" alt="" class="nav-logo">
             <span>SugarClock</span>
           </a>
@@ -311,6 +336,7 @@
         <div class="footer-links">
           <h4><span data-i18n="Links">Links</span></h4>
           <ul>
+            <li><a href="app.html"><span data-i18n="App">App</span></a></li>
             <li><a href="faq.html" data-track-event="faq_link_clicked" data-track-location="footer"><span data-i18n="FAQ">FAQ</span></a></li>
             <li><a href="https://github.com/cdemeke/SugarClock/issues" target="_blank" rel="noopener" data-track-event="support_link_clicked" data-track-location="footer"><span data-i18n="Issue Tracker">Issue Tracker</span></a></li>
             <li><a href="https://github.com/cdemeke/SugarClock" target="_blank" rel="noopener" data-track-event="github_viewed" data-track-location="footer"><span data-i18n="Source Code">Source Code</span></a></li>
@@ -318,11 +344,12 @@
         </div>
         <div class="footer-links">
           <h4><span data-i18n="Project">Project</span></h4>
-          <p><span data-i18n="Released under the MIT License by SugarClock contributors.">Released under the MIT License by SugarClock contributors.</span></p>
+          <p><a href="https://github.com/cdemeke/SugarClock/blob/main/LICENSE" target="_blank" rel="noopener"><span data-i18n="Released under the MIT License by SugarClock contributors.">Released under the MIT License by SugarClock contributors.</span></a></p>
         </div>
       </div>
       <div class="footer-bottom">
-        <p><span data-i18n="© 2026 SugarClock Contributors. All rights reserved.">&copy; 2026 SugarClock Contributors. All rights reserved.</span></p>
+        <p class="disclaimer text-sm"><strong data-i18n="Not a medical device.">Not a medical device.</strong> <span data-i18n="SugarClock is an unofficial DIY project and is not affiliated with or endorsed by Dexcom, Abbott, Nightscout, or Ulanzi. Readings can be delayed or missing, and the clock may not sound alerts when its data is stale. Do not use SugarClock for treatment decisions or as a replacement for your CGM's own alarms; always confirm with your CGM receiver, app, or blood glucose meter.">SugarClock is an unofficial DIY project and is not affiliated with or endorsed by Dexcom, Abbott, Nightscout, or Ulanzi. Readings can be delayed or missing, and the clock may not sound alerts when its data is stale. Do not use SugarClock for treatment decisions or as a replacement for your CGM's own alarms; always confirm with your CGM receiver, app, or blood glucose meter.</span></p>
+        <p><span data-i18n="© 2026 SugarClock Contributors.">&copy; 2026 SugarClock Contributors.</span></p>
       </div>
     </div>
   </footer>

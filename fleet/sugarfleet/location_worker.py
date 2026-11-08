@@ -79,7 +79,7 @@ class LocationWorker:
                         "detected_location_checked_at=? WHERE id=?",
                         (
                             location["city"],
-                            "",
+                            location["region"],
                             location["country_code"],
                             checked_at,
                             device_id,

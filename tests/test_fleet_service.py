@@ -1,6 +1,8 @@
 import base64
 import json
 import os
+import pathlib
+import re
 import subprocess
 import tempfile
 import time
@@ -10,12 +12,13 @@ from unittest import mock
 from fleet import create_app
 from fleet.sugarfleet import auth
 from fleet.sugarfleet.db import get_db
-from fleet.sugarfleet.geolocation import location_label, public_ip
+from fleet.sugarfleet.geolocation import location_label, location_summary, public_ip
 from fleet.sugarfleet.releases import canonical_payload
 from fleet.sugarfleet.security import hash_device_credential, verify_device_credential
 from fleet.sugarfleet.util import ApiError, connectivity_state
 from fleet.sugarfleet.validation import (
     COMMAND_TYPES,
+    CONFIG_FIELDS,
     validate_checkin,
     validate_command,
     validate_register,
@@ -51,6 +54,62 @@ class FleetProtocolFixtureTests(unittest.TestCase):
         with self.assertRaisesRegex(ApiError, "default_mode is out of range"):
             validate_command("config_patch", {"changes": {"default_mode": 4}})
 
+    def test_config_allowlist_matches_real_firmware_acceptance(self):
+        source = pathlib.Path(ROOT, "src/fleet_manager.cpp").read_text()
+        function = source[source.index("static bool apply_config_patch("):source.index("static bool handle_command(")]
+        self.assertEqual(set(CONFIG_FIELDS), set(re.findall(r'strcmp\(name, "([a-z_]+)"\)', function)))
+        cases = []
+        for key, (kind, low, high) in CONFIG_FIELDS.items():
+            values = [False, True, 0, 1, "true", None] if kind is bool else (["", "A", "ABCDEFG", "ABCDEFGH", True, 1, None] if kind is str else [low-1, low, high, high+1, True, "1", 1.5, None])
+            cases += [{key: value} for value in values]
+        cases += [{"brightness": 45, key: value} for key, value in
+                  [("timezone", "UTC0"), ("thresh_low", 70), ("poll_interval_sec", 60), ("poll_interval", 60)]]
+        expected = []
+        for changes in cases:
+            try:
+                validate_command("config_patch", {"changes": changes})
+                expected.append("1")
+            except ApiError:
+                expected.append("0")
+        library = pathlib.Path(ROOT, ".pio/libdeps/esp32dev/ArduinoJson/src")
+        if not library.exists():
+            self.skipTest("Install pinned firmware dependencies for executable contract comparison")
+        with tempfile.TemporaryDirectory() as tmp:
+            harness = pathlib.Path(tmp, "contract.cpp")
+            harness.write_text("""
+#include <iostream>
+#include <string>
+#include <cstring>
+#include "config_manager.h"
+#include "config_patch.h"
+#include "sensitive_memory.h"
+#include <memory>
+#include <new>
+#include "companion.h"
+AppConfig active{};
+void config_lock() {}
+void config_unlock() {}
+AppConfig& config_get() { return active; }
+bool settings_apply(const AppConfig& candidate) { active=candidate;return true; }
+""" + function + """
+int main() {
+    std::string line;
+    while(std::getline(std::cin,line)) {
+        active={};active.brightness=77;
+        active.thresh_urgent_low=55;active.thresh_low=70;active.thresh_high=180;active.thresh_urgent_high=250;
+        active.alert_low=70;active.alert_high=250;
+        JsonDocument doc;
+        if(deserializeJson(doc,line)) return 2;
+        bool accepted=apply_config_patch(doc.as<JsonObjectConst>());
+        if(!accepted && active.brightness!=77) return 3;
+        std::cout << accepted << std::endl;
+    }
+}
+""")
+            exe = str(pathlib.Path(tmp, "contract"))
+            subprocess.run(["c++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-Iinclude", "-I"+str(library), str(harness), "src/config_patch.cpp", "src/libre_patient.cpp", "-o", exe], cwd=ROOT, check=True)
+            result = subprocess.run([exe], input="\n".join(json.dumps(case) for case in cases), text=True, capture_output=True, check=True)
+            self.assertEqual(result.stdout.splitlines(), expected)
     def test_companion_selection_is_validated(self):
         for character in range(7):
             validate_command(
@@ -140,6 +199,22 @@ class FleetProtocolFixtureTests(unittest.TestCase):
         self.assertEqual(
             location_label("Singapore", "Singapore", "SG"), "Singapore, SG"
         )
+
+    def test_location_summaries_include_regions_and_us_postal_abbreviations(self):
+        for city, region, country, expected in (
+            ('Portland', 'Oregon', 'US', 'Portland, OR, US'),
+            ('Portland', 'Maine', 'US', 'Portland, ME, US'),
+            ('Chicago', 'Illinois', 'US', 'Chicago, IL, US'),
+            ('San Francisco', 'California', 'US', 'San Francisco, CA, US'),
+            ('Boston', 'ma', 'US', 'Boston, MA, US'),
+            ('Toronto', 'Ontario', 'CA', 'Toronto, Ontario, CA'),
+            ('Singapore', 'Singapore', 'SG', 'Singapore, SG'),
+            ('Boston', '', 'US', 'Boston, US'),
+            ('', '', 'FR', 'FR'),
+            ('', '', '', 'Unknown'),
+        ):
+            with self.subTest(city=city, region=region):
+                self.assertEqual(location_summary(city, region, country), expected)
 
 
 class FleetServiceTests(unittest.TestCase):
@@ -341,6 +416,23 @@ class FleetServiceTests(unittest.TestCase):
         self.assertEqual(secret.status_code, 422)
         self.assertNotIn("must-not-leak", json.dumps(secret.json))
 
+    def test_invalid_mixed_config_patch_is_rejected_before_queueing(self):
+        self.register()
+        headers = self.admin_headers()
+        for changes in [{"brightness": 0}, {"brightness": 45, "timezone": "UTC0"},
+                        {"brightness": 45, "thresh_low": 70},
+                        {"brightness": 45, "poll_interval_sec": 60},
+                        {"brightness": 45, "poll_interval": 60}]:
+            response = self.client.post("/admin/api/devices/1/commands",
+                json={"type": "config_patch", "payload": {"changes": changes}}, headers=headers)
+            self.assertEqual(response.status_code, 400)
+        with self.app.app_context():
+            self.assertEqual(get_db().execute("SELECT count(*) FROM commands").fetchone()[0], 0)
+        response = self.client.post("/admin/api/devices/1/commands",
+            json={"type": "config_patch", "payload": {"changes": {"brightness": 1, "ambient_creature": 1}}}, headers=headers)
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(len(self.checkin().json["commands"]), 1)
+
     def test_admin_ui_renders_device_list_and_detail(self):
         self.register()
         self.admin_headers()
@@ -433,11 +525,39 @@ class FleetServiceTests(unittest.TestCase):
 
         self.admin_headers()
         device = self.client.get("/admin/api/devices/1").json["device"]
-        self.assertEqual(device["detected_location"]["label"], "Boston, US")
+        self.assertEqual(device["detected_location"]["label"], "Boston, Massachusetts, US")
+        self.assertEqual(device["detected_location"]["region"], "Massachusetts")
+        self.assertEqual(device["detected_location"]["summary"], "Boston, MA, US")
         self.assertNotIn("8.8.8.8", json.dumps(device))
         with self.app.app_context():
             columns = [row[1] for row in get_db().execute("PRAGMA table_info(devices)")]
             self.assertFalse(any("ip" in column.lower() for column in columns))
+
+    @mock.patch("fleet.sugarfleet.geolocation.urlopen")
+    def test_provider_regions_separate_same_named_cities_in_overview_and_links(self, urlopen):
+        self.app.config["IP_GEOLOCATION_ENABLED"] = True
+        urlopen.return_value.__enter__.return_value.read.side_effect = [
+            json.dumps({"success": True, "city": "Portland", "region": region,
+                        "country_code": "US"}).encode()
+            for region in ("Oregon", "Maine")
+        ]
+        for index in (1, 2):
+            registration = fixture("register-request.json")
+            registration["installation_id"] = INSTALLATION_ID[:-1] + str(index)
+            response = self.client.post("/device/v1/register", json=registration,
+                headers=self.auth_headers(), environ_overrides={"REMOTE_ADDR": "8.8.8.8"})
+            self.assertEqual(response.status_code, 201, response.json)
+            checkin = fixture("check-in-request.json")
+            checkin["installation_id"] = registration["installation_id"]
+            self.assertEqual(self.client.post("/device/v1/check-in", json=checkin,
+                headers=self.auth_headers()).status_code, 200)
+        self.assertEqual(urlopen.call_count, 2)
+        self.admin_headers()
+        self.assertEqual(self.client.get("/admin/api/overview").json["location_counts"],
+            {"Portland, OR, US": 1, "Portland, ME, US": 1})
+        page = self.client.get("/admin/devices").text
+        self.assertIn('data-location="Portland, OR, US"', page)
+        self.assertIn('data-location="Portland, ME, US"', page)
 
     @mock.patch("fleet.sugarfleet.location_worker.lookup_approximate_location")
     def test_private_ip_and_untrusted_forwarding_header_are_not_geolocated(

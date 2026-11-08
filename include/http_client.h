@@ -36,15 +36,25 @@ void http_clear_readings();
 
 // Non-blocking polling loop
 void http_loop();
+void http_configuration_changed();
 
 // Get the latest glucose reading
-const GlucoseReading& http_get_reading();
+GlucoseReading http_get_reading();
+bool http_is_fetching();
+unsigned long http_fetch_generation();
+// Main-loop batching hint; false for a paused, absent or custom-source schedule.
+bool http_dexcom_due_within(uint32_t milliseconds);
 
 // Get failure count since last success
 int http_get_failure_count();
 
 // Get last HTTP response code
 int http_get_last_response_code();
+
+// Code and Wi-Fi epoch are read together, so a late result from an old network
+// cannot establish reachability for a replacement connection.
+struct HttpReachabilityResult { int response_code; uint32_t wifi_generation; };
+HttpReachabilityResult http_get_reachability_result();
 
 // Get last raw response body (for debug)
 const char* http_get_last_response_body();
@@ -61,7 +71,7 @@ int http_get_delta();
 // Get history buffer (returns count, fills array)
 int http_get_history(GlucoseHistoryEntry* out, int max_count);
 
-// Force an immediate glucose fetch (for testing), returns true on success
+// Queue an immediate glucose fetch; true means queued, read status for its result
 bool http_force_fetch();
 
 // Pause background glucose/Dexcom/custom HTTP traffic during OTA download.
