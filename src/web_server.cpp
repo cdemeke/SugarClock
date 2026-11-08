@@ -77,7 +77,9 @@ static void handle_status(AsyncWebServerRequest* request) {
     OtaStatusSnapshot ota;
     ota_get_status(ota);
     doc["firmware_version"] = SUGARCLOCK_VERSION;
-    doc["installation_id"] = fleet_installation_id();
+    // Until the fleet has bound this ID to our credential, anyone who learned it
+    // could register it first and lock the clock out of fleet management.
+    if (fleet_is_registered()) doc["installation_id"] = fleet_installation_id();
     doc["hardware"] = SUGARCLOCK_HARDWARE_ID;
     doc["running_partition"] = ota.running_partition;
     doc["boot_partition"] = ota.boot_partition;

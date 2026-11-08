@@ -50,7 +50,7 @@ static const uint32_t INITIAL_DELAY_MS = 30000;
 static char installation_id[37];
 static char credential[44];
 static char channel[16] = "stable";
-static bool registered = false;
+static std::atomic<bool> registered{false};
 static std::atomic<bool> worker_running{false};
 static std::atomic<bool> local_request_pending{false};
 // Outcome of the last explicit request's visit; published before pending clears.
@@ -759,6 +759,7 @@ void fleet_loop() {
 }
 
 const char* fleet_installation_id() { return installation_id; }
+bool fleet_is_registered() { return registered; }
 
 bool fleet_request_check() {
     if (worker_running || ota_is_busy()) return false;
