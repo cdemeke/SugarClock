@@ -5,19 +5,24 @@ from .db import get_db
 from .util import now_epoch
 
 
-def registration_rate_allowed(source, now=None):
-    """Shared SQLite limiter with fixed windows, HMAC source keys and bounded rows."""
+def source_key(source):
+    """Keyed digest of a client address; the address itself is never stored."""
     import hashlib
     import hmac
 
-    now = now if now is not None else now_epoch()
-    connection = get_db()
-    window = current_app.config["ENROLLMENT_RATE_WINDOW_SECONDS"]
-    source = hmac.new(
+    return hmac.new(
         current_app.config["DEVICE_CREDENTIAL_PEPPER"].encode(),
         (source or "unknown").encode(),
         hashlib.sha256,
     ).hexdigest()
+
+
+def registration_rate_allowed(source, now=None):
+    """Shared SQLite limiter with fixed windows, HMAC source keys and bounded rows."""
+    now = now if now is not None else now_epoch()
+    connection = get_db()
+    window = current_app.config["ENROLLMENT_RATE_WINDOW_SECONDS"]
+    source = source_key(source)
     connection.execute("BEGIN IMMEDIATE")
     connection.execute(
         "DELETE FROM registration_limits WHERE window_start<=?", (now - window,)
