@@ -28,7 +28,7 @@ test('disabled without token or on preview hosts', () => {
 });
 test('separates guide pageviews from home and uses a bounded label for unknown paths', () => {
   for (const [pathname, expected] of [
-    ['/', 'home'], ['/index.html', 'home'], ['/faq.html', 'faq'],
+    ['/', 'home'], ['/index.html', 'home'], ['/faq.html', 'faq'], ['/app.html', 'app'],
     ['/guides.html', 'guides'], ['/dexcom-blood-sugar-clock.html', 'guide_dexcom'],
     ['/freestyle-libre-display.html', 'guide_libre'], ['/nightscout-clock.html', 'guide_nightscout'],
     ['/private-sentinel', 'other'],
@@ -74,7 +74,7 @@ test('FAQ opening is captured but closing is not', () => {
   b.listeners.DOMContentLoaded(); b.load(); click(); active = true; click();
   assert.equal(b.events.filter(e => e[0] === 'faq_answer_opened').length, 1);
 });
-test('all FAQ questions have unique nonempty static IDs and all pages load config first', () => {
+test('all FAQ questions have unique nonempty static IDs and all marketing pages load config first', () => {
   const faq = fs.readFileSync('docs/faq.html', 'utf8');
   const ids = [...faq.matchAll(/data-question-id="([^"]*)"/g)].map(m => m[1]);
   const buttons = [...faq.matchAll(/<button\b[^>]*class="[^"]*\bfaq-question\b[^"]*"[^>]*>/g)];
@@ -83,7 +83,7 @@ test('all FAQ questions have unique nonempty static IDs and all pages load confi
   buttons.forEach(([button]) => assert.match(button, /data-question-id="[^"]+"/));
   assert.ok(ids.every(Boolean));
   assert.equal(new Set(ids).size, ids.length);
-  for (const page of ['index', 'faq', 'guides', 'dexcom-blood-sugar-clock', 'freestyle-libre-display', 'nightscout-clock']) {
+  for (const page of ['index', 'faq', 'app', 'guides', 'dexcom-blood-sugar-clock', 'freestyle-libre-display', 'nightscout-clock']) {
     const html = fs.readFileSync(`docs/${page}.html`, 'utf8');
     assert.ok(html.indexOf('js/analytics-config.js') < html.indexOf('js/analytics.js'));
     assert.match(html, /<script defer src="js\/analytics-config.js"/);

@@ -11,6 +11,16 @@ sys.path.insert(0, str(ROOT / 'scripts'))
 from build_i18n import key, SURFACES
 
 class LocalizationTests(unittest.TestCase):
+    def test_fleet_breakdown_copy_is_catalogued(self):
+        inventory = json.loads((ROOT / 'web/i18n/sources.json').read_text())['fleet']
+        script = (ROOT / 'fleet/sugarfleet/static/overview.js').read_text()
+        section = script.split('let summaryData,')[1].split('let openCountries')[0]
+        messages = {text for _, text in re.findall(r'I18n\.message\(([\'"])(.*?)\1', section)}
+        messages.update(re.findall(r"\? '(Latest reported config[^']+|All installations[^']+)'", section))
+        self.assertIn('All time', messages)
+        self.assertTrue(any('Snapshots are cleared' in text for text in messages))
+        self.assertFalse(messages - set(inventory), messages - set(inventory))
+
     def test_catalogs_cover_every_source_and_preserve_parameters_and_brands(self):
         source = ROOT / 'web/i18n'
         inventory = json.loads((source / 'sources.json').read_text())
@@ -39,14 +49,18 @@ class LocalizationTests(unittest.TestCase):
                     self.assertIn(html.unescape(value), inventory[surface], str(page))
             for name in ('i18n.js', 'i18n.css'):
                 self.assertEqual((ROOT / 'web/i18n' / name).read_bytes(), (folder / name).read_bytes())
-            output = ROOT / 'web/i18n/device-locales' if surface == 'device' else folder / 'locales'
+            output = ROOT / 'docs/js/device-locales' if surface == 'device' else folder / 'locales'
             for catalog in (ROOT / 'web/i18n/locales').glob('*.json'):
                 translations = json.loads(catalog.read_text())
                 compiled = json.loads((output / catalog.name).read_text())
                 self.assertEqual(compiled, {key(value):translations[value] for value in inventory[surface]})
 
-    def test_device_catalogs_are_embedded_without_filling_the_filesystem_overlay(self):
+    def test_device_catalogs_are_published_on_the_site_not_embedded_in_firmware(self):
         generated = (ROOT / 'src/web_assets.cpp').read_text()
-        for catalog in (ROOT / 'web/i18n/device-locales').glob('*.json'):
-            self.assertIn(f'"/locales/{catalog.name}"', generated)
+        self.assertNotIn('"/locales/', generated)
         self.assertFalse((ROOT / 'data/www/locales').exists())
+        self.assertEqual(len(list((ROOT / 'docs/js/device-locales').glob('*.json'))), 19)
+        for page in (ROOT / 'data/www').glob('*.html'):
+            if 'i18n.js' in page.read_text():
+                self.assertIn('<script src="i18n.js" data-catalogs="https://sugarclock.com/js/device-locales/"></script>',
+                              page.read_text(), page.name)

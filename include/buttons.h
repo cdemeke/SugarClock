@@ -4,6 +4,7 @@
 // Button event types
 enum ButtonEvent {
     BTN_NONE,
+    BTN_PAIRING,
     BTN_LEFT_SHORT,
     BTN_LEFT_LONG,
     BTN_MIDDLE_SHORT,

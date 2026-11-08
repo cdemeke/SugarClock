@@ -136,6 +136,8 @@ details form { margin-top: 24px; max-width: 600px; }
 .segmented button { padding: 4px 11px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 600; }
 .segmented button:hover { background: transparent; color: var(--text); }
 .segmented button[aria-pressed="true"] { background: var(--card); color: var(--text); box-shadow: var(--shadow); }
+.breakdown-heading { align-items: center; margin-bottom: 10px; gap: 10px; }
+.breakdown-heading .segmented { flex-shrink: 0; }
 .activity-plot { position: relative; }
 .activity-svg { display: block; width: 100%; height: auto; overflow: visible; user-select: none; }
 .activity-svg:focus-visible { outline-offset: 6px; }
@@ -221,14 +223,16 @@ a.legend-row:hover { background: var(--bg); }
 a.bar-row:hover, button.bar-row:hover { background: var(--bg); }
 .bar-label { display: flex; align-items: baseline; gap: 8px; min-width: 0; overflow-wrap: anywhere; font-size: 14px; }
 .country-flag { font-style: normal; line-height: 1; }
+.country-flag, .country-placeholder { flex: 0 0 20px; text-align: center; }
 .bar-sublabel { color: var(--muted); font-size: 12.5px; }
 .bar-value { color: var(--muted); font-size: 13px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .bar-value strong { color: var(--text); font-weight: 650; }
 .bar-row.is-zero .bar-label, .bar-row.is-zero .bar-value strong { color: var(--muted); }
-.location-row[aria-expanded]::before { content: "›"; position: absolute; margin-left: -14px; color: var(--muted); transition: transform .15s; }
-.location-row[aria-expanded] { position: relative; padding-left: 22px; }
-.location-row[aria-expanded="true"]::before { transform: rotate(90deg); }
-.city-list { display: grid; gap: 0; margin: 0 0 6px 22px; }
+.bar-row.location-row { grid-template-columns: minmax(0, 1fr) auto; }
+.location-row .bar-sublabel { white-space: nowrap; }
+.location-toggle { display: inline-block; flex-shrink: 0; color: var(--muted); transition: transform .15s; }
+.location-row[aria-expanded="true"] .location-toggle { transform: rotate(90deg); }
+.city-list { display: grid; gap: 0; margin: 0 0 6px; margin-inline-start: 22px; }
 .city-row { padding: 5px 8px; }
 .city-row .bar-label { font-size: 13px; }
 .city-row .bar-track { height: 4px; }

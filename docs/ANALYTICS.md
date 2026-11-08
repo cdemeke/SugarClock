@@ -18,6 +18,7 @@ Every event includes `page`, `web_serial_supported`, and `secure_context`, plus 
 | --- | --- |
 | `/` or `/index.html` | `home` |
 | `/faq.html` | `faq` |
+| `/app.html` | `app` |
 | `/guides.html` | `guides` |
 | `/dexcom-blood-sugar-clock.html` | `guide_dexcom` |
 | `/freestyle-libre-display.html` | `guide_libre` |

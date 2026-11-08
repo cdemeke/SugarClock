@@ -10,6 +10,32 @@ LOOKUP_BASE_URL = "https://ipwho.is"
 MAX_RESPONSE_BYTES = 4096
 MAX_LOCATION_PART_LENGTH = 120
 
+# The lookup provider returns full US state names. Keep summaries compact while
+# retaining the supplied region for countries without a US postal abbreviation.
+US_REGIONS = dict(zip(
+    ('Alabama|Alaska|Arizona|Arkansas|California|Colorado|Connecticut|Delaware|'
+     'District of Columbia|Florida|Georgia|Hawaii|Idaho|Illinois|Indiana|Iowa|'
+     'Kansas|Kentucky|Louisiana|Maine|Maryland|Massachusetts|Michigan|Minnesota|'
+     'Mississippi|Missouri|Montana|Nebraska|Nevada|New Hampshire|New Jersey|'
+     'New Mexico|New York|North Carolina|North Dakota|Ohio|Oklahoma|Oregon|'
+     'Pennsylvania|Rhode Island|South Carolina|South Dakota|Tennessee|Texas|'
+     'Utah|Vermont|Virginia|Washington|West Virginia|Wisconsin|Wyoming|'
+     'American Samoa|Guam|Northern Mariana Islands|Puerto Rico|U.S. Virgin Islands').lower().split('|'),
+    ('AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN '
+     'MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA '
+     'WA WV WI WY AS GU MP PR VI').split(),
+))
+
+
+def location_summary(city, region, country_code):
+    """A region-aware grouping key shared by overview links and device filters."""
+    region = (region or '').strip()
+    if (country_code or '').upper() == 'US':
+        region = US_REGIONS.get(region.casefold(), region)
+        if region.upper() in US_REGIONS.values():
+            region = region.upper()
+    return location_label(city, region, country_code) or 'Unknown'
+
 
 def public_ip(value):
     """Return a normalized globally routable IP, or None for local/special addresses."""
