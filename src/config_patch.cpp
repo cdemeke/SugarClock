@@ -1,5 +1,6 @@
 #include "config_patch.h"
 #include <string.h>
+#include <strings.h>
 #include <stdlib.h>
 #include <string>
 static_assert(sizeof(AppConfig::libre_patient_name)==sizeof(LibrePatient::name),"Libre person name sizes differ");
@@ -92,6 +93,16 @@ const Field fields[] = {
     {"countdown_name",offsetof(AppConfig,countdown_name),sizeof(((AppConfig*)0)->countdown_name),Kind::Text,0,2147483647,false},
     {"countdown_target",offsetof(AppConfig,countdown_target),sizeof(((AppConfig*)0)->countdown_target),Kind::ULong,0,2147483647,false},
 };
+// Scheme, credentials, host and port: everything a bearer token is presented to.
+size_t server_origin_length(const char* url) {
+ const char* host=strstr(url,"://");
+ if(!host) return strlen(url);
+ host+=3; return size_t(host-url)+strcspn(host,"/?#");
+}
+bool same_server_origin(const char* a,const char* b) {
+ size_t n=server_origin_length(a);
+ return n==server_origin_length(b) && !strncasecmp(a,b,n);
+}
 }
 void config_schema(JsonArray a) {
  for(const auto& f:fields) {
@@ -121,6 +132,7 @@ const char* config_patch(AppConfig& c,JsonObjectConst patch,bool web,const Libre
  if(patch.isNull()) return "invalid_patch";
  bool libre_identity_changed=false;
  char selected_before[sizeof(c.libre_patient_id)];memcpy(selected_before,c.libre_patient_id,sizeof(selected_before));
+ char server_before[sizeof(c.server_url)];memcpy(server_before,c.server_url,sizeof(server_before));
  for(JsonPairConst pair:patch) {
   // Match production precedence, independent of JSON key order.
   if(!strcmp(pair.key().c_str(),"ambient_creature") && !patch["ambient_character"].isNull()) continue;
@@ -157,6 +169,9 @@ const char* config_patch(AppConfig& c,JsonObjectConst patch,bool web,const Libre
    }
   }
  }
+ // A stored token belongs to the server it was entered for. Never present it to
+ // a different server unless the same patch supplies a token for that server.
+ if(!same_server_origin(server_before,c.server_url) && !*(patch["auth_token"]|"")) c.auth_token[0]=0;
  if(libre_identity_changed) {
   c.libre_region[0]=0;c.libre_patient_id[0]=0;c.libre_patient_name[0]=0;
  } else if(strcmp(c.libre_patient_id,selected_before)) {
