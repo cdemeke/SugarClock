@@ -22,8 +22,15 @@ class GlucoseSwitchTests(unittest.TestCase):
     def test_previous_and_current_configuration_journals(self):
         source = (ROOT / 'src/config_manager.cpp').read_text()
         block = source[source.index('    const char* journal_key='):source.index('    committed=config;')]
+        header = (ROOT / 'include/config_manager.h').read_text()
+        layout = header[header.index('struct AppConfig {'):header.index('\n};') + 3]
+        # Match the ESP32's 32-bit unsigned long on 64-bit host compilers.
+        layout = layout.replace('unsigned long countdown_target', 'uint32_t countdown_target')
+        previous = layout[:layout.index('    // Append-only: preserve all previous redo-journal field offsets.')]
+        previous = previous.replace('struct AppConfig {', 'struct PreviousAppConfig {') + '\n};'
         with tempfile.TemporaryDirectory() as tmp:
             (pathlib.Path(tmp) / 'glucose_journal.inc').write_text(block)
+            (pathlib.Path(tmp) / 'config_journal_layouts.inc').write_text(previous + '\n' + layout)
             exe = str(pathlib.Path(tmp) / 'glucose-journal')
             subprocess.run(['c++', '-std=c++17', '-Wall', '-Wextra', '-Werror', '-I'+tmp,
                             'tests/test_glucose_journal.cpp', '-o', exe], cwd=ROOT, check=True)
