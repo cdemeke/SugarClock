@@ -17,6 +17,7 @@ from .auth import admin_required, csrf_required
 from .db import get_db
 from . import telemetry, rollouts
 from .geolocation import location_label as format_detected_location
+from .geolocation import location_summary
 from .releases import import_manifest, synchronize
 from .util import (
     ApiError,
@@ -40,6 +41,9 @@ def _device_json(row, *, detail=False):
     detected_label = format_detected_location(
         row["detected_city"], row["detected_region"], row["detected_country_code"]
     )
+    detected_summary = location_summary(
+        row["detected_city"], row["detected_region"], row["detected_country_code"]
+    )
     value = {
         "id": row["id"],
         "installation_id": row["installation_id"],
@@ -51,6 +55,7 @@ def _device_json(row, *, detail=False):
                 "city": row["detected_city"],
                 "region": row["detected_region"],
                 "country_code": row["detected_country_code"],
+                "summary": detected_summary,
                 "checked_at": row["detected_location_checked_at"],
             }
             if detected_label

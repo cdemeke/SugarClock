@@ -1,15 +1,15 @@
 {% extends "base.html" %}
 {% block title %}Devices · SugarClock Fleet{% endblock %}
 {% block content %}
-<div class="heading"><div><h1>Devices</h1><p>{{ devices|length }} registered installations · New clocks connect automatically</p></div><a class="button" href="{{ url_for('admin.releases_page') }}">Deploy a release</a></div>
-<label>Find a clock<input type="search" id="device-search" placeholder="Nickname, installation ID, version, or location"></label>
-<p class="hint">Find the installation ID in a clock’s local settings, then open its row to give it a nickname.</p>
+<div class="heading"><div><h1><span data-i18n="Devices">Devices</span></h1><p>{{ devices|length }} <span data-i18n="registered installations · New clocks connect automatically">registered installations · New clocks connect automatically</span></p></div><a class="button" href="{{ url_for('admin.releases_page') }}"><span data-i18n="Deploy a release">Deploy a release</span></a></div>
+<label><span data-i18n="Find a clock">Find a clock</span><input type="search" id="device-search" placeholder="Nickname, installation ID, version, or location" data-i18n-placeholder="Nickname, installation ID, version, or location"></label>
+<p class="hint"><span data-i18n="Find the installation ID in a clock’s local settings, then open its row to give it a nickname.">Find the installation ID in a clock’s local settings, then open its row to give it a nickname.</span></p>
 <div class="card table-wrap">
   <table id="devices-table">
-    <thead><tr><th>Clock</th><th>Approximate location</th><th>Status</th><th>Firmware</th><th>Updates</th><th>Last seen</th></tr></thead>
+    <thead><tr><th><span data-i18n="Clock">Clock</span></th><th><span data-i18n="Approximate location">Approximate location</span></th><th><span data-i18n="Status">Status</span></th><th><span data-i18n="Firmware">Firmware</span></th><th><span data-i18n="Updates">Updates</span></th><th><span data-i18n="Last seen">Last seen</span></th></tr></thead>
     <tbody>
     {% for device in devices %}
-      <tr data-search="{{ (device.friendly_name ~ ' ' ~ device.installation_id ~ ' ' ~ device.firmware_version ~ ' ' ~ (device.detected_location.label if device.detected_location else ''))|lower }}">
+      <tr data-search="{{ (device.friendly_name ~ ' ' ~ device.installation_id ~ ' ' ~ device.firmware_version ~ ' ' ~ (device.detected_location.label if device.detected_location else ''))|lower }}" data-location="{{ device.detected_location.summary if device.detected_location else 'Unknown' }}">
         <td><a href="{{ url_for('admin.device_detail_page', device_id=device.id) }}">{{ device.friendly_name or device.installation_id[:8] }}</a><small>{{ device.installation_id[:8] }}</small></td>
         <td>{{ device.detected_location.label if device.detected_location else 'Not available' }}</td>
         <td><span class="pill {{ device.connectivity }}">{{ 'blocked' if device.blocked_at else device.connectivity }}</span></td>
@@ -17,12 +17,27 @@
         <td>{{ 'Fleet controlled' if device.rollout_capable else 'Legacy updater' }}<small>{{ device.last_ota_result or 'No update result' }}</small></td>
         <td data-time="{{ device.last_seen }}"></td>
       </tr>
-    {% else %}<tr><td colspan="6" class="empty">No clocks have connected yet. Install SugarClock and connect it to Wi-Fi to get started.</td></tr>{% endfor %}
+    {% else %}<tr><td colspan="6" class="empty"><span data-i18n="No clocks have connected yet. Install SugarClock and connect it to Wi-Fi to get started.">No clocks have connected yet. Install SugarClock and connect it to Wi-Fi to get started.</span></td></tr>{% endfor %}
     </tbody>
   </table>
 </div>
-<p class="hint">Counts represent installations, not unique people. An erased clock can acquire a new installation ID.</p>
+<p class="hint"><span data-i18n="Counts represent installations, not unique people. An erased clock can acquire a new installation ID.">Counts represent installations, not unique people. An erased clock can acquire a new installation ID.</span></p>
 {% endblock %}
 {% block scripts %}<script>
-document.querySelector('#device-search').addEventListener('input',event=>{const query=event.target.value.trim().toLowerCase();document.querySelectorAll('[data-search]').forEach(row=>row.hidden=!row.dataset.search.includes(query));});
+const deviceSearch=document.querySelector('#device-search');
+function filterDevices(){const query=deviceSearch.value.trim().toLowerCase();document.querySelectorAll('[data-search]').forEach(row=>row.hidden=!row.dataset.search.includes(query));}
+deviceSearch.addEventListener('input',filterDevices);
+// The overview links here with ?q= for free-text search (e.g. firmware version)
+// or ?location= for exact location matching.
+const params=new URLSearchParams(location.search);
+const initialLocation=params.get('location');
+const initialQuery=params.get('q');
+if(initialLocation){
+  deviceSearch.value=initialLocation;
+  const target=initialLocation.trim().toLowerCase();
+  document.querySelectorAll('[data-location]').forEach(row=>row.hidden=(row.dataset.location||'').toLowerCase()!==target);
+} else if(initialQuery){
+  deviceSearch.value=initialQuery;
+  filterDevices();
+}
 </script>{% endblock %}

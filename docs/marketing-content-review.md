@@ -1,31 +1,41 @@
-# Marketing content review — September 12, 2026
+# Marketing content review — September 12, 2026 (historical)
 
-Reviewed merged PRs #20–28, #30, #32, and #33 against current `main`, published GitHub releases, the installer metadata, and the public homepage/FAQ. README changes cover the new user-facing behavior. Website changes below are recommendations; no site content or deployment was changed in this review.
+This records the September 12 review of merged PRs #20–28, #30, #32, and #33 against the repository, published releases, installer metadata, and public homepage/FAQ **at that time**. Its original findings are historical context, not a current publishing checklist. No website content, installer binaries, or deployment is changed by this document.
 
-## Fix before promoting the new features
+## Status rechecked November 8, 2026
 
-| Location | Finding | Recommended change |
+Use these verified updates instead of the old release-dependent recommendations:
+
+| Topic | Current evidence and guidance |
+| --- | --- |
+| Released features | [v0.2.13 release notes](https://github.com/cdemeke/SugarClock/releases/tag/v0.2.13) include LibreLinkUp (#33), seven companions (#28), the dashboard redesign (#30), and the mmol/L fix (#32). The [browser manifest](manifest.json) and [installer artifact metadata](installer-artifacts.json) now specify **v0.2.15**; the Mac app's bundled firmware matches it. These features are included in those installer images. **Do not label them source-only or wait for their first release.** |
+| Release selection | The newest published non-prerelease is [v0.2.18](https://github.com/cdemeke/SugarClock/releases/tag/v0.2.18), published October 25. GitHub's [`/releases/latest`](https://github.com/cdemeke/SugarClock/releases/latest) currently selects v0.2.13. Use explicit tags and verify installer metadata separately; `VERSION` on `main` is not proof of distribution. |
+| Mac download | Neither v0.2.18 nor the release currently selected by `/releases/latest` contains a DMG. The repository homepage still labels that URL **Download Mac App**. Replace that promise with a verified DMG when available, or explain the browser-install/source-build route. The [README](../README.md#quick-start) now gives the latter route. |
+| Connection documentation | [PR #80](https://github.com/cdemeke/SugarClock/pull/80) merged November 8 and added a [guide hub](guides.html), [Dexcom guide](dexcom-blood-sugar-clock.html), [LibreLinkUp guide](freestyle-libre-display.html), and [Nightscout adapter guide](nightscout-clock.html). Preserve these guides and the README's adapter requirement rather than duplicating them or assuming raw Nightscout entries work. Repository content alone does not prove the public deployment is current. |
+| Newer source capabilities | Preserve the current README's safety warning, stale-data/low-glucose behavior, setup and iPhone-companion requirements, plus the site's localization. Do not advertise unreleased Bluetooth firmware as part of v0.2.15 or infer iOS distribution from a source merge. Recheck actual releases, hardware qualification, and distribution status before changing availability copy. |
+
+Installer verification for this refresh compared the committed binary hashes against `installer-artifacts.json` and the v0.2.15 release assets. The Mac setup app bundles the same firmware binary; it constructs its filesystem during setup. This checks artifact identity, not physical installation or CGM behavior.
+
+## Original findings — September 12 only
+
+| Location reviewed | Finding at the time | Original intent and subsequent status |
 | --- | --- | --- |
-| `docs/index.html`: hero, compatibility row, setup steps, install section | Libre is advertised, but the bundled installer is v0.2.2. Latest stable v0.2.6 also predates Libre, seven companions, the dashboard redesign, and the clock mmol/L fix. | Add a visible version/availability note beside Install. Until a release containing these changes is published and installer artifacts are refreshed, label them as available in latest source, not included in the current installer. Follow the existing tested-candidate promotion process before refreshing binaries and hashes. |
-| `docs/index.html`: Download Mac App | Links to `/releases/latest`, but v0.2.6 has no DMG. | Supply a verified DMG download when one is published; meanwhile explain the browser-install route instead of promising an app download. |
-| `docs/index.html` and `docs/faq.html`: Nightscout claims | `src/http_client.cpp` expects an object containing `glucose`, `timestamp`, and `trend`, with optional Bearer authentication. A standard Nightscout URL/entries response is not supported directly. The Mac Nightscout option only saves the site root. | Say “Custom JSON endpoint; Nightscout requires an adapter” and link to the README's format explanation. Avoid “any Nightscout-compatible setup.” |
-| `docs/faq.html`: Libre compatibility | Sensor-model lists imply broader guarantees than the follower integration itself establishes. | Explain that SugarClock reads data shared to a LibreLinkUp follower account through an unofficial API. Include person selection, account-action recovery, and the firmware availability requirement. |
+| `docs/index.html`: hero, compatibility row, setup steps, install section | Libre was advertised while bundled firmware was v0.2.2 and stable firmware was v0.2.6, both predating Libre, seven companions, the dashboard redesign, and the mmol/L fix. | Make install availability visible and promote tested firmware before advertising it as installed. The source-only restriction from this review is superseded by v0.2.13 and the v0.2.15 installer refresh. Continue using the tested-candidate process for future binary/hash updates. |
+| `docs/index.html`: Download Mac App | `/releases/latest` selected v0.2.6, with no DMG. | Point users to an actual downloadable artifact or explain another installation route. See the current Mac-download finding above. |
+| `docs/index.html` and `docs/faq.html`: Nightscout claims | The custom parser expected a `glucose`/`timestamp`/`trend` object, with optional Bearer authentication; a standard Nightscout root/entries response did not work directly. The Mac Nightscout option saved the site root. | Explain the adapter requirement rather than promising “any Nightscout-compatible setup.” The current README and connection guides now explain this; [the custom parser](../src/http_client.cpp) remains the implementation reference. |
+| `docs/faq.html`: Libre compatibility | Sensor-model lists implied guarantees beyond the follower integration. | Explain the unofficial LibreLinkUp follower API, person selection, and account-action recovery; avoid implying direct sensor connectivity. Preserve the newer setup/retry details and connection guide. |
 
-Evidence: [stable v0.2.6 assets](https://github.com/cdemeke/SugarClock/releases/tag/v0.2.6), [installer metadata](installer-artifacts.json), [Libre PR #33](https://github.com/cdemeke/SugarClock/pull/33), and [custom URL parser](../src/http_client.cpp). The source `VERSION` is 0.2.7; that label alone does not prove a release contains these merges.
+Historical evidence: [v0.2.6 assets](https://github.com/cdemeke/SugarClock/releases/tag/v0.2.6), [the installer-refresh PR #61](https://github.com/cdemeke/SugarClock/pull/61), and [Libre PR #33](https://github.com/cdemeke/SugarClock/pull/33). The source version was 0.2.7 on September 12; that label did not establish which merges were released.
 
-## Showcase what users can do
+## Showcase ideas to re-evaluate for future copy
 
-Add a short feature section to the homepage using existing artwork, with availability labels until the corresponding release ships:
+These ideas came from the original review. Check the current site and released behavior before scheduling more content; the listed feature PRs are evidence, not an outstanding implementation checklist.
 
-- **Choose a glucose-aware pixel pet.** Seven characters, pet + text, pet + range icon, or pet alone. Explain that urgent readings replace the pet with the number and missing/stale warnings take priority. Use [pixel-companions.png](images/pixel-companions.png). PRs #25, #27, #28.
-- **See your clock from your browser.** Live LED mirror plus a separate latest glucose reading, delta, and age, even while a different view plays. Mention mobile layout and light/dark mode. Use [configuration-display-pet.png](images/configuration-display-pet.png) for the settings preview; capture a dedicated dashboard image for the live mirror. PR #30.
-- **Use your preferred units.** mg/dL or one-decimal mmol/L on the clock and dashboard, including deltas. PR #32 and #30. Avoid implying this fix is already in v0.2.6.
-- **Keep firmware current over WiFi.** Signed updates, automatic-install controls, and rollback after failed startup validation. Explain that older layouts require a one-time USB migration. PR #21; this capability is already in stable releases.
+- **Choose a glucose-aware pixel companion.** Seven characters, companion + text, companion + range icon, or companion alone. Explain that urgent readings replace the companion with the number and missing/stale warnings take priority. Existing artwork: [pixel-companions.png](images/pixel-companions.png). PRs #25, #27, #28.
+- **See your clock from your browser.** Live LED mirror plus a separate latest glucose reading, delta, and age, even while a different view plays. Mention mobile layout and light/dark mode. [configuration-display-pet.png](images/configuration-display-pet.png) is a settings preview; use a current running dashboard capture when illustrating the mirror. PR #30.
+- **Use your preferred units.** mg/dL or one-decimal mmol/L on the clock and dashboard, including deltas. PRs #32 and #30; included in v0.2.13 and v0.2.15 installers.
+- **Keep firmware current over WiFi.** Signed updates, automatic-install controls, and rollback after failed startup validation. Older layouts require a one-time USB migration; preserve the current [migration guidance](BLE_MIGRATION.md). PR #21.
 
-## Make setup and FAQ more useful
+Useful setup/FAQ topics include the middle-button double-click address shortcut (#26), Libre person selection (#33), companion styles (#28), update controls (#21), and school/WPA2-Enterprise setup. Link existing answers and guides instead of duplicating them. The original gray stale-reading description is superseded: current source defaults to dim purple and uses a delivery allowance; preserve the README's current timing and safety caveats.
 
-Add answers covering the middle-button double-click shortcut (#26), gray stale readings and their configurable color (#20), Libre person selection (#33), companion styles (#28), and where to find update controls (#21). Explain that the redesigned settings hide buzzer controls while retaining existing settings; avoid presenting the quiet buzzer as a prominent feature (#30).
-
-The repository FAQ already documents school/WPA2-Enterprise setup, but the homepage does not highlight it. Link to that answer rather than duplicating the detailed instructions. Treat remote fleet management (#22–24) as an optional administrator feature requiring a deployed service and approved enrollment, not a standard consumer cloud dashboard.
-
-After publishing, verify the homepage, FAQ, installer manifest, firmware assets, and download targets together. The public FAQ response retrieved during this review lagged the Libre wording already present in `main`; confirm deployment/cache state before announcing availability.
+For fleet capabilities and reporting/privacy behavior, use the current [fleet documentation](../fleet/README.md); the original review predates later enrollment and reporting changes. For any future site update, preserve translations, safety notices, and current setup behavior. After publishing, verify the public homepage, FAQ, guides, installer manifest, firmware assets, and download targets together before announcing availability.

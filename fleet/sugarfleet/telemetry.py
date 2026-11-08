@@ -4,6 +4,7 @@ import datetime
 import json
 from flask import current_app
 from .util import ApiError, json_text, now_epoch
+from .geolocation import location_summary
 
 BOOLEAN_FEATURES = {
     "companion_enabled",
@@ -116,40 +117,18 @@ def overview(connection, now=None):
             "fleet_rollout_v1" not in json.loads(r["capabilities_json"]) for r in recent
         ),
     }
-    features = {
-        key: {"enabled": 0, "known": 0, "unknown": len(recent)}
-        for key in sorted(BOOLEAN_FEATURES)
-    }
-    categories = {key: {} for key in ("data_source", "companion_character")}
-    versions = {}
-    locations = {}
-    for row in recent:
-        location = (
-            ", ".join(
-                x for x in (row["detected_city"], row["detected_country_code"]) if x
-            )
-            or "Unknown"
-        )
-        locations[location] = locations.get(location, 0) + 1
-        versions[row["firmware_version"]] = versions.get(row["firmware_version"], 0) + 1
-        snapshot = json.loads(row["features_json"] or "{}")
-        for key in features:
-            if key in snapshot:
-                features[key]["enabled"] += int(snapshot[key])
-                features[key]["known"] += 1
-                features[key]["unknown"] -= 1
-        for key in categories:
-            category = str(snapshot.get(key, "unknown"))
-            categories[key][category] = categories[key].get(category, 0) + 1
+    breakdowns = {}
+    for days in (7, 30, 90, 'all'):
+        selected = [r for r in active if r["last_checkin_at"] and (
+            days == 'all' or r["last_checkin_at"] >= now - days * 86400
+        )]
+        breakdowns[str(days)] = _breakdown(selected)
+    distribution = breakdowns['30']
     ceiling = current_app.config["ENROLLMENT_MAX_DEVICES"]
     return {
         "counts": counts,
-        "feature_counts": features,
-        "category_counts": categories,
-        "version_counts": versions,
-        "location_counts": locations,
-        "source_counts": categories["data_source"],
-        "feature_denominator": len(recent),
+        **distribution,
+        "breakdowns": breakdowns,
         "activity_days": 30,
         "capacity": {
             "records": len(rows),
@@ -162,6 +141,40 @@ def overview(connection, now=None):
                 "SELECT * FROM daily_metrics ORDER BY day DESC LIMIT 90"
             )
         ],
+    }
+
+
+def _breakdown(rows):
+    """Latest snapshots for installations with a check-in in one time window."""
+    features = {
+        key: {"enabled": 0, "known": 0, "unknown": len(rows)}
+        for key in sorted(BOOLEAN_FEATURES)
+    }
+    categories = {key: {} for key in ("data_source", "companion_character")}
+    versions = {}
+    locations = {}
+    for row in rows:
+        location = location_summary(
+            row["detected_city"], row["detected_region"], row["detected_country_code"]
+        )
+        locations[location] = locations.get(location, 0) + 1
+        versions[row["firmware_version"]] = versions.get(row["firmware_version"], 0) + 1
+        snapshot = json.loads(row["features_json"] or "{}")
+        for key in features:
+            if key in snapshot:
+                features[key]["enabled"] += int(snapshot[key])
+                features[key]["known"] += 1
+                features[key]["unknown"] -= 1
+        for key in categories:
+            category = str(snapshot.get(key, "unknown"))
+            categories[key][category] = categories[key].get(category, 0) + 1
+    return {
+        "feature_counts": features,
+        "category_counts": categories,
+        "version_counts": versions,
+        "location_counts": locations,
+        "source_counts": categories["data_source"],
+        "feature_denominator": len(rows),
     }
 
 

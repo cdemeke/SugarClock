@@ -3,7 +3,7 @@ globalThis.startLiveDisplay = function ({canvas, status, onMode}) {
     let timer, controller, inFlight = false, stopped = false;
     let etag = null;
     function setStatus(message) {
-        if (status.textContent !== message) status.textContent = message;
+        if (status.textContent !== message) (globalThis.I18n ? I18n.text(status, message) : status.textContent = message);
     }
 
     function render(rgb) {

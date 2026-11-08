@@ -1,0 +1,10 @@
+[
+  {"name":"one-byte-request","hex":"010001000000010041","valid":true},
+  {"name":"one-byte-response","hex":"010101000000010041","valid":true},
+  {"name":"ack","hex":"0102010001000100","valid":true},
+  {"name":"idle","hex":"0101000000000000","valid":true},
+  {"name":"bad-version","hex":"020001000000010041","valid":false},
+  {"name":"oversize","hex":"0100010000000110","valid":false},
+  {"name":"offset-past-end","hex":"010001000200010041","valid":false},
+  {"name":"short","hex":"01000100","valid":false}
+]
