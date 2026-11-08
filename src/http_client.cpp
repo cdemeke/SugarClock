@@ -7,6 +7,7 @@
 #include "wifi_manager.h"
 #include "libre_client.h"
 #include "network_schedule.h"
+#include "service_trusted_roots.h"
 #include <time.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
@@ -112,8 +113,9 @@ static void record_reading(int glucose, unsigned long reading_timestamp) {
 // Helper: POST JSON to Dexcom endpoint, return response string
 static String dexcom_post(const char* url, const String& body, int& httpCode) {
     if(!config_snapshot().glucose_enabled) {httpCode=0;return "";}
+    // The Dexcom password and session only go to a verified Dexcom server.
     WiFiClientSecure client;
-    client.setInsecure();
+    client.setCACert(DEXCOM_TRUSTED_ROOTS_PEM);
     client.setTimeout(15);
 
     HTTPClient http;
@@ -226,7 +228,7 @@ static bool dexcom_fetch_glucose() {
              base, DEXCOM_GLUCOSE_PATH, dexcom_session_id);
 
     WiFiClientSecure client;
-    client.setInsecure();
+    client.setCACert(DEXCOM_TRUSTED_ROOTS_PEM);
     client.setTimeout(10);
 
     HTTPClient http;
@@ -367,8 +369,9 @@ static void generic_fetch() {
     AppConfig cfg = config_snapshot();
     if(!cfg.glucose_enabled) return;
 
+    // An unverified server could read the bearer token and supply false readings.
     WiFiClientSecure client;
-    client.setInsecure();
+    client.setCACert(CUSTOM_SERVER_TRUSTED_ROOTS_PEM);
     client.setTimeout(10);
 
     HTTPClient http;

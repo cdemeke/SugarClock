@@ -2,6 +2,7 @@
 #include "weather_client.h"
 #include "config_manager.h"
 #include "wifi_manager.h"
+#include "service_trusted_roots.h"
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
@@ -104,8 +105,9 @@ static bool weather_do_fetch(const AppConfig& cfg, WeatherSnapshot& result) {
     char url[300];
     build_weather_url(cfg, url, sizeof(url));
 
+    // The API key travels in the query string; send it only to OpenWeather.
     WiFiClientSecure client;
-    client.setInsecure();
+    client.setCACert(WEATHER_TRUSTED_ROOTS_PEM);
     client.setTimeout(10);
 
     HTTPClient http;
