@@ -1,0 +1,8 @@
+# Keeps the commit-SHA pins in .github/workflows current. Each bump arrives as a
+# reviewable pull request instead of a silently moved tag.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
