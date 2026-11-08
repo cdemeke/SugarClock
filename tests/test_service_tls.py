@@ -50,7 +50,8 @@ def chains_to(name, fixture):
         path = stream.name
     try:
         return subprocess.run(
-            ["openssl", "verify", "-no_check_time", "-CAfile", path,
+            # Only the bundle under test: never fall back to the system trust store.
+            ["openssl", "verify", "-no_check_time", "-no-CApath", "-no-CAstore", "-CAfile", path,
              os.path.join(ROOT, "tests", "fixtures", "tls", fixture)],
             capture_output=True, text=True,
         ).returncode == 0
