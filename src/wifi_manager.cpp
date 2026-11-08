@@ -39,9 +39,6 @@
 // 4-way handshake and is materially slower than PSK; 15s produced false failures.
 #define WIFI_CONNECT_TIMEOUT_MS   25000
 #define WIFI_RETRY_INTERVAL_MS    30000
-// How long the STA may keep failing before the setup portal comes up. The STA
-// keeps retrying underneath — the portal is additive, never a replacement.
-#define WIFI_SETUP_AP_AFTER_MS    120000
 // Grace period between a successful trial and tearing the AP down, so the
 // phone still on the AP has a chance to poll /api/wifi/status once more.
 #define WIFI_AP_SHUTDOWN_GRACE_MS 10000
@@ -284,6 +281,14 @@ static void portal_stop() {
     portal_shutdown_at_ms = 0;
     strncpy(ap_ip_buf, "0.0.0.0", sizeof(ap_ip_buf));
     Serial.println("[WIFI] Setup AP shut down");
+}
+
+bool wifi_open_setup_portal() {
+    if (portal_up) return true;
+    if (wifi_is_connected()) return false;
+    Serial.println("[WIFI] Setup portal opened from the clock");
+    portal_start();
+    return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -601,12 +606,9 @@ void wifi_loop() {
 
     if (first_failure_ms == 0) first_failure_ms = millis();
 
-    // Unconditional fallback: after two minutes of failure the portal comes up
-    // and stays up until something actually connects.
-    if (!portal_up && (millis() - first_failure_ms > WIFI_SETUP_AP_AFTER_MS)) {
-        Serial.println("[WIFI] No connection for 120s — bringing up setup portal");
-        portal_start();
-    }
+    // With WiFi already saved the open portal never starts by itself: anyone in
+    // radio range could otherwise knock the clock offline and take over its
+    // settings. Someone at the clock opens it with wifi_open_setup_portal().
 
     // Stop an ordinary in-flight retry when a phone joins the AP. Merely
     // suppressing the next retry is not enough: the current association can

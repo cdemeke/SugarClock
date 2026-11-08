@@ -85,6 +85,10 @@ WifiState wifi_get_state();
 // True while the setup portal AP is running
 bool wifi_is_ap_mode();
 
+// Open the setup portal on request from someone at the clock (button hold).
+// Only while the saved network is not connected; returns whether it is up.
+bool wifi_open_setup_portal();
+
 // Get AP mode IP address as string
 const char* wifi_get_ap_ip();
 
