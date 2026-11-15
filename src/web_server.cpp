@@ -222,6 +222,8 @@ static void handle_get_config(AsyncWebServerRequest* request) {
     doc["alert_low"] = cfg.alert_low;
     doc["alert_high"] = cfg.alert_high;
     doc["alert_snooze_min"] = cfg.alert_snooze_min;
+    doc["alarm_hz"] = cfg.alarm_hz;
+    doc["alarm_style"] = cfg.alarm_style;
 
     // Theme colors
     doc["color_urgent_low"] = color_to_hex(cfg.color_urgent_low);
@@ -704,6 +706,91 @@ static void handle_factory_reset(AsyncWebServerRequest* request) {
     ESP.restart();
 }
 
+// ---------------------------------------------------------------------------
+// Sound tests. Every test is time-limited; the buzzer task starts it and a
+// middle-button tap (snooze) or /api/test/sound/stop ends it early.
+
+// Reads an optional integer query parameter. False if present but malformed
+// or outside [lo, hi]; `value` keeps its default when absent.
+static bool sound_param(AsyncWebServerRequest* request, const char* name, long lo, long hi, long& value) {
+    if (!request->hasParam(name)) return true;
+    const char* text = request->getParam(name)->value().c_str();
+    char* end = nullptr;
+    long parsed = strtol(text, &end, 10);
+    if (end == text || *end || parsed < lo || parsed > hi) return false;
+    value = parsed;
+    return true;
+}
+
+static void send_sound_error(AsyncWebServerRequest* request, const char* error) {
+    char body[96];
+    snprintf(body, sizeof(body), "{\"ok\":false,\"error\":\"%s\"}", error);
+    request->send(400, "application/json", body);
+}
+
+static void send_sound_started(AsyncWebServerRequest* request, unsigned long duration_ms) {
+    char body[64];
+    snprintf(body, sizeof(body), "{\"ok\":true,\"duration_ms\":%lu}", duration_ms);
+    request->send(200, "application/json", body);
+}
+
+// POST /api/test/alarm?kind=urgent|warning|technical&seconds=1-300&freq=200-8000
+//      &style=steady|chirp|warble|siren|mix   (chirp=1 is short for style=chirp)
+// Pitch and style default to the saved alarm settings.
+static void handle_test_alarm(AsyncWebServerRequest* request) {
+    const AppConfig cfg = config_snapshot();
+    AlarmKind kind = request->hasParam("kind") ?
+        alarm_kind_from_name(request->getParam("kind")->value().c_str()) : ALARM_NONE;
+    long seconds = 30, hz = cfg.alarm_hz, chirp = 0;
+    AlarmStyle style = cfg.alarm_style >= 0 && cfg.alarm_style < ALARM_STYLE_COUNT
+        ? (AlarmStyle)cfg.alarm_style : ALARM_STYLE_STEADY;
+    if (kind == ALARM_NONE) return send_sound_error(request, "kind must be urgent, warning or technical");
+    if (!sound_param(request, "seconds", 1, 300, seconds)) return send_sound_error(request, "seconds must be 1-300");
+    if (!sound_param(request, "freq", 200, 8000, hz)) return send_sound_error(request, "freq must be 200-8000");
+    if (!sound_param(request, "chirp", 0, 1, chirp)) return send_sound_error(request, "chirp must be 0 or 1");
+    if (chirp) style = ALARM_STYLE_CHIRP;
+    if (request->hasParam("style")) {
+        style = alarm_style_from_name(request->getParam("style")->value().c_str());
+        if (style == ALARM_STYLE_COUNT) return send_sound_error(request, "style must be steady, chirp, warble, siren or mix");
+    }
+    buzzer_test_drill(kind, seconds * 1000UL, (uint16_t)hz, style);
+    send_sound_started(request, seconds * 1000UL);
+}
+
+// POST /api/test/tone?freq=200-8000&ms=50-10000[&style=name] (style plays continuously)
+static void handle_test_tone(AsyncWebServerRequest* request) {
+    long hz = ALARM_DEFAULT_HZ, ms = 1000;
+    if (!sound_param(request, "freq", 200, 8000, hz)) return send_sound_error(request, "freq must be 200-8000");
+    if (!sound_param(request, "ms", 50, 10000, ms)) return send_sound_error(request, "ms must be 50-10000");
+    AlarmStyle style = ALARM_STYLE_STEADY;
+    if (request->hasParam("style")) {
+        style = alarm_style_from_name(request->getParam("style")->value().c_str());
+        if (style == ALARM_STYLE_COUNT) return send_sound_error(request, "style must be steady, chirp, warble, siren or mix");
+    }
+    buzzer_test_tone((uint16_t)hz, ms, style);
+    send_sound_started(request, ms);
+}
+
+// POST /api/test/sweep?from=200-8000&to=200-8000&step=&ms=300-5000 (at most 100 steps)
+static void handle_test_sweep(AsyncWebServerRequest* request) {
+    long from = 2000, to = 4000, step = 100, ms = 1000;
+    if (!sound_param(request, "from", 200, 8000, from) || !sound_param(request, "to", 200, 8000, to)) {
+        return send_sound_error(request, "from and to must be 200-8000");
+    }
+    if (!sound_param(request, "step", 1, 7800, step)) return send_sound_error(request, "step must be 1-7800");
+    if (!sound_param(request, "ms", 300, 5000, ms)) return send_sound_error(request, "ms must be 300-5000");
+    const long steps = labs(to - from) / step + 1;
+    if (steps > 100) return send_sound_error(request, "at most 100 steps");
+    buzzer_test_sweep((uint16_t)from, (uint16_t)to, (uint16_t)step, ms);
+    send_sound_started(request, steps * ms);
+}
+
+// POST /api/test/sound/stop
+static void handle_test_sound_stop(AsyncWebServerRequest* request) {
+    buzzer_test_stop();
+    request->send(200, "application/json", "{\"ok\":true}");
+}
+
 
 // ---------------------------------------------------------------------------
 // WiFi setup portal API
@@ -884,6 +971,60 @@ static void handle_wifi_ca_delete(AsyncWebServerRequest* request) {
     request->send(200, "application/json", "{\"status\":\"ok\"}");
 }
 
+// Sends a built-in web asset straight from flash, keeping at most two TCP
+// segments unacknowledged. The library's own response fills the whole 5.7 KB
+// send window of every connection through a temporary heap buffer; when a
+// browser fetches several large files at once that exhausts the heap, the
+// transfers stall, and the 3 s receive timeout cuts them off (a page missing
+// its bottom half or its stylesheet). Two full segments are acked at once, so
+// throughput stays bound by the round trip, not the delayed-ack timer.
+#define ASSET_IN_FLIGHT_BYTES (2 * 1436)
+class FlashAssetResponse : public AsyncWebServerResponse {
+    const uint8_t* _data;
+    String _head;
+
+  public:
+    explicit FlashAssetResponse(const WebAsset& asset) : _data(asset.data) {
+        _code = 200;
+        _contentType = asset.mime_type;
+        _contentLength = asset.size;
+    }
+    bool _sourceValid() const override { return true; }
+    void _respond(AsyncWebServerRequest* request) override {
+        addHeader("Connection", "close", false);
+        _assembleHead(_head, request->version());
+        _state = RESPONSE_HEADERS;
+        _ack(request, 0, 0);
+    }
+    size_t _ack(AsyncWebServerRequest* request, size_t len, uint32_t) override {
+        _ackedLength += len;
+        AsyncClient* client = request->client();
+        size_t written = 0;
+        while (_state == RESPONSE_HEADERS || _state == RESPONSE_CONTENT) {
+            const size_t in_flight = _writtenLength - _ackedLength;
+            if (in_flight >= ASSET_IN_FLIGHT_BYTES) break;
+            const bool head = _state == RESPONSE_HEADERS;
+            const char* src = head ? _head.c_str() : (const char*)_data + _sentLength;
+            size_t n = head ? _head.length() : _contentLength - _sentLength;
+            if (!head && n > ASSET_IN_FLIGHT_BYTES - in_flight) n = ASSET_IN_FLIGHT_BYTES - in_flight;
+            if (n > client->space()) n = client->space();
+            if (n) n = client->write(src, n);
+            if (!n && !(head ? _head.isEmpty() : _sentLength == _contentLength)) break;
+            _writtenLength += n;
+            written += n;
+            if (head) {
+                _head = _head.substring(n);
+                if (_head.isEmpty()) _state = RESPONSE_CONTENT;
+            } else {
+                _sentLength += n;
+            }
+            if (_state == RESPONSE_CONTENT && _sentLength == _contentLength) _state = RESPONSE_WAIT_ACK;
+        }
+        if (_state == RESPONSE_WAIT_ACK && _ackedLength >= _writtenLength) _state = RESPONSE_END;
+        return written;
+    }
+};
+
 void webserver_init() {
     // LittleFS is only an optional config/certificate overlay. Embedded web
     // assets keep the UI and firmware atomic and remain available if it fails.
@@ -896,8 +1037,17 @@ void webserver_init() {
     for (size_t i = 0; i < get_web_assets_count(); ++i) {
         const WebAsset* asset = get_web_asset_at(i);
         server.on(asset->path, HTTP_GET, [asset](AsyncWebServerRequest* request) {
-            AsyncWebServerResponse* response = request->beginResponse(
-                200, asset->mime_type, asset->data, asset->size);
+            // The browser revalidates on every load (no-cache); an unchanged
+            // asset costs a few bytes instead of the whole file.
+            if (request->hasHeader("If-None-Match") &&
+                request->getHeader("If-None-Match")->value() == asset->etag) {
+                AsyncWebServerResponse* response = request->beginResponse(304);
+                response->addHeader("Cache-Control", "no-cache");
+                response->addHeader("ETag", asset->etag);
+                request->send(response);
+                return;
+            }
+            AsyncWebServerResponse* response = new FlashAssetResponse(*asset);
             if (asset->content_encoding) response->addHeader("Content-Encoding", asset->content_encoding);
             response->addHeader("Cache-Control", "no-cache");
             response->addHeader("ETag", asset->etag);
@@ -927,6 +1077,10 @@ void webserver_init() {
     server.on("/api/test/weather", HTTP_POST, [](AsyncWebServerRequest* r) { handle_test_weather(r); });
     server.on("/api/test/glucose/result", HTTP_GET, [](AsyncWebServerRequest* r) { handle_test_glucose_result(r); });
     server.on("/api/test/glucose", HTTP_POST, [](AsyncWebServerRequest* r) { handle_test_glucose(r); });
+    server.on("/api/test/alarm", HTTP_POST, [](AsyncWebServerRequest* r) { handle_test_alarm(r); });
+    server.on("/api/test/tone", HTTP_POST, [](AsyncWebServerRequest* r) { handle_test_tone(r); });
+    server.on("/api/test/sweep", HTTP_POST, [](AsyncWebServerRequest* r) { handle_test_sweep(r); });
+    server.on("/api/test/sound/stop", HTTP_POST, [](AsyncWebServerRequest* r) { handle_test_sound_stop(r); });
 
     // POST /api/test/weather-mock with body
     server.on("/api/test/weather-mock", HTTP_POST,

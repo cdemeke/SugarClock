@@ -49,6 +49,8 @@ const Field fields[] = {
     {"alert_low",offsetof(AppConfig,alert_low),sizeof(((AppConfig*)0)->alert_low),Kind::Int,20,600,false},
     {"alert_high",offsetof(AppConfig,alert_high),sizeof(((AppConfig*)0)->alert_high),Kind::Int,20,600,false},
     {"alert_snooze_min",offsetof(AppConfig,alert_snooze_min),sizeof(((AppConfig*)0)->alert_snooze_min),Kind::Int,1,120,false},
+    {"alarm_hz",offsetof(AppConfig,alarm_hz),sizeof(((AppConfig*)0)->alarm_hz),Kind::Int,200,8000,false},
+    {"alarm_style",offsetof(AppConfig,alarm_style),sizeof(((AppConfig*)0)->alarm_style),Kind::Int,0,4,false},
     {"color_urgent_low",offsetof(AppConfig,color_urgent_low),sizeof(((AppConfig*)0)->color_urgent_low),Kind::UInt,0,16777215,false},
     {"color_low",offsetof(AppConfig,color_low),sizeof(((AppConfig*)0)->color_low),Kind::UInt,0,16777215,false},
     {"color_in_range",offsetof(AppConfig,color_in_range),sizeof(((AppConfig*)0)->color_in_range),Kind::UInt,0,16777215,false},
