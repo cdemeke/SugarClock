@@ -47,10 +47,10 @@ static bool delta_flash_active = false;
 #define DELTA_FLASH_DURATION_MS 3000
 #define CONNECTION_INFO_TIMEOUT_MS 30000
 
-// Buzzer alert state (now using shared buzzer module)
-static unsigned long alert_snooze_until_ms = 0;
-static unsigned long last_beep_ms = 0;
-#define BEEP_INTERVAL_MS 10000  // beep every 10 seconds when alerting
+// Buzzer alarm state. Snooze stores its start, not its end, so the
+// comparison stays correct when millis() wraps around.
+static bool alert_snoozed = false;
+static unsigned long alert_snooze_start_ms = 0;
 
 #define RENDER_INTERVAL_MS 50   // ~20 FPS keeps fades smooth without blocking other work
 #define DISPLAY_FADE_MS    600  // slow fade out, swap frame, then fade in
@@ -232,40 +232,83 @@ static uint8_t effective_brightness() {
     return cfg.brightness;
 }
 
-// True while an unsnoozed buzzer alert is due for the current reading.
-static bool alert_is_sounding() {
+static bool alert_snooze_active() {
+    if (!alert_snoozed) return false;
+    const unsigned long length_ms = (unsigned long)config_get().alert_snooze_min * 60000UL;
+    if (millis() - alert_snooze_start_ms < length_ms) return true;
+    alert_snoozed = false;
+    return false;
+}
+
+#define NO_DATA_ALARM_MS (30UL * 60UL * 1000UL)  // technical alarm after 30 min
+#define ALARM_FLASH_BRIGHTNESS 200
+static uint16_t shown_sweep_hz = 0;
+static bool alarm_flash_on = false;
+
+// Alarm due for the current reading, ignoring snooze.
+static AlarmKind glucose_alarm_due() {
     AppConfig& cfg = config_get();
-    if (!cfg.glucose_enabled || !cfg.alert_enabled) return false;
+    if (!cfg.glucose_enabled || !cfg.alert_enabled) return ALARM_NONE;
+
+    // Pushed data (source 2) never goes stale. Otherwise, once data has been
+    // received, a long silence is itself an alarm.
+    unsigned long age = http_time_since_last_reading();
+    if (cfg.data_source != 2 && http_has_ever_received() && age >= NO_DATA_ALARM_MS) {
+        return ALARM_TECHNICAL;
+    }
 
     const GlucoseReading& reading = http_get_reading();
-    if (!reading.valid) return false;
+    if (!reading.valid) return ALARM_NONE;
 
-    // Check if snoozed
-    if (millis() < alert_snooze_until_ms) return false;
-
-    // Do not sound alerts if glucose data is stale
+    // Briefly stale data sounds nothing.
     unsigned long stale_ms = (unsigned long)cfg.stale_timeout_min * 60UL * 1000UL;
-    unsigned long age = http_time_since_last_reading();
     int failures = http_get_failure_count();
     bool is_stale = (cfg.data_source != 2) && (age >= stale_ms || failures >= FAILURE_STALE_COUNT);
-    if (is_stale) return false;
+    if (is_stale) return ALARM_NONE;
 
-    return reading.glucose < cfg.alert_low || reading.glucose > cfg.alert_high;
+    // Thresholds are not required to be ordered; urgent lows always escalate.
+    if (reading.glucose < cfg.thresh_urgent_low) return ALARM_URGENT;
+    if (reading.glucose < cfg.alert_low || reading.glucose > cfg.alert_high) return ALARM_WARNING;
+    return ALARM_NONE;
 }
 
+static AlarmKind select_alarm() {
+    return alert_snooze_active() ? ALARM_NONE : glucose_alarm_due();
+}
+
+// True while a glucose alarm or a sound test can be silenced by the button.
 bool engine_alert_sounding() {
-    return alert_is_sounding();
+    return select_alarm() != ALARM_NONE || buzzer_test_active();
 }
 
-// Handle buzzer alerts
-static void check_alerts() {
-    if (!alert_is_sounding()) return;
-
-    // Beep periodically using shared buzzer module
-    if (millis() - last_beep_ms >= BEEP_INTERVAL_MS) {
-        last_beep_ms = millis();
-        buzzer_beep(1, 2000, 200);
+// Urgent alarms flash the display bright in time with each pulse, even in
+// night mode. Runs every loop so the flash edges track the buzzer.
+static void update_alarm_flash() {
+    const bool on = buzzer_active_alarm() == ALARM_URGENT && buzzer_alarm_output_on();
+    const uint8_t normal = effective_brightness();
+    if (on) display_set_brightness(normal < ALARM_FLASH_BRIGHTNESS ? ALARM_FLASH_BRIGHTNESS : normal);
+    if (on != alarm_flash_on) {
+        alarm_flash_on = on;
+        if (!on) display_set_brightness(normal);
+        display_show();
     }
+}
+
+// Choose the glucose alarm and show the pitch of a running sweep test.
+static void check_alerts() {
+    const AppConfig& cfg = config_get();
+    const AlarmStyle style = cfg.alarm_style >= 0 && cfg.alarm_style < ALARM_STYLE_COUNT
+        ? (AlarmStyle)cfg.alarm_style : ALARM_STYLE_STEADY;
+    const uint16_t hz = cfg.alarm_hz >= 200 && cfg.alarm_hz <= 8000 ? cfg.alarm_hz : ALARM_DEFAULT_HZ;
+    buzzer_set_alarm(select_alarm(), hz, style);
+
+    const uint16_t sweep_hz = buzzer_sweep_hz();
+    if (sweep_hz != 0 && sweep_hz != shown_sweep_hz) {
+        char text[16];
+        snprintf(text, sizeof(text), "%u Hz", (unsigned)sweep_hz);
+        notify_push(text, 2, false);
+    }
+    shown_sweep_hz = sweep_hz;
 }
 
 static bool urgent_glucose_is_active() {
@@ -290,10 +333,19 @@ bool engine_urgent_glucose_active() {
     return urgent_glucose_is_active();
 }
 
-// Snooze alerts (called from button handler)
+// Snooze alerts (called from button handler). Also stops a sound test; when
+// only a test was playing, stopping it must not snooze real alarms.
 void engine_snooze_alerts() {
+    const bool testing = buzzer_test_active();
+    if (testing) buzzer_test_stop();
+    if (testing && glucose_alarm_due() == ALARM_NONE) {
+        Serial.println("[ENGINE] Sound test stopped");
+        return;
+    }
     AppConfig& cfg = config_get();
-    alert_snooze_until_ms = millis() + (cfg.alert_snooze_min * 60000UL);
+    alert_snoozed = true;
+    alert_snooze_start_ms = millis();
+    buzzer_set_alarm(ALARM_NONE);
     Serial.printf("[ENGINE] Alerts snoozed for %d minutes\n", cfg.alert_snooze_min);
 }
 
@@ -902,6 +954,8 @@ static void render_state(DisplayState state) {
 }
 
 void engine_loop() {
+    update_alarm_flash();
+
     // Throttle rendering
     if (millis() - last_render_ms < RENDER_INTERVAL_MS) return;
     last_render_ms = millis();
@@ -1004,8 +1058,10 @@ void engine_loop() {
     }
 
     render_state(current_state);
+    alarm_flash_on = false;  // render_state restored normal brightness
+    update_alarm_flash();
 
-    // Check buzzer alerts (non-blocking)
+    // Choose the buzzer alarm (non-blocking)
     check_alerts();
 }
 

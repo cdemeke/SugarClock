@@ -65,6 +65,8 @@ struct AppConfig {
     int alert_low;             // beep when below this, default 70
     int alert_high;            // beep when above this, default 250
     int alert_snooze_min;      // snooze duration in minutes, default 15
+    int alarm_hz;              // alarm pitch 200-8000 Hz, default 2800
+    int alarm_style;           // AlarmStyle: 0 steady, 1 chirp, 2 warble, 3 siren, 4 mix
 
     // Theme colors (stored as 24-bit RGB packed into uint32_t)
     uint32_t color_urgent_low;   // default 0xEA4335 (red)

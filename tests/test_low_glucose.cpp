@@ -56,6 +56,14 @@ int time_get_month() { return 1; }
 const char* time_get_month_abbr() { return "JAN"; }
 uint8_t sensors_get_auto_brightness() { return 40; }
 void buzzer_beep(int, int, int) {}
+static AlarmKind buzzer_alarm = ALARM_NONE;
+void buzzer_set_alarm(AlarmKind kind, uint16_t, AlarmStyle) { buzzer_alarm = kind; }
+AlarmKind buzzer_active_alarm() { return buzzer_alarm; }
+bool buzzer_alarm_output_on() { return false; }
+bool buzzer_test_active() { return false; }
+void buzzer_test_stop() {}
+uint16_t buzzer_sweep_hz() { return 0; }
+void notify_push(const char*, int, bool) {}
 void ambient_fish_init() {}
 void ambient_fish_render() {}
 void ambient_fish_interact() { ++button_actions; }

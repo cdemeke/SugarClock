@@ -441,8 +441,8 @@
                         </div>
                     </div>
 
-                    <div class="divider"></div>
-
+                    <details class="wifi-advanced">
+                        <summary><span data-i18n="Advanced">Advanced</span></summary>
                     <div class="form-row">
                         <div class="form-group">
                             <label><span data-i18n="Poll Interval (seconds)">Poll Interval (seconds)</span></label>
@@ -455,6 +455,7 @@
                             <div class="hint"><span data-i18n="Show stale color after this long">Show stale color after this long</span></div>
                         </div>
                     </div>
+                    </details>
 
                     <div class="divider"></div>
                     <div style="display:flex;align-items:center;gap:12px;">
@@ -509,6 +510,56 @@
                             <input type="number" id="thresh_urgent_high" min="150" max="400" value="250">
                         </div>
                     </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header-toggle">
+                        <h2>Glucose Alarm</h2>
+                        <input type="checkbox" id="alert_enabled" aria-label="Glucose alarm">
+                    </div>
+                    <div class="card-details" id="alert-details">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="alert_low">Alarm below (mg/dL)</label>
+                                <input type="number" id="alert_low" min="20" max="600" value="70">
+                            </div>
+                            <div class="form-group">
+                                <label for="alert_high">Alarm above (mg/dL)</label>
+                                <input type="number" id="alert_high" min="20" max="600" value="250">
+                            </div>
+                        </div>
+                        <div class="hint">Below Urgent Low the clock plays the urgent alarm and flashes the display, even in night mode. After 30 minutes without new data it plays a "no data" alarm.</div>
+                        <div class="form-group" style="margin-top:12px;">
+                            <label for="alert_snooze">Snooze (minutes)</label>
+                            <input type="number" id="alert_snooze" min="1" max="120" value="15">
+                            <div class="hint">Tap the middle button to snooze an alarm or stop a test.</div>
+                        </div>
+                    </div>
+                        <div class="form-row" style="margin-top:16px;grid-template-columns:2fr 1fr;">
+                            <div class="form-group">
+                                <label for="alarm_style">Sound</label>
+                                <select id="alarm_style">
+                                    <option value="0">Steady beeps</option>
+                                    <option value="1">Rising chirp</option>
+                                    <option value="2">Warble</option>
+                                    <option value="3">Siren</option>
+                                    <option value="4">Mix (changes every repeat)</option>
+                                </select>
+                                <div style="display:flex;gap:8px;margin-top:8px;">
+                                    <button type="button" class="btn btn-test btn-sm" id="alarm-play-btn">Play sound</button>
+                                    <button type="button" class="btn btn-outline btn-sm" id="alarm-stop-btn">Stop</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="alarm_hz">Pitch</label>
+                                <select id="alarm_hz">
+                                    <option value="2000">2000 Hz</option>
+                                    <option value="2500">2500 Hz</option>
+                                    <option value="2800" selected>2800 Hz (default)</option>
+                                    <option value="3000">3000 Hz</option>
+                                </select>
+                            </div>
+                        </div>
                 </div>
 
                 <div class="card">
@@ -1043,6 +1094,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 ['countdown_enabled', 'countdown-details'],
                 ['weather_enabled', 'weather-details'],
                 ['notify_enabled', 'notify-details'],
+                ['alert_enabled', 'alert-details'],
                 ['sysmon_enabled', 'sysmon-details']
             ].forEach(([cbId, detId]) => {
                 const cb = document.getElementById(cbId);
@@ -1481,6 +1533,12 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 document.getElementById('notify_enabled').checked = c.notify_enabled !== false;
                 document.getElementById('notify_default_duration').value = c.notify_default_duration || 60;
                 document.getElementById('notify_allow_buzzer').checked = c.notify_allow_buzzer !== false;
+                document.getElementById('alert_enabled').checked = c.alert_enabled === true;
+                document.getElementById('alert_low').value = c.alert_low || 70;
+                document.getElementById('alert_high').value = c.alert_high || 250;
+                document.getElementById('alert_snooze').value = c.alert_snooze_min || 15;
+                document.getElementById('alarm_style').value = c.alarm_style >= 0 && c.alarm_style <= 4 ? c.alarm_style : 0;
+                setAlarmPitch(c.alarm_hz || 2800);
                 document.getElementById('sysmon_enabled').checked = c.sysmon_enabled !== false;
                 document.getElementById('sysmon_label').value = c.sysmon_label || 'CPU';
                 document.getElementById('sysmon_display_mode').value = c.sysmon_display_mode || 0;
@@ -1498,6 +1556,9 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             e.preventDefault();
             const poll = parseInt(document.getElementById('poll_interval').value);
             if (poll < 15) { showToast('Poll interval must be >= 15s', 'error'); return; }
+            if (parseInt(document.getElementById('alert_low').value) >= parseInt(document.getElementById('alert_high').value)) {
+                showToast('Alarm below must be less than alarm above', 'error'); return;
+            }
 
             const tzCustom = document.getElementById('timezone_custom').value.trim();
 
@@ -1565,6 +1626,12 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 notify_enabled: document.getElementById('notify_enabled').checked,
                 notify_default_duration: parseInt(document.getElementById('notify_default_duration').value),
                 notify_allow_buzzer: document.getElementById('notify_allow_buzzer').checked,
+                alert_enabled: document.getElementById('alert_enabled').checked,
+                alert_low: parseInt(document.getElementById('alert_low').value),
+                alert_high: parseInt(document.getElementById('alert_high').value),
+                alert_snooze_min: parseInt(document.getElementById('alert_snooze').value),
+                alarm_style: parseInt(document.getElementById('alarm_style').value),
+                alarm_hz: parseInt(document.getElementById('alarm_hz').value),
                 sysmon_enabled: document.getElementById('sysmon_enabled').checked,
                 sysmon_label: document.getElementById('sysmon_label').value,
                 sysmon_display_mode: parseInt(document.getElementById('sysmon_display_mode').value),
@@ -1583,6 +1650,37 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                     updateWeatherKeyState();
                 }
             } catch (e) { showToast('Network error', 'error'); }
+        });
+
+        // Glucose alarm sound tests: play the unsaved choices on the clock.
+        const ALARM_STYLE_NAMES = ['steady', 'chirp', 'warble', 'siren', 'mix'];
+        const alarmPitch = () => Math.min(8000, Math.max(200, parseInt(document.getElementById('alarm_hz').value) || 2800));
+        // Keeps a saved pitch that is not one of the choices (set from an older
+        // version or the API) instead of silently changing it.
+        function setAlarmPitch(hz) {
+            const select = document.getElementById('alarm_hz');
+            if (![...select.options].some(o => o.value === String(hz))) select.add(new Option(hz + ' Hz', hz));
+            select.value = String(hz);
+        }
+        async function alarmTest(path, message) {
+            try {
+                // The clock may drop a connection while it is busy; try once more.
+                const send = () => fetch('/api/test/' + path, { method: 'POST' });
+                const r = await send().catch(() => new Promise(resolve => setTimeout(resolve, 400)).then(send));
+                const result = await r.json().catch(() => ({}));
+                showToast(r.ok ? message || 'Playing on the clock. Tap the middle button or Stop to end.' : result.error || 'Test failed',
+                    r.ok ? 'success' : 'error');
+            } catch (e) { showToast('Network error', 'error'); }
+        }
+        document.getElementById('alarm-play-btn').addEventListener('click', () => {
+            const select = document.getElementById('alarm_style');
+            const mix = select.value === '4';
+            alarmTest('tone?style=' + (ALARM_STYLE_NAMES[select.value] || 'steady') + '&freq=' + alarmPitch() +
+                '&ms=' + (mix ? 6000 : 3000), 'Playing ' + select.selectedOptions[0].textContent + ' at ' + alarmPitch() + ' Hz.');
+        });
+        document.getElementById('alarm-stop-btn').addEventListener('click', async () => {
+            try { await fetch('/api/test/sound/stop', { method: 'POST' }); showToast('Stopped', 'success'); }
+            catch (e) { showToast('Network error', 'error'); }
         });
 
         // Test notification button

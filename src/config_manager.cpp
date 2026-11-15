@@ -1,4 +1,5 @@
 #include "config_manager.h"
+#include "alarm_pattern.h"
 #include "config_transaction.h"
 #include "companion.h"
 #include <Preferences.h>
@@ -87,6 +88,8 @@ static void config_set_defaults() {
     config.alert_low = 70;
     config.alert_high = 250;
     config.alert_snooze_min = 15;
+    config.alarm_hz = ALARM_DEFAULT_HZ;
+    config.alarm_style = 0;
 
     // Theme colors
     config.color_urgent_low  = 0xEA4335;
@@ -307,6 +310,10 @@ void config_init() {
         config.alert_low = prefs.getInt("alert_low", 70);
         config.alert_high = prefs.getInt("alert_high", 250);
         config.alert_snooze_min = prefs.getInt("alert_snz", 15);
+        config.alarm_hz = prefs.getInt("alarm_hz", ALARM_DEFAULT_HZ);
+        if (config.alarm_hz < 200 || config.alarm_hz > 8000) config.alarm_hz = ALARM_DEFAULT_HZ;
+        config.alarm_style = prefs.getInt("alarm_style", 0);
+        if (config.alarm_style < 0 || config.alarm_style >= ALARM_STYLE_COUNT) config.alarm_style = 0;
 
         // Theme colors
         config.color_urgent_low  = prefs.getUInt("c_ulow", 0xEA4335);
@@ -491,6 +498,8 @@ bool config_save() {
     ok = (prefs.putInt("alert_low", config.alert_low) > 0) && ok;
     ok = (prefs.putInt("alert_high", config.alert_high) > 0) && ok;
     ok = (prefs.putInt("alert_snz", config.alert_snooze_min) > 0) && ok;
+    ok = (prefs.putInt("alarm_hz", config.alarm_hz) > 0) && ok;
+    ok = (prefs.putInt("alarm_style", config.alarm_style) > 0) && ok;
 
     // Theme colors
     ok = (prefs.putUInt("c_ulow", config.color_urgent_low) > 0) && ok;

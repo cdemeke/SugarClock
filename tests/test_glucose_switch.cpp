@@ -1,13 +1,14 @@
 #include "config_manager.h"
 #include "glucose_engine.h"
+#include "buzzer.h"
+#include <cstdio>
 #include <cassert>
 #include <cstring>
 #include <climits>
 AppConfig cfg{};
 AppConfig& config_get() {return cfg;}
 unsigned long now=10000,boot_start_ms=0,last_cycle_ms=0,connection_info_expires_ms=0;
-unsigned long alert_snooze_until_ms=0,last_beep_ms=0;
-constexpr unsigned BEEP_INTERVAL_MS=1000;
+bool alert_snoozed=false;unsigned long alert_snooze_start_ms=0;
 constexpr int FAILURE_STALE_COUNT=3,FAILURE_NODATA_COUNT=5;
 unsigned long millis() {return now;}
 bool connection_info_visible=false,state_forced=false;
@@ -35,8 +36,17 @@ constexpr int NC_FAIL=2;
 int dnsResult=1,dataResult=1;
 int netcheck_dns() {return dnsResult;}int netcheck_data() {return dataResult;}
 bool notify_has_active() {return false;}
-unsigned beeps=0;
-void buzzer_beep(int,int,int) {++beeps;}
+AlarmKind alarm=ALARM_NONE;
+uint16_t alarm_hz=0;AlarmStyle alarm_style=ALARM_STYLE_COUNT;
+void buzzer_set_alarm(AlarmKind kind,uint16_t hz,AlarmStyle style) {alarm=kind;alarm_hz=hz;alarm_style=style;}
+AlarmKind buzzer_active_alarm() {return alarm;}
+bool buzzer_alarm_output_on() {return false;}
+bool buzzer_test_active() {return false;}
+uint16_t buzzer_sweep_hz() {return 0;}
+void notify_push(const char*,int,bool) {}
+void display_set_brightness(uint8_t) {}
+void display_show() {}
+uint8_t effective_brightness() {return 40;}
 bool engine_low_glucose_lock_active() { return false; }
 #include "glucose_switch.inc"
 int main() {
@@ -57,12 +67,15 @@ int main() {
  weatherReady=true;cfg.weather_enabled=false;
  engine_rebuild_toggle_order();assert(toggle_count==4);
  weatherReady=false;
- check_alerts();assert(beeps==1);assert(urgent_glucose_is_active());
+ cfg.alarm_hz=2700;cfg.alarm_style=ALARM_STYLE_WARBLE;
+ check_alerts();assert(alarm==ALARM_URGENT && alarm_hz==2700 && alarm_style==ALARM_STYLE_WARBLE);assert(urgent_glucose_is_active());update_alarm_flash();
+ // Out-of-range saved values fall back to the defaults.
+ cfg.alarm_hz=50;cfg.alarm_style=9;check_alerts();assert(alarm_hz==ALARM_DEFAULT_HZ && alarm_style==ALARM_STYLE_STEADY);
  // A failed earlier reachability probe cannot obscure recovered fresh glucose,
  // including urgent low readings. Actual missing/stale data retains diagnostics.
  dataResult=NC_FAIL;
  assert(evaluate_state()==STATE_GLUCOSE_DISPLAY);
- now+=2000;check_alerts();assert(beeps==2);
+ now+=2000;alarm=ALARM_NONE;check_alerts();assert(alarm==ALARM_URGENT);
  dnsResult=NC_FAIL;assert(evaluate_state()==STATE_GLUCOSE_DISPLAY);
  readingAge=20UL*60*1000;assert(evaluate_state()==STATE_NET_LIMITED);
  readingAge=0;failures=FAILURE_STALE_COUNT;assert(evaluate_state()==STATE_NET_LIMITED);
@@ -71,7 +84,7 @@ int main() {
  ever=true;dnsResult=dataResult=1;
  cfg.glucose_enabled=false;now+=2000;
  // Even an old valid urgent reading or a forced glucose view cannot override Off.
- check_alerts();assert(beeps==2);assert(!urgent_glucose_is_active());
+ check_alerts();assert(alarm==ALARM_NONE);assert(!urgent_glucose_is_active());
  state_forced=true;reading.force_mode=STATE_GLUCOSE_DISPLAY;
  engine_rebuild_toggle_order();assert(toggle_count==2 && user_mode==STATE_TIME_DISPLAY);
  assert(evaluate_state()==STATE_TIME_DISPLAY);
