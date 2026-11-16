@@ -45,6 +45,9 @@
 // Grace period between a successful trial and tearing the AP down, so the
 // phone still on the AP has a chance to poll /api/wifi/status once more.
 #define WIFI_AP_SHUTDOWN_GRACE_MS 10000
+// Longest a phone sitting on the setup AP may pause home-network retries. The
+// AP is open, so without a limit anyone nearby could keep the clock offline.
+#define WIFI_PORTAL_HOLD_MAX_MS   600000
 
 #define SETUP_AP_SSID "SugarClock-Setup"
 
@@ -58,6 +61,9 @@ static WifiState state = WIFI_ST_IDLE;
 static unsigned long attempt_start_ms = 0;
 static unsigned long retry_wait_start_ms = 0;
 static unsigned long first_failure_ms = 0;
+static unsigned long portal_hold_since_ms = 0;
+static bool portal_holding = false;
+static bool portal_forced_retry = false;
 static bool portal_up = false;
 static unsigned long portal_shutdown_at_ms = 0;
 static bool boot_connect_pending = false;
@@ -575,6 +581,7 @@ void wifi_loop() {
             state = WIFI_ST_CONNECTED;
             status_str = "CONNECTED";
             first_failure_ms = 0;
+            portal_forced_retry = false;
             if (portal_up && portal_shutdown_at_ms == 0) {
                 portal_shutdown_at_ms = millis() + WIFI_AP_SHUTDOWN_GRACE_MS;
             }
@@ -608,10 +615,23 @@ void wifi_loop() {
         portal_start();
     }
 
+    // A phone on the portal pauses retries, but only for WIFI_PORTAL_HOLD_MAX_MS
+    // at a time; then one attempt runs even with the phone still connected.
+    bool portal_hold = false;
+    if (portal_up && WiFi.softAPgetStationNum() > 0) {
+        if (!portal_holding) {
+            portal_holding = true;
+            portal_hold_since_ms = millis();
+        }
+        portal_hold = millis() - portal_hold_since_ms < WIFI_PORTAL_HOLD_MAX_MS;
+    } else {
+        portal_holding = false;
+    }
+
     // Stop an ordinary in-flight retry when a phone joins the AP. Merely
     // suppressing the next retry is not enough: the current association can
     // still retune the shared radio and kick the phone off mid-form.
-    if (portal_up && WiFi.softAPgetStationNum() > 0 && state == WIFI_ST_CONNECTING) {
+    if (portal_hold && !portal_forced_retry && state == WIFI_ST_CONNECTING) {
         WiFi.disconnect(false);
         state = WIFI_ST_RETRY_WAIT;
         retry_wait_start_ms = millis();
@@ -625,13 +645,18 @@ void wifi_loop() {
             state = WIFI_ST_RETRY_WAIT;
             status_str = portal_up ? "SETUP AP" : "TIMEOUT";
             retry_wait_start_ms = millis();
+            if (portal_forced_retry) {
+                // Start a fresh pause for whoever is still on the portal.
+                portal_forced_retry = false;
+                portal_hold_since_ms = millis();
+            }
         }
         return;
     }
 
     // Retry pause: re-associating retunes the shared radio and kicks every phone
     // off the setup AP, so hold off while someone is on the portal.
-    if (portal_up && WiFi.softAPgetStationNum() > 0) {
+    if (portal_hold) {
         status_str = "SETUP AP";
         return;
     }
@@ -640,7 +665,9 @@ void wifi_loop() {
         (millis() - retry_wait_start_ms > WIFI_RETRY_INTERVAL_MS)) {
         WifiTrialParams p;
         params_from_config(p);
-        Serial.printf("[WIFI] Retrying connection to '%s'...\n", p.ssid);
+        portal_forced_retry = portal_up && WiFi.softAPgetStationNum() > 0;
+        Serial.printf("[WIFI] Retrying connection to '%s'%s...\n", p.ssid,
+                      portal_forced_retry ? " despite a setup-portal client" : "");
         start_attempt(p);
     }
 }
