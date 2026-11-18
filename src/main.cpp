@@ -161,6 +161,9 @@ void loop() {
         if (evt == BTN_PAIRING) {
             engine_dismiss_connection_info();
             ble_pairing_window();
+            // The same physical recovery gesture opens the WiFi setup network
+            // when saved WiFi is not working.
+            wifi_open_setup_portal();
         } else if ((evt == BTN_MIDDLE_SHORT || evt == BTN_MIDDLE_DOUBLE) &&
                    engine_alert_sounding()) {
             // Any middle tap silences a sounding alert instead of changing

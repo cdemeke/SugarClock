@@ -186,9 +186,11 @@ On first boot with no WiFi configured, the clock starts an open network named
    select **Join this network**.
 5. The clock tests the credentials first and saves them only after the connection succeeds.
 
-If saved WiFi cannot connect, the same setup network starts automatically after about two
-minutes. The clock continues retrying the saved network whenever no phone is using the setup
-page.
+If saved WiFi cannot connect (new router, changed password, or a different building), hold
+the clock's middle button for about three seconds. This opens the same `SugarClock-Setup`
+network (and Bluetooth pairing for the iPhone app). Once WiFi has been saved, the open setup
+network never starts by itself, so nobody nearby can join it while the clock is offline.
+The clock keeps retrying the saved network in the background.
 
 ### School and WPA2-Enterprise WiFi
 
