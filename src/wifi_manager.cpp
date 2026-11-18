@@ -152,8 +152,10 @@ static void on_wifi_event(WiFiEvent_t event, WiFiEventInfo_t info) {
 }
 
 // Configure the 802.1X supplicant for the next WiFi.begin(). Must run after the
-// WiFi driver is up (WiFi.mode) and before begin().
-static void enterprise_apply(const WifiTrialParams& p) {
+// WiFi driver is up (WiFi.mode) and before begin(). Returns false when the user
+// asked for server-certificate validation but the CA cannot be loaded: sending
+// the password to an unverified RADIUS server would defeat that setting.
+static bool enterprise_apply(const WifiTrialParams& p) {
     // Outer identity. Blank means "use the real username", which is what a phone
     // does by default.
     const char* anon = (p.anon_identity[0] != '\0') ? p.anon_identity : p.identity;
@@ -176,9 +178,12 @@ static void enterprise_apply(const WifiTrialParams& p) {
             // +1: the supplicant expects the terminating NUL to be counted
             EAP_SET_CA_CERT((const uint8_t*)ca_pem, n + 1);
             ca_loaded = true;
-        } else {
-            Serial.println("[WIFI] CA certificate is empty or too large; validation disabled for this attempt");
         }
+    }
+    if (p.validate_ca && !ca_loaded) {
+        Serial.println("[WIFI] CA validation is on but the certificate is missing, empty or too large; not connecting");
+        EAP_DISABLE();
+        return false;
     }
     if (!ca_loaded) {
         // Default: no server-certificate validation. This is the same trust
@@ -193,6 +198,7 @@ static void enterprise_apply(const WifiTrialParams& p) {
     Serial.printf("[WIFI] Enterprise: method=%s identity='%s' ca=%s\n",
                   p.eap_method == 1 ? "TTLS" : "PEAP", p.identity,
                   ca_loaded ? "validated" : "trusted");
+    return true;
 }
 
 // Start one association attempt with the given credentials.
@@ -204,8 +210,13 @@ static void start_attempt(const WifiTrialParams& p) {
     WiFi.disconnect(false);
 
     if (p.security == 1) {
-        enterprise_apply(p);
-        WiFi.begin(p.ssid);
+        if (enterprise_apply(p)) {
+            WiFi.begin(p.ssid);
+        } else {
+            // Report a decisive authentication failure without associating.
+            last_disconnect_reason = WIFI_REASON_802_1X_AUTH_FAILED;
+            disconnect_count = 3;
+        }
     } else {
         // Leaving stale EAP state enabled would break a later personal network
         EAP_DISABLE();
