@@ -13,26 +13,22 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  release:
+  # Runs the candidate's own tests without access to the signing key.
+  verify:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.identity.outputs.version }}
+      candidate_commit: ${{ steps.identity.outputs.candidate_commit }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ inputs.candidate_tag }}
           fetch-depth: 0
-      - name: Load publishing guard from workflow revision
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.workflow_sha }}
-          path: publishing-policy
-      - name: Capture pinned legacy update offer
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: python3 publishing-policy/scripts/release_guard.py --repository "${{ github.repository }}" snapshot --output "${{ runner.temp }}/latest-before.json"
-      - uses: actions/setup-python@v5
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.11"
           cache: pip
@@ -40,7 +36,8 @@ jobs:
             requirements-build.txt
             fleet/requirements.txt
       - run: pip install -r requirements-build.txt -r fleet/requirements.txt
-      - name: Verify candidate identity and tests
+      - name: Verify candidate identity
+        id: identity
         env:
           GH_TOKEN: ${{ github.token }}
           CANDIDATE_TAG: ${{ inputs.candidate_tag }}
@@ -52,28 +49,56 @@ jobs:
           candidate_commit="$(git rev-list -n 1 "${CANDIDATE_TAG}")"
           test "${candidate_commit}" = "$(git rev-parse HEAD)"
           test "$(gh release view "${CANDIDATE_TAG}" --json isPrerelease --jq .isPrerelease)" = true
-          ! gh release view "v${version}" >/dev/null 2>&1
-          python -m unittest discover -s tests -v
+          # A bare "! command" does not trip errexit; fail explicitly.
+          if gh release view "v${version}" >/dev/null 2>&1; then
+            echo "Stable release v${version} already exists" >&2
+            exit 1
+          fi
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "candidate_commit=${candidate_commit}" >> "${GITHUB_OUTPUT}"
+      - name: Run candidate tests
+        run: python -m unittest discover -s tests -v
+
+  # Holds the signing key. Executes only this workflow revision's own signing and
+  # guard scripts against the already-published candidate files.
+  sign-and-publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: ota-signing
+    permissions:
+      contents: write
+    steps:
+      - name: Load signing and publishing tools from workflow revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: publishing-policy
+          persist-credentials: false
+      - name: Capture pinned legacy update offer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 publishing-policy/scripts/release_guard.py --repository "${{ github.repository }}" snapshot --output "${{ runner.temp }}/latest-before.json"
       - name: Download and verify the tested candidate
         env:
           GH_TOKEN: ${{ github.token }}
           CANDIDATE_TAG: ${{ inputs.candidate_tag }}
+          VERSION: ${{ needs.verify.outputs.version }}
         shell: bash
         run: |
           set -euo pipefail
-          version="$(tr -d '\r\n' < VERSION)"
+          [[ "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
           mkdir -p candidate release
-          gh release download "${CANDIDATE_TAG}" --dir candidate
-          python scripts/ota_manifest.py verify \
+          gh release download "${CANDIDATE_TAG}" --repo "${{ github.repository }}" --dir candidate
+          python3 publishing-policy/scripts/ota_manifest.py verify \
             --manifest candidate/ota-manifest.json \
             --channel preview \
-            --public-key keys/ota-release-2026-01-public.pem
-          test -s "candidate/sugarclock-v${version}.bin"
+            --public-key publishing-policy/keys/ota-release-2026-01-public.pem
+          test -s "candidate/sugarclock-v${VERSION}.bin"
           test -s candidate/bootloader.bin
           test -s candidate/partitions.bin
           test -s candidate/boot_app0.bin
           test -s candidate/littlefs.bin
-          python - "candidate/ota-manifest.json" "candidate/sugarclock-v${version}.bin" <<'PY'
+          python3 - "candidate/ota-manifest.json" "candidate/sugarclock-v${VERSION}.bin" <<'PY'
           import hashlib, json, pathlib, sys
           manifest = json.loads(pathlib.Path(sys.argv[1]).read_text())
           actual = hashlib.sha256(pathlib.Path(sys.argv[2]).read_bytes()).hexdigest()
@@ -81,48 +106,50 @@ jobs:
               raise SystemExit("candidate firmware hash does not match its signed manifest")
           PY
           cp candidate/mobile-protocol.json candidate/SUGARCLOCK_BLE_V1.md candidate/BLE_MIGRATION.md release/
-          cp "candidate/sugarclock-v${version}.bin" candidate/bootloader.bin \
+          cp "candidate/sugarclock-v${VERSION}.bin" candidate/bootloader.bin \
             candidate/partitions.bin candidate/boot_app0.bin candidate/littlefs.bin release/
       - name: Generate and verify stable manifest for the same binary
         env:
           OTA_SIGNING_KEY_B64: ${{ secrets.OTA_SIGNING_KEY_B64 }}
+          VERSION: ${{ needs.verify.outputs.version }}
         shell: bash
         run: |
           set -euo pipefail
           : "${OTA_SIGNING_KEY_B64:?OTA_SIGNING_KEY_B64 secret is required}"
-          version="$(tr -d '\r\n' < VERSION)"
+          printf '%s\n' "${VERSION}" > "${RUNNER_TEMP}/VERSION"
           key_file="$(mktemp)"
           cleanup() { rm -f "${key_file}"; }
           trap cleanup EXIT
           printf '%s' "${OTA_SIGNING_KEY_B64}" | base64 --decode > "${key_file}"
           chmod 600 "${key_file}"
-          python scripts/ota_manifest.py generate \
-            --firmware "release/sugarclock-v${version}.bin" \
-            --firmware-url "https://github.com/cdemeke/SugarClock/releases/download/v${version}/sugarclock-v${version}.bin" \
-            --version-file VERSION \
+          python3 publishing-policy/scripts/ota_manifest.py generate \
+            --firmware "release/sugarclock-v${VERSION}.bin" \
+            --firmware-url "https://github.com/cdemeke/SugarClock/releases/download/v${VERSION}/sugarclock-v${VERSION}.bin" \
+            --version-file "${RUNNER_TEMP}/VERSION" \
             --minimum-ota-version 0.2.0 \
             --key-id release-2026-01 \
             --private-key "${key_file}" \
-            --public-key keys/ota-release-2026-01-public.pem \
+            --public-key publishing-policy/keys/ota-release-2026-01-public.pem \
             --output release/ota-manifest.json \
             --signature-output release/ota-manifest.sig
-          python scripts/ota_manifest.py verify \
+          python3 publishing-policy/scripts/ota_manifest.py verify \
             --manifest release/ota-manifest.json \
-            --public-key keys/ota-release-2026-01-public.pem
+            --public-key publishing-policy/keys/ota-release-2026-01-public.pem
       - name: Publish stable release without rebuilding
         env:
           GH_TOKEN: ${{ github.token }}
-          CANDIDATE_TAG: ${{ inputs.candidate_tag }}
+          VERSION: ${{ needs.verify.outputs.version }}
+          CANDIDATE_COMMIT: ${{ needs.verify.outputs.candidate_commit }}
         shell: bash
         run: |
           set -euo pipefail
-          version="$(tr -d '\r\n' < VERSION)"
-          candidate_commit="$(git rev-list -n 1 "${CANDIDATE_TAG}")"
-          gh release create "v${version}" release/* \
-            --target "${candidate_commit}" \
+          [[ "${CANDIDATE_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
+          gh release create "v${VERSION}" release/* \
+            --repo "${{ github.repository }}" \
+            --target "${CANDIDATE_COMMIT}" \
             --latest=false \
             --generate-notes \
-            --title "SugarClock v${version}"
+            --title "SugarClock v${VERSION}"
       - name: Verify legacy Latest tag and manifest were preserved
         if: ${{ always() }}
         env:
