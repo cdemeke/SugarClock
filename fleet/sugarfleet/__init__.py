@@ -43,6 +43,10 @@ def create_app(test_config=None):
         ),
         TRUSTED_PROXY_HOPS=int(os.environ.get("FLEET_TRUSTED_PROXY_HOPS", "0")),
         ENROLLMENT_MAX_DEVICES=int(os.environ.get("FLEET_MAX_RECORDS", "10000")),
+        ENROLLMENT_MAX_DEVICES_PER_SOURCE=int(
+            os.environ.get("FLEET_ENROLLMENT_MAX_DEVICES_PER_SOURCE", "25")
+        ),
+        INACTIVE_RECLAIM_DAYS=int(os.environ.get("FLEET_INACTIVE_RECLAIM_DAYS", "90")),
         ENROLLMENT_GLOBAL_RATE_LIMIT=int(
             os.environ.get("FLEET_ENROLLMENT_GLOBAL_RATE_LIMIT", "100")
         ),
@@ -73,6 +77,8 @@ def create_app(test_config=None):
         )
     for name in (
         "ENROLLMENT_MAX_DEVICES",
+        "ENROLLMENT_MAX_DEVICES_PER_SOURCE",
+        "INACTIVE_RECLAIM_DAYS",
         "ENROLLMENT_GLOBAL_RATE_LIMIT",
         "ENROLLMENT_RATE_LIMIT",
         "ENROLLMENT_RATE_WINDOW_SECONDS",

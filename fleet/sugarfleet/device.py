@@ -5,7 +5,7 @@ import json
 from flask import Blueprint, current_app, request
 
 from .db import get_db
-from .enrollment import registration_rate_allowed
+from .enrollment import registration_rate_allowed, source_key
 from . import telemetry, rollouts
 from .geolocation import public_ip
 from .security import (
@@ -147,7 +147,24 @@ def register():
             connection.rollback()
             return register()
         telemetry.cleanup(connection, now)
+        # Only a public client address identifies a network. A private address is
+        # the proxy itself (untrusted forwarding), which every clock would share.
+        source = source_key(request.remote_addr) if public_ip(request.remote_addr) else None
+        source_count = source and connection.execute(
+            "SELECT COUNT(*) FROM devices WHERE registration_source=?", (source,)
+        ).fetchone()[0]
+        if source and source_count >= current_app.config["ENROLLMENT_MAX_DEVICES_PER_SOURCE"]:
+            raise ApiError(
+                "registration_source_limit",
+                "too many clocks are enrolled from this network",
+                429,
+            )
         device_count = connection.execute("SELECT COUNT(*) FROM devices").fetchone()[0]
+        if device_count >= current_app.config["ENROLLMENT_MAX_DEVICES"]:
+            device_count -= telemetry.reclaim_inactive(
+                connection,
+                now - current_app.config["INACTIVE_RECLAIM_DAYS"] * 86400,
+            )
         if device_count >= current_app.config["ENROLLMENT_MAX_DEVICES"]:
             raise ApiError(
                 "device_capacity_reached",
@@ -157,7 +174,8 @@ def register():
         connection.execute(
             "INSERT INTO devices "
             "(installation_id, credential_hash, hardware, management_protocol, first_seen, last_seen, "
-            "firmware_version, channel, timezone, verification_state) VALUES (?, ?, ?, ?, ?, ?, ?, 'stable', ?, 'verified')",
+            "firmware_version, channel, timezone, verification_state, registration_source) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, 'stable', ?, 'verified', ?)",
             (
                 value["installation_id"],
                 hash_device_credential(
@@ -169,6 +187,7 @@ def register():
                 now,
                 value["firmware_version"],
                 value["timezone"],
+                source,
             ),
         )
         connection.commit()

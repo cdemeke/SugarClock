@@ -293,6 +293,73 @@ class RolloutTests(unittest.TestCase):
             self.client.get("/admin/api/overview").json["capacity"]["warning"]
         )
 
+    def _enroll(self, installation, address):
+        return self.client.post(
+            "/device/v1/register",
+            json={
+                "installation_id": installation,
+                "hardware": "ulanzi-tc001-esp32-4mb",
+                "management_protocol": 1,
+                "firmware_version": "1.0.0",
+                "timezone": "UTC",
+            },
+            headers=self.auth,
+            environ_overrides={"REMOTE_ADDR": address},
+        )
+
+    def test_one_public_network_cannot_hold_unbounded_enrollments(self):
+        self.app.config["ENROLLMENT_MAX_DEVICES_PER_SOURCE"] = 2
+        for _ in range(2):
+            self.assertEqual(self._enroll(str(uuid.uuid4()), "8.8.8.8").status_code, 201)
+        refused = self._enroll(str(uuid.uuid4()), "8.8.8.8")
+        self.assertEqual(refused.status_code, 429)
+        self.assertEqual(refused.json["error"]["code"], "registration_source_limit")
+        self.assertEqual(self._enroll(str(uuid.uuid4()), "1.1.1.1").status_code, 201)
+        # A private address is an unconfigured proxy shared by every clock; never cap it.
+        for _ in range(3):
+            self.assertEqual(self._enroll(str(uuid.uuid4()), "10.0.0.5").status_code, 201)
+        with self.app.app_context():
+            stored = {r[0] for r in get_db().execute("SELECT registration_source FROM devices")}
+        self.assertNotIn("8.8.8.8", stored)
+
+    def test_capacity_reclaims_the_longest_silent_record(self):
+        self.app.config["ENROLLMENT_MAX_DEVICES"] = 3
+        active = self.clock()
+        stale = self.clock(age=91 * 86400)
+        staler = self.clock(age=200 * 86400)
+        with self.app.app_context():
+            db = get_db()
+            db.execute("UPDATE devices SET registration_cleanup_exempt=0")
+            db.commit()
+        self.assertEqual(self._enroll(str(uuid.uuid4()), "8.8.8.8").status_code, 201)
+        with self.app.app_context():
+            remaining = {r[0] for r in get_db().execute("SELECT installation_id FROM devices")}
+        self.assertIn(active, remaining)
+        self.assertIn(stale, remaining)
+        self.assertNotIn(staler, remaining)
+        # The next oldest silent record goes next.
+        self.assertEqual(self._enroll(str(uuid.uuid4()), "1.1.1.1").status_code, 201)
+        with self.app.app_context():
+            remaining = {r[0] for r in get_db().execute("SELECT installation_id FROM devices")}
+        self.assertNotIn(stale, remaining)
+        self.assertIn(active, remaining)
+        # Recently active, preserved, blocked and retired records are never reclaimed.
+        with self.app.app_context():
+            db = get_db()
+            db.execute("DELETE FROM devices WHERE installation_id<>?", (active,))
+            db.commit()
+        preserved, blocked = self.clock(age=400 * 86400), self.clock(age=400 * 86400)
+        with self.app.app_context():
+            db = get_db()
+            db.execute("UPDATE devices SET registration_cleanup_exempt=1 WHERE installation_id=?", (preserved,))
+            db.execute("UPDATE devices SET blocked_at=1 WHERE installation_id=?", (blocked,))
+            db.commit()
+        self.assertEqual(self._enroll(str(uuid.uuid4()), "9.9.9.9").status_code, 503)
+        with self.app.app_context():
+            remaining = {r[0] for r in get_db().execute("SELECT installation_id FROM devices")}
+        self.assertEqual(remaining, {active, preserved, blocked})
+        self.assertEqual(self.check(active).status_code, 200)
+
     def test_shared_global_limiter_without_blocking_authenticated_clocks(self):
         active = self.clock()
         self.app.config["ENROLLMENT_GLOBAL_RATE_LIMIT"] = 3

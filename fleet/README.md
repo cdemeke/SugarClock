@@ -48,6 +48,14 @@ cleanup-preservation migration. Existing identities/nicknames and blocked/retire
 records are preserved without inventing activity timestamps. No
 self-registration system can prove that every reporting client is physical hardware.
 
+To stop invented clocks from filling `FLEET_MAX_RECORDS` permanently, one public
+network may hold at most `FLEET_ENROLLMENT_MAX_DEVICES_PER_SOURCE=25` enrollments
+(stored only as a keyed digest of the address), and when the ceiling is reached the
+longest-silent record that has not checked in for `FLEET_INACTIVE_RECLAIM_DAYS=90`
+days is reclaimed for the new clock. A reclaimed clock re-registers on its next
+visit; its nickname is lost. Records preserved by the cleanup-preservation migration
+and blocked/retired records are never reclaimed.
+
 ## Release workflow
 
 1. Publish/synchronize signed release metadata. Publishing alone never starts a
