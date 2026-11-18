@@ -26,7 +26,8 @@ void notify_init() {
 void notify_loop() {
     // Expire old notifications
     for (int i = 0; i < MAX_NOTIFICATIONS; i++) {
-        if (notifications[i].active && millis() >= notifications[i].expire_ms) {
+        // Signed difference: correct across the 49-day millis() rollover.
+        if (notifications[i].active && (long)(millis() - notifications[i].expire_ms) >= 0) {
             notifications[i].active = false;
             Serial.printf("[NOTIFY] Notification %d expired\n", i);
         }
@@ -34,6 +35,7 @@ void notify_loop() {
 }
 
 void notify_push(const char* text, int duration_sec, bool urgent) {
+    duration_sec = constrain(duration_sec, 1, 600);
     // Find empty slot or use oldest (circular)
     int slot = -1;
     for (int i = 0; i < MAX_NOTIFICATIONS; i++) {

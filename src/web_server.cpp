@@ -517,7 +517,8 @@ static void handle_ota_settings(AsyncWebServerRequest* request,uint8_t* data,siz
 
 // POST /api/notify
 static void handle_post_notify(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
-    if (index != 0) return;
+    WebRequestBody body;
+    if (!body.receive(request,data,len,index,total,1023)) return;
 
     ConfigGuard guard;
     AppConfig& cfg = config_get();
@@ -527,7 +528,7 @@ static void handle_post_notify(AsyncWebServerRequest* request, uint8_t* data, si
     }
 
     JsonDocument doc;
-    DeserializationError err = deserializeJson(doc, data, len);
+    DeserializationError err = deserializeJson(doc, body.data(), body.size(), DeserializationOption::NestingLimit(6));
     if (err) {
         request->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
         return;
@@ -539,7 +540,14 @@ static void handle_post_notify(AsyncWebServerRequest* request, uint8_t* data, si
         return;
     }
 
-    int duration = doc["duration_sec"] | cfg.notify_default_duration;
+    int duration = cfg.notify_default_duration;
+    if (!doc["duration_sec"].isNull()) {
+        if (!doc["duration_sec"].is<int>() || doc["duration_sec"].as<int>() < 1 || doc["duration_sec"].as<int>() > 600) {
+            request->send(400, "application/json", "{\"error\":\"duration_sec must be 1-600\"}");
+            return;
+        }
+        duration = doc["duration_sec"].as<int>();
+    }
     bool urgent = doc["urgent"] | false;
 
     notify_push(text, duration, urgent);
@@ -548,7 +556,8 @@ static void handle_post_notify(AsyncWebServerRequest* request, uint8_t* data, si
 
 // POST /api/sysmon
 static void handle_post_sysmon(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
-    if (index != 0) return;
+    WebRequestBody body;
+    if (!body.receive(request,data,len,index,total,511)) return;
 
     ConfigGuard guard;
     AppConfig& cfg = config_get();
@@ -558,7 +567,7 @@ static void handle_post_sysmon(AsyncWebServerRequest* request, uint8_t* data, si
     }
 
     JsonDocument doc;
-    DeserializationError err = deserializeJson(doc, data, len);
+    DeserializationError err = deserializeJson(doc, body.data(), body.size(), DeserializationOption::NestingLimit(6));
     if (err) {
         request->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
         return;
@@ -567,6 +576,12 @@ static void handle_post_sysmon(AsyncWebServerRequest* request, uint8_t* data, si
     const char* label = doc["label"] | cfg.sysmon_label;
     int value = doc["value"] | 0;
     int max_val = doc["max"] | 100;
+    // The display multiplies by 100 for percentages; keep that in range.
+    if (max_val < 1 || max_val > 1000000) {
+        request->send(400, "application/json", "{\"error\":\"max must be 1-1000000\"}");
+        return;
+    }
+    value = constrain(value, 0, max_val);
 
     sysmon_push(label, value, max_val);
     request->send(200, "application/json", "{\"status\":\"ok\"}");
@@ -613,10 +628,11 @@ static void handle_test_weather_result(AsyncWebServerRequest* request) {
 
 // POST /api/test/weather-mock
 static void handle_test_weather_mock(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
-    if (index != 0) return;
+    WebRequestBody body;
+    if (!body.receive(request,data,len,index,total,511)) return;
 
     JsonDocument doc;
-    DeserializationError err = deserializeJson(doc, data, len);
+    DeserializationError err = deserializeJson(doc, body.data(), body.size(), DeserializationOption::NestingLimit(6));
     if (err) {
         request->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
         return;
