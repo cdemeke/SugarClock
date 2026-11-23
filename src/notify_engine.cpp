@@ -14,7 +14,6 @@ struct Notification {
 };
 
 static Notification notifications[MAX_NOTIFICATIONS];
-static int current_index = 0;
 
 void notify_init() {
     for (int i = 0; i < MAX_NOTIFICATIONS; i++) {
@@ -24,9 +23,10 @@ void notify_init() {
 }
 
 void notify_loop() {
-    // Expire old notifications
+    // Expire old notifications (rollover-safe)
+    unsigned long now = millis();
     for (int i = 0; i < MAX_NOTIFICATIONS; i++) {
-        if (notifications[i].active && millis() >= notifications[i].expire_ms) {
+        if (notifications[i].active && (long)(now - notifications[i].expire_ms) >= 0) {
             notifications[i].active = false;
             Serial.printf("[NOTIFY] Notification %d expired\n", i);
         }
@@ -34,6 +34,8 @@ void notify_loop() {
 }
 
 void notify_push(const char* text, int duration_sec, bool urgent) {
+    if (!text) return;
+    if (duration_sec < 1) duration_sec = 1;
     // Find empty slot or use oldest (circular)
     int slot = -1;
     for (int i = 0; i < MAX_NOTIFICATIONS; i++) {
@@ -55,7 +57,6 @@ void notify_push(const char* text, int duration_sec, bool urgent) {
     notifications[slot].expire_ms = millis() + (unsigned long)duration_sec * 1000UL;
     notifications[slot].urgent = urgent;
     notifications[slot].active = true;
-    current_index = slot;
 
     Serial.printf("[NOTIFY] Pushed: \"%s\" duration=%ds urgent=%d\n", text, duration_sec, urgent);
 

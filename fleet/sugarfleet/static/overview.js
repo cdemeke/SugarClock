@@ -202,7 +202,8 @@
     if (jump) {
       svg.append(svgElement('line', {x1: jump.point.x, x2: jump.point.x, y1: chart.top - 12, y2: jump.point.y - 6, class: 'annotation-line'}));
       svg.append(svgElement('circle', {cx: jump.point.x, cy: chart.top - 14, r: 3.5, class: 'annotation-dot'}));
-      const note = svgElement('text', {x: jump.point.x - 8, y: chart.top - 10, 'text-anchor': 'end', class: 'annotation-label'});
+      const anchorStart = jump.point.x < 160;
+      const note = svgElement('text', {x: jump.point.x + (anchorStart ? 8 : -8), y: chart.top - 10, 'text-anchor': anchorStart ? 'start' : 'end', class: 'annotation-label'});
       I18n.text(note, I18n.message("{0} in one day", [signed(jump.change)]));
       svg.append(note);
     }
@@ -462,7 +463,7 @@
       list.append(row);
     });
     node.append(list);
-    node.append(element('p', shared ? I18n.message("Share of {0} installations in this time range{1}.", [number(total),shared ? I18n.message("; {0} didn’t report configuration and count as unknown", [number(shared)]) : '']) : I18n.message("Share of {0} installations in this time range. Unknown means the clock didn’t report that setting.", [number(total)]), 'hint panel-footnote'));
+    node.append(element('p', shared !== undefined ? I18n.message("Share of {0} installations in this time range{1}.", [number(total),shared ? I18n.message("; {0} didn’t report configuration and count as unknown", [number(shared)]) : '']) : I18n.message("Share of {0} installations in this time range. Unknown means the clock didn’t report that setting.", [number(total)]), 'hint panel-footnote'));
   }
 
   let openCountries = new Set(), locationsTouched = false;
@@ -474,7 +475,7 @@
       0x1F1E6 - 65 + upper.charCodeAt(1)
     );
   };
-  function renderLocations(counts, total) {
+  function renderLocations(counts, total, focusKey) {
     const node = target('location-counts');
     node.replaceChildren();
     const rows = sortedCounts(counts);
@@ -509,6 +510,7 @@
     if (!locationsTouched && sorted[0] && entriesOf(sorted[0][1]).length > 1) openCountries.add(sorted[0][0]); // Open the largest country until the user chooses.
     const peak = sorted[0][1].count;
     const list = element('div', null, 'bar-list');
+    let focusTarget;
     sorted.forEach(([key, group]) => {
       const entries = entriesOf(group);
       const expandable = entries.length > 1;
@@ -516,10 +518,11 @@
       if (expandable) {
         row.type = 'button';
         row.setAttribute('aria-expanded', String(openCountries.has(key)));
+        if (key === focusKey) focusTarget = row;
         row.addEventListener('click', () => {
           locationsTouched = true;
           if (openCountries.has(key)) openCountries.delete(key); else openCountries.add(key);
-          renderLocations(counts, total);
+          renderLocations(counts, total, key);
         });
       } else if (entries.length) {
         row.href = devicesLocationLink(entries[0][2]);
@@ -562,6 +565,7 @@
       }
     });
     node.append(list);
+    focusTarget?.focus?.();
   }
 
   function renderCapacity(counts, capacity) {

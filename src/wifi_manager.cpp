@@ -242,11 +242,15 @@ static bool persist_trial(const WifiTrialParams& p) {
     cfg.wifi_validate_ca = p.validate_ca;
     if (p.security == 1) {
         strncpy(cfg.wifi_identity, p.identity, sizeof(cfg.wifi_identity) - 1);
+        cfg.wifi_identity[sizeof(cfg.wifi_identity) - 1] = '\0';
         strncpy(cfg.wifi_eap_password, p.password, sizeof(cfg.wifi_eap_password) - 1);
+        cfg.wifi_eap_password[sizeof(cfg.wifi_eap_password) - 1] = '\0';
         strncpy(cfg.wifi_anon_identity, p.anon_identity, sizeof(cfg.wifi_anon_identity) - 1);
+        cfg.wifi_anon_identity[sizeof(cfg.wifi_anon_identity) - 1] = '\0';
         cfg.wifi_password[0] = '\0';
     } else {
         strncpy(cfg.wifi_password, p.password, sizeof(cfg.wifi_password) - 1);
+        cfg.wifi_password[sizeof(cfg.wifi_password) - 1] = '\0';
         cfg.wifi_identity[0] = '\0';
         cfg.wifi_eap_password[0] = '\0';
         cfg.wifi_anon_identity[0] = '\0';

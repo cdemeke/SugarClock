@@ -18,7 +18,6 @@
 #include "sysmon_engine.h"
 #include "countdown_engine.h"
 #include "buzzer.h"
-#include "buttons.h"
 #include "hardware_pins.h"
 #include "captive_portal.h"
 #include "net_check.h"
@@ -48,12 +47,6 @@ static String color_to_hex(uint32_t c) {
     char buf[8];
     snprintf(buf, sizeof(buf), "#%02x%02x%02x", (c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF);
     return String(buf);
-}
-
-// Helper: parse "#RRGGBB" hex string to uint32_t RGB
-static uint32_t hex_to_color(const char* hex) {
-    if (!hex || hex[0] != '#' || strlen(hex) < 7) return 0;
-    return strtoul(hex + 1, NULL, 16);
 }
 
 // GET /api/status
@@ -517,7 +510,8 @@ static void handle_ota_settings(AsyncWebServerRequest* request,uint8_t* data,siz
 
 // POST /api/notify
 static void handle_post_notify(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
-    if (index != 0) return;
+    WebRequestBody body;
+    if (!body.receive(request, data, len, index, total, 511)) return;
 
     ConfigGuard guard;
     AppConfig& cfg = config_get();
@@ -527,7 +521,7 @@ static void handle_post_notify(AsyncWebServerRequest* request, uint8_t* data, si
     }
 
     JsonDocument doc;
-    DeserializationError err = deserializeJson(doc, data, len);
+    DeserializationError err = deserializeJson(doc, body.data(), body.size());
     if (err) {
         request->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
         return;
@@ -540,6 +534,8 @@ static void handle_post_notify(AsyncWebServerRequest* request, uint8_t* data, si
     }
 
     int duration = doc["duration_sec"] | cfg.notify_default_duration;
+    if (duration < 1) duration = 1;
+    if (duration > 600) duration = 600;
     bool urgent = doc["urgent"] | false;
 
     notify_push(text, duration, urgent);
@@ -548,7 +544,8 @@ static void handle_post_notify(AsyncWebServerRequest* request, uint8_t* data, si
 
 // POST /api/sysmon
 static void handle_post_sysmon(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
-    if (index != 0) return;
+    WebRequestBody body;
+    if (!body.receive(request, data, len, index, total, 511)) return;
 
     ConfigGuard guard;
     AppConfig& cfg = config_get();
@@ -558,7 +555,7 @@ static void handle_post_sysmon(AsyncWebServerRequest* request, uint8_t* data, si
     }
 
     JsonDocument doc;
-    DeserializationError err = deserializeJson(doc, data, len);
+    DeserializationError err = deserializeJson(doc, body.data(), body.size());
     if (err) {
         request->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
         return;
@@ -613,10 +610,11 @@ static void handle_test_weather_result(AsyncWebServerRequest* request) {
 
 // POST /api/test/weather-mock
 static void handle_test_weather_mock(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
-    if (index != 0) return;
+    WebRequestBody body;
+    if (!body.receive(request, data, len, index, total, 511)) return;
 
     JsonDocument doc;
-    DeserializationError err = deserializeJson(doc, data, len);
+    DeserializationError err = deserializeJson(doc, body.data(), body.size());
     if (err) {
         request->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
         return;
@@ -661,7 +659,7 @@ static void handle_test_glucose_result(AsyncWebServerRequest* request) {
     auto reading=http_get_reading();JsonDocument doc;
     doc["generation"]=http_fetch_generation();doc["pending"]=http_is_fetching();
     doc["ok"]=reading.valid && http_get_failure_count()==0;
-    doc["glucose"]=reading.glucose;doc["trend"]=TREND_NAMES[reading.trend];
+    doc["glucose"]=reading.valid ? reading.glucose : 0;doc["trend"]=reading.valid ? TREND_NAMES[reading.trend] : "Unknown";
     doc["http_code"]=http_get_last_response_code();
     if(!reading.valid || http_get_failure_count()) doc["error"]="No new valid reading; check provider credentials and network access";
     String output;serializeJson(doc,output);request->send(200,"application/json",output);
@@ -855,6 +853,7 @@ static void handle_wifi_scan_refresh(AsyncWebServerRequest* request) {
 
 // GET /api/wifi/status — poll target for the portal page
 static void handle_wifi_status(AsyncWebServerRequest* request) {
+    ConfigGuard guard;
     JsonDocument doc;
     doc["state"] = wifi_state_name(wifi_get_state());
     doc["trial"] = wifi_trial_status_str();

@@ -1,7 +1,6 @@
 /* Companion-page layout; brand colors, typography and components live in style.css. */
 .app-page { overflow-x: clip; }
 .app-page img { height: auto; }
-.app-page .btn { color: var(--ink); }
 .app-page section[id], .app-page details[id] { scroll-margin-top: 140px; }
 .app-page p a, .app-page li a:not(.btn) { text-decoration: underline; text-underline-offset: 3px; }
 .app-page .nav-links a { text-decoration: none !important; }

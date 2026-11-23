@@ -148,10 +148,6 @@ bool ota_is_busy() {
 }
 
 static OtaSafetyInputs collect_safety_inputs() {
-    AppConfig& cfg = config_get();
-    const GlucoseReading& reading = http_get_reading();
-    bool urgent_glucose = reading.valid &&
-        (reading.glucose < cfg.thresh_urgent_low || reading.glucose > cfg.thresh_urgent_high);
     TimerState timer_state = timer_get_state();
 
     OtaSafetyInputs inputs = {};
@@ -160,17 +156,13 @@ static OtaSafetyInputs collect_safety_inputs() {
     inputs.setup_or_ap_active = wifi_is_ap_mode() || improv_is_active();
     inputs.buzzer_active = buzzer_is_active();
     inputs.urgent_notification = notify_is_urgent();
-    inputs.urgent_glucose = urgent_glucose;
+    inputs.urgent_glucose = engine_urgent_glucose_active();
     inputs.timer_running = timer_state == TIMER_RUNNING || timer_state == TIMER_BREAK ||
                            timer_state == TIMER_LONG_BREAK;
     inputs.stopwatch_running = stopwatch_get_state() == SW_RUNNING;
     inputs.battery_percent = sensors_get_battery_percent();
     inputs.free_heap = ESP.getFreeHeap();
     return inputs;
-}
-
-bool ota_automatic_install_is_safe() {
-    return ota_safety_failure(collect_safety_inputs()) == nullptr;
 }
 
 static String resolve_redirect(const String& current, const String& location) {

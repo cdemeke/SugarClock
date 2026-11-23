@@ -117,46 +117,41 @@
     </main>
 
     <script>
-        function fB(b){if(b>1048576)return(b/1048576).toFixed(1)+' MB';if(b>1024)return(b/1024).toFixed(1)+' KB';return b+' B';}
-        function fU(s){const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60),sc=s%60;let p=[];if(d)p.push(d+'d');if(h)p.push(h+'h');p.push(m+'m');p.push(sc+'s');return p.join(' ');}
+        function fB(b){if(!Number.isFinite(b))return'--';if(b>1048576)return(b/1048576).toFixed(1)+' MB';if(b>1024)return(b/1024).toFixed(1)+' KB';return b+' B';}
+        function fU(s){if(!Number.isFinite(s))return'--';const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60),sc=s%60;let p=[];if(d)p.push(d+'d');if(h)p.push(h+'h');p.push(m+'m');p.push(sc+'s');return p.join(' ');}
 
-        async function refresh(){
-            try{const r=await fetch('/api/debug');const d=await r.json();
-            I18n.text(document.getElementById('http-code'), d.last_http_code, false);I18n.text(document.getElementById('fail-count'), d.failure_count, false);
-            I18n.text(document.getElementById('ever-received'), d.ever_received ? 'Yes' : 'No');
-            const age=d.data_age_ms;I18n.text(document.getElementById('data-age'), age<0 ? 'Never' : (age/1000).toFixed(1)+'s');
-            I18n.text(document.getElementById('wifi-status'), d.wifi_status, false);I18n.text(document.getElementById('wifi-rssi'), I18n.message("{0} dBm", [d.wifi_rssi]));
-            I18n.text(document.getElementById('free-heap'), fB(d.free_heap), false);I18n.text(document.getElementById('min-heap'), fB(d.min_free_heap), false);
-            I18n.text(document.getElementById('largest-block'), fB(d.largest_free_block), false);I18n.text(document.getElementById('uptime'), fU(d.uptime_sec), false);
-            I18n.text(document.getElementById('display-state'), d.display_state, false);I18n.text(document.getElementById('ldr-raw'), d.ldr_raw, false);
-            I18n.text(document.getElementById('auto-brt'), d.auto_brightness_val, false);I18n.text(document.getElementById('bat-v'), d.battery_voltage.toFixed(2)+'V', false);
-            I18n.text(document.getElementById('bat-pct'), d.battery_percent+'%', false);I18n.text(document.getElementById('raw-glucose'), d.raw_glucose || '--', false);
-            I18n.text(document.getElementById('raw-delta'), d.raw_delta!==undefined ? (d.raw_delta>0?'+':'')+d.raw_delta : '--', false);
-            I18n.text(document.getElementById('raw-trend'), d.raw_trend || '--', false);I18n.text(document.getElementById('raw-message'), d.raw_message || '--', false);
-            I18n.text(document.getElementById('raw-force'), d.raw_force_mode!==undefined ? d.raw_force_mode : '--', false);
-            I18n.text(document.getElementById('http-body'), d.last_http_body || '--', false);
-            }catch(e){}
-        }
         // Button state helper - color red when pressed (0), green when released (1)
         function updateBtn(id, val) {
             const el = document.getElementById(id);
-            I18n.text(el, val);
-            el.style.color = val === 0 ? 'var(--red)' : 'var(--green)';
+            I18n.text(el, val ?? '--', false);
+            el.style.color = val === 0 ? 'var(--red)' : val === 1 ? 'var(--green)' : '';
         }
 
-        async function refreshButtons() {
-            try {
-                const r = await fetch('/api/debug');
-                const d = await r.json();
-                updateBtn('btn-left', d.btn_left_raw);
-                updateBtn('btn-middle', d.btn_middle_raw);
-                updateBtn('btn-right', d.btn_right_raw);
-                I18n.text(document.getElementById('user-mode'), d.user_mode || '--', false);
-            } catch(e) {}
+        async function refresh(){
+            if(document.hidden)return;
+            try{const r=await fetch('/api/debug');const d=await r.json();
+            I18n.text(document.getElementById('http-code'), d.last_http_code ?? '--', false);I18n.text(document.getElementById('fail-count'), d.failure_count ?? 0, false);
+            I18n.text(document.getElementById('ever-received'), d.ever_received ? 'Yes' : 'No');
+            const age=d.data_age_ms;I18n.text(document.getElementById('data-age'), !Number.isFinite(age)||age<0 ? 'Never' : (age/1000).toFixed(1)+'s', !Number.isFinite(age)||age<0);
+            I18n.text(document.getElementById('wifi-status'), d.wifi_status || '--', false);I18n.text(document.getElementById('wifi-rssi'), Number.isFinite(d.wifi_rssi) ? I18n.message("{0} dBm", [d.wifi_rssi]) : '--', Number.isFinite(d.wifi_rssi));
+            I18n.text(document.getElementById('free-heap'), fB(d.free_heap), false);I18n.text(document.getElementById('min-heap'), fB(d.min_free_heap), false);
+            I18n.text(document.getElementById('largest-block'), fB(d.largest_free_block), false);I18n.text(document.getElementById('uptime'), fU(d.uptime_sec), false);
+            I18n.text(document.getElementById('display-state'), d.display_state || '--', false);I18n.text(document.getElementById('ldr-raw'), d.ldr_raw ?? '--', false);
+            I18n.text(document.getElementById('auto-brt'), d.auto_brightness_val ?? '--', false);I18n.text(document.getElementById('bat-v'), Number.isFinite(d.battery_voltage) ? d.battery_voltage.toFixed(2)+'V' : '--', false);
+            I18n.text(document.getElementById('bat-pct'), Number.isFinite(d.battery_percent) ? d.battery_percent+'%' : '--', false);I18n.text(document.getElementById('raw-glucose'), d.raw_glucose || '--', false);
+            I18n.text(document.getElementById('raw-delta'), Number.isFinite(d.raw_delta) ? (d.raw_delta>0?'+':'')+d.raw_delta : '--', false);
+            I18n.text(document.getElementById('raw-trend'), d.raw_trend || '--', false);I18n.text(document.getElementById('raw-message'), d.raw_message || '--', false);
+            I18n.text(document.getElementById('raw-force'), d.raw_force_mode!==undefined ? d.raw_force_mode : '--', false);
+            I18n.text(document.getElementById('http-body'), d.last_http_body || '--', false);
+            updateBtn('btn-left', d.btn_left_raw);
+            updateBtn('btn-middle', d.btn_middle_raw);
+            updateBtn('btn-right', d.btn_right_raw);
+            I18n.text(document.getElementById('user-mode'), d.user_mode || '--', false);
+            }catch(e){}
         }
 
-        refresh(); setInterval(refresh, 3000);
-        refreshButtons(); setInterval(refreshButtons, 500);
+        refresh(); setInterval(refresh, 1500);
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
 
         function toggleTheme(){
             const d=document.documentElement;

@@ -48,7 +48,8 @@ jobs:
         run: |
           set -euo pipefail
           version="$(tr -d '\r\n' < VERSION)"
-          [[ "${CANDIDATE_TAG}" =~ ^preview-v${version}-[1-9][0-9]*$ ]]
+          version_re="${version//./\\.}"
+          [[ "${CANDIDATE_TAG}" =~ ^preview-v${version_re}-[1-9][0-9]*$ ]]
           candidate_commit="$(git rev-list -n 1 "${CANDIDATE_TAG}")"
           test "${candidate_commit}" = "$(git rev-parse HEAD)"
           test "$(gh release view "${CANDIDATE_TAG}" --json isPrerelease --jq .isPrerelease)" = true

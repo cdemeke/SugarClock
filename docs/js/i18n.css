@@ -156,7 +156,7 @@ input[type="text"], textarea { unicode-bidi: plaintext; }
 
 .brightness-scale { direction: ltr; }
 html[dir="rtl"] .bar-row { text-align: start; }
-html[dir="rtl"] .fleet-donut, html[dir="rtl"] .activity-svg { direction: ltr; }
+html[dir="rtl"] .donut, html[dir="rtl"] .activity-svg { direction: ltr; }
 html[dir="rtl"] .sidebar .brand-copy { text-align: right; }
 
 .capacity-counts span span { margin-inline-start: .25em; }

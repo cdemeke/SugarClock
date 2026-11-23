@@ -1,5 +1,6 @@
 #include "time_engine.h"
 #include "config_manager.h"
+#include "hardware_pins.h"
 #include "wifi_manager.h"
 #include <Arduino.h>
 #include <time.h>
@@ -10,6 +11,7 @@
 #define DS1307_ADDR 0x68
 
 #define NTP_RESYNC_INTERVAL_MS (6UL * 60 * 60 * 1000)  // 6 hours
+#define NTP_RETRY_INTERVAL_MS  (60UL * 1000)           // 60 seconds after failed sync
 
 static bool ntp_synced = false;
 // Set only by the SNTP client when network time actually arrives. ntp_synced
@@ -22,8 +24,15 @@ static void on_sntp_time_sync(struct timeval* tv) {
 }
 static bool rtc_available = false;
 static unsigned long last_ntp_sync_ms = 0;
-static unsigned long boot_time_sec = 0;
+static unsigned long last_ntp_attempt_ms = 0;
 static unsigned long boot_millis = 0;
+
+static bool get_valid_local_time(struct tm* out) {
+    time_t now = time(nullptr);
+    if (now < 1600000000) return false;
+    localtime_r(&now, out);
+    return true;
+}
 
 // BCD conversion helpers
 static uint8_t bcd_to_dec(uint8_t bcd) {
@@ -97,6 +106,7 @@ static bool rtc_read_time() {
 
 static void ntp_sync() {
     AppConfig& cfg = config_get();
+    last_ntp_attempt_ms = millis();
 
     configTzTime(cfg.timezone, "pool.ntp.org", "time.nist.gov", "time.google.com");
 
@@ -122,7 +132,7 @@ void time_init() {
     sntp_set_time_sync_notification_cb(on_sntp_time_sync);
 
     // Init I2C
-    Wire.begin(21, 22);
+    Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
 
     // Detect RTC
     rtc_available = rtc_detect();
@@ -143,8 +153,9 @@ void time_init() {
 }
 
 void time_loop() {
-    // Try NTP sync if not yet synced and WiFi just became available
-    if (!ntp_synced && wifi_is_connected()) {
+    // Try NTP sync if not yet synced and WiFi just became available (with retry backoff)
+    if (!ntp_synced && wifi_is_connected() &&
+        (last_ntp_attempt_ms == 0 || millis() - last_ntp_attempt_ms >= NTP_RETRY_INTERVAL_MS)) {
         ntp_sync();
     }
 
@@ -161,13 +172,12 @@ bool time_is_network_synced() {
 }
 
 bool time_is_available() {
-    struct tm timeinfo;
-    return getLocalTime(&timeinfo, 10);
+    return time(nullptr) >= 1600000000;
 }
 
 int time_get_hour() {
     struct tm timeinfo;
-    if (getLocalTime(&timeinfo, 10)) {
+    if (get_valid_local_time(&timeinfo)) {
         return timeinfo.tm_hour;
     }
     return -1;
@@ -175,7 +185,7 @@ int time_get_hour() {
 
 int time_get_minute() {
     struct tm timeinfo;
-    if (getLocalTime(&timeinfo, 10)) {
+    if (get_valid_local_time(&timeinfo)) {
         return timeinfo.tm_min;
     }
     return -1;
@@ -183,7 +193,7 @@ int time_get_minute() {
 
 int time_get_second() {
     struct tm timeinfo;
-    if (getLocalTime(&timeinfo, 10)) {
+    if (get_valid_local_time(&timeinfo)) {
         return timeinfo.tm_sec;
     }
     return -1;
@@ -191,7 +201,7 @@ int time_get_second() {
 
 void time_get_string(char* buf, int bufsize, bool use_24h) {
     struct tm timeinfo;
-    if (!getLocalTime(&timeinfo, 10)) {
+    if (!get_valid_local_time(&timeinfo)) {
         snprintf(buf, bufsize, "--:--");
         return;
     }
@@ -206,7 +216,7 @@ void time_get_string(char* buf, int bufsize, bool use_24h) {
 
 int time_get_day() {
     struct tm timeinfo;
-    if (getLocalTime(&timeinfo, 10)) {
+    if (get_valid_local_time(&timeinfo)) {
         return timeinfo.tm_mday;
     }
     return -1;
@@ -214,7 +224,7 @@ int time_get_day() {
 
 int time_get_month() {
     struct tm timeinfo;
-    if (getLocalTime(&timeinfo, 10)) {
+    if (get_valid_local_time(&timeinfo)) {
         return timeinfo.tm_mon + 1;  // tm_mon is 0-11
     }
     return -1;
@@ -222,7 +232,7 @@ int time_get_month() {
 
 int time_get_weekday() {
     struct tm timeinfo;
-    if (getLocalTime(&timeinfo, 10)) {
+    if (get_valid_local_time(&timeinfo)) {
         return timeinfo.tm_wday;  // 0=Sun
     }
     return -1;
@@ -235,7 +245,7 @@ static const char* MONTH_ABBRS[] = {
 
 const char* time_get_month_abbr() {
     struct tm timeinfo;
-    if (getLocalTime(&timeinfo, 10)) {
+    if (get_valid_local_time(&timeinfo)) {
         return MONTH_ABBRS[timeinfo.tm_mon];
     }
     return "???";

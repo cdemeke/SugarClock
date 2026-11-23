@@ -9,12 +9,12 @@
     <thead><tr><th><span data-i18n="Clock">Clock</span></th><th><span data-i18n="Approximate location">Approximate location</span></th><th><span data-i18n="Status">Status</span></th><th><span data-i18n="Firmware">Firmware</span></th><th><span data-i18n="Updates">Updates</span></th><th><span data-i18n="Last seen">Last seen</span></th></tr></thead>
     <tbody>
     {% for device in devices %}
-      <tr data-search="{{ (device.friendly_name ~ ' ' ~ device.installation_id ~ ' ' ~ device.firmware_version ~ ' ' ~ (device.detected_location.label if device.detected_location else ''))|lower }}" data-location="{{ device.detected_location.summary if device.detected_location else 'Unknown' }}">
-        <td><a href="{{ url_for('admin.device_detail_page', device_id=device.id) }}">{{ device.friendly_name or device.installation_id[:8] }}</a><small>{{ device.installation_id[:8] }}</small></td>
+      <tr data-search="{{ (device.friendly_name ~ ' ' ~ device.installation_id ~ ' ' ~ device.firmware_version ~ ' ' ~ (device.detected_location.label if device.detected_location else '') ~ ' ' ~ (device.detected_location.summary if device.detected_location else ''))|lower }}" data-location="{{ device.detected_location.summary if device.detected_location else 'Unknown' }}">
+        <td><a href="{{ url_for('admin.device_detail_page', device_id=device.id) }}">{{ device.friendly_name or device.installation_id[:8] }}</a>{% if device.friendly_name %}<small>{{ device.installation_id[:8] }}</small>{% endif %}</td>
         <td>{{ device.detected_location.label if device.detected_location else 'Not available' }}</td>
-        <td><span class="pill {{ device.connectivity }}">{{ 'blocked' if device.blocked_at else device.connectivity }}</span></td>
+        <td><span class="pill {{ device.connectivity }}">{{ device.connectivity }}</span></td>
         <td>{{ device.firmware_version }}</td>
-        <td>{{ 'Fleet controlled' if device.rollout_capable else 'Legacy updater' }}<small>{{ device.last_ota_result or 'No update result' }}</small></td>
+        <td>{{ 'Fleet controlled' if device.rollout_capable else 'Legacy updater' }}{% if device.last_ota_result %}<small>{{ device.last_ota_result }}</small>{% endif %}</td>
         <td data-time="{{ device.last_seen }}"></td>
       </tr>
     {% else %}<tr><td colspan="6" class="empty"><span data-i18n="No clocks have connected yet. Install SugarClock and connect it to Wi-Fi to get started.">No clocks have connected yet. Install SugarClock and connect it to Wi-Fi to get started.</span></td></tr>{% endfor %}

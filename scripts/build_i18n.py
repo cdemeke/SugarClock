@@ -45,9 +45,14 @@ def build():
             compiled = {key(source): translations[source] for source in sources[surface]}
             (output / path.name).write_text(json.dumps(compiled, ensure_ascii=False, separators=(',', ':'))+'\n')
     bundled = ROOT / 'onboarding/TC001Setup/TC001Setup/Resources/WebUI/www'
+    live_names = set()
     for path in (ROOT / 'data/www').iterdir():
         if path.is_file() and not path.name.startswith('.'):
+            live_names.add(path.name)
             shutil.copyfile(path, bundled / path.name)
+    for stale in bundled.iterdir():
+        if stale.is_file() and not stale.name.startswith('.') and stale.name not in live_names:
+            stale.unlink()
 
 if __name__ == '__main__':
     build()

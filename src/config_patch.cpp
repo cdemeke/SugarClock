@@ -1,4 +1,5 @@
 #include "config_patch.h"
+#include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
 #include <string>
@@ -147,6 +148,7 @@ const char* config_patch(AppConfig& c,JsonObjectConst patch,bool web,const Libre
    long value;
    if(web && !strncmp(f.name,"color_",6) && v.is<const char*>()) {
     const char* s=v.as<const char*>(); if(strlen(s)!=7 || s[0]!='#') return f.name;
+    for(int i=1;i<7;++i) if(!isxdigit((unsigned char)s[i])) return f.name;
     char* end;value=strtol(s+1,&end,16);if(*end) return f.name;
    } else { if(!v.is<long>()) return f.name;value=v.as<long>(); }
    if(value<f.lo || value>f.hi) return f.name;

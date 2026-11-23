@@ -1,6 +1,7 @@
 .git
 .pio
 .venv
+.venv-*
 __pycache__/
 *.pyc
 *.db

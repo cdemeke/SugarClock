@@ -26,10 +26,13 @@ void sensors_init() {
     analogSetAttenuation(ADC_11db); // Full range 0-3.3V
 
     // Pre-fill LDR buffer
+    int sum = 0;
     for (int i = 0; i < LDR_SAMPLES; i++) {
         ldr_readings[i] = analogRead(PIN_LDR);
+        sum += ldr_readings[i];
     }
     ldr_filled = true;
+    ldr_smoothed = sum / LDR_SAMPLES;
 
     // Initial battery read
     battery_voltage = (analogRead(PIN_BATTERY) / ADC_RESOLUTION) * ADC_REF_VOLTAGE * BATTERY_DIVIDER;

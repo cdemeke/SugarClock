@@ -119,6 +119,21 @@ def validate_checkin(value):
         type(value["battery_percent"]) is not int or not 0 <= value["battery_percent"] <= 100
     ):
         raise ApiError("invalid_battery", "battery_percent must be 0-100")
+    if "charging" in value and type(value["charging"]) is not bool:
+        raise ApiError("invalid_charging", "charging must be boolean")
+    for field, limit in (
+        ("running_partition", 32),
+        ("boot_partition", 32),
+        ("previous_partition", 32),
+        ("timezone", 64),
+        ("config_revision", 64),
+        ("config_hash", 128),
+        ("free_heap_bucket", 32),
+        ("wifi_signal_bucket", 32),
+    ):
+        if field in value and value[field] is not None:
+            if not isinstance(value[field], str) or len(value[field]) > limit:
+                raise ApiError(f"invalid_{field}", f"{field} must be a string of at most {limit} characters")
     if "health_codes" in value:
         codes = value["health_codes"]
         if not isinstance(codes, list) or len(codes) > 16 or any(

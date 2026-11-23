@@ -91,37 +91,6 @@ main {
   letter-spacing: 2px;
   color: #69796a;
 }
-h1 {
-  font-family: Georgia, serif;
-  font-size: clamp(34px, 4vw, 58px);
-  letter-spacing: -2px;
-  font-weight: 400;
-  line-height: 1.1;
-  margin: 22px 0 18px;
-}
-.intro {
-  color: #778076;
-  font-size: 14px;
-  line-height: 1.8;
-}
-.now {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  align-items: center;
-  color: #68786c;
-  font-size: 11px;
-  margin-top: 28px;
-}
-.live-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #559666;
-}
-.separator {
-  color: #b2b9ad;
-}
 .presets {
   display: flex;
   justify-content: center;
@@ -157,12 +126,6 @@ h1 {
   min-height: 30px;
   color: #738072;
   margin-top: 23px;
-}
-.disclosure {
-  font-size: 8px;
-  letter-spacing: 1.7px;
-  color: #9ba393;
-  margin-top: 35px;
 }
 .controller {
   border-left: 1px solid #dfdfd6;
@@ -281,7 +244,6 @@ body.filming .stage > :not(virtual-sugar-clock) {
   display: none;
 }
 body.filming main {
-  display: block;
   min-height: 100vh;
   display: grid;
   grid-template-columns: 1fr;
@@ -325,9 +287,6 @@ body.filming virtual-sugar-clock {
   .presets button {
     font-size: 10px;
   }
-  .wide {
-    display: none;
-  }
 }
 @media (max-width: 720px) {
   header {
@@ -347,9 +306,6 @@ body.filming virtual-sugar-clock {
   .controller {
     border-left: 0;
     border-top: 1px solid #dfdfd6;
-  }
-  .intro {
-    font-size: 12px;
   }
   virtual-sugar-clock {
     margin-top: 42px;
@@ -425,12 +381,6 @@ body.filming.pixels-only virtual-sugar-clock {
 }
 body.comparing .stage {
   position: static;
-}
-body.comparing .stage h1 {
-  font-size: 38px;
-}
-body.comparing .stage .intro {
-  display: none;
 }
 body.filming.comparing .stage > #comparison-grid {
   display: grid;

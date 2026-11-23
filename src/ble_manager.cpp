@@ -78,7 +78,7 @@ bool beginSession(NimBLEConnInfo& c) {
  if(connection==c.getConnHandle()) return true;
  if(connection!=BLE_HS_CONN_HANDLE_NONE) {rejectPeer(c,"different_session");return false;}
  Guard g;
- secure=false;connection=c.getConnHandle();connectedAt=lastActivity=millis();
+ secure=false;connectedAt=lastActivity=millis();connection=c.getConnHandle();
  ++sessionEpoch;clearMailbox();
  return true;
 }
@@ -353,11 +353,14 @@ void ble_loop() {
  uint32_t failures=failedAllocations.exchange(0);
  if(failures) Serial.printf("[BLE TEST] Allocation failures=%u last_size=%u caps=%u\n",failures,failedAllocationSize.load(),failedAllocationCaps.load());
 #endif
- if(suspended && !ota_is_busy() && !networkLease && millis()-networkReleasedAt>=1500) {suspended=false;ble_init();}
+ if(suspended && !ota_is_busy() && !networkLease && millis()-networkReleasedAt>=1500) {ble_init();if(enabled) suspended=false;else networkReleasedAt=millis();}
  if(!enabled) return;
  uint32_t now=millis();
  if(ble_is_connected() && ((!secure && now-connectedAt>45000) || now-lastActivity>60000 || now-connectedAt>600000)) disconnect();
- if(!ble_is_connected() && !ota_is_busy() && !NimBLEDevice::getAdvertising()->isAdvertising()) NimBLEDevice::startAdvertising();
+ if(!ble_is_connected()) {
+  if(tx && tx->getValue().size()) tx->setValue("");
+  if(!ota_is_busy() && !NimBLEDevice::getAdvertising()->isAdvertising()) NimBLEDevice::startAdvertising();
+ }
  if(ota_is_busy()) NimBLEDevice::stopAdvertising();
  // Copy bounded work while locked, then release before configuration or network queues.
  { Guard g;if(!queued || working) return;working=true;queued=false;workID=receiver.id;workLen=receiver.total;workEpoch=sessionEpoch;

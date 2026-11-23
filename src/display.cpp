@@ -182,16 +182,6 @@ void display_draw_pixel(int x, int y, uint16_t color) {
     }
 }
 
-void display_flash(uint8_t r, uint8_t g, uint8_t b) {
-    matrix.fillScreen(matrix.Color(r, g, b));
-    display_show();
-}
-
-void display_fill(uint8_t r, uint8_t g, uint8_t b) {
-    matrix.fillScreen(matrix.Color(r, g, b));
-    display_show();
-}
-
 void display_draw_text(const char* text, int x, int y, uint16_t color) {
     matrix.setTextColor(color);
     matrix.setCursor(x, y);

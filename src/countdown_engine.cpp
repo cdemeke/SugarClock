@@ -16,12 +16,9 @@ long countdown_get_remaining_sec() {
     AppConfig& cfg = config_get();
     if (cfg.countdown_target == 0) return 0;
 
-    struct tm timeinfo;
-    if (!getLocalTime(&timeinfo, 10)) return 0;
-
-    time_t now = mktime(&timeinfo);
-    long diff = (long)cfg.countdown_target - (long)now;
-    return diff;
+    time_t now = time(nullptr);
+    if (now < 1600000000) return 0;
+    return (long)cfg.countdown_target - (long)now;
 }
 
 bool countdown_is_configured() {

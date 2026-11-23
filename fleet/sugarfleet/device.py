@@ -14,13 +14,13 @@ from .security import (
     valid_device_credential,
     verify_device_credential,
 )
-from .util import ApiError, error_response, json_body, json_text, now_epoch
+from .util import ApiError, error_response, json_body, json_text, now_epoch, valid_uuid
 from .validation import validate_checkin, validate_register, validate_result
 
 bp = Blueprint("device", __name__, url_prefix="/device/v1")
 
 
-def _refresh_detected_location(connection, device, now):
+def _refresh_detected_location(device, now):
     """Queue best-effort coarse geolocation without retaining the source IP."""
     if not current_app.config["IP_GEOLOCATION_ENABLED"]:
         return
@@ -139,45 +139,49 @@ def register():
                 "registration_rate_limited", "too many enrollment attempts", 429
             )
         connection.execute("BEGIN IMMEDIATE")
-        # Another worker may have completed this same first registration after
-        # our optimistic read. Re-enter the authenticated existing-device path.
-        if connection.execute(
-            "SELECT 1 FROM devices WHERE installation_id=?", (value["installation_id"],)
-        ).fetchone():
-            connection.rollback()
-            return register()
-        telemetry.cleanup(connection, now)
-        device_count = connection.execute("SELECT COUNT(*) FROM devices").fetchone()[0]
-        if device_count >= current_app.config["ENROLLMENT_MAX_DEVICES"]:
-            raise ApiError(
-                "device_capacity_reached",
-                "device enrollment capacity has been reached",
-                503,
-            )
-        connection.execute(
-            "INSERT INTO devices "
-            "(installation_id, credential_hash, hardware, management_protocol, first_seen, last_seen, "
-            "firmware_version, channel, timezone, verification_state) VALUES (?, ?, ?, ?, ?, ?, ?, 'stable', ?, 'verified')",
-            (
-                value["installation_id"],
-                hash_device_credential(
-                    credential, current_app.config["DEVICE_CREDENTIAL_PEPPER"]
+        try:
+            # Another worker may have completed this same first registration after
+            # our optimistic read. Re-enter the authenticated existing-device path.
+            if connection.execute(
+                "SELECT 1 FROM devices WHERE installation_id=?", (value["installation_id"],)
+            ).fetchone():
+                connection.rollback()
+                return register()
+            telemetry.cleanup(connection, now)
+            device_count = connection.execute("SELECT COUNT(*) FROM devices").fetchone()[0]
+            if device_count >= current_app.config["ENROLLMENT_MAX_DEVICES"]:
+                raise ApiError(
+                    "device_capacity_reached",
+                    "device enrollment capacity has been reached",
+                    503,
+                )
+            connection.execute(
+                "INSERT INTO devices "
+                "(installation_id, credential_hash, hardware, management_protocol, first_seen, last_seen, "
+                "firmware_version, channel, timezone, verification_state) VALUES (?, ?, ?, ?, ?, ?, ?, 'stable', ?, 'verified')",
+                (
+                    value["installation_id"],
+                    hash_device_credential(
+                        credential, current_app.config["DEVICE_CREDENTIAL_PEPPER"]
+                    ),
+                    value["hardware"],
+                    value["management_protocol"],
+                    now,
+                    now,
+                    value["firmware_version"],
+                    value["timezone"],
                 ),
-                value["hardware"],
-                value["management_protocol"],
-                now,
-                now,
-                value["firmware_version"],
-                value["timezone"],
-            ),
-        )
-        connection.commit()
+            )
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
         status = "registered"
         response_status = 201
     device = connection.execute(
         "SELECT * FROM devices WHERE installation_id = ?", (value["installation_id"],)
     ).fetchone()
-    _refresh_detected_location(connection, device, now)
+    _refresh_detected_location(device, now)
     return {
         "status": status,
         "verification_state": device["verification_state"],
@@ -194,15 +198,21 @@ def check_in():
     device = _authenticated_device(value["installation_id"])
     now = now_epoch()
     connection = get_db()
-    _refresh_detected_location(connection, device, now)
+    has_features = "features" in value
     connection.execute(
-        "UPDATE devices SET last_seen=?, firmware_version=?, running_partition=?, boot_partition=?, "
+        "UPDATE devices SET last_seen=?, last_checkin_at=?, capabilities_json=?, "
+        "features_json=?, features_reported_at=?, "
+        "firmware_version=?, running_partition=?, boot_partition=?, "
         "previous_partition=?, previous_partition_available=?, channel=?, timezone=COALESCE(?, timezone), "
         "maintenance_window_json=?, config_revision=?, config_hash=?, "
         "uptime_seconds=?, free_heap_bucket=?, wifi_signal_bucket=?, "
         "battery_percent=?, charging=?, health_json=? WHERE id=?",
         (
             now,
+            now,
+            json_text(value.get("capabilities", [])),
+            json_text(value["features"]) if has_features else None,
+            now if has_features else None,
             value["firmware_version"],
             value.get("running_partition"),
             value.get("boot_partition"),
@@ -226,7 +236,6 @@ def check_in():
             device["id"],
         ),
     )
-    telemetry.record(connection, device["id"], value, now)
     telemetry.maintenance(connection, now)
     current_device = connection.execute(
         "SELECT * FROM devices WHERE id=?", (device["id"],)
@@ -252,6 +261,7 @@ def check_in():
             (now, *command_ids),
         )
     connection.commit()
+    _refresh_detected_location(device, now)
     return {
         "server_time": now,
         "next_checkin_seconds": current_app.config["DEVICE_CHECKIN_SECONDS"],
@@ -310,12 +320,18 @@ def command_result(command_id):
 @bp.post("/updates/<target_id>/authorize")
 def authorize_update(target_id):
     value = json_body()
-    device = _authenticated_device(value.get("installation_id"))
+    installation_id = value.get("installation_id")
+    if not valid_uuid(installation_id):
+        raise ApiError("invalid_installation_id", "installation_id must be a canonical UUID")
+    device = _authenticated_device(installation_id)
     return rollouts.authorize(get_db(), device, target_id)
 
 
 @bp.post("/updates/<target_id>/result")
 def update_result(target_id):
     value = json_body()
-    device = _authenticated_device(value.get("installation_id"))
+    installation_id = value.get("installation_id")
+    if not valid_uuid(installation_id):
+        raise ApiError("invalid_installation_id", "installation_id must be a canonical UUID")
+    device = _authenticated_device(installation_id)
     return rollouts.result(get_db(), device, target_id, value)

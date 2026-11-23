@@ -54,9 +54,28 @@ static bool is_zip_code(const char* loc) {
     return false;
 }
 
+static void url_encode_query(const char* src, char* dst, size_t dst_len) {
+    if (!dst || dst_len == 0) return;
+    size_t out = 0;
+    for (const unsigned char* p = reinterpret_cast<const unsigned char*>(src ? src : ""); *p && out + 1 < dst_len; ++p) {
+        if ((*p >= 'A' && *p <= 'Z') || (*p >= 'a' && *p <= 'z') || (*p >= '0' && *p <= '9') ||
+            *p == '-' || *p == '_' || *p == '.' || *p == ',' || *p == '~') {
+            dst[out++] = static_cast<char>(*p);
+        } else if (out + 3 < dst_len) {
+            snprintf(dst + out, dst_len - out, "%%%02X", *p);
+            out += 3;
+        } else {
+            break;
+        }
+    }
+    dst[out] = '\0';
+}
+
 // Build the weather API URL with auto-detected location type
 static void build_weather_url(const AppConfig& cfg, char* url, size_t url_len) {
     const char* units = cfg.weather_use_f ? "imperial" : "metric";
+    char encoded_city[192];
+    url_encode_query(cfg.weather_city, encoded_city, sizeof(encoded_city));
 
     if (is_zip_code(cfg.weather_city)) {
         // Zip/postal code — use zip= parameter
@@ -64,18 +83,18 @@ static void build_weather_url(const AppConfig& cfg, char* url, size_t url_len) {
         if (strchr(cfg.weather_city, ',')) {
             snprintf(url, url_len,
                      "https://api.openweathermap.org/data/2.5/weather?zip=%s&appid=%s&units=%s",
-                     cfg.weather_city, cfg.weather_api_key, units);
+                     encoded_city, cfg.weather_api_key, units);
         } else {
             snprintf(url, url_len,
                      "https://api.openweathermap.org/data/2.5/weather?zip=%s,US&appid=%s&units=%s",
-                     cfg.weather_city, cfg.weather_api_key, units);
+                     encoded_city, cfg.weather_api_key, units);
         }
         Serial.printf("[WEATHER] Using zip code: %s\n", cfg.weather_city);
     } else {
         // City name — use q= parameter
         snprintf(url, url_len,
                  "https://api.openweathermap.org/data/2.5/weather?q=%s&appid=%s&units=%s",
-                 cfg.weather_city, cfg.weather_api_key, units);
+                 encoded_city, cfg.weather_api_key, units);
         Serial.printf("[WEATHER] Using city: %s\n", cfg.weather_city);
     }
 }
@@ -240,10 +259,11 @@ void weather_set_pre_fetch_callback(WeatherPreFetchCallback cb) {
 }
 
 void weather_set_mock(float temp, const char* desc, int condition_id) {
+    const char* label = desc ? desc : "";
     portENTER_CRITICAL(&weather_mux);
     auto& current_weather=published.reading;
     current_weather.temp = temp;
-    strncpy(current_weather.description, desc, sizeof(current_weather.description) - 1);
+    strncpy(current_weather.description, label, sizeof(current_weather.description) - 1);
     current_weather.description[sizeof(current_weather.description) - 1] = '\0';
     current_weather.condition_id = condition_id;
     current_weather.humidity = 50;
@@ -251,5 +271,5 @@ void weather_set_mock(float temp, const char* desc, int condition_id) {
     current_weather.valid = true;
     published.ever_received = true;
     portEXIT_CRITICAL(&weather_mux);
-    Serial.printf("[WEATHER] Mock set: %.0f° %s (id=%d)\n", temp, desc, condition_id);
+    Serial.printf("[WEATHER] Mock set: %.0f° %s (id=%d)\n", temp, label, condition_id);
 }

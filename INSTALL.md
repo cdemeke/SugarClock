@@ -49,7 +49,7 @@ Keep `tc001_factory_backup.bin` somewhere safe.
 Clone or download this project, then build:
 
 ```bash
-cd tc001
+cd SugarClock
 
 # Install PlatformIO if needed
 pip install -r requirements-build.txt
@@ -368,7 +368,7 @@ esptool.py -p /dev/cu.usbserial-1410 -b 460800 write_flash 0x0 tc001_factory_bac
 To update to a new version:
 
 ```bash
-cd tc001
+cd SugarClock
 git pull              # if using git
 pio run --target upload    # flash firmware
 pio run --target uploadfs  # flash web UI (if changed)

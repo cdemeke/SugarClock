@@ -116,7 +116,9 @@ if os.path.exists(littlefs) and os.path.getsize(littlefs) != 0x70000:
     fail("littlefs.bin does not match filesystem partition")
 
 sdkconfig = os.path.expanduser("~/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/sdkconfig")
-if os.path.exists(sdkconfig) and "CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y" not in open(sdkconfig, encoding="utf-8").read():
-    fail("resolved ESP32 bootloader does not enable app rollback")
+if os.path.exists(sdkconfig):
+    with open(sdkconfig, encoding="utf-8") as stream:
+        if "CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y" not in stream.read():
+            fail("resolved ESP32 bootloader does not enable app rollback")
 
 print(f"layout checks passed for source v{version}; USB installer publishes v{installer_version}")

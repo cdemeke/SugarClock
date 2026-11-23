@@ -471,7 +471,7 @@ struct FirmwareView:View {
                 Text("Firmware is downloaded and verified over saved Wi-Fi. Updates may wait for alerts, low battery, memory or active timers. Bluetooth can disconnect temporarily; reconnect to confirm the version and startup validation.").font(.subheadline).foregroundStyle(SugarTheme.secondary)
                 Text("If the previous version returns, check the error: the update may have failed or rolled back.").font(.footnote).foregroundStyle(SugarTheme.secondary)
             }
-            Button("Refresh update status") {Task {await model.perform {try await model.refresh()}}}.buttonStyle(SugarButtonStyle(prominent:false))
+            Button("Refresh update status") {Task {await model.perform {try await model.refresh()}}}.buttonStyle(SugarButtonStyle(prominent:false)).disabled(!model.canSend)
             OperationFeedback()
         }.navigationTitle("Firmware")
     }

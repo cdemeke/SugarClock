@@ -52,7 +52,7 @@ def generate_web_assets():
                 if f.startswith('.'):
                     continue
                 full_path = os.path.join(root, f)
-                rel_path = prefix + os.path.relpath(full_path, source_dir)
+                rel_path = prefix + os.path.relpath(full_path, source_dir).replace(os.sep, "/")
                 ext = os.path.splitext(f)[1].lower()
                 mime = MIME_MAP.get(ext, "application/octet-stream")
 
@@ -157,12 +157,15 @@ const WebAsset* get_web_asset_at(size_t index) {
 
     header_path = os.path.join(INCLUDE_DIR, "web_assets.h")
     src_path = os.path.join(SRC_DIR, "web_assets.cpp")
+    src_content = "\n".join(cpp_lines)
 
-    with open(header_path, "w") as fp:
-        fp.write(header_content)
+    if not os.path.exists(header_path) or open(header_path, "r").read() != header_content:
+        with open(header_path, "w") as fp:
+            fp.write(header_content)
 
-    with open(src_path, "w") as fp:
-        fp.write("\n".join(cpp_lines))
+    if not os.path.exists(src_path) or open(src_path, "r").read() != src_content:
+        with open(src_path, "w") as fp:
+            fp.write(src_content)
 
     print(f"Generated web assets from {len(assets)} files in {DATA_WWW_DIR}")
 

@@ -82,9 +82,9 @@
                 <label for="ota-auto"><span data-i18n="Install stable updates automatically">Install stable updates automatically</span></label>
                 <input type="checkbox" id="ota-auto" checked>
             </div>
-            <div class="form-group" style="max-width:220px;margin-top:12px;">
+            <div class="form-group" style="margin-top:12px;">
                 <label for="ota-hour"><span data-i18n="Nightly install hour">Nightly install hour</span></label>
-                <select id="ota-hour"></select>
+                <select id="ota-hour" class="select-compact"></select>
                 <div class="hint"><span data-i18n="Local time; automatic installs are deferred when the clock is busy or unsafe. Manual install below works even with automatic updates off, and requests only the release assigned to this clock.">Local time; automatic installs are deferred when the clock is busy or unsafe. Manual install below works even with automatic updates off, and requests only the release assigned to this clock.</span></div>
             </div>
             <div class="btn-group">
@@ -130,13 +130,16 @@
 
     <script>
         function showToast(m,t){const e=document.getElementById('toast');I18n.text(e, m);e.className='toast show '+(t==='error'?'toast-error':'toast-success');setTimeout(()=>e.className='toast',3000);}
-        function fB(b){if(b>1048576)return(b/1048576).toFixed(1)+' MB';if(b>1024)return(b/1024).toFixed(1)+' KB';return b+' B';}
-        function fU(s){const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60);let p=[];if(d)p.push(d+'d');if(h)p.push(h+'h');p.push(m+'m');return p.join(' ');}
+        function fB(b){if(!Number.isFinite(b))return'--';if(b>1048576)return(b/1048576).toFixed(1)+' MB';if(b>1024)return(b/1024).toFixed(1)+' KB';return b+' B';}
+        function fU(s){if(!Number.isFinite(s))return'--';const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60);let p=[];if(d)p.push(d+'d');if(h)p.push(h+'h');p.push(m+'m');return p.join(' ');}
         function otaLabel(s){return String(s||'unknown').replaceAll('_',' ');}
         const hourSelect=document.getElementById('ota-hour');
         for(let h=0;h<24;h++){const o=document.createElement('option');o.value=h;I18n.text(o, (h===0?'12':h>12?h-12:h)+(h<12?' AM':' PM'));hourSelect.appendChild(o);}
 
+        let otaTimer=null;
         async function loadOta(){
+            clearTimeout(otaTimer);
+            let nextMs=15000;
             try{
                 const r=await fetch('/api/ota/status'),o=await r.json();
                 I18n.text(document.getElementById('fw-version'), 'v'+o.current_version, false);
@@ -153,7 +156,9 @@
                 document.getElementById('ota-check-btn').disabled=busy;
                 const install=document.getElementById('ota-install-btn');
                 install.disabled=busy;
+                if(busy)nextMs=2000;
             }catch(e){}
+            if(!document.hidden)otaTimer=setTimeout(loadOta,nextMs);
         }
 
         async function otaAction(path){
@@ -164,9 +169,9 @@
         async function load(){
             try{const[sr,dr]=await Promise.all([fetch('/api/status'),fetch('/api/debug')]);const s=await sr.json(),d=await dr.json();
             I18n.text(document.getElementById('ip'), s.wifi_ip || '--', false);I18n.text(document.getElementById('mac'), d.mac || '--', false);
-            I18n.text(document.getElementById('rssi'), I18n.message("{0} dBm", [d.wifi_rssi]));I18n.text(document.getElementById('free-heap'), fB(d.free_heap), false);
+            I18n.text(document.getElementById('rssi'), Number.isFinite(d.wifi_rssi) ? I18n.message("{0} dBm", [d.wifi_rssi]) : '--', Number.isFinite(d.wifi_rssi));I18n.text(document.getElementById('free-heap'), fB(d.free_heap), false);
             I18n.text(document.getElementById('fs-used'), d.fs_used ? fB(d.fs_used) : '--', false);I18n.text(document.getElementById('fs-total'), d.fs_total ? fB(d.fs_total) : '--', false);
-            I18n.text(document.getElementById('bat-v'), d.battery_voltage.toFixed(2)+'V', false);I18n.text(document.getElementById('bat-pct'), d.battery_percent+'%', false);
+            I18n.text(document.getElementById('bat-v'), Number.isFinite(d.battery_voltage) ? d.battery_voltage.toFixed(2)+'V' : '--', false);I18n.text(document.getElementById('bat-pct'), Number.isFinite(d.battery_percent) ? d.battery_percent+'%' : '--', false);
             I18n.text(document.getElementById('uptime'), fU(d.uptime_sec), false);
             I18n.text(document.getElementById('installation-id'), s.installation_id || 'Unavailable');
             if(s.firmware_version)I18n.text(document.getElementById('fw-version'), 'v'+s.firmware_version, false);
@@ -181,7 +186,8 @@
         document.getElementById('restart-btn').addEventListener('click',async()=>{if(!confirm(I18n.t('Restart?')))return;try{await fetch('/api/restart',{method:'POST'});showToast('Restarting...');}catch(e){showToast('Failed','error');}});
         document.getElementById('reset-btn').addEventListener('click',async()=>{if(!confirm(I18n.t('Factory reset? All settings erased.')))return;try{await fetch('/api/factory-reset',{method:'POST'});showToast('Resetting...');}catch(e){showToast('Failed','error');}});
         load();
-        loadOta();setInterval(loadOta,2000);
+        loadOta();
+        document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadOta();});
 
         function toggleTheme(){
             const d=document.documentElement;
