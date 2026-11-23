@@ -45,12 +45,12 @@ td a:hover, .back:hover { text-decoration: underline; }
 .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; background: var(--track); color: #526072; font-size: 12px; text-transform: capitalize; }
 .pill.online { background: #e8f6ef; color: #167345; }
 .pill.delayed { background: #fff3d9; color: #8a5b08; }
-.pill.offline, .pill.dormant { background: #fceeee; color: #ab3636; }
+.pill.offline, .pill.dormant, .pill.blocked { background: #fceeee; color: #ab3636; }
 dl { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 10px; margin: 0; }
 dt { color: var(--muted); }
 dd { margin: 0; overflow-wrap: anywhere; }
 label { display: block; margin-bottom: 14px; color: var(--muted); }
-select, textarea, input { display: block; width: 100%; margin-top: 5px; padding: 10px 12px; color: var(--text); background: var(--card); border: 1px solid #ccd4df; border-radius: 7px; font: inherit; }
+select, input { display: block; width: 100%; margin-top: 5px; padding: 10px 12px; color: var(--text); background: var(--card); border: 1px solid #ccd4df; border-radius: 7px; font: inherit; }
 button, .button { display: inline-block; padding: 10px 16px; color: white; background: var(--accent); border: 1px solid transparent; border-radius: 7px; font: inherit; font-weight: 650; line-height: 1.4; cursor: pointer; text-decoration: none; }
 button:hover, .button:hover { background: #194dbb; }
 .secondary { color: var(--accent); background: var(--soft-blue); border-color: #d5e2ff; }
@@ -58,9 +58,8 @@ button:hover, .button:hover { background: #194dbb; }
 button:disabled { opacity: .55; cursor: wait; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 [hidden] { display: none !important; }
-#command-result, .form-result { margin-left: 12px; color: var(--muted); }
+.form-result { margin-left: 12px; color: var(--muted); }
 .action-card { margin-bottom: 24px; }
-.action-card textarea { min-height: 110px; }
 .identifier { overflow-wrap: anywhere; font-family: var(--mono); font-size: 13px; }
 .card p { overflow-wrap: anywhere; }
 summary { cursor: pointer; font-weight: 650; margin-bottom: 16px; }
@@ -69,7 +68,6 @@ details form { margin-top: 24px; max-width: 600px; }
 .choice { display: flex; gap: 10px; align-items: flex-start; margin: 0; padding: 9px; border-bottom: 1px solid var(--line); color: var(--text); }
 .choice input { width: auto; margin: 5px 0; }
 .choice small { display: block; color: var(--muted); }
-.toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .rollout { margin: 24px 0; }
 .rollout .heading { margin-bottom: 8px; }
 .rollout .counts { display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0; }
@@ -79,9 +77,11 @@ details form { margin-top: 24px; max-width: 600px; }
 .rollout details { margin-top: 20px; }
 .rollout .hint { margin-top: 12px; }
 #features dt, #features dd { text-transform: capitalize; }
+@media (min-width: 761px) {
+  #features { grid-template-columns: repeat(2, 160px minmax(0, 1fr)); }
+}
 #release-history p { margin: 8px 0; }
 .warning { border-left: 3px solid #d59622; padding: 10px 14px; background: #fff7e5; color: #805619; border-radius: 4px; }
-.field-help { display: block; font-size: 13px; color: var(--muted); }
 .section-heading { margin-top: 32px; }
 .section-heading h2 { margin-bottom: 4px; }
 #stable-options label { max-width: 240px; }
@@ -115,7 +115,7 @@ details form { margin-top: 24px; max-width: 600px; }
 /* KPI tiles */
 .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
 .metric { position: relative; padding: 20px 22px; }
-.metric h2 { margin: 0 0 6px; font-size: 13px; line-height: 1.5; text-transform: uppercase; letter-spacing: .045em; font-weight: 500; color: var(--muted); }
+.metric h2 { margin: 0 0 6px; padding-right: 104px; font-size: 13px; line-height: 1.5; text-transform: uppercase; letter-spacing: .045em; font-weight: 500; color: var(--muted); }
 .metric strong { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; font-size: 36px; letter-spacing: -1px; line-height: 1.15; font-weight: 750; font-variant-numeric: tabular-nums; }
 .metric p { margin: 10px 0 0; font-size: 13px; }
 .metric .bar-track { height: 6px; margin-top: 12px; }
@@ -193,13 +193,13 @@ details form { margin-top: 24px; max-width: 600px; }
 .donut-arc { fill: none; stroke-width: 12; }
 .donut-value { fill: var(--text); font-size: 21px; font-weight: 750; }
 .donut-caption { fill: var(--muted); font-size: 10px; }
-.legend { display: grid; gap: 2px; flex: 1 1 200px; min-width: 0; }
-.legend-row { display: flex; align-items: center; gap: 9px; padding: 6px 8px; margin: 0 -8px; border-radius: 8px; color: var(--text); text-decoration: none; font-size: 14px; }
+.legend { display: grid; gap: 2px; flex: 1 1 240px; min-width: 0; }
+.legend-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 9px; padding: 6px 8px; margin: 0 -8px; border-radius: 8px; color: var(--text); text-decoration: none; font-size: 14px; }
 a.legend-row:hover { background: var(--bg); }
 .legend-row > :nth-child(2) { overflow-wrap: anywhere; min-width: 0; }
 .legend-value { margin-left: auto; padding-left: 8px; color: var(--muted); font-size: 13px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .swatch { flex: 0 0 10px; height: 10px; border-radius: 3px; }
-.version-label { font-size: 13px; }
+.version-label { font-size: 13px; white-space: nowrap; flex-shrink: 0; }
 .version-badge { padding: 0 6px; border: 1px solid #d5e2ff; border-radius: 5px; background: var(--soft-blue); color: var(--accent); font: 600 11px/1.6 system-ui, sans-serif; white-space: nowrap; }
 .version-badge.muted { border-color: var(--line); background: var(--bg); color: var(--muted); }
 .capacity-card .bar-track { height: 8px; }
@@ -228,7 +228,6 @@ a.bar-row:hover, button.bar-row:hover { background: var(--bg); }
 .bar-value { color: var(--muted); font-size: 13px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .bar-value strong { color: var(--text); font-weight: 650; }
 .bar-row.is-zero .bar-label, .bar-row.is-zero .bar-value strong { color: var(--muted); }
-.bar-row.location-row { grid-template-columns: minmax(0, 1fr) auto; }
 .location-row .bar-sublabel { white-space: nowrap; }
 .location-toggle { display: inline-block; flex-shrink: 0; color: var(--muted); transition: transform .15s; }
 .location-row[aria-expanded="true"] .location-toggle { transform: rotate(90deg); }
@@ -255,6 +254,7 @@ a.bar-row:hover, button.bar-row:hover { background: var(--bg); }
   .grid, .overview-trio { grid-template-columns: minmax(0, 1fr); }
   .metrics { gap: 12px; }
   .metric { padding: 18px; }
+  .metric h2 { padding-right: 0; }
   .metric strong { font-size: 30px; }
   .metric-spark { display: none; }
   .overview-intro { font-size: 15px; }

@@ -119,7 +119,7 @@ pio run --target upload                   # flash firmware
 pio run --target uploadfs                 # flash filesystem
 ```
 
-Then set your WiFi credentials in `src/config_manager.cpp`, rebuild, and re-flash. Use `pio device monitor` to find the device IP, then open `http://<device-ip>/config.html` to configure your glucose source.
+Then set your WiFi credentials in `src/config_manager.cpp`, rebuild, and re-flash. Use `pio device monitor` to find the device IP, then open `http://<device-ip>/` to configure your glucose source.
 
 You may need the [CH340 USB driver](https://sparks.gogo.co.nz/ch340.html) on Windows.
 

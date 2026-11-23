@@ -5,7 +5,6 @@ import hashlib
 import hmac
 
 
-PBKDF2_ITERATIONS = 600_000
 HMAC_DOMAIN = b"sugarclock-device-credential-v1\0"
 
 

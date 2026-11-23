@@ -29,22 +29,13 @@ def compatible(device):
     )
 
 
-def serialize(connection, row):
+def _serialize_one(row, release, cohort_count, targets):
     value = dict(row)
-    release = connection.execute(
-        "SELECT * FROM releases WHERE id=?", (row["release_id"],)
-    ).fetchone()
     value["release"] = dict(release)
     value["version"] = release["version"]
     value["release_version"] = release["version"]
     value["paused"] = bool(row["paused"])
-    value["cohort_count"] = connection.execute(
-        "SELECT COUNT(*) FROM rollout_cohort WHERE rollout_id=?", (row["id"],)
-    ).fetchone()[0]
-    targets = connection.execute(
-        "SELECT t.*,d.last_checkin_at,d.friendly_name FROM rollout_targets t LEFT JOIN devices d USING(installation_id) WHERE rollout_id=? ORDER BY t.updated_at DESC",
-        (row["id"],),
-    ).fetchall()
+    value["cohort_count"] = cohort_count
     value["target_count"] = len(targets)
     value["outcomes"] = {
         k: 0
@@ -67,6 +58,73 @@ def serialize(connection, row):
     return value
 
 
+def serialize(connection, row):
+    release = connection.execute(
+        "SELECT * FROM releases WHERE id=?", (row["release_id"],)
+    ).fetchone()
+    cohort_count = connection.execute(
+        "SELECT COUNT(*) FROM rollout_cohort WHERE rollout_id=?", (row["id"],)
+    ).fetchone()[0]
+    targets = connection.execute(
+        "SELECT t.*,d.id AS device_id,d.last_checkin_at,d.friendly_name FROM rollout_targets t LEFT JOIN devices d USING(installation_id) WHERE rollout_id=? ORDER BY t.updated_at DESC",
+        (row["id"],),
+    ).fetchall()
+    return _serialize_one(row, release, cohort_count, targets)
+
+
+def serialize_many(connection, rows):
+    rows = list(rows)
+    if not rows:
+        return []
+    rollout_ids = [row["id"] for row in rows]
+    release_ids = sorted({row["release_id"] for row in rows})
+    r_ph = ",".join("?" for _ in release_ids)
+    releases = {
+        r["id"]: r
+        for r in connection.execute(
+            f"SELECT * FROM releases WHERE id IN ({r_ph})", release_ids
+        )
+    }
+    id_ph = ",".join("?" for _ in rollout_ids)
+    cohort_counts = {
+        r["rollout_id"]: r["cnt"]
+        for r in connection.execute(
+            f"SELECT rollout_id, COUNT(*) AS cnt FROM rollout_cohort WHERE rollout_id IN ({id_ph}) GROUP BY rollout_id",
+            rollout_ids,
+        )
+    }
+    targets_by_rollout = {rid: [] for rid in rollout_ids}
+    for t in connection.execute(
+        f"SELECT t.*,d.id AS device_id,d.last_checkin_at,d.friendly_name FROM rollout_targets t "
+        f"LEFT JOIN devices d USING(installation_id) WHERE t.rollout_id IN ({id_ph}) ORDER BY t.updated_at DESC",
+        rollout_ids,
+    ):
+        targets_by_rollout[t["rollout_id"]].append(t)
+    return [
+        _serialize_one(
+            row,
+            releases[row["release_id"]],
+            cohort_counts.get(row["id"], 0),
+            targets_by_rollout[row["id"]],
+        )
+        for row in rows
+    ]
+
+
+def for_device(connection, installation_id):
+    return [
+        dict(row)
+        for row in connection.execute(
+            "SELECT r.version, ro.kind, t.status, t.reason, t.updated_at "
+            "FROM rollout_targets t "
+            "JOIN rollouts ro ON ro.id = t.rollout_id "
+            "JOIN releases r ON r.id = ro.release_id "
+            "WHERE t.installation_id = ? ORDER BY ro.id DESC LIMIT 50",
+            (installation_id,),
+        )
+    ]
+
+
 def add_target(connection, rollout_id, installation_id, now):
     connection.execute(
         "INSERT OR IGNORE INTO rollout_targets(id,rollout_id,installation_id,updated_at) VALUES(?,?,?,?)",
@@ -79,8 +137,13 @@ def expand(connection, row):
         "SELECT installation_id FROM rollout_cohort WHERE rollout_id=? ORDER BY rank",
         (row["id"],),
     ).fetchall()
-    for item in cohort[: math.ceil(len(cohort) * row["percentage"] / 100)]:
-        add_target(connection, row["id"], item["installation_id"], now_epoch())
+    now = now_epoch()
+    selected = cohort[: math.ceil(len(cohort) * row["percentage"] / 100)]
+    if selected:
+        connection.executemany(
+            "INSERT OR IGNORE INTO rollout_targets(id,rollout_id,installation_id,updated_at) VALUES(?,?,?,?)",
+            [(str(uuid.uuid4()), row["id"], item["installation_id"], now) for item in selected],
+        )
 
 
 def create(connection, value, administrator):
@@ -111,104 +174,108 @@ def create(connection, value, administrator):
             422,
         )
     connection.execute("BEGIN IMMEDIATE")
-    previous = connection.execute(
-        "SELECT ro.*,r.version FROM rollouts ro JOIN releases r ON r.id=ro.release_id WHERE kind='stable' ORDER BY ro.id DESC LIMIT 1"
-    ).fetchone()
-    if kind == "stable" and previous:
-        if version(release["version"]) <= version(previous["version"]):
-            raise ApiError(
-                "newer_release_required",
-                "Corrective releases must have a strictly higher version",
-                409,
-            )
-    fallback = previous
-    while fallback and (fallback["percentage"] != 100 or fallback["paused"]):
-        fallback = connection.execute(
-            "SELECT * FROM rollouts WHERE id=?", (fallback["previous_stable_id"],)
+    try:
+        previous = connection.execute(
+            "SELECT ro.*,r.version FROM rollouts ro JOIN releases r ON r.id=ro.release_id WHERE kind='stable' ORDER BY ro.id DESC LIMIT 1"
         ).fetchone()
-    now = now_epoch()
-    eligible = [
-        d
-        for d in connection.execute("SELECT * FROM devices")
-        if compatible(d)
-        and d["hardware"] == release["hardware"]
-        and version(d["firmware_version"]) >= version(release["minimum_ota_version"])
-    ]
-    if kind == "candidate":
-        ids = value.get("installation_ids")
-        if (
-            not isinstance(ids, list)
-            or not ids
-            or len(ids) > 10000
-            or any(not isinstance(i, str) for i in ids)
-            or len(set(ids)) != len(ids)
-        ):
-            raise ApiError("invalid_targets", "select unique installation IDs")
-        by_id = {d["installation_id"]: d for d in eligible}
-        if any(i not in by_id for i in ids):
-            raise ApiError(
-                "ineligible_target",
-                "Each candidate target must be a compatible, active fleet-aware installation",
-                422,
-            )
-        selected = [by_id[i] for i in ids]
-        if any(
-            version(release["version"]) <= version(d["firmware_version"])
-            for d in selected
-        ):
-            raise ApiError(
-                "newer_release_required",
-                "Candidate must be newer than every selected clock",
-                409,
-            )
-        percentage = 100
-    else:
-        selected = [
+        if kind == "stable" and previous:
+            if version(release["version"]) <= version(previous["version"]):
+                raise ApiError(
+                    "newer_release_required",
+                    "Corrective releases must have a strictly higher version",
+                    409,
+                )
+        fallback = previous
+        while fallback and (fallback["percentage"] != 100 or fallback["paused"]):
+            fallback = connection.execute(
+                "SELECT * FROM rollouts WHERE id=?", (fallback["previous_stable_id"],)
+            ).fetchone()
+        now = now_epoch()
+        eligible = [
             d
-            for d in eligible
-            if d["last_checkin_at"]
-            and d["last_checkin_at"] >= now - 30 * 86400
-            and version(release["version"]) > version(d["firmware_version"])
+            for d in connection.execute("SELECT * FROM devices")
+            if compatible(d)
+            and d["hardware"] == release["hardware"]
+            and version(d["firmware_version"]) >= version(release["minimum_ota_version"])
         ]
-    cursor = connection.execute(
-        "INSERT INTO rollouts(release_id,kind,percentage,previous_stable_id,created_at,administrator) VALUES(?,?,?,?,?,?)",
-        (
-            release_id,
-            kind,
-            percentage,
-            fallback["id"] if kind == "stable" and fallback else None,
-            now,
+        if kind == "candidate":
+            ids = value.get("installation_ids")
+            if (
+                not isinstance(ids, list)
+                or not ids
+                or len(ids) > 10000
+                or any(not isinstance(i, str) for i in ids)
+                or len(set(ids)) != len(ids)
+            ):
+                raise ApiError("invalid_targets", "select unique installation IDs")
+            by_id = {d["installation_id"]: d for d in eligible}
+            if any(i not in by_id for i in ids):
+                raise ApiError(
+                    "ineligible_target",
+                    "Each candidate target must be a compatible, active fleet-aware installation",
+                    422,
+                )
+            selected = [by_id[i] for i in ids]
+            if any(
+                version(release["version"]) <= version(d["firmware_version"])
+                for d in selected
+            ):
+                raise ApiError(
+                    "newer_release_required",
+                    "Candidate must be newer than every selected clock",
+                    409,
+                )
+            percentage = 100
+        else:
+            selected = [
+                d
+                for d in eligible
+                if d["last_checkin_at"]
+                and d["last_checkin_at"] >= now - 30 * 86400
+                and version(release["version"]) > version(d["firmware_version"])
+            ]
+        cursor = connection.execute(
+            "INSERT INTO rollouts(release_id,kind,percentage,previous_stable_id,created_at,administrator) VALUES(?,?,?,?,?,?)",
+            (
+                release_id,
+                kind,
+                percentage,
+                fallback["id"] if kind == "stable" and fallback else None,
+                now,
+                administrator,
+            ),
+        )
+        rollout_id = cursor.lastrowid
+        selected.sort(
+            key=lambda d: hashlib.sha256(
+                f"{rollout_id}:{d['installation_id']}".encode()
+            ).digest()
+        )
+        connection.executemany(
+            "INSERT INTO rollout_cohort VALUES(?,?,?)",
+            [(rollout_id, d["installation_id"], rank) for rank, d in enumerate(selected)],
+        )
+        row = connection.execute(
+            "SELECT * FROM rollouts WHERE id=?", (rollout_id,)
+        ).fetchone()
+        expand(connection, row)
+        audit(
+            connection,
             administrator,
-        ),
-    )
-    rollout_id = cursor.lastrowid
-    selected.sort(
-        key=lambda d: hashlib.sha256(
-            f"{rollout_id}:{d['installation_id']}".encode()
-        ).digest()
-    )
-    connection.executemany(
-        "INSERT INTO rollout_cohort VALUES(?,?,?)",
-        [(rollout_id, d["installation_id"], rank) for rank, d in enumerate(selected)],
-    )
-    row = connection.execute(
-        "SELECT * FROM rollouts WHERE id=?", (rollout_id,)
-    ).fetchone()
-    expand(connection, row)
-    audit(
-        connection,
-        administrator,
-        "create_rollout",
-        {"rollout_id": rollout_id, "kind": kind, "percentage": percentage},
-    )
-    connection.commit()
+            "create_rollout",
+            {"rollout_id": rollout_id, "kind": kind, "percentage": percentage},
+        )
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
     return serialize(connection, row)
 
 
-def audit(connection, administrator, action, summary):
+def audit(connection, administrator, action, summary, target_device_id=None):
     connection.execute(
-        "INSERT INTO audit_events(administrator,action,summary_json,created_at,result) VALUES(?,?,?,?, 'succeeded')",
-        (administrator, action, json_text(summary), now_epoch()),
+        "INSERT INTO audit_events(administrator,action,target_device_id,summary_json,created_at,result) VALUES(?,?,?,?,?, 'succeeded')",
+        (administrator, action, target_device_id, json_text(summary), now_epoch()),
     )
 
 
@@ -216,40 +283,44 @@ def modify(connection, rollout_id, value, administrator):
     if not value or set(value) - {"percentage", "paused"}:
         raise ApiError("invalid_rollout_patch", "Only percentage and paused may change")
     connection.execute("BEGIN IMMEDIATE")
-    row = connection.execute(
-        "SELECT * FROM rollouts WHERE id=?", (rollout_id,)
-    ).fetchone()
-    if not row:
-        raise ApiError("rollout_not_found", "rollout not found", 404)
-    if row["ended_at"] is not None:
-        raise ApiError(
-            "candidate_finished", "Create a new candidate selection to test again", 409
+    try:
+        row = connection.execute(
+            "SELECT * FROM rollouts WHERE id=?", (rollout_id,)
+        ).fetchone()
+        if not row:
+            raise ApiError("rollout_not_found", "rollout not found", 404)
+        if row["ended_at"] is not None:
+            raise ApiError(
+                "candidate_finished", "Create a new candidate selection to test again", 409
+            )
+        percent = value.get("percentage", row["percentage"])
+        paused = value.get("paused", bool(row["paused"]))
+        if (
+            type(percent) is not int
+            or not row["percentage"] <= percent <= 100
+            or type(paused) is not bool
+        ):
+            raise ApiError(
+                "invalid_rollout_patch",
+                "Percentage may only increase, and paused must be boolean",
+            )
+        if row["kind"] == "candidate" and percent != 100:
+            raise ApiError("invalid_percentage", "Candidates use explicit targets")
+        connection.execute(
+            "UPDATE rollouts SET percentage=?,paused=? WHERE id=?",
+            (percent, int(paused), rollout_id),
         )
-    percent = value.get("percentage", row["percentage"])
-    paused = value.get("paused", bool(row["paused"]))
-    if (
-        type(percent) is not int
-        or not row["percentage"] <= percent <= 100
-        or type(paused) is not bool
-    ):
-        raise ApiError(
-            "invalid_rollout_patch",
-            "Percentage may only increase, and paused must be boolean",
+        row = connection.execute(
+            "SELECT * FROM rollouts WHERE id=?", (rollout_id,)
+        ).fetchone()
+        expand(connection, row)
+        audit(
+            connection, administrator, "update_rollout", {"rollout_id": rollout_id, **value}
         )
-    if row["kind"] == "candidate" and percent != 100:
-        raise ApiError("invalid_percentage", "Candidates use explicit targets")
-    connection.execute(
-        "UPDATE rollouts SET percentage=?,paused=? WHERE id=?",
-        (percent, int(paused), rollout_id),
-    )
-    row = connection.execute(
-        "SELECT * FROM rollouts WHERE id=?", (rollout_id,)
-    ).fetchone()
-    expand(connection, row)
-    audit(
-        connection, administrator, "update_rollout", {"rollout_id": rollout_id, **value}
-    )
-    connection.commit()
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
     return serialize(connection, row)
 
 
@@ -284,7 +355,7 @@ def selected_target(connection, device):
             row = connection.execute(
                 "SELECT * FROM rollouts WHERE id=?", (row["previous_stable_id"],)
             ).fetchone()
-        if row is None:
+        if row is None or row["paused"]:
             return None
         release = connection.execute(
             "SELECT * FROM releases WHERE id=?", (row["release_id"],)
@@ -337,22 +408,26 @@ def offer(connection, device):
 def authorize(connection, device, target_id):
     # Serialize pause and authorization: pause prevents any subsequent starts.
     connection.execute("BEGIN IMMEDIATE")
-    device = connection.execute(
-        "SELECT * FROM devices WHERE id=?", (device["id"],)
-    ).fetchone()
-    value = offer(connection, device)
-    if not value or value["target_id"] != target_id:
-        raise ApiError(
-            "update_not_authorized",
-            "Update paused, superseded, completed or ineligible",
-            409,
+    try:
+        device = connection.execute(
+            "SELECT * FROM devices WHERE id=?", (device["id"],)
+        ).fetchone()
+        value = offer(connection, device)
+        if not value or value["target_id"] != target_id:
+            raise ApiError(
+                "update_not_authorized",
+                "Update paused, superseded, completed or ineligible",
+                409,
+            )
+        now = now_epoch()
+        connection.execute(
+            "UPDATE rollout_targets SET authorized_at=?,updated_at=?,status='installing' WHERE id=?",
+            (now, now, target_id),
         )
-    now = now_epoch()
-    connection.execute(
-        "UPDATE rollout_targets SET authorized_at=?,updated_at=?,status='installing' WHERE id=?",
-        (now, now, target_id),
-    )
-    connection.commit()
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
     return {
         "authorized": True,
         "expires_at": now + 60,
@@ -410,52 +485,61 @@ def result(connection, device, target_id, value):
 def retry_failed(connection, rollout_id, administrator):
     """A manual retry creates a fresh attempt identity; delayed old results cannot win."""
     connection.execute("BEGIN IMMEDIATE")
-    row = connection.execute(
-        "SELECT * FROM rollouts WHERE id=?", (rollout_id,)
-    ).fetchone()
-    if not row:
-        raise ApiError("rollout_not_found", "rollout not found", 404)
-    if row["ended_at"] is not None:
-        raise ApiError(
-            "candidate_finished", "Create a new candidate selection to test again", 409
+    try:
+        row = connection.execute(
+            "SELECT * FROM rollouts WHERE id=?", (rollout_id,)
+        ).fetchone()
+        if not row:
+            raise ApiError("rollout_not_found", "rollout not found", 404)
+        if row["ended_at"] is not None:
+            raise ApiError(
+                "candidate_finished", "Create a new candidate selection to test again", 409
+            )
+        targets = connection.execute(
+            "SELECT id FROM rollout_targets WHERE rollout_id=? AND status='failed'",
+            (rollout_id,),
+        ).fetchall()
+        now = now_epoch()
+        if targets:
+            connection.executemany(
+                "UPDATE rollout_targets SET id=?,status='targeted',reason=NULL,offered_at=NULL,authorized_at=NULL,updated_at=? WHERE id=?",
+                [(str(uuid.uuid4()), now, target["id"]) for target in targets],
+            )
+        audit(
+            connection,
+            administrator,
+            "retry_failed_rollout",
+            {"rollout_id": rollout_id, "retried": len(targets)},
         )
-    targets = connection.execute(
-        "SELECT id FROM rollout_targets WHERE rollout_id=? AND status='failed'",
-        (rollout_id,),
-    ).fetchall()
-    for target in targets:
-        connection.execute(
-            "UPDATE rollout_targets SET id=?,status='targeted',reason=NULL,offered_at=NULL,authorized_at=NULL,updated_at=? WHERE id=?",
-            (str(uuid.uuid4()), now_epoch(), target["id"]),
-        )
-    audit(
-        connection,
-        administrator,
-        "retry_failed_rollout",
-        {"rollout_id": rollout_id, "retried": len(targets)},
-    )
-    connection.commit()
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
     return {"retried": len(targets), "rollout": serialize(connection, row)}
 
 
 def finish_candidate(connection, rollout_id, administrator):
     """Return selected test installations to stable without forcing a downgrade."""
     connection.execute("BEGIN IMMEDIATE")
-    row = connection.execute(
-        "SELECT * FROM rollouts WHERE id=?", (rollout_id,)
-    ).fetchone()
-    if not row:
-        raise ApiError("rollout_not_found", "rollout not found", 404)
-    if row["kind"] != "candidate":
-        raise ApiError(
-            "candidate_required", "Only a candidate selection can be finished", 422
-        )
-    if row["ended_at"] is None:
-        connection.execute(
-            "UPDATE rollouts SET ended_at=? WHERE id=?", (now_epoch(), rollout_id)
-        )
-        audit(connection, administrator, "finish_candidate", {"rollout_id": rollout_id})
-    connection.commit()
+    try:
+        row = connection.execute(
+            "SELECT * FROM rollouts WHERE id=?", (rollout_id,)
+        ).fetchone()
+        if not row:
+            raise ApiError("rollout_not_found", "rollout not found", 404)
+        if row["kind"] != "candidate":
+            raise ApiError(
+                "candidate_required", "Only a candidate selection can be finished", 422
+            )
+        if row["ended_at"] is None:
+            connection.execute(
+                "UPDATE rollouts SET ended_at=? WHERE id=?", (now_epoch(), rollout_id)
+            )
+            audit(connection, administrator, "finish_candidate", {"rollout_id": rollout_id})
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
     row = connection.execute(
         "SELECT * FROM rollouts WHERE id=?", (rollout_id,)
     ).fetchone()

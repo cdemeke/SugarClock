@@ -15,9 +15,6 @@ void captive_portal_stop();
 // Pump the DNS server; call from wifi_loop() while the portal is up
 void captive_portal_loop();
 
-// True while the DNS responder is running
-bool captive_portal_active();
-
 // Register the OS probe endpoints and the catch-all signpost handler on the
 // shared web server. Call once from webserver_init().
 void captive_portal_register_routes(AsyncWebServer& server);

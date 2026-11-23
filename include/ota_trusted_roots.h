@@ -4,7 +4,7 @@
 // Roots used by github.com, GitHub release asset hosts, and the Cloudflare edge
 // serving fleet.sugarclock.com. TLS hostname, chain, and validity checks remain
 // enabled; OTA and fleet code never call setInsecure().
-static const char OTA_TRUSTED_ROOTS_PEM[] = R"CERT(-----BEGIN CERTIFICATE-----
+inline const char OTA_TRUSTED_ROOTS_PEM[] = R"CERT(-----BEGIN CERTIFICATE-----
 MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
 TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh
 cmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMTUwNjA0MTEwNDM4

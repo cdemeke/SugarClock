@@ -70,12 +70,6 @@ void display_draw_bar(int value, int max_val, uint16_t color);
 // Draw a single pixel at (x, y) with a 16-bit color
 void display_draw_pixel(int x, int y, uint16_t color);
 
-// Flash the entire matrix with a solid color (non-blocking, caller manages timing)
-void display_flash(uint8_t r, uint8_t g, uint8_t b);
-
-// Fill entire matrix with a single color (for testing)
-void display_fill(uint8_t r, uint8_t g, uint8_t b);
-
 // Width in pixels that `text` occupies in the default 5x7 font (6px per glyph)
 int display_text_width(const char* text);
 

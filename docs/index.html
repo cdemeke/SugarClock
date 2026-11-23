@@ -358,17 +358,6 @@
     feather.replace();
 
     document.addEventListener("DOMContentLoaded", () => {
-      const observer = new IntersectionObserver((entries, obs) => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("is-visible");
-            obs.unobserve(entry.target);
-          }
-        });
-      }, { threshold: 0.1 });
-
-      document.querySelectorAll(".fade-up").forEach(el => observer.observe(el));
-
       // Scroll-spy: highlight the nav link for the section currently in view
       const spySections = [...document.querySelectorAll("#why, #process")];
       const navMap = {};
@@ -399,7 +388,7 @@
         });
       }
 
-      if (!("serial" in navigator)) {
+      if (!("serial" in navigator) && /Mac/i.test(navigator.platform || navigator.userAgent)) {
         document.getElementById("web-flash-card").style.display = "none";
         document.getElementById("mac-app-card").style.display = "block";
         feather.replace();

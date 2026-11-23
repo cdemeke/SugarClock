@@ -79,12 +79,9 @@ strictly higher; selecting an older release does not downgrade firmware.
 controlled public rollouts. Test the exact signed bridge on physical clocks, then
 explicitly promote it to GitHub Latest for legacy auto-updaters. That one-time step
 is broad distribution, not a 10% trial. Latest remains pinned to the bridge while
-future releases use fleet targeting. This PR does not promote or publish a release.
+future releases use fleet targeting.
 
 ## Reporting and location
-
-Before each deployment, stop writes briefly and copy the SQLite database plus its WAL files from the named volume to encrypted storage. After deployment, require the container health check to pass, confirm `/healthz`, sign in through GitHub, verify the expected fleet count, and exercise one canary check-in before reopening enrollment or issuing commands.
-
 
 ### Remote configuration scope (management protocol 1)
 

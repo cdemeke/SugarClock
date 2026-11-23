@@ -27,18 +27,6 @@ enum DisplayState {
     STATE_AMBIENT_CREATURE_DISPLAY  // append new modes to preserve force_mode API values
 };
 
-// Glucose thresholds for color coding
-struct GlucoseThresholds {
-    int urgent_low;    // default 70
-    int low;           // default 80
-    int high;          // default 180
-    int urgent_high;   // default 250
-};
-
-// Get color for glucose value based on thresholds
-// Returns 16-bit RGB565 color
-uint16_t glucose_color(int mg_dl, const GlucoseThresholds& thresholds);
-
 // Initialize glucose engine
 void engine_init();
 

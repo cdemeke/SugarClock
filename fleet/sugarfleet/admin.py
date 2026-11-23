@@ -160,6 +160,7 @@ def device_detail_page(device_id):
         "device_detail.html",
         device=_device_json(device, detail=True),
         commands=[_command_json(row) for row in commands],
+        release_history=rollouts.for_device(connection, device["installation_id"]),
     )
 
 
@@ -410,14 +411,10 @@ def api_overview():
 @admin_required
 def api_rollouts():
     connection = get_db()
-    return {
-        "rollouts": [
-            rollouts.serialize(connection, row)
-            for row in connection.execute(
-                "SELECT * FROM rollouts ORDER BY id DESC LIMIT 100"
-            )
-        ]
-    }
+    rows = connection.execute(
+        "SELECT * FROM rollouts ORDER BY id DESC LIMIT 100"
+    ).fetchall()
+    return {"rollouts": rollouts.serialize_many(connection, rows)}
 
 
 @bp.post("/api/rollouts")

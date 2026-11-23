@@ -133,9 +133,11 @@ def load_manifest(path):
 
 
 def generate(args):
-    version = open(args.version_file, encoding="utf-8").read().strip()
+    with open(args.version_file, encoding="utf-8") as stream:
+        version = stream.read().strip()
     parse_semver(version)
-    firmware = open(args.firmware, "rb").read()
+    with open(args.firmware, "rb") as stream:
+        firmware = stream.read()
     published = args.published_at or dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     manifest = {
         "schema": 1,

@@ -217,17 +217,17 @@ static void config_check_littlefs_overlay() {
     if (doc["glucose_enabled"].is<bool>()) config.glucose_enabled = doc["glucose_enabled"];
     if (!config.glucose_enabled) config.alert_enabled=false;
     if (doc["data_source"].is<int>())            config.data_source = doc["data_source"];
-    if (doc["dexcom_username"].is<const char*>()) strncpy(config.dexcom_username, doc["dexcom_username"], sizeof(config.dexcom_username));
-    if (doc["dexcom_password"].is<const char*>()) strncpy(config.dexcom_password, doc["dexcom_password"], sizeof(config.dexcom_password));
+    if (doc["dexcom_username"].is<const char*>()) { strncpy(config.dexcom_username, doc["dexcom_username"], sizeof(config.dexcom_username) - 1); config.dexcom_username[sizeof(config.dexcom_username) - 1] = '\0'; }
+    if (doc["dexcom_password"].is<const char*>()) { strncpy(config.dexcom_password, doc["dexcom_password"], sizeof(config.dexcom_password) - 1); config.dexcom_password[sizeof(config.dexcom_password) - 1] = '\0'; }
     if (doc["dexcom_server"].is<const char*>()) {
         const char* srv = doc["dexcom_server"];
         config.dexcom_us = (strcmp(srv, "US") == 0);
     }
     config_update_libre_credentials(config, doc["libre_email"] | (const char*)nullptr,
                                    doc["libre_password"] | (const char*)nullptr);
-    if (doc["server_url"].is<const char*>())     strncpy(config.server_url, doc["server_url"], sizeof(config.server_url));
-    if (doc["auth_token"].is<const char*>())     strncpy(config.auth_token, doc["auth_token"], sizeof(config.auth_token));
-    if (doc["timezone"].is<const char*>())       strncpy(config.timezone, doc["timezone"], sizeof(config.timezone));
+    if (doc["server_url"].is<const char*>())     { strncpy(config.server_url, doc["server_url"], sizeof(config.server_url) - 1); config.server_url[sizeof(config.server_url) - 1] = '\0'; }
+    if (doc["auth_token"].is<const char*>())     { strncpy(config.auth_token, doc["auth_token"], sizeof(config.auth_token) - 1); config.auth_token[sizeof(config.auth_token) - 1] = '\0'; }
+    if (doc["timezone"].is<const char*>())       { strncpy(config.timezone, doc["timezone"], sizeof(config.timezone) - 1); config.timezone[sizeof(config.timezone) - 1] = '\0'; }
     if (doc["time_display_enabled"].is<bool>()) config.time_display_enabled = doc["time_display_enabled"];
     if (doc["glucose_only_when_low"].is<bool>()) config.glucose_only_when_low = doc["glucose_only_when_low"];
     if (doc["use_mmol"].is<bool>())              config.use_mmol = doc["use_mmol"];

@@ -5,10 +5,11 @@
 
 // Pomodoro timer state
 static TimerState timer_state = TIMER_IDLE;
+static TimerState timer_paused_state = TIMER_RUNNING;
 static unsigned long timer_start_ms = 0;
 static unsigned long timer_paused_remaining_ms = 0;
 static int timer_current_session = 1;
-static int timer_duration_ms = 0;
+static unsigned long timer_duration_ms = 0;
 
 // Stopwatch state
 static StopwatchState sw_state = SW_IDLE;
@@ -35,16 +36,16 @@ void timer_loop() {
             if (timer_state == TIMER_RUNNING) {
                 // Work session done
                 if (timer_current_session >= cfg.timer_sessions) {
-                    // All sessions done - long break or finish
+                    // All sessions done - long break
                     timer_state = TIMER_LONG_BREAK;
-                    timer_duration_ms = cfg.timer_long_break_min * 60000;
+                    timer_duration_ms = (unsigned long)cfg.timer_long_break_min * 60000UL;
                     timer_start_ms = millis();
-                    timer_current_session = 1;
+                    timer_current_session = 0;
                     Serial.println("[TIMER] Long break started");
                 } else {
                     // Start short break
                     timer_state = TIMER_BREAK;
-                    timer_duration_ms = cfg.timer_break_min * 60000;
+                    timer_duration_ms = (unsigned long)cfg.timer_break_min * 60000UL;
                     timer_start_ms = millis();
                     Serial.printf("[TIMER] Break started (session %d/%d done)\n",
                                   timer_current_session, cfg.timer_sessions);
@@ -53,7 +54,7 @@ void timer_loop() {
                 // Break done - start next work session
                 timer_current_session++;
                 timer_state = TIMER_RUNNING;
-                timer_duration_ms = cfg.timer_work_min * 60000;
+                timer_duration_ms = (unsigned long)cfg.timer_work_min * 60000UL;
                 timer_start_ms = millis();
                 Serial.printf("[TIMER] Work session %d started\n", timer_current_session);
             }
@@ -69,7 +70,7 @@ void timer_toggle_start_pause() {
         case TIMER_DONE:
             // Start new work session
             timer_state = TIMER_RUNNING;
-            timer_duration_ms = cfg.timer_work_min * 60000;
+            timer_duration_ms = (unsigned long)cfg.timer_work_min * 60000UL;
             timer_start_ms = millis();
             timer_current_session = 1;
             Serial.println("[TIMER] Started");
@@ -78,18 +79,19 @@ void timer_toggle_start_pause() {
         case TIMER_RUNNING:
         case TIMER_BREAK:
         case TIMER_LONG_BREAK: {
-            // Pause
+            // Pause and remember which phase was active
             unsigned long elapsed = millis() - timer_start_ms;
-            timer_paused_remaining_ms = (timer_duration_ms > (int)elapsed) ?
+            timer_paused_remaining_ms = (timer_duration_ms > elapsed) ?
                                         (timer_duration_ms - elapsed) : 0;
+            timer_paused_state = timer_state;
             timer_state = TIMER_PAUSED;
             Serial.println("[TIMER] Paused");
             break;
         }
 
         case TIMER_PAUSED:
-            // Resume
-            timer_state = TIMER_RUNNING;
+            // Resume the phase that was paused
+            timer_state = timer_paused_state;
             timer_duration_ms = timer_paused_remaining_ms;
             timer_start_ms = millis();
             Serial.println("[TIMER] Resumed");
@@ -100,7 +102,8 @@ void timer_toggle_start_pause() {
 void timer_reset() {
     AppConfig& cfg = config_get();
     timer_state = TIMER_IDLE;
-    timer_duration_ms = cfg.timer_work_min * 60000;
+    timer_paused_state = TIMER_RUNNING;
+    timer_duration_ms = (unsigned long)cfg.timer_work_min * 60000UL;
     timer_paused_remaining_ms = timer_duration_ms;
     timer_current_session = 1;
     Serial.println("[TIMER] Reset");
@@ -121,8 +124,7 @@ int timer_get_remaining_sec() {
         case TIMER_BREAK:
         case TIMER_LONG_BREAK: {
             unsigned long elapsed = millis() - timer_start_ms;
-            int remaining_ms = timer_duration_ms - (int)elapsed;
-            return (remaining_ms > 0) ? (remaining_ms / 1000) : 0;
+            return (timer_duration_ms > elapsed) ? (int)((timer_duration_ms - elapsed) / 1000UL) : 0;
         }
 
         case TIMER_PAUSED:

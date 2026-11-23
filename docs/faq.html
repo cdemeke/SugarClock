@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Lilita+One&amp;display=swap"
+    href="https://fonts.googleapis.com/css2?family=Lilita+One&amp;family=Source+Sans+3:wght@300;400;500;600;700&amp;display=swap"
     rel="stylesheet">
 
   <link rel="stylesheet" href="style.css">
@@ -50,7 +50,7 @@
         <li><a href="./#why"><span data-i18n="Why">Why</span></a></li>
         <li><a href="./#process"><span data-i18n="Process">Process</span></a></li>
         <li><a href="app.html"><span data-i18n="App">App</span></a></li>
-        <li><a href="faq.html" data-track-event="faq_link_clicked" data-track-location="navigation"><span data-i18n="FAQ">FAQ</span></a></li>
+        <li><a href="faq.html" class="active" aria-current="page" data-track-event="faq_link_clicked" data-track-location="navigation"><span data-i18n="FAQ">FAQ</span></a></li>
       </ul>
 
       <div class="nav-actions">
@@ -238,25 +238,25 @@
     feather.replace();
 
     document.addEventListener("DOMContentLoaded", () => {
-      const observer = new IntersectionObserver((entries, obs) => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("is-visible");
-            obs.unobserve(entry.target);
-          }
+      const syncOpenAnswers = () => {
+        document.querySelectorAll(".faq-item.active .faq-answer").forEach(answer => {
+          answer.style.maxHeight = answer.scrollHeight + "px";
         });
-      }, { threshold: 0.1 });
-
-      document.querySelectorAll(".fade-up").forEach(el => observer.observe(el));
+      };
 
       document.querySelectorAll(".faq-question").forEach(btn => {
+        btn.setAttribute("aria-expanded", "false");
         btn.addEventListener("click", () => {
           const item = btn.closest(".faq-item");
-          item.classList.toggle("active");
+          const open = item.classList.toggle("active");
+          btn.setAttribute("aria-expanded", String(open));
           const answer = item.querySelector(".faq-answer");
-          answer.style.maxHeight = item.classList.contains("active") ? answer.scrollHeight + "px" : 0;
+          answer.style.maxHeight = open ? answer.scrollHeight + "px" : 0;
         });
       });
+
+      window.addEventListener("resize", syncOpenAnswers);
+      document.addEventListener("languagechange", syncOpenAnswers);
     });
   </script>
 </body>

@@ -1,6 +1,6 @@
 import { COMPARISON_OPTIONS, comparisonState } from "./comparison.js";
-import { Simulation } from "./simulation.mjs?v=keyboard-1";
-import "./virtual-sugar-clock.js?v=restored-1";
+import { Simulation } from "./simulation.mjs";
+import "./virtual-sugar-clock.js";
 const $ = (id) => document.getElementById(id);
 const sim = new Simulation();
 sim.update("clock", { hour24: true });

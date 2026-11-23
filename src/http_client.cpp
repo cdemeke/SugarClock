@@ -28,7 +28,6 @@
 static GlucoseReading current_reading;
 static int failure_count = 0;
 static int last_response_code = 0;
-static char last_response_body[512] = "";
 static bool ever_received = false;
 static unsigned long last_poll_ms = 0;
 static scnet::DexcomSchedule dexcom_schedule;
@@ -152,7 +151,6 @@ static bool dexcom_login() {
 
     int authCode;
     String authResp = dexcom_post(auth_url, authBody, authCode);
-    strncpy(last_response_body, "Response body omitted from diagnostics", sizeof(last_response_body) - 1);
     last_response_code = authCode;
 
     Serial.printf("[DEXCOM] Auth step 1: HTTP %d\n", authCode);
@@ -180,7 +178,6 @@ static bool dexcom_login() {
 
     int loginCode;
     String loginResp = dexcom_post(login_url, loginBody, loginCode);
-    strncpy(last_response_body, "Response body omitted from diagnostics", sizeof(last_response_body) - 1);
     last_response_code = loginCode;
 
     Serial.printf("[DEXCOM] Auth step 2: HTTP %d\n", loginCode);
@@ -193,7 +190,6 @@ static bool dexcom_login() {
         if (loginResp == DEXCOM_NULL_SESSION || loginResp.length() < 10) {
             Serial.println("[DEXCOM] Got null session! Dexcom Share may not be enabled.");
             Serial.println("[DEXCOM] Enable Share in Dexcom app: Settings > Share > enable sharing");
-            strncpy(last_response_body, "Null session - enable Dexcom Share in app", sizeof(last_response_body) - 1);
             return false;
         }
 
@@ -245,8 +241,6 @@ static bool dexcom_fetch_glucose() {
 
     if (httpCode == HTTP_CODE_OK) {
         String payload = http.getString();
-        strncpy(last_response_body, "Response body omitted from diagnostics", sizeof(last_response_body) - 1);
-        last_response_body[sizeof(last_response_body) - 1] = '\0';
 
         // Parse JSON array response
         JsonDocument doc;
@@ -317,8 +311,6 @@ static bool dexcom_fetch_glucose() {
         dexcom_session_id[0] = '\0';
     }
 
-    String resp = http.getString();
-    strncpy(last_response_body, "Response body omitted from diagnostics", sizeof(last_response_body) - 1);
     Serial.printf("[DEXCOM] Fetch failed: HTTP %d\n", httpCode);
     failure_count++;
     http.end();
@@ -332,8 +324,6 @@ static bool libre_fetch_glucose() {
     bool ok = libre_fetch(reading, &attempted);
 
     last_response_code = libre_last_http_code();
-    strncpy(last_response_body, libre_last_message(), sizeof(last_response_body) - 1);
-    last_response_body[sizeof(last_response_body) - 1] = '\0';
 
     if (!ok) {
         if (attempted) failure_count++;
@@ -395,8 +385,6 @@ static void generic_fetch() {
 
     if (httpCode == HTTP_CODE_OK) {
         String payload = http.getString();
-        strncpy(last_response_body, "Response body omitted from diagnostics", sizeof(last_response_body) - 1);
-        last_response_body[sizeof(last_response_body) - 1] = '\0';
 
         JsonDocument doc;
         DeserializationError err = deserializeJson(doc, payload);
@@ -437,7 +425,6 @@ static void generic_fetch() {
         }
     } else {
         Serial.printf("[HTTP] Error: %d\n", httpCode);
-        snprintf(last_response_body, sizeof(last_response_body), "HTTP %d", httpCode);
         failure_count++;
     }
 
@@ -479,7 +466,6 @@ static void demo_generate() {
     ever_received = true;
     last_response_code = 200;
     last_success_ms = now;
-    strncpy(last_response_body, "demo mode", sizeof(last_response_body) - 1);
 }
 
 static void publish_result() {

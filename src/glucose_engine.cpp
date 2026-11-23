@@ -190,20 +190,6 @@ static uint16_t themed_glucose_color(int mg_dl, const AppConfig& cfg) {
     return display_color((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF);
 }
 
-uint16_t glucose_color(int mg_dl, const GlucoseThresholds& t) {
-    if (mg_dl < t.urgent_low) {
-        return display_color(255, 0, 0);      // RED - urgent low
-    } else if (mg_dl < t.low) {
-        return display_color(255, 165, 0);    // ORANGE - low
-    } else if (mg_dl <= t.high) {
-        return display_color(0, 255, 0);      // GREEN - in range
-    } else if (mg_dl <= t.urgent_high) {
-        return display_color(255, 165, 0);    // ORANGE - high
-    } else {
-        return display_color(255, 0, 0);      // RED - urgent high
-    }
-}
-
 // Check if currently in night mode hours
 static bool is_night_mode() {
     AppConfig& cfg = config_get();
@@ -485,13 +471,15 @@ static DisplayState evaluate_state() {
 
     // Check for server-pushed force_mode
     const GlucoseReading& reading = http_get_reading();
-    if (reading.valid && reading.force_mode >= 0) {
+    if (reading.valid && reading.force_mode >= 0 &&
+        reading.force_mode <= STATE_AMBIENT_CREATURE_DISPLAY) {
         return (DisplayState)reading.force_mode;
     }
 
     // Check for server message
     if (reading.valid && strlen(reading.message) > 0) {
         strncpy(message_buf, reading.message, sizeof(message_buf) - 1);
+        message_buf[sizeof(message_buf) - 1] = '\0';
         return STATE_MESSAGE_DISPLAY;
     }
 
@@ -547,7 +535,6 @@ static void render_state(DisplayState state) {
                 color = themed_glucose_color(reading.glucose, cfg);
             }
 
-            display_set_brightness(effective_brightness());
             // Keep the last value visible even if it ages during a delta flash.
             if (is_stale) delta_flash_active = false;
 
@@ -586,8 +573,6 @@ static void render_state(DisplayState state) {
         }
 
         case STATE_TIME_DISPLAY: {
-            display_set_brightness(effective_brightness());
-
             if (!time_is_available()) {
                 display_clear();
                 display_draw_text("--:--", 4, 0, display_color(100, 100, 100));
@@ -626,7 +611,6 @@ static void render_state(DisplayState state) {
         }
 
         case STATE_WEATHER_DISPLAY: {
-            display_set_brightness(effective_brightness());
             display_clear();
             draw_weather_content(static_cast<uint32_t>(millis()));
             display_show();
@@ -634,14 +618,12 @@ static void render_state(DisplayState state) {
         }
 
         case STATE_AMBIENT_CREATURE_DISPLAY: {
-            display_set_brightness(effective_brightness());
             ambient_fish_render();
             display_show();
             break;
         }
 
         case STATE_TIMER_DISPLAY: {
-            display_set_brightness(effective_brightness());
             display_clear();
 
             TimerState ts = timer_get_state();
@@ -677,7 +659,6 @@ static void render_state(DisplayState state) {
         }
 
         case STATE_STOPWATCH_DISPLAY: {
-            display_set_brightness(effective_brightness());
             display_clear();
 
             int elapsed = stopwatch_get_elapsed_sec();
@@ -700,7 +681,6 @@ static void render_state(DisplayState state) {
         }
 
         case STATE_SYSMON_DISPLAY: {
-            display_set_brightness(effective_brightness());
             display_clear();
 
             if (sysmon_has_data()) {
@@ -739,7 +719,6 @@ static void render_state(DisplayState state) {
         }
 
         case STATE_COUNTDOWN_DISPLAY: {
-            display_set_brightness(effective_brightness());
             display_clear();
 
             long secs = countdown_get_remaining_sec();
@@ -770,7 +749,6 @@ static void render_state(DisplayState state) {
         }
 
         case STATE_TREND_DISPLAY: {
-            display_set_brightness(effective_brightness());
             display_clear();
 
             const GlucoseReading& reading = http_get_reading();
@@ -792,7 +770,6 @@ static void render_state(DisplayState state) {
         }
 
         case STATE_NOTIFY_DISPLAY: {
-            display_set_brightness(effective_brightness());
             display_clear();
 
             const char* text = notify_get_text();
@@ -895,6 +872,9 @@ static void render_state(DisplayState state) {
                         break;
                     case WIFI_TRIAL_FAILED_TIMEOUT:
                         snprintf(trial_line, sizeof(trial_line), "Connection timed out");
+                        break;
+                    case WIFI_TRIAL_FAILED_SAVE:
+                        snprintf(trial_line, sizeof(trial_line), "Connected but save failed");
                         break;
                     default:
                         trial_line[0] = '\0';
@@ -1109,7 +1089,7 @@ void engine_clear_force() {
 }
 
 void engine_set_message(const char* msg) {
-    strncpy(message_buf, msg, sizeof(message_buf) - 1);
+    strncpy(message_buf, msg ? msg : "", sizeof(message_buf) - 1);
     message_buf[sizeof(message_buf) - 1] = '\0';
 }
 

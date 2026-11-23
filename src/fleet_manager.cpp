@@ -29,6 +29,8 @@
 #include <esp_ota_ops.h>
 #include <esp_system.h>
 #include <time.h>
+#include <ctype.h>
+#include <stdlib.h>
 #include <atomic>
 
 #ifndef SUGARCLOCK_VERSION
@@ -368,9 +370,13 @@ static const char* signal_bucket() {
 }
 
 static bool minute_in_window() {
-    if (!maintenance_custom) return time_get_hour() == config_get().auto_update_hour;
+    int hour = time_get_hour();
+    if (hour < 0) return false;
+    if (!maintenance_custom) return hour == config_get().auto_update_hour;
     int day = time_get_weekday();
-    int minute = time_get_hour() * 60 + time_get_minute();
+    int min = time_get_minute();
+    if (day < 0 || min < 0) return false;
+    int minute = hour * 60 + min;
     if (maintenance_start == maintenance_end) return (maintenance_days & (1U << day)) != 0;
     if (maintenance_start < maintenance_end) {
         return (maintenance_days & (1U << day)) &&
@@ -387,6 +393,10 @@ static bool save_maintenance(JsonObjectConst payload) {
     const char* end = payload["end"] | "";
     if (strlen(timezone) == 0 || strlen(timezone) >= sizeof(config_get().timezone) ||
         strlen(start) != 5 || strlen(end) != 5 || start[2] != ':' || end[2] != ':' ||
+        !isdigit((unsigned char)start[0]) || !isdigit((unsigned char)start[1]) ||
+        !isdigit((unsigned char)start[3]) || !isdigit((unsigned char)start[4]) ||
+        !isdigit((unsigned char)end[0]) || !isdigit((unsigned char)end[1]) ||
+        !isdigit((unsigned char)end[3]) || !isdigit((unsigned char)end[4]) ||
         !payload["days"].is<JsonArrayConst>() || !payload["automatic_install"].is<bool>()) return false;
     int start_hour = (start[0] - '0') * 10 + start[1] - '0';
     int start_minute = (start[3] - '0') * 10 + start[4] - '0';
@@ -409,6 +419,8 @@ static bool save_maintenance(JsonObjectConst payload) {
     copy_text(cfg.timezone, sizeof(cfg.timezone), timezone);
     cfg.auto_update_enabled = maintenance_automatic;
     cfg.auto_update_hour = start_hour;
+    setenv("TZ", cfg.timezone, 1);
+    tzset();
     config_save();
     Preferences prefs;
     if (prefs.begin(FLEET_NAMESPACE, false)) {
@@ -705,11 +717,12 @@ static void fleet_worker(void*) {
     // explicit request's failure is published separately before pending clears.
     if (local_request_pending) local_request_failed = !ok;
     local_request_pending = false;
-    ble_release_network();worker_running = false;
     if (!ota_is_busy()) {
         http_set_paused(false);
         weather_set_paused(false);
     }
+    ble_release_network();
+    worker_running = false;
     if (restart_requested) {
         delay(500);
         ESP.restart();

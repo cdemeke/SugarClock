@@ -534,8 +534,7 @@
                             <input type="number" id="alert_snooze" min="1" max="120" value="15">
                             <div class="hint">Tap the middle button to snooze an alarm or stop a test.</div>
                         </div>
-                    </div>
-                        <div class="form-row" style="margin-top:16px;grid-template-columns:2fr 1fr;">
+                        <div class="form-row alarm-sound-row">
                             <div class="form-group">
                                 <label for="alarm_style">Sound</label>
                                 <select id="alarm_style">
@@ -560,6 +559,7 @@
                                 </select>
                             </div>
                         </div>
+                    </div>
                 </div>
 
                 <div class="card">
@@ -575,12 +575,12 @@
                     <div class="color-row">
                         <input type="color" id="color_urgent_low" value="#ea4335">
                         <span class="color-label"><span data-i18n="Urgent Low">Urgent Low</span></span>
-                        <span class="color-hex" id="hex_urgent_low"><span data-i18n="#ea4335">#ea4335</span></span>
+                        <span class="color-hex" id="hex_urgent_low">#ea4335</span>
                     </div>
                     <div class="color-row">
                         <input type="color" id="color_low" value="#fbbc04">
                         <span class="color-label"><span data-i18n="Low">Low</span></span>
-                        <span class="color-hex" id="hex_low"><span data-i18n="#fbbc04">#fbbc04</span></span>
+                        <span class="color-hex" id="hex_low">#fbbc04</span>
                     </div>
                     <div class="color-row">
                         <input type="color" id="color_in_range" value="#34a853">
@@ -590,12 +590,12 @@
                     <div class="color-row">
                         <input type="color" id="color_high" value="#fbbc04">
                         <span class="color-label"><span data-i18n="High">High</span></span>
-                        <span class="color-hex" id="hex_high"><span data-i18n="#fbbc04">#fbbc04</span></span>
+                        <span class="color-hex" id="hex_high">#fbbc04</span>
                     </div>
                     <div class="color-row">
                         <input type="color" id="color_urgent_high" value="#ea4335">
                         <span class="color-label"><span data-i18n="Urgent High">Urgent High</span></span>
-                        <span class="color-hex" id="hex_urgent_high"><span data-i18n="#ea4335">#ea4335</span></span>
+                        <span class="color-hex" id="hex_urgent_high">#ea4335</span>
                     </div>
                     <div class="color-row">
                         <input type="color" id="color_stale" value="#390e3b">
@@ -675,7 +675,7 @@
                     <div class="color-row">
                         <input type="color" id="color_clock_time" value="#ffffff">
                         <span class="color-label"><span data-i18n="Clock Color">Clock Color</span></span>
-                        <span class="color-hex" id="hex_clock_time"><span data-i18n="#ffffff">#ffffff</span></span>
+                        <span class="color-hex" id="hex_clock_time">#ffffff</span>
                     </div>
                 </div>
 
@@ -817,7 +817,7 @@
                         <div class="color-row">
                             <input type="color" id="color_weather_wx" value="#ffffff">
                             <span class="color-label"><span data-i18n="Weather Color">Weather Color</span></span>
-                            <span class="color-hex" id="hex_weather_wx"><span data-i18n="#ffffff">#ffffff</span></span>
+                            <span class="color-hex" id="hex_weather_wx">#ffffff</span>
                         </div>
 
                         <div class="divider"></div>
@@ -984,22 +984,29 @@ curl -X POST http://DEVICE_IP/api/sysmon \
     <script src="matrix-display.js"></script>
     <script src="companions.js"></script>
     <script>
+        let activeTab = 'glucose';
+        let wifiTrialActive = false;
+
         function switchTab(id) {
+            const validId = document.getElementById('tab-' + id) ? id : 'glucose';
+            activeTab = validId;
             document.querySelectorAll('.tab-btn').forEach(b => {
-                b.classList.toggle('active', b.dataset.tab === id);
+                b.classList.toggle('active', b.dataset.tab === validId);
             });
             document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-            document.getElementById('tab-' + id).classList.add('active');
-            document.getElementById('save-btn').style.display = (id === 'danger') ? 'none' : '';
+            document.getElementById('tab-' + validId).classList.add('active');
+            document.getElementById('save-btn').style.display = (validId === 'danger' || validId === 'connection') ? 'none' : '';
             const labels = {
                 glucose: 'Blood Sugar', display: 'Display', time: 'Time & Timers',
                 weather: 'Weather', connection: 'Wi-Fi', integrations: 'Integrations',
                 ambient: 'Display Pet', danger: 'Reset Device'
             };
-            const sectionName = labels[id];
+            const sectionName = labels[validId];
             I18n.text(document.getElementById('config-page-title'), sectionName ? sectionName + ' Configuration' : 'Configuration');
-            history.replaceState(null, '', id === 'glucose' ? location.pathname : '#' + id);
+            history.replaceState(null, '', validId === 'glucose' ? location.pathname : '#' + validId);
             setNavOpen(false);
+            if (validId === 'connection') { pollWifiStatus(); loadWifiScan(); }
+            if (validId === 'display' || validId === 'weather') updateCurrentMode();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
@@ -1046,10 +1053,6 @@ curl -X POST http://DEVICE_IP/api/sysmon \
         function applyTzPreset() {
             const sel = document.getElementById('tz_presets');
             if (sel.value) document.getElementById('timezone_custom').value = sel.value;
-        }
-
-        function updateAmbientDisplaySetting() {
-            document.getElementById('ambient-details').classList.toggle('collapsed', !document.getElementById('ambient_enabled').checked);
         }
 
         let companionPreviewMood = 'awake';
@@ -1107,7 +1110,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
         }
 
         // Sync color hex display
-        ['urgent_low','low','in_range','high','urgent_high'].forEach(k => {
+        ['urgent_low','low','in_range','high','urgent_high','stale'].forEach(k => {
             const inp = document.getElementById('color_' + k);
             const hex = document.getElementById('hex_' + k);
             if (inp && hex) inp.addEventListener('input', () => I18n.text(hex, inp.value, false));
@@ -1309,7 +1312,8 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             }
 
             const terminal = trial === 'connected' || trial.startsWith('failed_');
-            document.getElementById('wifi-join-btn').disabled = !terminal && trial !== 'idle';
+            wifiTrialActive = !terminal && trial !== 'idle';
+            document.getElementById('wifi-join-btn').disabled = wifiTrialActive;
             I18n.text(document.getElementById('chk-network'), data.connected ? `Connected${data.ip ? ' — ' + data.ip : ''}` : data.ap_active ? I18n.message("Setup AP — {0}", [data.ap_ip]) : 'Disconnected');
 
             const checks = data.checks || {};
@@ -1354,6 +1358,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             progress.hidden = false;
             progress.className = 'wifi-progress active';
             I18n.text(progress, 'Starting connection attempt…');
+            wifiTrialActive = true;
             document.getElementById('wifi-join-btn').disabled = true;
 
             const body = {
@@ -1424,15 +1429,18 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 onSecurityChange();
                 document.getElementById('data_source').value = c.data_source || 0;
                 document.getElementById('server_url').value = c.server_url || '';
+                if (!c.server_url && c.has_server_url) document.getElementById('server_url').placeholder = I18n.t('Saved \u2014 leave blank to keep');
                 document.getElementById('auth_token').value = c.auth_token || '';
+                document.getElementById('auth_token').placeholder = (!c.auth_token && c.has_auth_token) ? I18n.t('Saved \u2014 leave blank to keep') : '';
                 document.getElementById('dexcom_username').value = c.dexcom_username || '';
                 document.getElementById('dexcom_password').value = c.dexcom_password || '';
+                document.getElementById('dexcom_password').placeholder = (!c.dexcom_password && c.has_dexcom_password) ? I18n.t('Saved \u2014 leave blank to keep') : '';
                 document.getElementById('dexcom_us').value = c.dexcom_us ? '1' : '0';
                 document.getElementById('libre_email').value = c.libre_email || '';
                 librePeopleEmail = c.libre_email || '';
                 updateLibrePeople(c);
                 document.getElementById('libre_password').value = '';
-                document.getElementById('libre_password').placeholder = c.has_libre_password ? 'Saved \u2014 leave blank to keep' : '';
+                document.getElementById('libre_password').placeholder = c.has_libre_password ? I18n.t('Saved \u2014 leave blank to keep') : '';
                 document.getElementById('poll_interval').value = c.poll_interval;
                 document.getElementById('stale_timeout').value = c.stale_timeout_min || 20;
                 toggleSource();
@@ -1458,8 +1466,6 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 document.getElementById('ambient_character').value = PixelCompanions.valid(c.ambient_character) ? c.ambient_character : 0;
                 document.getElementById('ambient_use_glucose_colors').checked = c.ambient_use_glucose_colors === true;
                 document.getElementById('ambient_style').value = PixelCompanions.validStyle(c.ambient_style) ? c.ambient_style : 0;
-                drawCompanionPreview();
-                updateAmbientDisplaySetting();
 
                 // Glucose
                 document.getElementById('thresh_urgent_low').value = c.thresh_urgent_low;
@@ -1643,7 +1649,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                 const r = await fetch('/api/config', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
                 const failure = r.ok ? null : await r.json().catch(() => ({}));
                 showToast(r.ok ? 'Configuration saved!' : failure.error === 'libre_patient_id'
-                    ? 'Test the Libre connection, then choose a person from the list.' : 'Save failed', r.ok ? 'success' : 'error');
+                    ? 'Test the Libre connection, then choose a person from the list.' : (failure.error || 'Save failed'), r.ok ? 'success' : 'error');
                 if (r.ok && data.weather_api_key.trim()) {
                     weatherKeySaved = true;
                     document.getElementById('weather_api_key').value = '';
@@ -1758,7 +1764,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                     res.className = 'test-result test-error';
                 }
             } catch (e) {
-                I18n.text(res, 'Network error');
+                I18n.text(res, e.message || 'Network error');
                 res.className = 'test-result test-error';
             }
             btn.disabled = false;
@@ -1795,14 +1801,19 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                     if (document.getElementById('libre_email').value.trim() === librePeopleEmail) updateLibrePeople(saved);
                 }
                 if (d.ok) {
-                    I18n.text(res, I18n.message("Glucose: {0} mg/dL, Trend: {1}", [d.glucose, d.trend]));
+                    const useMmol = document.getElementById('use_mmol').value === '1';
+                    if (useMmol && Number.isFinite(d.glucose)) {
+                        I18n.text(res, `Glucose: ${(d.glucose / 18).toFixed(1)} mmol/L, Trend: ${d.trend}`, false);
+                    } else {
+                        I18n.text(res, I18n.message("Glucose: {0} mg/dL, Trend: {1}", [d.glucose, d.trend]));
+                    }
                     res.className = 'test-result test-success';
                 } else {
                     I18n.text(res, d.error || I18n.message("HTTP {0}", [d.http_code]));
                     res.className = 'test-result test-error';
                 }
             } catch (e) {
-                I18n.text(res, 'Network error');
+                I18n.text(res, e.message || 'Network error');
                 res.className = 'test-result test-error';
             }
             btn.disabled = false;
@@ -1827,7 +1838,8 @@ curl -X POST http://DEVICE_IP/api/sysmon \
         document.getElementById('display-next-btn').addEventListener('click', () => displayControl('next'));
 
         // Periodically update current mode display
-        async function updateCurrentMode() {
+        async function updateCurrentMode(force) {
+            if (!force && typeof activeTab !== 'undefined' && (document.hidden || (activeTab !== 'display' && activeTab !== 'weather'))) return;
             try {
                 const r = await fetch('/api/status');
                 const d = await r.json();
@@ -1837,7 +1849,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
             } catch (e) {}
         }
         setInterval(updateCurrentMode, 3000);
-        updateCurrentMode();
+        updateCurrentMode(true);
 
         // Mock weather animation trigger
         async function mockWeather(conditionId, desc) {
@@ -1859,7 +1871,7 @@ curl -X POST http://DEVICE_IP/api/sysmon \
                     res.className = 'test-result test-error';
                 }
             } catch (e) {
-                I18n.text(res, 'Network error');
+                I18n.text(res, e.message || 'Network error');
                 res.className = 'test-result test-error';
             }
             setTimeout(() => { I18n.text(res, '', false); }, 5000);
@@ -1919,10 +1931,8 @@ curl -X POST http://DEVICE_IP/api/sysmon \
         // Hash-based tab navigation (for gear links from dashboard)
         const initHash = window.location.hash.replace('#', '');
         if (initHash) switchTab(initHash);
+        window.addEventListener('hashchange', () => switchTab(window.location.hash.replace('#', '') || 'glucose'));
 
-        document.getElementById('ambient_enabled')
-            .addEventListener('change', updateAmbientDisplaySetting);
-        updateAmbientDisplaySetting();
         ['ambient_character', 'ambient_style', 'ambient_use_glucose_colors', 'companion-preview-range'].forEach(id => {
             document.getElementById(id).addEventListener('change', () => {
                 companionPreviewMs = 0;
@@ -1956,9 +1966,10 @@ curl -X POST http://DEVICE_IP/api/sysmon \
         });
 
         loadConfig();
-        loadWifiScan();
-        pollWifiStatus();
-        setInterval(pollWifiStatus, 2000);
+        if (activeTab === 'connection') { loadWifiScan(); pollWifiStatus(); }
+        setInterval(() => {
+            if (!document.hidden && (activeTab === 'connection' || wifiTrialActive)) pollWifiStatus();
+        }, 2000);
 
         function toggleTheme(){
             const d=document.documentElement;

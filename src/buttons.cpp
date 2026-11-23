@@ -10,7 +10,6 @@
 struct ButtonState {
     uint8_t pin;
     bool last_raw;
-    bool stable;
     bool pressed;
     unsigned long debounce_time;
     unsigned long press_start;
@@ -36,9 +35,9 @@ void buttons_init() {
     pending_event = BTN_NONE;
     middle_click.cancel();
     middle_exclusive = false;
-    buttons[0] = { PIN_BUTTON_LEFT,   true, true, false, 0, 0, false };
-    buttons[1] = { PIN_BUTTON_MIDDLE, true, true, false, 0, 0, false };
-    buttons[2] = { PIN_BUTTON_RIGHT,  true, true, false, 0, 0, false };
+    buttons[0] = { PIN_BUTTON_LEFT,   true, false, 0, 0, false };
+    buttons[1] = { PIN_BUTTON_MIDDLE, true, false, 0, 0, false };
+    buttons[2] = { PIN_BUTTON_RIGHT,  true, false, 0, 0, false };
 
     pinMode(PIN_BUTTON_LEFT, INPUT_PULLUP);
     pinMode(PIN_BUTTON_MIDDLE, INPUT_PULLUP);

@@ -138,7 +138,12 @@ export function renderFrame(state, now = Date.now()) {
     );
   const glucose = () => {
     const g = state.glucose || {};
-    const color = g.status === "range" ? "#34a853" : "#fbbc04";
+    const color =
+      g.status === "range"
+        ? "#34a853"
+        : g.status === "low"
+          ? "#ea4335"
+          : "#fbbc04";
     const value = String(Math.round(clampNumber(g.value, 112)));
     const x = Math.floor((32 - value.length * 6 - 6) / 2);
     text(value, x, 0, color);

@@ -83,47 +83,115 @@ def record(connection, device_id, value, now):
         )
 
 
-def overview(connection, now=None):
-    now = now if now is not None else now_epoch()
-    rows = connection.execute("SELECT * FROM devices").fetchall()
+def _summary_counts(rows, now):
     active = [r for r in rows if r["retired_at"] is None and r["blocked_at"] is None]
-    recent = [
-        r
-        for r in active
-        if r["last_checkin_at"] and r["last_checkin_at"] >= now - 30 * 86400
-    ]
+    recent_cutoff = now - 30 * 86400
+    week_cutoff = now - 7 * 86400
+    online_cutoff = now - 600
     counts = {
         "total": len(rows),
-        "active_30d": len(recent),
-        "active_7d": sum(
-            bool(r["last_checkin_at"] and r["last_checkin_at"] >= now - 7 * 86400)
-            for r in active
-        ),
-        "online": sum(
-            bool(r["last_checkin_at"] and r["last_checkin_at"] >= now - 600)
-            for r in active
-        ),
+        "active_30d": 0,
+        "active_7d": 0,
+        "online": 0,
         "retired": sum(
             r["retired_at"] is not None and r["blocked_at"] is None for r in rows
         ),
         "blocked": sum(r["blocked_at"] is not None for r in rows),
-        "dormant": sum(
-            bool(r["last_checkin_at"] and r["last_checkin_at"] < now - 30 * 86400)
-            for r in active
-        ),
-        "registration_only": sum(r["last_checkin_at"] is None for r in active),
-        "feature_reporting": sum(r["features_json"] is not None for r in recent),
-        "legacy": sum(
-            "fleet_rollout_v1" not in json.loads(r["capabilities_json"]) for r in recent
-        ),
+        "dormant": 0,
+        "registration_only": 0,
+        "feature_reporting": 0,
+        "legacy": 0,
     }
+    for r in active:
+        ts = r["last_checkin_at"]
+        if not ts:
+            counts["registration_only"] += 1
+            continue
+        if ts >= online_cutoff:
+            counts["online"] += 1
+        if ts >= week_cutoff:
+            counts["active_7d"] += 1
+        if ts >= recent_cutoff:
+            counts["active_30d"] += 1
+            if r["features_json"] is not None:
+                counts["feature_reporting"] += 1
+            if "fleet_rollout_v1" not in json.loads(r["capabilities_json"]):
+                counts["legacy"] += 1
+        else:
+            counts["dormant"] += 1
+    return counts, active
+
+
+def overview(connection, now=None):
+    now = now if now is not None else now_epoch()
+    rows = connection.execute(
+        "SELECT retired_at, blocked_at, last_checkin_at, capabilities_json, "
+        "features_json, firmware_version, detected_city, detected_region, detected_country_code "
+        "FROM devices"
+    ).fetchall()
+    counts, active = _summary_counts(rows, now)
+    windows = (
+        ("7", now - 7 * 86400),
+        ("30", now - 30 * 86400),
+        ("90", now - 90 * 86400),
+        ("all", None),
+    )
+    sorted_features = sorted(BOOLEAN_FEATURES)
+    accum = {
+        key: {
+            "count": 0,
+            "features": {f: {"enabled": 0, "known": 0} for f in sorted_features},
+            "categories": {"data_source": {}, "companion_character": {}},
+            "versions": {},
+            "locations": {},
+        }
+        for key, _ in windows
+    }
+    for row in active:
+        ts = row["last_checkin_at"]
+        if not ts:
+            continue
+        location = location_summary(
+            row["detected_city"], row["detected_region"], row["detected_country_code"]
+        )
+        fw = row["firmware_version"]
+        snapshot = json.loads(row["features_json"] or "{}")
+        ds = str(snapshot.get("data_source", "unknown"))
+        cc = str(snapshot.get("companion_character", "unknown"))
+        for key, cutoff in windows:
+            if cutoff is not None and ts < cutoff:
+                continue
+            bucket = accum[key]
+            bucket["count"] += 1
+            bucket["locations"][location] = bucket["locations"].get(location, 0) + 1
+            bucket["versions"][fw] = bucket["versions"].get(fw, 0) + 1
+            for f in sorted_features:
+                if f in snapshot:
+                    bucket["features"][f]["enabled"] += int(snapshot[f])
+                    bucket["features"][f]["known"] += 1
+            bucket["categories"]["data_source"][ds] = bucket["categories"]["data_source"].get(ds, 0) + 1
+            bucket["categories"]["companion_character"][cc] = bucket["categories"]["companion_character"].get(cc, 0) + 1
     breakdowns = {}
-    for days in (7, 30, 90, 'all'):
-        selected = [r for r in active if r["last_checkin_at"] and (
-            days == 'all' or r["last_checkin_at"] >= now - days * 86400
-        )]
-        breakdowns[str(days)] = _breakdown(selected)
-    distribution = breakdowns['30']
+    for key, _ in windows:
+        bucket = accum[key]
+        total = bucket["count"]
+        features = {
+            f: {
+                "enabled": bucket["features"][f]["enabled"],
+                "known": bucket["features"][f]["known"],
+                "unknown": total - bucket["features"][f]["known"],
+            }
+            for f in sorted_features
+        }
+        breakdowns[key] = {
+            "feature_counts": features,
+            "category_counts": bucket["categories"],
+            "version_counts": bucket["versions"],
+            "location_counts": bucket["locations"],
+            "source_counts": bucket["categories"]["data_source"],
+            "feature_denominator": total,
+        }
+    distribution = breakdowns["30"]
     ceiling = current_app.config["ENROLLMENT_MAX_DEVICES"]
     return {
         "counts": counts,
@@ -144,40 +212,6 @@ def overview(connection, now=None):
     }
 
 
-def _breakdown(rows):
-    """Latest snapshots for installations with a check-in in one time window."""
-    features = {
-        key: {"enabled": 0, "known": 0, "unknown": len(rows)}
-        for key in sorted(BOOLEAN_FEATURES)
-    }
-    categories = {key: {} for key in ("data_source", "companion_character")}
-    versions = {}
-    locations = {}
-    for row in rows:
-        location = location_summary(
-            row["detected_city"], row["detected_region"], row["detected_country_code"]
-        )
-        locations[location] = locations.get(location, 0) + 1
-        versions[row["firmware_version"]] = versions.get(row["firmware_version"], 0) + 1
-        snapshot = json.loads(row["features_json"] or "{}")
-        for key in features:
-            if key in snapshot:
-                features[key]["enabled"] += int(snapshot[key])
-                features[key]["known"] += 1
-                features[key]["unknown"] -= 1
-        for key in categories:
-            category = str(snapshot.get(key, "unknown"))
-            categories[key][category] = categories[key].get(category, 0) + 1
-    return {
-        "feature_counts": features,
-        "category_counts": categories,
-        "version_counts": versions,
-        "location_counts": locations,
-        "source_counts": categories["data_source"],
-        "feature_denominator": len(rows),
-    }
-
-
 def maintenance(connection, now):
     """Refresh hourly; store one row per UTC day, never every heartbeat."""
     day = datetime.datetime.fromtimestamp(now, datetime.timezone.utc).date().isoformat()
@@ -194,9 +228,13 @@ def maintenance(connection, now):
     connection.execute(
         "DELETE FROM daily_metrics WHERE captured_at<?", (now - 365 * 86400,)
     )
+    rows = connection.execute(
+        "SELECT retired_at, blocked_at, last_checkin_at, capabilities_json, features_json FROM devices"
+    ).fetchall()
+    counts, _ = _summary_counts(rows, now)
     connection.execute(
         "INSERT INTO daily_metrics VALUES(?,?,?) ON CONFLICT(day) DO UPDATE SET captured_at=excluded.captured_at,counts_json=excluded.counts_json",
-        (day, now, json_text(overview(connection, now)["counts"])),
+        (day, now, json_text(counts)),
     )
 
 
@@ -208,13 +246,14 @@ def cleanup(connection, now):
             (now - 86400,),
         )
     ]
-    for device_id in ids:
-        connection.execute("DELETE FROM commands WHERE device_id=?", (device_id,))
+    if ids:
+        placeholders = ",".join("?" for _ in ids)
+        connection.execute(f"DELETE FROM commands WHERE device_id IN ({placeholders})", ids)
         connection.execute(
-            "UPDATE audit_events SET target_device_id=NULL WHERE target_device_id=?",
-            (device_id,),
+            f"UPDATE audit_events SET target_device_id=NULL WHERE target_device_id IN ({placeholders})",
+            ids,
         )
-        connection.execute("DELETE FROM devices WHERE id=?", (device_id,))
+        connection.execute(f"DELETE FROM devices WHERE id IN ({placeholders})", ids)
     return len(ids)
 
 

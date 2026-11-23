@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 import urllib.request
 
-from .util import ApiError, SEMVER_RE, SHA256_RE, json_text, now_epoch
+from .util import ApiError, SEMVER_RE, SHA256_RE, now_epoch
 from .validation import CHANNELS, immutable_https_url, validate_published_at
 
 SIGNED_FIELDS = (

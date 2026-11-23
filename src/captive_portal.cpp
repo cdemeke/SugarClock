@@ -31,7 +31,7 @@ static const char SIGNPOST_HTML[] PROGMEM =
 "<h1>Finish setup in your browser</h1>"
 "<p>This little window can&rsquo;t stay open long enough to join a school network. "
 "Open Safari or Chrome and go to:</p>"
-"<a class=\"addr\" href=\"http://192.168.4.1/\">http://192.168.4.1</a>"
+"<a class=\"addr\" href=\"http://192.168.4.1/#connection\">http://192.168.4.1/#connection</a>"
 "<ol><li>Stay connected to <strong>SugarClock-Setup</strong>.</li>"
 "<li>Open the address above in your normal browser.</li>"
 "<li>Pick your network on the WiFi tab and sign in.</li></ol>"
@@ -63,10 +63,6 @@ void captive_portal_stop() {
 
 void captive_portal_loop() {
     if (dns_running) dns_server.processNextRequest();
-}
-
-bool captive_portal_active() {
-    return dns_running;
 }
 
 void captive_portal_register_routes(AsyncWebServer& server) {
